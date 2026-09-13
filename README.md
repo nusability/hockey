@@ -14,8 +14,10 @@ Source: *GitHub Actions*), the game is served from
 - When one of your players has the puck it **circles around them**, and a
   line shows where it would go. **Touch and hold anywhere** to keep it; **lift
   your finger** to send it. Releasing near a team-mate snaps into a pass,
-  releasing near the goal snaps into a shot (the line turns green or pink), so
-  timing does not have to be exact.
+  releasing near the goal snaps into a shot (the arrow turns green or pink), so
+  timing does not have to be exact. The puck spins towards the most useful
+  target first. Drag the finger away from where it landed while holding to
+  charge a harder shot.
 - Defenders who reach your carrier steal the puck. Keep it moving: pass, get
   open, shoot.
 - The camera looks down the rink's long axis from behind your goal and slides

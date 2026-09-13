@@ -62,7 +62,8 @@ export class UI {
         <ul class="help">
           <li>Your players skate on their own. You only decide <b>when to let go of the puck</b>.</li>
           <li>When one of your players has the puck it <b>circles around them</b>, and a line shows where it would go. <b>Touch and hold anywhere</b> to keep it; <b>lift your finger</b> to send it.</li>
-          <li>The line turns <b style="color:#4ade80">green</b> when it points at a team-mate (a pass) and <b style="color:#f472b6">pink</b> when it points at the goal (a shot). Releasing near a target snaps to it, so you don't need to be exact.</li>
+          <li>The arrow turns <b style="color:#4ade80">green</b> when it points at a team-mate (a pass) and <b style="color:#f472b6">pink</b> when it points at the goal (a shot). Releasing near a target snaps to it, so you don't need to be exact. The puck spins towards the most useful target first.</li>
+          <li><b>Drag</b> your finger away from where it landed while holding to <b>charge the shot</b>: the bar on the right fills up and the arrow grows. A plain tap is a medium shot.</li>
           <li>Defenders who reach your carrier steal the puck. Keep it moving: pass, pass, shoot.</li>
           <li>Start with <b>Training</b>: the first drills have no opponents, then dummies, then defenders that get faster each level.</li>
           <li>The season has a league and a cup. Your team's automatic play follows the tactics on the coach's board.</li>

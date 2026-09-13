@@ -9,6 +9,8 @@ import { newSeason, loadSeason, saveSeason, advanceToUserFixture, recordUserResu
 import { LEVELS, loadTraining, saveTraining, isUnlocked } from './levels.js';
 
 const canvas = document.getElementById('game');
+const powerEl = document.getElementById('power');
+const powerFill = powerEl.querySelector('i');
 const ui = new UI();
 const renderer = new Renderer(canvas);
 let match = null;
@@ -192,11 +194,17 @@ function frame(now) {
   last = now;
   if (dt > 0.1) dt = 0.1;
   if (match && running && !paused) {
+    match.userPower = input.isHolding ? input.power : ORBIT.powerDefault;
     acc += dt;
     while (acc >= STEP) { match.update(STEP); acc -= STEP; }
     ui.updateHud(match);
-  } else if (match && !running && matchCtx == null && !match.ended) {
-    match.update(dt); // demo behind the menus
+    const c = match.puck.carrier;
+    const showPower = input.isHolding && c && match.isUserCarrier(c);
+    powerEl.classList.toggle('hidden', !showPower);
+    if (showPower) powerFill.style.height = `${Math.round(input.power * 100)}%`;
+  } else {
+    powerEl.classList.add('hidden');
+    if (match && !running && matchCtx == null && !match.ended) match.update(dt); // demo behind the menus
   }
   renderer.update(match, dt);
 }

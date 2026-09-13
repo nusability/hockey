@@ -7,7 +7,7 @@ export const RINK = {
   corner: 8.5,       // corner radius of the boards
   goalLineZ: 26,     // distance of each goal line from centre
   blueLineZ: 9.5,    // distance of each blue line from centre
-  goalWidth: 5.2,    // stylised, wider than real life so shots can go in
+  goalWidth: 6.0,    // stylised, wider than real life so shots can go in
   goalDepth: 1.6,
   creaseRadius: 3.2,
   faceoffRadius: 4.5,
@@ -18,18 +18,30 @@ export const PLAYER = {
   radius: 0.8,
   goalieRadius: 1.0,
   reach: 1.45,        // distance at which a skater picks up a loose puck
-  stealReach: 1.05,   // distance to the puck at which a defender steals it
-  carryOffset: 1.15,  // where the puck sits in front of a carrier
-  humanSpeed: 8.6,
+  stealReach: 0.9,    // distance to the puck at which a defender steals it
+  stealTime: 0.18,    // seconds of contact with the puck before it is stolen
   aiSpeedBase: 6.2,   // scaled by rating
-  goalieSpeed: 6.0,
+  goalieSpeed: 4.8,
+  goalieReaction: 0.16, // seconds before a goalie reacts to a shot (+ more for low skill)
   accel: 38,
+};
+
+// The puck circles the carrier; lifting the finger releases it along the
+// line from the carrier through the puck.
+export const ORBIT = {
+  radius: 1.5,
+  period: 2.0,             // seconds per revolution (settings can change it)
+  assistPass: 0.36,        // radians: snap to a team-mate within this angle
+  assistGoal: 0.40,        // radians: snap to the goal within this angle
+  passSpeedMin: 13,
+  shotSpeed: 25,
+  freeSpeed: 19,           // release with nothing to snap to
 };
 
 export const PUCK = {
   radius: 0.36,
   friction: 0.45,     // m/s^2 of deceleration on ice
-  drag: 0.12,         // proportional velocity loss per second
+  drag: 0.2,          // proportional velocity loss per second
   maxSpeed: 30,
   boardRestitution: 0.72,
   playerRestitution: 0.85,
@@ -39,9 +51,14 @@ export const RULES = {
   periods: 3,
   periodSeconds: 120,   // default; changed in settings
   faceoffDelay: 1.3,
-  goalCelebration: 3.2,
+  goalCelebration: 3.0,
   whistleDelay: 1.4,
   overtimeSuddenDeath: true,
+  offside: false,       // arcade defaults; the engine still supports both
+  icing: false,
+  drillReady: 1.0,      // training: pause before a drill starts
+  drillGoal: 1.6,       // training: celebration before the drill resets
+  drillLost: 1.2,       // training: pause after losing the puck
 };
 
 export const DEFAULT_TACTICS = {
@@ -64,4 +81,5 @@ export const FACEOFF_SPOTS = {
 };
 
 export const SAVE_KEY = 'slapshot-league-save-v1';
-export const SETTINGS_KEY = 'slapshot-league-settings-v1';
+export const SETTINGS_KEY = 'slapshot-league-settings-v2';
+export const TRAINING_KEY = 'slapshot-league-training-v1';

@@ -22,7 +22,7 @@ body { background: radial-gradient(120% 80% at 50% 0%, var(--bg3) 0%, var(--bg2)
 .hud .clock i { font-style: normal; font-size: 16px; font-variant-numeric: tabular-nums; }
 .pausebtn { position: absolute; right: 12px; top: 8px; pointer-events: auto; width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--panel); color: #fff; font-weight: 800; font-size: 14px; letter-spacing: -2px; }
 
-.banner { position: fixed; top: 28%; left: 50%; transform: translate(-50%, -50%) scale(1); z-index: 6; pointer-events: none;
+.banner { position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%) scale(1); z-index: 6; pointer-events: none;
   font-size: clamp(30px, 9vw, 64px); font-weight: 900; letter-spacing: 2px; text-align: center; padding: 8px 24px; border-radius: 16px;
   color: #fff; text-shadow: 0 4px 0 rgba(0,0,0,0.35), 0 0 30px rgba(0,0,0,0.4); animation: pop 0.35s cubic-bezier(.2,1.6,.4,1); }
 .banner.goal { color: var(--accent); }
@@ -100,3 +100,14 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .stats th { color: var(--muted); font-weight: 400; padding: 4px 14px; }
 .stats td { font-weight: 800; padding: 4px 14px; }
 .summary p { font-size: 16px; }
+
+/* Training */
+.levels { display: flex; flex-direction: column; gap: 8px; }
+.level { display: flex; align-items: center; gap: 12px; text-align: left; border: none; border-radius: 14px; padding: 10px 12px; background: rgba(255,255,255,0.08); color: #fff; cursor: pointer; }
+.level .num { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; background: rgba(255,255,255,0.14); flex: none; }
+.level.done .num { background: #22c55e; color: #052e16; }
+.level.locked { opacity: 0.45; }
+.level .txt { display: flex; flex-direction: column; }
+.level .txt small { color: var(--muted); }
+.hint { font-size: 17px; line-height: 1.45; margin: 8px 0 14px; }
+.hud .obj { font-size: 11px; letter-spacing: 2px; color: var(--muted); }

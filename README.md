@@ -9,18 +9,30 @@ Source: *GitHub Actions*), the game is served from
 
 ## How it plays
 
-- The camera looks down the rink's long axis from behind your goal. It slides
-  along the rink so that the goal the play is heading for stays in view.
-- **Drag** with one finger to grab the nearest skater and steer them. A **second
-  finger** steers a second player at the same time. All other players (and the
-  goalie) follow the team's tactics automatically.
-- **Tap** a team-mate while your team has the puck to **pass**; passes lead the
-  receiver into space. **Tap the goal** or **flick** the carrier's finger to
-  **shoot**. Chain passes to pull the goalie out, then slam it in.
-- Loose pucks are collected by skating into them; defenders steal the puck when
-  they reach it, so keep it moving.
-- Rules: three periods, face-offs, offside at the blue lines, icing. Cup ties
-  go to sudden-death overtime.
+- Your players skate on their own. You only decide **when to let go of the
+  puck**.
+- When one of your players has the puck it **circles around them**, and a
+  line shows where it would go. **Touch and hold anywhere** to keep it; **lift
+  your finger** to send it. Releasing near a team-mate snaps into a pass,
+  releasing near the goal snaps into a shot (the line turns green or pink), so
+  timing does not have to be exact.
+- Defenders who reach your carrier steal the puck. Keep it moving: pass, get
+  open, shoot.
+- The camera looks down the rink's long axis from behind your goal and slides
+  so the goal the play is heading for stays in view.
+
+## Training
+
+Eight drills that unlock one after another, saved in the browser:
+
+1. **First shot** – you alone, an empty net.
+2. **Give and go** – two players, goals only count after a pass.
+3. **Beat the goalie** – a slow goalie appears.
+4. **Cones** – static dummies block passes and shots.
+5. **Moving cones** – the dummies patrol.
+6. **Sleepy defenders** – defenders that chase and steal, at half speed.
+7. **Under pressure** – three defenders at three-quarter speed.
+8. **Scrimmage** – a real game against a full team.
 
 ## Season
 
@@ -44,7 +56,8 @@ js/config.js        rink dimensions, physics constants, default tactics
 js/teams.js         the eight fictional teams
 js/match.js         match engine: physics, possession, rules, face-offs
 js/ai.js            automatic player behaviour driven by the tactics variables
-js/input.js         one/two-finger controls, tap-to-pass, flick-to-shoot
+js/input.js         one-touch hold/release control
+js/levels.js        training drills and progress
 js/render.js        Three.js scene: rink, stands, players, effects, camera
 js/season.js        league table, cup bracket, simulation, save/load
 js/ui.js            menus, season hub, HUD

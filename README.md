@@ -1,7 +1,9 @@
-# Slapshot League 🏒
+# Slapshot League 🏑
 
-A stylised, colourful 3D hockey game for phones, built with plain JavaScript and
-[Three.js](https://threejs.org). No build step: the repository is the website.
+A stylised, colourful 3D field hockey game for phones, built with plain
+JavaScript and [Three.js](https://threejs.org). No build step: the repository is
+the website. The interface is in German or English, chosen automatically from
+the browser language.
 
 **Play it:** once GitHub Pages is enabled for this repository (Settings → Pages →
 Source: *GitHub Actions*), the game is served from
@@ -36,6 +38,22 @@ Eight drills that unlock one after another, saved in the browser:
 7. **Under pressure** – three defenders at three-quarter speed.
 8. **Scrimmage** – a real game against a full team.
 
+## Worlds
+
+Matches are played in five worlds, each with its own scenery, light and
+surface. Four are field hockey on grass; the Himalaya plays ice hockey with a
+puck and boards.
+
+- **Magic Wood** (Zauberwald) – an enchanted forest clearing at dusk
+- **Deep Space** (Weltraum) – a floating arena among the stars
+- **Desert Oasis** (Wüstenoase) – green turf between dunes and palms
+- **Himalaya** – an ice rink high among the peaks
+- **Ocean World** (Ozeanwelt) – a reef platform beneath the waves
+
+League matches take place in the home team's world; drills each have their own.
+A world is a single module in `js/worlds/` (see the README there for the
+contract) so new ones can be added without touching the rest of the game.
+
 ## Season
 
 Eight fictional teams play a double round-robin **league** (3 points for a win,
@@ -55,7 +73,10 @@ menu (Coach & settings): *pressing*, *covering*, *push up*, *passing* and
 index.html          page shell
 css/style.css       HUD and menus
 js/config.js        rink dimensions, physics constants, default tactics
-js/teams.js         the eight fictional teams
+js/teams.js         the eight fictional teams and their home worlds
+js/i18n.js          German/English strings
+js/worlds/          the five worlds and the world contract
+js/director.js      goal camera and slow motion
 js/match.js         match engine: physics, possession, rules, face-offs
 js/ai.js            automatic player behaviour driven by the tactics variables
 js/input.js         one-touch hold/release control

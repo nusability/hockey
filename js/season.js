@@ -108,7 +108,7 @@ export function userFixture(state) {
   const f = fixtures.find((x) => (x.home === state.userTeamId || x.away === state.userTeamId) && !x.result);
   if (!f) return null;
   return { type: md.type, round: md.round, fixture: f, home: teamById(f.home), away: teamById(f.away),
-    userIsHome: f.home === state.userTeamId, label: md.type === 'league' ? `League · Round ${md.round + 1}` : `Cup · ${state.cup.names[md.round]}` };
+    userIsHome: f.home === state.userTeamId };
 }
 
 /** Simulate every other match of the matchday and advance. */
@@ -169,6 +169,7 @@ export function loadSeason() {
     if (!raw) return null;
     const s = JSON.parse(raw);
     if (s.version !== 1) return null;
+    if (!TEAMS.some((t) => t.id === s.userTeamId)) return null;
     return s;
   } catch (e) { return null; }
 }

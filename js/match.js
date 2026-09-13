@@ -1,4 +1,4 @@
-import { RINK, PLAYER, PUCK, RULES, ORBIT, FACEOFF_SPOTS } from './config.js';
+import { RINK, PLAYER, PUCK, RULES, ORBIT, FACEOFF_SPOTS, SPORTS } from './config.js';
 import { clamp, norm, sdRoundRect, roundRectNormal, rand, noise } from './math.js';
 import { updateTeamAI } from './ai.js';
 
@@ -47,6 +47,8 @@ export class Match {
     this.rules = { offside: RULES.offside, icing: RULES.icing, ...(opts.rules || {}), ...(this.scenario?.rules || {}) };
     this.orbitSpeed = (Math.PI * 2) / (opts.orbitPeriod || ORBIT.period);
     this.userPower = ORBIT.powerDefault;
+    this.sport = SPORTS[opts.sport] || SPORTS.field;
+    this.corner = this.sport.corner;
 
     this.players = [];
     if (this.scenario) {
@@ -81,8 +83,9 @@ export class Match {
     this.pendingText = 'FACE-OFF';
     this.pendingRelease = null;
 
+    this.messageParams = null;
     if (this.training) this.setupDrill('GET READY');
-    else this.setupFaceoff(FACEOFF_SPOTS.center, 'PERIOD 1');
+    else this.setupFaceoff(FACEOFF_SPOTS.center, 'PERIOD', { n: 1 });
   }
 
   addPlayer(team, spec) {
@@ -201,10 +204,11 @@ export class Match {
     }
   }
 
-  setupFaceoff(spot, text) {
+  setupFaceoff(spot, text, params = null) {
     this.state = 'faceoff';
     this.stateTimer = RULES.faceoffDelay;
     this.message = text || 'FACE-OFF';
+    this.messageParams = params;
     this.resetPuckState();
     this.puck.x = spot.x; this.puck.z = spot.z;
     for (const p of this.players) {
@@ -224,7 +228,7 @@ export class Match {
       if (p.role !== 'G' && Math.abs(p.z - this.ownGoalZ(p.team)) < 3) p.z = this.ownGoalZ(p.team) + dir * 3;
       p.facing = dir > 0 ? 0 : Math.PI;
     }
-    this.emit('faceoff', { spot, text: this.message });
+    this.emit('faceoff', { spot, text: this.message, params });
   }
 
   /** Training: everyone back to their start spot, puck to the chosen player. */
@@ -527,9 +531,9 @@ export class Match {
 
   constrainPlayer(p) {
     if (p.behavior !== 'active') return;
-    const sd = sdRoundRect(p.x, p.z, HW, HL, RINK.corner);
+    const sd = sdRoundRect(p.x, p.z, HW, HL, this.corner);
     if (sd > -p.r) {
-      const n = roundRectNormal(p.x, p.z, HW, HL, RINK.corner);
+      const n = roundRectNormal(p.x, p.z, HW, HL, this.corner);
       const pen = sd + p.r;
       p.x -= n.x * pen; p.z -= n.z * pen;
       const vn = p.vx * n.x + p.vz * n.z;
@@ -569,7 +573,7 @@ export class Match {
     }
     const sp = Math.hypot(puck.vx, puck.vz);
     if (sp > 0) {
-      const dec = Math.min(sp, PUCK.friction * dt + sp * PUCK.drag * dt);
+      const dec = Math.min(sp, this.sport.friction * dt + sp * this.sport.drag * dt);
       const f = (sp - dec) / sp;
       puck.vx *= f; puck.vz *= f;
       if (sp > PUCK.maxSpeed) { puck.vx *= PUCK.maxSpeed / sp; puck.vz *= PUCK.maxSpeed / sp; }
@@ -596,8 +600,8 @@ export class Match {
         if (wasInFront) continue;
         const pushSide = hw + puck.r - Math.abs(puck.x);
         const pushBack = dir > 0 ? (puck.z - zMin) : (zMax - puck.z);
-        if (pushSide < pushBack) { puck.x += (puck.x >= 0 ? 1 : -1) * pushSide; puck.vx = -puck.vx * PUCK.boardRestitution; }
-        else { puck.z += dir > 0 ? -pushBack : pushBack; puck.vz = -puck.vz * PUCK.boardRestitution; }
+        if (pushSide < pushBack) { puck.x += (puck.x >= 0 ? 1 : -1) * pushSide; puck.vx = -puck.vx * this.sport.wallRestitution; }
+        else { puck.z += dir > 0 ? -pushBack : pushBack; puck.vz = -puck.vz * this.sport.wallRestitution; }
       }
     }
     // posts
@@ -618,15 +622,15 @@ export class Match {
       }
     }
     // boards
-    const sd = sdRoundRect(puck.x, puck.z, HW, HL, RINK.corner);
+    const sd = sdRoundRect(puck.x, puck.z, HW, HL, this.corner);
     if (sd > -puck.r) {
-      const n = roundRectNormal(puck.x, puck.z, HW, HL, RINK.corner);
+      const n = roundRectNormal(puck.x, puck.z, HW, HL, this.corner);
       const pen = sd + puck.r;
       puck.x -= n.x * pen; puck.z -= n.z * pen;
       const vn = puck.vx * n.x + puck.vz * n.z;
       if (vn > 0) {
-        puck.vx -= (1 + PUCK.boardRestitution) * vn * n.x;
-        puck.vz -= (1 + PUCK.boardRestitution) * vn * n.z;
+        puck.vx -= (1 + this.sport.wallRestitution) * vn * n.x;
+        puck.vz -= (1 + this.sport.wallRestitution) * vn * n.z;
         if (vn > 4) this.emit('board', { speed: vn });
       }
     }
@@ -745,7 +749,7 @@ export class Match {
     }
     this.state = 'periodEnd';
     this.stateTimer = 2.5;
-    this.message = `END OF PERIOD ${this.period}`;
+    this.message = 'END OF PERIOD'; this.messageParams = { n: this.period };
     this.puck.carrier = null;
     this.emit('periodEnd', { period: this.period });
   }
@@ -759,7 +763,7 @@ export class Match {
     }
     this.period++;
     this.clock = this.periodSeconds;
-    this.setupFaceoff(FACEOFF_SPOTS.center, `PERIOD ${this.period}`);
+    this.setupFaceoff(FACEOFF_SPOTS.center, 'PERIOD', { n: this.period });
   }
 
   finish(won) {

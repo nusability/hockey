@@ -415,6 +415,11 @@ export class Match {
       const cp = this.carryPoint(puck.carrier); puck.x = cp.x; puck.z = cp.z;
     }
     if (live) this.checkRules();
+    // training: a puck nobody can reach resets the drill
+    if (live && this.training) {
+      this.looseTimer = puck.carrier ? 0 : (this.looseTimer || 0) + dt;
+      if (this.looseTimer > 7) { this.looseTimer = 0; this.lostPuck('RESET'); }
+    }
     void moving;
   }
 

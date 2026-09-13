@@ -715,14 +715,14 @@ export default {
       ]), new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, fog: false }));
       group.add(strips);
       // translucent energy barrier rising just outside the wall
-      const barrier = new THREE.Mesh(ctx.ringGeometry(HW + 0.5, HL + 0.5, corner + 0.5, HW + 0.58, HL + 0.58, corner + 0.58, 1.9),
-        new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.14, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
+      const barrier = new THREE.Mesh(ctx.ringGeometry(HW + 0.5, HL + 0.5, corner + 0.5, HW + 0.58, HL + 0.58, corner + 0.58, 1.5),
+        new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.1, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
       barrier.position.y = 0.05;
       group.add(barrier);
       anim.push((dt, t) => {
         const p = 0.5 + 0.5 * Math.sin(t * 2.1);
         strips.material.color.setScalar(0.75 + 0.35 * p);
-        barrier.material.opacity = 0.11 + 0.06 * p + 0.03 * Math.sin(t * 9);
+        barrier.material.opacity = 0.07 + 0.05 * p + 0.02 * Math.sin(t * 9);
       });
     }
 
@@ -754,8 +754,8 @@ export default {
         poles.push(place(new THREE.CylinderGeometry(0.14, 0.22, 8.5, 7), x, 4.25, z));
         poles.push(place(new THREE.BoxGeometry(2.4, 0.5, 0.7), x - Math.sign(x) * 0.6, 8.6, z, 0, 0, -Math.sign(x) * 0.35));
         neon.push(place(new THREE.BoxGeometry(2.1, 0.12, 0.5), x - Math.sign(x) * 0.6, 8.3, z, 0, 0, -Math.sign(x) * 0.35));
-        glows.push(place(new THREE.PlaneGeometry(6, 6), x - Math.sign(x) * 1.2, 8.4, z, 0, inward));
-        glows.push(place(new THREE.PlaneGeometry(6, 6), x - Math.sign(x) * 1.2, 8.4, z, 0, 0));
+        glows.push(place(new THREE.PlaneGeometry(4, 4), x - Math.sign(x) * 1.2, 8.4, z, 0, inward));
+        glows.push(place(new THREE.PlaneGeometry(4, 4), x - Math.sign(x) * 1.2, 8.4, z, 0, 0));
       }
       group.add(new THREE.Mesh(merge(THREE, poles), new THREE.MeshLambertMaterial({ color: 0x64748b, emissive: 0x1e2a4a, emissiveIntensity: 0.9 })));
     }
@@ -801,13 +801,11 @@ export default {
     // ------------------------------------------------ a slow comet crossing the low sky
     {
       const tail = place(new THREE.PlaneGeometry(46, 6), 23, 0, 0);
-      const uv = tail.attributes.uv;
       const head = new THREE.CircleGeometry(2.6, 16);
       const comet = new THREE.Mesh(merge(THREE, [tail, head]), new THREE.MeshBasicMaterial({
         map: (() => { const [c, g] = canvas(256, 32); g.clearRect(0, 0, 256, 32); const lg = g.createLinearGradient(0, 0, 256, 0); lg.addColorStop(0, 'rgba(255,255,255,0.9)'); lg.addColorStop(0.15, 'rgba(180,230,255,0.5)'); lg.addColorStop(1, 'rgba(120,180,255,0)'); g.fillStyle = lg; g.fillRect(0, 0, 256, 32); const vg = g.createLinearGradient(0, 0, 0, 32); vg.addColorStop(0, 'rgba(0,0,0,1)'); vg.addColorStop(0.5, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,1)'); g.globalCompositeOperation = 'destination-out'; g.fillStyle = vg; g.fillRect(0, 0, 256, 32); return new THREE.CanvasTexture(c); })(),
         transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
       }));
-      void uv;
       group.add(comet);
       const R = 330, y0 = -30;
       anim.push((dt, t) => {

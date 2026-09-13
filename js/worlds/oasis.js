@@ -71,7 +71,8 @@ function height(x, z) {
   const back = smooth(clamp01((-z - 26) / 30)) * (1 - smooth(clamp01((Math.abs(x) - 22) / 16)));
   const pd = poolDist(x, z);
   const flat = smooth(clamp01((pd - 1.1) / 0.7)); // pools stay on flat ground
-  h *= (1 - 0.9 * back) * m * flat;
+  const camp = smooth(clamp01((Math.hypot(x + 33, z - 27) - 12) / 10)); // terrace under the ruins and tents
+  h *= (1 - 0.9 * back) * m * flat * camp;
   // shallow basin under the pools
   h -= 0.45 * smooth(clamp01(1 - (pd - 0.2) / 1.05));
   return -0.05 + h;

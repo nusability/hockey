@@ -215,16 +215,16 @@ export class Renderer {
     // net panels
     const netMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false });
     const back = new THREE.Mesh(new THREE.PlaneGeometry(hw * 2, height), netMat);
-    back.position.set(0, height / 2, gz - sgn * depth);
+    back.position.set(0, height / 2, gz + sgn * depth);
     g.add(back);
     const top = new THREE.Mesh(new THREE.PlaneGeometry(hw * 2, depth), netMat);
     top.rotation.x = -Math.PI / 2;
-    top.position.set(0, height, gz - sgn * depth / 2);
+    top.position.set(0, height, gz + sgn * depth / 2);
     g.add(top);
     for (const sx of [-1, 1]) {
       const side = new THREE.Mesh(new THREE.PlaneGeometry(depth, height), netMat);
       side.rotation.y = Math.PI / 2;
-      side.position.set(sx * hw, height / 2, gz - sgn * depth / 2);
+      side.position.set(sx * hw, height / 2, gz + sgn * depth / 2);
       g.add(side);
     }
     // mesh lines for a stylised net
@@ -235,7 +235,7 @@ export class Renderer {
 
   netLines(hw, depth, height, gz, sgn) {
     const pts = [];
-    const zb = gz - sgn * depth;
+    const zb = gz + sgn * depth;
     for (let x = -hw; x <= hw + 0.01; x += 0.4) { pts.push(x, 0, zb, x, height, zb); pts.push(x, height, gz, x, height, zb); }
     for (let y = 0; y <= height + 0.01; y += 0.4) { pts.push(-hw, y, zb, hw, y, zb); pts.push(-hw, y, gz, -hw, y, zb); pts.push(hw, y, gz, hw, y, zb); }
     const geo = new THREE.BufferGeometry();
@@ -475,26 +475,38 @@ export class Renderer {
     return new THREE.Vector3(0, c.y, focusZ - c.back);
   }
 
-  updateCamera(match, dt) {
+  updateCamera(match, dt, override) {
     const puck = match.puck;
     const c = this.camParams;
     const wantFocus = clamp(puck.z * 0.85, c.rangeMin, c.rangeMax);
     this.focusZ = lerp(this.focusZ, wantFocus, 1 - Math.exp(-dt * 2.2));
     const pos = this.cameraPosition(this.focusZ);
+    const look = new THREE.Vector3(0, 0, this.focusZ + c.look);
+    this.fitCamera();
+    let fov = this.camera.fov;
+    // blend towards the director's dramatic pose; the weight itself is eased
+    // by the director so the camera never cuts
+    if (override && override.weight > 0.001) {
+      const w = override.weight;
+      pos.lerp(override.pos, w);
+      look.lerp(override.look, w);
+      fov = lerp(fov, override.fov, w);
+    }
     if (this.shake > 0) {
       pos.x += (Math.random() - 0.5) * this.shake;
       pos.y += (Math.random() - 0.5) * this.shake;
       this.shake = Math.max(0, this.shake - dt * 2.5);
     }
     this.camera.position.copy(pos);
-    this.camera.lookAt(0, 0, this.focusZ + this.camParams.look);
-    this.fitCamera();
+    this.camera.lookAt(look);
+    this.camera.fov = fov;
+    this.camera.updateProjectionMatrix();
   }
 
-  update(match, dt) {
+  update(match, dt, override) {
     this.time += dt;
     if (match) {
-      this.updateCamera(match, dt);
+      this.updateCamera(match, dt, override);
       for (const p of match.players) {
         const m = this.playerMeshes.get(p.id);
         if (!m) continue;

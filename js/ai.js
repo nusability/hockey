@@ -30,6 +30,10 @@ export function updateTeamAI(match, team, dt) {
 
   const skaters = players.filter((p) => p.role !== 'G');
   const byPuckDist = [...skaters].sort((a, b) => dist(a, puck) - dist(b, puck));
+  // how long the ball has been free, so a stubborn loose ball draws help
+  if (carrier) match.looseFor = 0;
+  else if (team === 0) match.looseFor = (match.looseFor || 0) + dt;
+  const looseFor = match.looseFor || 0;
 
   for (const p of players) {
     p.ai.timer -= dt;
@@ -45,11 +49,15 @@ export function updateTeamAI(match, team, dt) {
     if (possession === 'loose' && p.ai.expectPass > 0) {
       target = routeAroundNet(match, p, interceptPoint(match, p)); chase = true;
     } else if (possession === 'loose') {
-      const chasers = 1 + (T.pressing > 0.5 ? 1 : 0);
+      // One player goes for a loose ball. A second joins only when the first
+      // is not getting there: the ball is far away, or it has been sitting
+      // free for a while (e.g. stuck in an awkward spot behind the net).
+      const nearest0 = byPuckDist[0] ? dist(byPuckDist[0], puck) : 99;
+      const chasers = (T.pressing > 0.75 || nearest0 > 9 || looseFor > 1.5) ? 2 : 1;
       if (rank < chasers) { target = routeAroundNet(match, p, predictPuck(match, p)); chase = true; }
-      else target = formationTarget(match, p, T, 0.5);
+      else target = supportTarget(match, p, T);
     } else if (possession === 'their') {
-      const pressers = 1 + Math.round(T.pressing * 1.6);
+      const pressers = T.pressing > 0.75 ? 2 : 1;
       const pressRange = 10 + T.pressing * 22;
       const dToCarrier = dist(p, carrier);
       if (rank < pressers && dToCarrier < pressRange) {
@@ -68,6 +76,8 @@ export function updateTeamAI(match, team, dt) {
       }
     }
     if (!chase) {
+      // never crowd the ball: that is the chaser's job, not everyone's
+      keepClearOfBall(match, target, possession === 'their' ? 5.5 : CLEAR_OF_BALL);
       // keep a passing distance from every team-mate (including the carrier)
       const minGap = possession === 'own' ? 6 : 3.5;
       for (const q of players) {
@@ -179,14 +189,34 @@ function defendTarget(match, p, T) {
  * (wings ahead, a deep option, safety valves behind) so there is always a
  * clean passing lane and nobody crowds the puck.
  */
+/**
+ * Off-ball shape, expressed relative to the ball. Forwards look for the far
+ * post and the width; defenders hold the back of the defence. `mirror` slots
+ * are flipped to the side of the pitch away from the ball, so there is always
+ * an option on the far side of the goal.
+ */
 const SLOTS = [
-  { x: -9, z: 8, role: 'F' },   // left wing ahead
-  { x: 9, z: 8, role: 'F' },    // right wing ahead
-  { x: 0, z: 13, role: 'F' },   // deep in the slot
-  { x: -8, z: -7, role: 'D' },  // left safety valve
-  { x: 8, z: -7, role: 'D' },   // right safety valve
-  { x: 0, z: -12, role: 'D' },
+  { x: 10, z: 6, role: 'F', mirror: true },   // far post / far side, ahead
+  { x: -9, z: 2, role: 'F', mirror: true },   // near side width, level
+  { x: 2, z: 14, role: 'F' },                 // highest man, beyond the defence
+  { x: -9, z: -8, role: 'D', mirror: true },  // wide outlet behind the ball
+  { x: 9, z: -9, role: 'D', mirror: true },   // opposite outlet
+  { x: 0, z: -15, role: 'D' },                // back of the defence
 ];
+
+/** Non-chasers never stand on top of the ball. */
+const CLEAR_OF_BALL = 7.5;
+
+function keepClearOfBall(match, target, minDist = CLEAR_OF_BALL) {
+  const b = match.puck;
+  const dx = target.x - b.x, dz = target.z - b.z;
+  const d = Math.hypot(dx, dz);
+  if (d >= minDist) return target;
+  const n = d > 1e-3 ? { x: dx / d, z: dz / d } : { x: 1, z: 0 };
+  target.x = b.x + n.x * minDist;
+  target.z = b.z + n.z * minDist;
+  return target;
+}
 
 function supportTarget(match, p, T) {
   const dir = match.dirOf(p.team);
@@ -194,12 +224,19 @@ function supportTarget(match, p, T) {
   const mates = match.teamPlayers(p.team).filter((m) => m !== c && m.role !== 'G' && m.role !== 'O' && m.behavior === 'active');
   const gz = match.attackGoalZ(p.team);
   // world position of each slot, kept on the ice and out of the goal mouth
+  // a slot marked `mirror` sits on the side of the pitch away from the ball
+  const ballSide = c.x >= 0 ? 1 : -1;
   const world = SLOTS.map((sl) => {
-    let x = c.x + sl.x, z = c.z + dir * sl.z * (0.8 + T.pushUp * 0.4);
+    const sx = sl.mirror ? sl.x * -ballSide : sl.x;
+    // width is measured from the middle of the pitch, not from the carrier, so
+    // team-mates spread across the pitch instead of orbiting the ball
+    let x = sl.mirror ? sx : c.x + sx;
+    let z = c.z + dir * sl.z * (0.8 + T.pushUp * 0.4);
     x = clamp(x, -HW + 2.5, HW - 2.5);
     z = clamp(dir * z, -(RINK.goalLineZ - 3), RINK.goalLineZ - 5) * dir;
     if (Math.hypot(x, gz - z) < 7) { x = x >= 0 ? Math.max(x, 7) : Math.min(x, -7); }
-    return { x, z, role: sl.role };
+    const slot = keepClearOfBall(match, { x, z });
+    return { x: slot.x, z: slot.z, role: sl.role };
   });
   // greedy assignment: every team-mate takes the nearest matching free slot,
   // in a stable order so players don't swap slots every tick

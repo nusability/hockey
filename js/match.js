@@ -46,7 +46,6 @@ export class Match {
     this.training = !!this.scenario;
     this.rules = { offside: RULES.offside, icing: RULES.icing, ...(opts.rules || {}), ...(this.scenario?.rules || {}) };
     this.orbitSpeed = (Math.PI * 2) / (opts.orbitPeriod || ORBIT.period);
-    this.userPower = ORBIT.powerDefault;
     this.sport = SPORTS[opts.sport] || SPORTS.field;
     this.corner = this.sport.corner;
 
@@ -328,7 +327,7 @@ export class Match {
     const acc = opts.accuracy ?? 1;
     const dx0 = receiver.x - p.x, dz0 = receiver.z - p.z;
     const d = Math.hypot(dx0, dz0);
-    const speed = clamp(11 + d * 0.55, ORBIT.passSpeedMin, 24) * (opts.speedScale ?? 1);
+    const speed = clamp(ORBIT.passSpeedMin + d * ORBIT.passSpeedPerMetre, ORBIT.passSpeedMin, ORBIT.passSpeedMax);
     const t = d / speed;
     let tx = receiver.x + receiver.vx * t * 0.8;
     let tz = receiver.z + receiver.vz * t * 0.8;
@@ -355,26 +354,20 @@ export class Match {
     if (this.puck.carrier !== p) return false;
     const snap = opts.assist === false ? null : this.aimTarget(p);
     const acc = opts.accuracy ?? 1;
-    const pw = opts.power; // 0..1 from the drag gesture, undefined for AI
-    if (snap?.kind === 'pass') {
-      const scale = pw == null ? 1 : ORBIT.passScaleMin + pw * (ORBIT.passScaleMax - ORBIT.passScaleMin);
-      return this.passTo(p, snap.target, { accuracy: acc, speedScale: scale });
-    }
-    const speed = pw == null ? ORBIT.shotSpeed : ORBIT.shotSpeedMin + pw * (ORBIT.shotSpeedMax - ORBIT.shotSpeedMin);
-    if (snap?.kind === 'goal') return this.shootAtGoal(p, { accuracy: acc, power: speed });
+    if (snap?.kind === 'pass') return this.passTo(p, snap.target, { accuracy: acc });
+    if (snap?.kind === 'goal') return this.shootAtGoal(p, { accuracy: acc, power: ORBIT.shotSpeed });
     const d = this.aimDirection();
-    return this.release(p, d.x, d.z, pw == null ? ORBIT.freeSpeed : speed * 0.85, 'shot');
+    return this.release(p, d.x, d.z, ORBIT.freeSpeed, 'shot');
   }
 
   /**
    * The user lifted their finger. If the line is about to reach a target
    * within a fraction of a second, wait for it (forgives early taps).
    */
-  userRelease(power) {
+  userRelease() {
     const c = this.puck.carrier;
-    if (power != null) this.userPower = power;
     if (!c || !this.isUserCarrier(c) || this.state !== 'play') return false;
-    if (this.aimTarget(c)) return this.releaseAimed(c, { assist: true, accuracy: 1, power: this.userPower });
+    if (this.aimTarget(c)) return this.releaseAimed(c, { assist: true, accuracy: 1 });
     const saved = this.puck.orbit;
     for (const t of [0.05, 0.1, 0.15, 0.2, 0.25]) {
       this.puck.orbit = saved + this.orbitSpeed * t * this.puck.orbitDir;
@@ -382,7 +375,7 @@ export class Match {
       this.puck.orbit = saved;
       if (hit) { this.pendingRelease = { player: c, until: this.time + t + 0.06 }; return true; }
     }
-    return this.releaseAimed(c, { assist: true, accuracy: 1, power: this.userPower });
+    return this.releaseAimed(c, { assist: true, accuracy: 1 });
   }
 
   // ---------------------------------------------------------------- update
@@ -578,7 +571,7 @@ export class Match {
       const pr = this.pendingRelease;
       if (pr) {
         if (pr.player !== c) this.pendingRelease = null;
-        else if (this.aimTarget(c) || this.time >= pr.until) { this.pendingRelease = null; this.releaseAimed(c, { assist: true, accuracy: 1, power: this.userPower }); return; }
+        else if (this.aimTarget(c) || this.time >= pr.until) { this.pendingRelease = null; this.releaseAimed(c, { assist: true, accuracy: 1 }); return; }
       }
       if (c.role !== 'G') this.checkSteal(c, dt);
       return;

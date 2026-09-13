@@ -42,10 +42,11 @@ export class UI {
     this.show(`
       <div class="screen center">
         <div class="logo"><span>SLAPSHOT</span><span class="accent">LEAGUE</span></div>
-        <p class="tagline">Two thumbs. Six skaters. One net.</p>
+        <p class="tagline">One finger. Six skaters. One net.</p>
         <div class="stack">
-          ${hasSeason ? '<button class="btn primary" data-action="continue">Continue season</button>' : ''}
-          <button class="btn ${hasSeason ? '' : 'primary'}" data-action="newSeason">${hasSeason ? 'Start a new season' : 'Start season'}</button>
+          <button class="btn primary" data-action="training">Training</button>
+          ${hasSeason ? '<button class="btn" data-action="continue">Continue season</button>' : ''}
+          <button class="btn" data-action="newSeason">${hasSeason ? 'Start a new season' : 'Start season'}</button>
           <button class="btn" data-action="quick">Quick match</button>
           <button class="btn" data-action="tactics">Coach &amp; settings</button>
           <button class="btn" data-action="help">How to play</button>
@@ -59,14 +60,56 @@ export class UI {
       <div class="screen">
         <h2>How to play</h2>
         <ul class="help">
-          <li><b>Drag</b> anywhere to grab the nearest skater and steer them. Use a <b>second finger</b> to move a second player at the same time.</li>
-          <li><b>Tap</b> a team-mate while you have the puck to <b>pass</b> to them. The pass leads them into space.</li>
-          <li><b>Tap the goal</b> (or flick the finger that holds the carrier) to <b>shoot</b>. Faster flicks hit harder.</li>
-          <li>Skate into loose pucks to collect them. Defenders steal the puck when they reach it, so keep it moving: pass, get open, one-timer, slam it in.</li>
-          <li>Offside and icing are called. Three periods; cup ties go to sudden-death overtime.</li>
-          <li>Your other four skaters and the goalie play on their own, following the team's tactics: pressing, covering, push-up, passing and shooting appetite.</li>
+          <li>Your players skate on their own. You only decide <b>when to let go of the puck</b>.</li>
+          <li>When one of your players has the puck it <b>circles around them</b>, and a line shows where it would go. <b>Touch and hold anywhere</b> to keep it; <b>lift your finger</b> to send it.</li>
+          <li>The line turns <b style="color:#4ade80">green</b> when it points at a team-mate (a pass) and <b style="color:#f472b6">pink</b> when it points at the goal (a shot). Releasing near a target snaps to it, so you don't need to be exact.</li>
+          <li>Defenders who reach your carrier steal the puck. Keep it moving: pass, pass, shoot.</li>
+          <li>Start with <b>Training</b>: the first drills have no opponents, then dummies, then defenders that get faster each level.</li>
+          <li>The season has a league and a cup. Your team's automatic play follows the tactics on the coach's board.</li>
         </ul>
         <button class="btn primary" data-action="menu">Back</button>
+      </div>`);
+  }
+
+  training(levels, progress) {
+    const items = levels.map((lv, i) => {
+      const done = progress.done.includes(lv.id);
+      const unlocked = i === 0 || progress.done.includes(levels[i - 1].id);
+      return `<button class="level ${done ? 'done' : ''} ${unlocked ? '' : 'locked'}" data-action="${unlocked ? 'startLevel' : 'noop'}" data-arg="${i}">
+        <span class="num">${done ? '✓' : unlocked ? i + 1 : '🔒'}</span>
+        <span class="txt"><b>${lv.name}</b><small>${lv.away.length === 0 ? 'No opponents' : lv.away.some((a) => a.role === 'D' || a.role === 'F') ? 'Defenders' : lv.away.some((a) => a.role === 'O') ? 'Dummies' : 'Goalie'} · ${lv.goals} goals in ${lv.time}s</small></span>
+      </button>`;
+    }).join('');
+    this.show(`
+      <div class="screen">
+        <div class="hubhead"><div><h2>Training</h2><small>${progress.done.length} of ${levels.length} drills done</small></div>
+          <button class="btn small" data-action="menu">Menu</button></div>
+        <div class="levels">${items}</div>
+      </div>`);
+  }
+
+  levelIntro(level, index) {
+    this.show(`
+      <div class="screen center">
+        <p class="muted">Drill ${index + 1}</p>
+        <h2>${level.name}</h2>
+        <p class="hint">${level.hint}</p>
+        <p class="muted">Score <b>${level.goals}</b> goals in <b>${level.time}</b> seconds.</p>
+        <button class="btn primary big" data-action="beginLevel">Start</button>
+        <button class="btn" data-action="training" style="margin-top:8px">Back</button>
+      </div>`);
+  }
+
+  levelResult(match, level, index, hasNext) {
+    const won = match.won;
+    this.show(`
+      <div class="screen center">
+        <p class="muted">Drill ${index + 1} · ${level.name}</p>
+        <h2 class="result-title">${won ? 'DRILL DONE!' : "TIME'S UP"}</h2>
+        <p>${won ? 'Nice work.' : `You scored ${match.score[0]} of ${level.goals}.`}</p>
+        ${won && hasNext ? '<button class="btn primary big" data-action="nextLevel">Next drill</button>' : ''}
+        <button class="btn ${won && hasNext ? '' : 'primary'} big" data-action="retryLevel">${won ? 'Play again' : 'Try again'}</button>
+        <button class="btn" data-action="training" style="margin-top:8px">All drills</button>
       </div>`);
   }
 
@@ -88,12 +131,16 @@ export class UI {
         <label class="slider"><span>Period length<small><span id="plen">${settings.periodSeconds}</span> s</small></span>
           <input type="range" min="60" max="240" step="30" value="${settings.periodSeconds}" data-setting="periodSeconds">
         </label>
+        <label class="slider"><span>Puck spin<small>slower is easier · <span id="orb">${settings.orbitPeriod.toFixed(1)}</span> s per turn</small></span>
+          <input type="range" min="14" max="32" step="2" value="${Math.round(settings.orbitPeriod * 10)}" data-setting="orbitPeriod10">
+        </label>
         <div class="row">
           <button class="btn" data-action="resetTactics">Reset</button>
           <button class="btn primary" data-action="saveTactics">Save</button>
         </div>
       </div>`);
     this.root.querySelector('[data-setting="periodSeconds"]').addEventListener('input', (e) => { $('#plen').textContent = e.target.value; });
+    this.root.querySelector('[data-setting="orbitPeriod10"]').addEventListener('input', (e) => { $('#orb').textContent = (e.target.value / 10).toFixed(1); });
   }
 
   readTactics() {
@@ -199,7 +246,11 @@ export class UI {
   // ---------------------------------------------------------------- HUD
   showHud(match) {
     const [h, a] = match.teams;
-    this.hud.innerHTML = `
+    this.hud.innerHTML = match.training ? `
+      <div class="score">
+        <span class="obj">GOALS</span><b id="s0">0</b><span class="clock"><em id="period">of ${match.goalsToWin}</em><i id="clock">0:00</i></span>
+      </div>
+      <button id="pauseBtn" class="pausebtn" aria-label="Pause">II</button>` : `
       <div class="score">
         ${this.badge(h)}<b id="s0">0</b><span class="clock"><em id="period">P1</em><i id="clock">0:00</i></span><b id="s1">0</b>${this.badge(a)}
       </div>
@@ -214,9 +265,9 @@ export class UI {
   updateHud(match) {
     if (!this.hudEls) return;
     this.hudEls.s0.textContent = match.score[0];
-    this.hudEls.s1.textContent = match.score[1];
+    if (this.hudEls.s1) this.hudEls.s1.textContent = match.score[1];
     this.hudEls.clock.textContent = match.isOvertime ? 'OT' : fmtClock(match.clock);
-    this.hudEls.period.textContent = match.isOvertime ? 'OT' : `P${match.period}`;
+    if (!match.training) this.hudEls.period.textContent = match.isOvertime ? 'OT' : `P${match.period}`;
   }
 
   showBanner(text, cls = '', ms = 1600) {

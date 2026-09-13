@@ -1,11 +1,10 @@
 import * as THREE from '../vendor/three.module.js';
-import { RINK, PLAYER, FACEOFF_SPOTS } from './config.js';
-import { clamp, lerp, sdRoundRect, rand, pick } from './math.js';
+import { RINK, ORBIT, FACEOFF_SPOTS } from './config.js';
+import { clamp, lerp, rand, pick } from './math.js';
 
 const HW = RINK.width / 2;
 const HL = RINK.length / 2;
 
-const PASTELS = ['#f9a8d4', '#a5b4fc', '#fcd34d', '#86efac', '#fda4af', '#93c5fd', '#fdba74', '#c4b5fd', '#f8fafc', '#5eead4'];
 
 function roundedRectShape(hw, hl, r) {
   const s = new THREE.Shape();
@@ -30,17 +29,6 @@ function ringGeometry(innerHW, innerHL, innerR, outerHW, outerHL, outerR, height
   return g;
 }
 
-function cylinderBetween(a, b, radius, material) {
-  const dir = new THREE.Vector3().subVectors(b, a);
-  const len = dir.length();
-  const geo = new THREE.CylinderGeometry(radius, radius, len, 8);
-  const m = new THREE.Mesh(geo, material);
-  m.position.copy(a).addScaledVector(dir, 0.5);
-  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
-  m.castShadow = true;
-  return m;
-}
-
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -56,7 +44,7 @@ export class Renderer {
     this.focusZ = 0;
     this.shake = 0;
     // camera rig: height, distance behind the focus point, look-ahead, width fit distance
-    this.camParams = { y: 25, back: 22, look: 8, nearZ: 10, range: 15, minFov: 45, maxFov: 78 };
+    this.camParams = { y: 36, back: 20, look: -4, nearZ: 8, rangeMin: -7, rangeMax: 14, minFov: 45, maxFov: 78 };
     this.raycaster = new THREE.Raycaster();
     this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     this.playerMeshes = new Map();
@@ -65,8 +53,8 @@ export class Renderer {
 
     this.buildLights();
     this.buildRink();
-    this.buildStands();
     this.buildPuck();
+    this.buildAim();
     this.buildConfetti();
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -165,14 +153,16 @@ export class Renderer {
     ice.receiveShadow = true;
     this.scene.add(ice);
 
-    // floor slab under everything
-    const slab = new THREE.Mesh(
-      new THREE.BoxGeometry(RINK.width + 40, 3, RINK.length + 40),
-      new THREE.MeshLambertMaterial({ color: 0x1e293b }),
+    // thin dark base so the rink reads as a floating slab
+    const base = new THREE.Mesh(
+      ringGeometry(HW + 0.4, HL + 0.4, RINK.corner + 0.4, HW + 2.2, HL + 2.2, RINK.corner + 2.2, 0.6),
+      new THREE.MeshLambertMaterial({ color: 0x1e1b4b }),
     );
-    slab.position.y = -1.55;
-    slab.receiveShadow = true;
-    this.scene.add(slab);
+    base.position.y = -0.6;
+    this.scene.add(base);
+    const under = new THREE.Mesh(new THREE.PlaneGeometry(RINK.width + 4.4, RINK.length + 4.4), new THREE.MeshLambertMaterial({ color: 0x1e1b4b }));
+    under.rotation.x = -Math.PI / 2; under.position.y = -0.62;
+    this.scene.add(under);
 
     // boards
     const boards = new THREE.Mesh(
@@ -253,54 +243,6 @@ export class Renderer {
     return geo;
   }
 
-  buildStands() {
-    const group = new THREE.Group();
-    const crowdPos = [];
-    const tiers = 5;
-    for (let i = 0; i < tiers; i++) {
-      const inner = 1.6 + i * 2.4;
-      const outer = inner + 2.5;
-      const base = 0.2 + i * 1.35;
-      const h = 1.35;
-      const geo = ringGeometry(HW + inner, HL + inner, RINK.corner + inner, HW + outer, HL + outer, RINK.corner + outer, h);
-      const color = new THREE.Color(PASTELS[(i * 3) % PASTELS.length]).multiplyScalar(0.75);
-      const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color }));
-      m.position.y = base;
-      m.receiveShadow = true;
-      group.add(m);
-      // crowd sample positions on this tier
-      const count = 220 + i * 40;
-      let tries = 0, placed = 0;
-      while (placed < count && tries < 8000) {
-        tries++;
-        const x = rand(-(HW + outer), HW + outer);
-        const z = rand(-(HL + outer), HL + outer);
-        const sdI = sdRoundRect(x, z, HW + inner + 0.6, HL + inner + 0.6, RINK.corner + inner + 0.6);
-        const sdO = sdRoundRect(x, z, HW + outer - 0.6, HL + outer - 0.6, RINK.corner + outer - 0.6);
-        if (sdI > 0 && sdO < 0) { crowdPos.push({ x, y: base + h + 0.45, z }); placed++; }
-      }
-    }
-    this.scene.add(group);
-
-    const geo = new THREE.SphereGeometry(0.45, 6, 5);
-    const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-    const crowd = new THREE.InstancedMesh(geo, mat, crowdPos.length);
-    const dummy = new THREE.Object3D();
-    const col = new THREE.Color();
-    crowdPos.forEach((c, i) => {
-      dummy.position.set(c.x, c.y, c.z);
-      dummy.scale.setScalar(rand(0.8, 1.2));
-      dummy.updateMatrix();
-      crowd.setMatrixAt(i, dummy.matrix);
-      crowd.setColorAt(i, col.set(pick(PASTELS)));
-    });
-    crowd.instanceMatrix.needsUpdate = true;
-    this.crowd = crowd;
-    this.crowdPos = crowdPos;
-    this.crowdExcite = 0;
-    this.scene.add(crowd);
-  }
-
   buildPuck() {
     this.puck = new THREE.Mesh(
       new THREE.CylinderGeometry(0.36, 0.36, 0.2, 18),
@@ -353,87 +295,93 @@ export class Renderer {
 
   makePlayerMesh(p, team) {
     const group = new THREE.Group();
-    const primary = new THREE.Color(team.primary);
-    const secondary = new THREE.Color(team.secondary);
-    const isG = p.role === 'G';
-    const bodyMat = new THREE.MeshToonMaterial({ color: primary });
-    const secMat = new THREE.MeshToonMaterial({ color: secondary });
-    const dark = new THREE.MeshToonMaterial({ color: 0x1e293b });
-    const skin = new THREE.MeshToonMaterial({ color: 0xfcd5b5 });
-
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(isG ? 0.8 : 0.62, isG ? 0.8 : 0.85, 4, 14), bodyMat);
-    body.position.y = isG ? 1.05 : 1.08;
+    const isG = p.role === 'G', isO = p.role === 'O';
+    const primary = new THREE.Color(isO ? '#94a3b8' : team.primary);
+    const secondary = new THREE.Color(isO ? '#f97316' : team.secondary);
+    const r = p.r;
+    const h = isO ? 0.7 : 0.45;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.92, h, 28), new THREE.MeshToonMaterial({ color: primary }));
+    body.position.y = h / 2;
     body.castShadow = true;
     group.add(body);
-    // stripe
-    const stripe = new THREE.Mesh(new THREE.CylinderGeometry(isG ? 0.83 : 0.65, isG ? 0.83 : 0.65, 0.22, 16, 1, true), secMat);
-    stripe.position.y = 1.25;
-    group.add(stripe);
-    // shoulders / arms
-    for (const sx of [-1, 1]) {
-      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.55, 3, 8), bodyMat);
-      arm.position.set(sx * (isG ? 0.95 : 0.75), 1.15, 0.1);
-      arm.rotation.z = sx * 0.35;
-      arm.castShadow = true;
-      group.add(arm);
-      const glove = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), secMat);
-      glove.position.set(sx * (isG ? 1.05 : 0.85), 0.8, 0.25);
-      group.add(glove);
-    }
-    // head + helmet
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 12), skin);
-    head.position.y = isG ? 2.05 : 2.02;
-    group.add(head);
-    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.48, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.6), secMat);
-    helmet.position.y = head.position.y + 0.02;
-    helmet.castShadow = true;
-    group.add(helmet);
+    // top marking: a small centre disc (goalies get a wide ring, dummies a stripe)
     if (isG) {
-      const cage = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.4), new THREE.MeshToonMaterial({ color: 0xffffff, wireframe: true }));
-      cage.position.y = head.position.y;
-      group.add(cage);
-      // leg pads
-      for (const sx of [-1, 1]) {
-        const pad = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.0, 0.45), secMat);
-        pad.position.set(sx * 0.42, 0.5, 0.15);
-        pad.castShadow = true;
-        group.add(pad);
-      }
+      const ring = new THREE.Mesh(new THREE.RingGeometry(r * 0.45, r * 0.8, 28), new THREE.MeshBasicMaterial({ color: secondary, side: THREE.DoubleSide }));
+      ring.rotation.x = -Math.PI / 2; ring.position.y = h + 0.01;
+      group.add(ring);
+    } else if (isO) {
+      const stripe = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.01, r * 1.01, 0.18, 28, 1, true), new THREE.MeshToonMaterial({ color: secondary }));
+      stripe.position.y = h * 0.6;
+      group.add(stripe);
     } else {
-      for (const sx of [-1, 1]) {
-        const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.4, 3, 8), dark);
-        leg.position.set(sx * 0.3, 0.42, 0);
-        group.add(leg);
-      }
+      const dot = new THREE.Mesh(new THREE.CircleGeometry(r * 0.45, 24), new THREE.MeshBasicMaterial({ color: secondary }));
+      dot.rotation.x = -Math.PI / 2; dot.position.y = h + 0.01;
+      group.add(dot);
     }
-    // skates
-    for (const sx of [-1, 1]) {
-      const skate = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.6), new THREE.MeshToonMaterial({ color: 0xe2e8f0 }));
-      skate.position.set(sx * 0.32, 0.06, 0.05);
-      group.add(skate);
-    }
-    // stick: from the right glove down to the ice in front
-    const stickMat = new THREE.MeshToonMaterial({ color: 0xd97706 });
-    const hand = new THREE.Vector3(0.6, 0.85, 0.35);
-    const bladeStart = new THREE.Vector3(0.1, 0.06, PLAYER.carryOffset - 0.15);
-    group.add(cylinderBetween(hand, bladeStart, 0.05, stickMat));
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.13), dark);
-    blade.position.set(bladeStart.x - 0.1, 0.06, bladeStart.z + 0.05);
-    blade.rotation.y = 0.25;
-    group.add(blade);
-
-    // control ring + carrier marker under the feet
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.2, 28), new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+    // pass-target highlight ring
+    const ring = new THREE.Mesh(new THREE.RingGeometry(r + 0.25, r + 0.55, 32), new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.03;
     ring.visible = false;
     group.add(ring);
-    const shadowDisc = new THREE.Mesh(new THREE.CircleGeometry(0.95, 20), new THREE.MeshBasicMaterial({ color: primary, transparent: true, opacity: 0.25, depthWrite: false }));
-    shadowDisc.rotation.x = -Math.PI / 2;
-    shadowDisc.position.y = 0.02;
-    group.add(shadowDisc);
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(r + 0.2, 24), new THREE.MeshBasicMaterial({ color: primary, transparent: true, opacity: 0.2, depthWrite: false }));
+    disc.rotation.x = -Math.PI / 2;
+    disc.position.y = 0.02;
+    group.add(disc);
+    return { group, body, ring, disc, baseY: h / 2 };
+  }
 
-    return { group, body, ring, disc: shadowDisc, bob: Math.random() * 6 };
+  /** Orbit ring around the carrier and the release line through the puck. */
+  buildAim() {
+    this.orbitRing = new THREE.Mesh(new THREE.RingGeometry(ORBIT.radius - 0.06, ORBIT.radius + 0.06, 48),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+    this.orbitRing.rotation.x = -Math.PI / 2;
+    this.orbitRing.position.y = 0.025;
+    this.orbitRing.visible = false;
+    this.scene.add(this.orbitRing);
+    this.aimLen = 16;
+    this.aimLine = new THREE.Mesh(new THREE.PlaneGeometry(0.22, this.aimLen),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+    this.aimLine.rotation.x = -Math.PI / 2;
+    this.aimGroup = new THREE.Group();
+    this.aimGroup.add(this.aimLine);
+    this.aimLine.position.set(0, 0.03, this.aimLen / 2 + ORBIT.radius);
+    this.aimHead = new THREE.Mesh(new THREE.CircleGeometry(0.5, 3), new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide }));
+    this.aimHead.rotation.x = -Math.PI / 2;
+    this.aimHead.rotation.z = Math.PI / 2 + Math.PI;
+    this.aimHead.position.set(0, 0.035, this.aimLen + ORBIT.radius);
+    this.aimGroup.add(this.aimHead);
+    this.scene.add(this.aimGroup);
+    this.aimGroup.visible = false;
+  }
+
+  updateAim(match) {
+    const c = match.puck.carrier;
+    const show = c && match.isUserCarrier(c) && (match.state === 'play' || match.state === 'ready');
+    this.orbitRing.visible = !!show;
+    this.aimGroup.visible = !!show;
+    for (const m of this.playerMeshes.values()) m.ring.visible = false;
+    if (!show) return;
+    this.orbitRing.position.x = c.x; this.orbitRing.position.z = c.z;
+    this.aimGroup.position.set(c.x, 0, c.z);
+    this.aimGroup.rotation.y = match.puck.orbit;
+    const snap = match.aimTarget(c);
+    const color = snap ? (snap.kind === 'goal' ? 0xf472b6 : 0x4ade80) : 0xfacc15;
+    this.aimLine.material.color.setHex(color);
+    this.aimHead.material.color.setHex(color);
+    this.aimLine.material.opacity = snap ? 0.95 : 0.6;
+    if (snap?.kind === 'pass') {
+      const m = this.playerMeshes.get(snap.target.id);
+      if (m) m.ring.visible = true;
+    }
+    // shorten the line so it ends at the target when snapped
+    let len = this.aimLen;
+    if (snap?.kind === 'pass') len = Math.hypot(snap.target.x - c.x, snap.target.z - c.z) - ORBIT.radius - 1;
+    else if (snap?.kind === 'goal') len = Math.hypot(c.x, match.attackGoalZ(c.team) - c.z) - ORBIT.radius - 0.5;
+    len = Math.max(2, len);
+    this.aimLine.scale.y = len / this.aimLen;
+    this.aimLine.position.z = len / 2 + ORBIT.radius;
+    this.aimHead.position.z = len + ORBIT.radius;
   }
 
   // ---------------------------------------------------------------- frame
@@ -468,7 +416,7 @@ export class Renderer {
   updateCamera(match, dt) {
     const puck = match.puck;
     const c = this.camParams;
-    const wantFocus = clamp(puck.z * 0.85, -c.range, c.range);
+    const wantFocus = clamp(puck.z * 0.85, c.rangeMin, c.rangeMax);
     this.focusZ = lerp(this.focusZ, wantFocus, 1 - Math.exp(-dt * 2.2));
     const pos = this.cameraPosition(this.focusZ);
     if (this.shake > 0) {
@@ -489,14 +437,17 @@ export class Renderer {
         const m = this.playerMeshes.get(p.id);
         if (!m) continue;
         m.group.position.set(p.x, 0, p.z);
-        m.group.rotation.y = p.facing;
         const sp = Math.hypot(p.vx, p.vz);
-        m.group.rotation.x = clamp(sp * 0.03, 0, 0.3);
-        m.body.position.y = (p.role === 'G' ? 1.05 : 1.08) + Math.sin(this.time * 10 + m.bob) * sp * 0.006;
-        m.ring.visible = p.controlled != null;
-        if (m.ring.visible) m.ring.scale.setScalar(1 + Math.sin(this.time * 8) * 0.06);
-        m.disc.material.opacity = match.puck.carrier === p ? 0.6 : 0.22;
+        // lean into the movement direction a touch
+        m.group.rotation.set(0, 0, 0);
+        if (sp > 0.5) {
+          const lean = clamp(sp * 0.02, 0, 0.18);
+          m.group.rotation.x = (p.vz / sp) * lean;
+          m.group.rotation.z = -(p.vx / sp) * lean;
+        }
+        m.disc.material.opacity = match.puck.carrier === p ? 0.55 : 0.2;
       }
+      this.updateAim(match);
       const puck = match.puck;
       this.puck.position.set(puck.x, 0.1, puck.z);
       this.puck.rotation.y += dt * 4;
@@ -515,14 +466,12 @@ export class Renderer {
       }
     }
     this.updateConfetti(dt);
-    this.updateCrowd(dt);
     this.renderer.render(this.scene, this.camera);
   }
 
   // ---------------------------------------------------------------- effects
   celebrate(team, colors, gz) {
     this.shake = 1.4;
-    this.crowdExcite = 2.5;
     const dummy = new THREE.Object3D();
     const col = new THREE.Color();
     this.confettiData = [];
@@ -560,19 +509,6 @@ export class Renderer {
     });
     this.confetti.instanceMatrix.needsUpdate = true;
     if (!alive) { this.confettiData = []; this.confetti.count = 0; }
-  }
-
-  updateCrowd(dt) {
-    if (this.crowdExcite <= 0) return;
-    this.crowdExcite -= dt;
-    const dummy = new THREE.Object3D();
-    const amp = Math.min(1, this.crowdExcite) * 0.6;
-    this.crowdPos.forEach((c, i) => {
-      dummy.position.set(c.x, c.y + Math.abs(Math.sin(this.time * 9 + i)) * amp, c.z);
-      dummy.updateMatrix();
-      this.crowd.setMatrixAt(i, dummy.matrix);
-    });
-    this.crowd.instanceMatrix.needsUpdate = true;
   }
 
   // ---------------------------------------------------------------- picking

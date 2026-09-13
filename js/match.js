@@ -1,11 +1,11 @@
-import { RINK, PLAYER, PUCK, RULES, FACEOFF_SPOTS } from './config.js';
-import { clamp, dist, norm, sdRoundRect, roundRectNormal, rand, noise } from './math.js';
+import { RINK, PLAYER, PUCK, RULES, ORBIT, FACEOFF_SPOTS } from './config.js';
+import { clamp, norm, sdRoundRect, roundRectNormal, rand, noise } from './math.js';
 import { updateTeamAI } from './ai.js';
 
 const HW = RINK.width / 2;
 const HL = RINK.length / 2;
 
-// Formation home positions for a team attacking +Z. Mirrored for team 1.
+// Formation home positions for a full team attacking +Z. Mirrored for team 1.
 const FORMATION = [
   { role: 'G', x: 0, z: -25 },
   { role: 'D', x: -6.5, z: -17 },
@@ -17,45 +17,55 @@ const FORMATION = [
 
 let nextPlayerId = 1;
 
+export function angleDiff(a, b) {
+  let d = a - b;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+/**
+ * The match engine. The user never steers anyone: every player skates on
+ * its own. When a player of the user's team holds the puck, it circles the
+ * player and is released (pass or shot) when the user lifts their finger.
+ *
+ * opts: { home, away, tactics, periodSeconds, overtime, onEvent, rules,
+ *         autoUser (AI releases for the user's team too, used by the demo),
+ *         scenario (training drill, see levels.js), orbitPeriod }
+ */
 export class Match {
-  /**
-   * @param {object} opts { home, away, tactics:[t0,t1], periodSeconds, overtime, onEvent }
-   */
   constructor(opts) {
     this.teams = [opts.home, opts.away];
     this.tactics = [opts.tactics?.[0] ?? opts.home.tactics, opts.tactics?.[1] ?? opts.away.tactics];
     this.periodSeconds = opts.periodSeconds ?? RULES.periodSeconds;
-    this.overtime = !!opts.overtime; // sudden death if tied after regulation
+    this.overtime = !!opts.overtime;
     this.onEvent = opts.onEvent || (() => {});
     this.userTeam = 0;
+    this.autoUser = !!opts.autoUser;
+    this.scenario = opts.scenario || null;
+    this.training = !!this.scenario;
+    this.rules = { offside: RULES.offside, icing: RULES.icing, ...(opts.rules || {}), ...(this.scenario?.rules || {}) };
+    this.orbitSpeed = (Math.PI * 2) / (opts.orbitPeriod || ORBIT.period);
 
     this.players = [];
-    for (let t = 0; t < 2; t++) {
-      const dir = t === 0 ? 1 : -1;
-      FORMATION.forEach((f, i) => {
-        const rating = this.teams[t].rating;
-        const p = {
-          id: nextPlayerId++, team: t, role: f.role, idx: i,
-          home: { x: f.x * (t === 0 ? 1 : -1), z: f.z * dir },
-          x: 0, z: 0, vx: 0, vz: 0,
-          r: f.role === 'G' ? PLAYER.goalieRadius : PLAYER.radius,
-          facing: dir > 0 ? 0 : Math.PI, // angle in XZ plane; 0 => +Z
-          maxSpeed: f.role === 'G' ? PLAYER.goalieSpeed : PLAYER.aiSpeedBase + (rating - 60) * 0.045,
-          controlled: null,         // pointer id when the user drags this player
-          target: null,             // where the player wants to be
-          pickupCooldown: 0,        // can't pick up the puck while > 0
-          ai: { timer: Math.random() * 0.2, holdTime: 0, decision: null, mark: null },
-        };
-        this.players.push(p);
-      });
+    if (this.scenario) {
+      this.scenario.home.forEach((spec) => this.addPlayer(0, spec));
+      this.scenario.away.forEach((spec) => this.addPlayer(1, spec));
+    } else {
+      for (let t = 0; t < 2; t++) {
+        const dir = t === 0 ? 1 : -1;
+        FORMATION.forEach((f) => this.addPlayer(t, { role: f.role, x: f.x * (t === 0 ? 1 : -1), z: f.z * dir }));
+      }
     }
-    this.puck = { x: 0, z: 0, vx: 0, vz: 0, r: PUCK.radius, carrier: null,
-      lastTouch: null, lastTouchTeam: -1, lastShooter: null, releaseZ: 0, releaseTeam: -1, untouched: false,
-      trail: [] };
+
+    this.puck = { x: 0, z: 0, vx: 0, vz: 0, r: PUCK.radius, carrier: null, orbit: 0,
+      lastTouch: null, lastTouchTeam: -1, lastShooter: null, assist: null,
+      releaseZ: 0, releaseTeam: -1, untouched: false, shotTime: -9, trail: [] };
 
     this.score = [0, 0];
     this.period = 1;
-    this.clock = this.periodSeconds;
+    this.clock = this.training ? (this.scenario.time || 60) : this.periodSeconds;
+    this.goalsToWin = this.training ? (this.scenario.goals || 3) : 0;
     this.state = 'faceoff';
     this.stateTimer = 0;
     this.inZone = [false, false];
@@ -64,22 +74,50 @@ export class Match {
     this.stats = { shots: [0, 0], passes: [0, 0], steals: [0, 0] };
     this.time = 0;
     this.ended = false;
+    this.won = null;
     this.isOvertime = false;
     this.pendingFaceoff = FACEOFF_SPOTS.center;
     this.pendingText = 'FACE-OFF';
+    this.pendingRelease = null;
 
-    this.setupFaceoff(FACEOFF_SPOTS.center, 'PERIOD 1');
+    if (this.training) this.setupDrill('GET READY');
+    else this.setupFaceoff(FACEOFF_SPOTS.center, 'PERIOD 1');
+  }
+
+  addPlayer(team, spec) {
+    const rating = this.teams[team].rating;
+    const role = spec.role || 'F';
+    const behavior = spec.behavior || (role === 'O' ? 'static' : 'active');
+    const speed = spec.speed ?? 1;
+    const p = {
+      id: nextPlayerId++, team, role, idx: this.players.filter((q) => q.team === team).length,
+      home: { x: spec.x, z: spec.z }, start: { x: spec.x, z: spec.z },
+      x: spec.x, z: spec.z, vx: 0, vz: 0,
+      r: role === 'G' ? PLAYER.goalieRadius : role === 'O' ? spec.r || 0.9 : PLAYER.radius,
+      facing: team === 0 ? 0 : Math.PI,
+      maxSpeed: (role === 'G' ? PLAYER.goalieSpeed : PLAYER.aiSpeedBase + (rating - 60) * 0.045) * speed,
+      behavior,                                   // 'active' | 'static' | 'patrol'
+      canPickup: behavior === 'active' && (spec.canPickup ?? true),
+      canSteal: behavior === 'active' && (spec.canSteal ?? true),
+      patrol: spec.patrol ? { x: spec.patrol.x, z: spec.patrol.z, speed: spec.patrol.speed || 1, phase: spec.patrol.phase || 0 } : null,
+      target: null,
+      pickupCooldown: 0,
+      ai: { timer: Math.random() * 0.2, holdTime: 0, decision: null, mark: null, expectPass: 0 },
+    };
+    this.players.push(p);
+    return p;
   }
 
   // ---------------------------------------------------------------- helpers
   dirOf(team) { return team === 0 ? 1 : -1; }
   ownGoalZ(team) { return -this.dirOf(team) * RINK.goalLineZ; }
   attackGoalZ(team) { return this.dirOf(team) * RINK.goalLineZ; }
-  skaters(team) { return this.players.filter((p) => p.team === team && p.role !== 'G'); }
+  skaters(team) { return this.players.filter((p) => p.team === team && p.role !== 'G' && p.role !== 'O'); }
   goalie(team) { return this.players.find((p) => p.team === team && p.role === 'G'); }
   teamPlayers(team) { return this.players.filter((p) => p.team === team); }
   opponents(team) { return this.players.filter((p) => p.team !== team); }
   carrierTeam() { return this.puck.carrier ? this.puck.carrier.team : -1; }
+  isUserCarrier(p) { return p.team === this.userTeam && p.role !== 'G' && !this.autoUser; }
 
   emit(type, data = {}) {
     const e = { type, time: this.time, ...data };
@@ -87,24 +125,61 @@ export class Match {
     this.onEvent(e);
   }
 
-  // Where the puck sits when a player carries it.
+  /** Where the puck sits while it circles the carrier. */
   carryPoint(p) {
-    return { x: p.x + Math.sin(p.facing) * PLAYER.carryOffset, z: p.z + Math.cos(p.facing) * PLAYER.carryOffset };
+    const a = this.puck.carrier === p ? this.puck.orbit : p.facing;
+    return { x: p.x + Math.sin(a) * ORBIT.radius, z: p.z + Math.cos(a) * ORBIT.radius };
   }
 
-  // ---------------------------------------------------------------- faceoffs
+  /** Unit vector the puck would be released along right now. */
+  aimDirection() { return { x: Math.sin(this.puck.orbit), z: Math.cos(this.puck.orbit) }; }
+
+  /**
+   * What a release from p would snap to at the current orbit angle:
+   * { kind: 'pass', target } | { kind: 'goal' } | null.
+   */
+  aimTarget(p) {
+    const a = this.puck.orbit;
+    let best = null, bestDiff = Infinity;
+    for (const m of this.teamPlayers(p.team)) {
+      if (m === p || m.role === 'G' || m.role === 'O') continue;
+      const d = Math.hypot(m.x - p.x, m.z - p.z);
+      const t = d / Math.max(ORBIT.passSpeedMin, 11 + d * 0.55);
+      const ang = Math.atan2(m.x + m.vx * t * 0.8 - p.x, m.z + m.vz * t * 0.8 - p.z);
+      const diff = Math.abs(angleDiff(ang, a));
+      if (diff < ORBIT.assistPass && diff < bestDiff) { bestDiff = diff; best = { kind: 'pass', target: m, diff }; }
+    }
+    const gz = this.attackGoalZ(p.team);
+    const gAng = Math.atan2(0 - p.x, gz - p.z);
+    const gDiff = Math.abs(angleDiff(gAng, a));
+    const dGoal = Math.hypot(p.x, gz - p.z);
+    // the goal mouth is wide up close: widen the snap window with proximity
+    const goalWindow = ORBIT.assistGoal + clamp((14 - dGoal) / 14, 0, 1) * 0.3;
+    if (gDiff < goalWindow && (!best || gDiff < bestDiff * 0.9 || dGoal < 9)) best = { kind: 'goal', diff: gDiff };
+    return best;
+  }
+
+  // ---------------------------------------------------------------- faceoffs / drills
+  resetPuckState() {
+    const puck = this.puck;
+    this.pendingRelease = null;
+    puck.carrier = null; puck.vx = 0; puck.vz = 0;
+    puck.lastTouch = null; puck.lastTouchTeam = -1; puck.lastShooter = null; puck.assist = null;
+    puck.untouched = false; puck.trail.length = 0;
+    this.inZone = [false, false];
+    for (const p of this.players) {
+      p.vx = p.vz = 0; p.target = null; p.pickupCooldown = 0;
+      p.ai.holdTime = 0; p.ai.decision = null; p.ai.mark = null; p.ai.expectPass = 0;
+    }
+  }
+
   setupFaceoff(spot, text) {
     this.state = 'faceoff';
     this.stateTimer = RULES.faceoffDelay;
     this.message = text || 'FACE-OFF';
-    const puck = this.puck;
-    puck.carrier = null;
-    puck.x = spot.x; puck.z = spot.z; puck.vx = 0; puck.vz = 0;
-    puck.lastTouch = null; puck.lastTouchTeam = -1; puck.untouched = false; puck.trail.length = 0;
-    this.inZone = [false, false];
+    this.resetPuckState();
+    this.puck.x = spot.x; this.puck.z = spot.z;
     for (const p of this.players) {
-      p.vx = p.vz = 0; p.target = null; p.controlled = null; p.pickupCooldown = 0;
-      p.ai.holdTime = 0; p.ai.decision = null; p.ai.mark = null;
       const dir = this.dirOf(p.team);
       const side = p.team === 0 ? 1 : -1;
       let x, z;
@@ -114,15 +189,32 @@ export class Match {
         case 2: x = spot.x + 4.5 * side; z = spot.z - dir * 8; break;               // D
         case 3: x = spot.x - 5.5 * side; z = spot.z - dir * 1.4; break;             // LW
         case 4: x = spot.x; z = spot.z - dir * 1.5; break;                          // C
-        case 5: x = spot.x + 5.5 * side; z = spot.z - dir * 1.4; break;             // RW
+        default: x = spot.x + 5.5 * side; z = spot.z - dir * 1.4; break;            // RW
       }
-      // keep everyone on their own side of the spot and inside the rink
       p.x = clamp(x, -HW + 2, HW - 2);
       p.z = clamp(z, -HL + 2, HL - 2);
       if (p.role !== 'G' && Math.abs(p.z - this.ownGoalZ(p.team)) < 3) p.z = this.ownGoalZ(p.team) + dir * 3;
       p.facing = dir > 0 ? 0 : Math.PI;
     }
     this.emit('faceoff', { spot, text: this.message });
+  }
+
+  /** Training: everyone back to their start spot, puck to the chosen player. */
+  setupDrill(text) {
+    this.state = 'ready';
+    this.stateTimer = RULES.drillReady;
+    this.message = text;
+    this.resetPuckState();
+    for (const p of this.players) {
+      p.x = p.start.x; p.z = p.start.z;
+      p.facing = p.team === 0 ? 0 : Math.PI;
+    }
+    const holder = this.teamPlayers(0)[this.scenario.puckTo || 0] || this.teamPlayers(0)[0];
+    if (holder) {
+      this.puck.orbit = holder.facing + Math.PI; // start behind the player
+      this.possess(holder, true);
+    } else { this.puck.x = 0; this.puck.z = 0; }
+    this.emit('drill', { text });
   }
 
   nearestFaceoffSpot(list, x, z) {
@@ -140,43 +232,58 @@ export class Match {
     this.pendingText = 'FACE-OFF';
     this.puck.carrier = null;
     this.puck.vx *= 0.2; this.puck.vz *= 0.2;
-    for (const p of this.players) { p.controlled = null; p.target = null; }
     this.emit('whistle', { text });
   }
 
+  /** Training: the other side got the puck. */
+  lostPuck(text) {
+    if (this.state !== 'play') return;
+    this.state = 'lost';
+    this.stateTimer = RULES.drillLost;
+    this.message = text;
+    this.emit('lost', { text });
+  }
+
   // ---------------------------------------------------------------- actions
-  /** Give the puck to a player. */
-  possess(p) {
+  possess(p, silent = false) {
     const puck = this.puck;
     if (puck.carrier === p) return;
     const prev = puck.carrier;
-    if (prev && prev.team !== p.team) { this.stats.steals[p.team]++; prev.pickupCooldown = 0.6; this.emit('steal', { by: p, from: prev }); }
-    if (puck.lastTouchTeam !== -1 && puck.lastTouchTeam !== p.team && !prev) this.emit('intercept', { by: p });
+    if (prev && prev.team !== p.team) { this.stats.steals[p.team]++; prev.pickupCooldown = 0.6; if (!silent) this.emit('steal', { by: p, from: prev }); }
+    if (puck.lastTouchTeam !== -1 && puck.lastTouchTeam !== p.team && !prev && !silent) this.emit('intercept', { by: p });
+    // remember who set this player up (for assists / give-and-go drills)
+    puck.assist = puck.lastTouch && puck.lastTouch !== p && puck.lastTouch.team === p.team ? puck.lastTouch : null;
     puck.carrier = p;
     puck.vx = puck.vz = 0;
+    if (!silent) puck.orbit = Math.atan2(puck.x - p.x, puck.z - p.z);
+    const cp = this.carryPoint(p);
+    puck.x = cp.x; puck.z = cp.z;
     puck.lastTouch = p; puck.lastTouchTeam = p.team; puck.untouched = false;
     p.ai.holdTime = 0;
     p.ai.decision = null;
+    if (!silent) this.emit('possess', { by: p });
+    // training: the defence has it -> drill over
+    if (this.training && !this.scenario.freePlay && p.team === 1 && this.state === 'play') {
+      this.lostPuck(p.role === 'G' ? 'SAVED!' : 'STOLEN!');
+    }
   }
 
-  /** Shoot/pass the puck from its carrier in direction (dx,dz) with a speed. */
   release(p, dx, dz, speed, kind = 'shot') {
     const puck = this.puck;
     if (puck.carrier !== p) return false;
     const n = norm(dx, dz);
     if (n.x === 0 && n.z === 0) return false;
     const cp = this.carryPoint(p);
-    // never start the puck behind a goal line (inside a net); use the body position instead
     if (Math.abs(cp.z) > RINK.goalLineZ - 0.3 && Math.abs(cp.x) < RINK.goalWidth / 2 + 0.6) {
       cp.x = p.x; cp.z = clamp(p.z, -(RINK.goalLineZ - 0.5), RINK.goalLineZ - 0.5);
     }
     puck.carrier = null;
     puck.x = cp.x; puck.z = cp.z;
     puck.lastShooter = p;
-    puck.vx = n.x * speed + p.vx * 0.25;
-    puck.vz = n.z * speed + p.vz * 0.25;
+    puck.vx = n.x * speed + p.vx * 0.2;
+    puck.vz = n.z * speed + p.vz * 0.2;
     puck.lastTouch = p; puck.lastTouchTeam = p.team;
-    puck.releaseZ = puck.z; puck.releaseTeam = p.team; puck.untouched = true;
+    puck.releaseZ = puck.z; puck.releaseTeam = p.team; puck.untouched = true; puck.shotTime = this.time;
     p.pickupCooldown = 0.45;
     p.facing = Math.atan2(n.x, n.z);
     if (kind === 'shot') this.stats.shots[p.team]++; else this.stats.passes[p.team]++;
@@ -184,12 +291,11 @@ export class Match {
     return true;
   }
 
-  /** Pass with lead so the puck arrives where the receiver will be. */
   passTo(p, receiver, opts = {}) {
     const acc = opts.accuracy ?? 1;
     const dx0 = receiver.x - p.x, dz0 = receiver.z - p.z;
     const d = Math.hypot(dx0, dz0);
-    const speed = clamp(11 + d * 0.55, 12, 24);
+    const speed = clamp(11 + d * 0.55, ORBIT.passSpeedMin, 24);
     const t = d / speed;
     let tx = receiver.x + receiver.vx * t * 0.8;
     let tz = receiver.z + receiver.vz * t * 0.8;
@@ -199,24 +305,51 @@ export class Match {
     return ok;
   }
 
-  /** Shoot at the opponent's goal, aiming away from the goalie. */
   shootAtGoal(p, opts = {}) {
     const acc = opts.accuracy ?? 1;
-    const power = opts.power ?? 24;
+    const power = opts.power ?? ORBIT.shotSpeed;
     const gz = this.attackGoalZ(p.team);
     const goalie = this.goalie(1 - p.team);
-    const half = RINK.goalWidth / 2 - 0.45;
+    const half = RINK.goalWidth / 2 - 0.85;
     let aimX = goalie ? (goalie.x > 0 ? -half : half) : (Math.random() < 0.5 ? -half : half);
     if (Math.random() < 0.25) aimX *= 0.3;
     aimX += noise(1.5 * (1.2 - acc));
     return this.release(p, aimX - p.x, gz - p.z, power, 'shot');
   }
 
+  /** Release along the current orbit direction, snapping to a team-mate or the goal. */
+  releaseAimed(p, opts = {}) {
+    if (this.puck.carrier !== p) return false;
+    const snap = opts.assist === false ? null : this.aimTarget(p);
+    const acc = opts.accuracy ?? 1;
+    if (snap?.kind === 'pass') return this.passTo(p, snap.target, { accuracy: acc });
+    if (snap?.kind === 'goal') return this.shootAtGoal(p, { accuracy: acc, power: ORBIT.shotSpeed });
+    const d = this.aimDirection();
+    return this.release(p, d.x, d.z, ORBIT.freeSpeed, 'shot');
+  }
+
+  /**
+   * The user lifted their finger. If the line is about to reach a target
+   * within a fraction of a second, wait for it (forgives early taps).
+   */
+  userRelease() {
+    const c = this.puck.carrier;
+    if (!c || !this.isUserCarrier(c) || this.state !== 'play') return false;
+    if (this.aimTarget(c)) return this.releaseAimed(c, { assist: true, accuracy: 1 });
+    const saved = this.puck.orbit;
+    for (const t of [0.05, 0.1, 0.15, 0.2, 0.25]) {
+      this.puck.orbit = saved + this.orbitSpeed * t;
+      const hit = this.aimTarget(c);
+      this.puck.orbit = saved;
+      if (hit) { this.pendingRelease = { player: c, until: this.time + t + 0.06 }; return true; }
+    }
+    return this.releaseAimed(c, { assist: true, accuracy: 1 });
+  }
+
   // ---------------------------------------------------------------- update
   update(dt) {
     if (this.ended) return;
     this.time += dt;
-    // sub-step physics for stability
     const steps = 2;
     const h = dt / steps;
     for (let i = 0; i < steps; i++) this.step(h);
@@ -235,13 +368,26 @@ export class Match {
           this.emit('drop');
         }
         break;
+      case 'ready':
+        this.stateTimer -= dt;
+        if (this.stateTimer <= 0) { this.state = 'play'; this.message = ''; this.emit('go'); }
+        break;
       case 'whistle':
         this.stateTimer -= dt;
         if (this.stateTimer <= 0) this.setupFaceoff(this.pendingFaceoff, this.pendingText);
         break;
+      case 'lost':
+        this.stateTimer -= dt;
+        if (this.stateTimer <= 0) this.setupDrill('AGAIN!');
+        break;
       case 'goal':
         this.stateTimer -= dt;
         if (this.stateTimer <= 0) {
+          if (this.training) {
+            if (this.score[0] >= this.goalsToWin) { this.finish(true); break; }
+            this.setupDrill('NICE! AGAIN');
+            break;
+          }
           if (this.isOvertime) { this.finish(); break; }
           this.setupFaceoff(FACEOFF_SPOTS.center, 'FACE-OFF');
         }
@@ -256,33 +402,38 @@ export class Match {
     const live = this.state === 'play';
     if (live) {
       this.clock -= dt;
-      if (this.clock <= 0) { this.clock = 0; this.endPeriod(); }
+      if (this.clock <= 0) { this.clock = 0; this.training ? this.finish(false) : this.endPeriod(); }
     }
-
-    // AI decisions for both teams (also for the user's uncontrolled players)
+    const moving = live || this.state === 'ready';
     if (live) { updateTeamAI(this, 0, dt); updateTeamAI(this, 1, dt); }
-
-    // Player motion
     for (const p of this.players) this.movePlayer(p, dt, live);
     this.collidePlayers();
     for (const p of this.players) this.constrainPlayer(p);
-
-    // Puck
     if (live) this.updatePuck(dt);
-    else if (puck.carrier) { const cp = this.carryPoint(puck.carrier); puck.x = cp.x; puck.z = cp.z; }
-
+    else if (puck.carrier) {
+      if (this.state === 'ready') puck.orbit += this.orbitSpeed * dt;
+      const cp = this.carryPoint(puck.carrier); puck.x = cp.x; puck.z = cp.z;
+    }
     if (live) this.checkRules();
+    void moving;
   }
 
   movePlayer(p, dt, live) {
     if (p.pickupCooldown > 0) p.pickupCooldown -= dt;
+    if (p.behavior === 'static') { p.vx = p.vz = 0; return; }
+    if (p.behavior === 'patrol') {
+      const k = 0.5 + 0.5 * Math.sin(this.time * p.patrol.speed + p.patrol.phase);
+      const nx = p.start.x + (p.patrol.x - p.start.x) * k;
+      const nz = p.start.z + (p.patrol.z - p.start.z) * k;
+      p.vx = (nx - p.x) / dt; p.vz = (nz - p.z) / dt;
+      p.x = nx; p.z = nz;
+      return;
+    }
     let dvx = 0, dvz = 0;
     if (live && p.target) {
       const dx = p.target.x - p.x, dz = p.target.z - p.z;
       const d = Math.hypot(dx, dz);
-      const speed = p.controlled != null ? PLAYER.humanSpeed : p.maxSpeed;
-      // arrive: slow down near the target
-      const want = Math.min(speed, d * (p.controlled != null ? 14 : 6));
+      const want = Math.min(p.maxSpeed, d * 6);
       if (d > 0.02) { dvx = (dx / d) * want; dvz = (dz / d) * want; }
     }
     const k = 1 - Math.exp(-PLAYER.accel / 8 * dt);
@@ -295,10 +446,7 @@ export class Match {
     if (p.role === 'G') { p.facing = this.dirOf(p.team) > 0 ? 0 : Math.PI; return; }
     if (sp > 0.6) {
       const want = Math.atan2(p.vx, p.vz);
-      let d = want - p.facing;
-      while (d > Math.PI) d -= Math.PI * 2;
-      while (d < -Math.PI) d += Math.PI * 2;
-      p.facing += d * Math.min(1, dt * 14);
+      p.facing += angleDiff(want, p.facing) * Math.min(1, dt * 14);
     }
   }
 
@@ -311,15 +459,16 @@ export class Match {
         const d = Math.hypot(dx, dz);
         const min = a.r + b.r;
         if (d < min && d > 1e-4) {
-          const push = (min - d) / 2;
           const nx = dx / d, nz = dz / d;
-          a.x -= nx * push; a.z -= nz * push;
-          b.x += nx * push; b.z += nz * push;
-          // bump velocities apart a little
+          const aFixed = a.behavior !== 'active', bFixed = b.behavior !== 'active';
+          const pa = aFixed ? 0 : bFixed ? min - d : (min - d) / 2;
+          const pb = bFixed ? 0 : aFixed ? min - d : (min - d) / 2;
+          a.x -= nx * pa; a.z -= nz * pa;
+          b.x += nx * pb; b.z += nz * pb;
           const rel = (b.vx - a.vx) * nx + (b.vz - a.vz) * nz;
           if (rel < 0) {
-            a.vx += nx * rel * 0.5; a.vz += nz * rel * 0.5;
-            b.vx -= nx * rel * 0.5; b.vz -= nz * rel * 0.5;
+            if (!aFixed) { a.vx += nx * rel * 0.5; a.vz += nz * rel * 0.5; }
+            if (!bFixed) { b.vx -= nx * rel * 0.5; b.vz -= nz * rel * 0.5; }
           }
         }
       }
@@ -327,7 +476,7 @@ export class Match {
   }
 
   constrainPlayer(p) {
-    // boards
+    if (p.behavior !== 'active') return;
     const sd = sdRoundRect(p.x, p.z, HW, HL, RINK.corner);
     if (sd > -p.r) {
       const n = roundRectNormal(p.x, p.z, HW, HL, RINK.corner);
@@ -336,15 +485,13 @@ export class Match {
       const vn = p.vx * n.x + p.vz * n.z;
       if (vn > 0) { p.vx -= n.x * vn; p.vz -= n.z * vn; }
     }
-    // keep skaters out of both nets (goalies included)
     for (const t of [0, 1]) {
       const gz = this.ownGoalZ(t);
-      const dir = this.dirOf(t); // net extends from gz towards -dir
+      const dir = this.dirOf(t);
       const zMin = Math.min(gz, gz - dir * RINK.goalDepth) - p.r;
       const zMax = Math.max(gz, gz - dir * RINK.goalDepth) + p.r;
       const hx = RINK.goalWidth / 2 + p.r;
       if (Math.abs(p.x) < hx && p.z > zMin && p.z < zMax) {
-        // push out along the axis of least penetration
         const px = hx - Math.abs(p.x);
         const pzFront = dir > 0 ? (zMax - p.z) : (p.z - zMin);
         if (px < pzFront) p.x += (p.x >= 0 ? 1 : -1) * px;
@@ -357,17 +504,18 @@ export class Match {
     const puck = this.puck;
     if (puck.carrier) {
       const c = puck.carrier;
+      puck.orbit += this.orbitSpeed * dt;
+      if (puck.orbit > Math.PI) puck.orbit -= Math.PI * 2;
       const cp = this.carryPoint(c);
-      if (Math.abs(cp.z) > RINK.goalLineZ - 0.4 && Math.abs(cp.x) < RINK.goalWidth / 2 + 0.6) {
-        const lim = RINK.goalLineZ - 0.4 - PLAYER.carryOffset;
-        c.z = clamp(c.z, -lim, lim);
-        const cp2 = this.carryPoint(c); cp.x = cp2.x; cp.z = cp2.z;
-      }
       puck.x = cp.x; puck.z = cp.z; puck.vx = c.vx; puck.vz = c.vz;
-      if (c.role !== 'G') this.checkSteal(c);
+      const pr = this.pendingRelease;
+      if (pr) {
+        if (pr.player !== c) this.pendingRelease = null;
+        else if (this.aimTarget(c) || this.time >= pr.until) { this.pendingRelease = null; this.releaseAimed(c, { assist: true, accuracy: 1 }); return; }
+      }
+      if (c.role !== 'G') this.checkSteal(c, dt);
       return;
     }
-    // free puck physics
     const sp = Math.hypot(puck.vx, puck.vz);
     if (sp > 0) {
       const dec = Math.min(sp, PUCK.friction * dt + sp * PUCK.drag * dt);
@@ -382,7 +530,7 @@ export class Match {
     // Nets: a puck crossing the goal line between the posts from the front is a
     // goal; from any other side the net frame is a solid box.
     for (const t of [0, 1]) {
-      const gz = this.ownGoalZ(t); // goal defended by team t
+      const gz = this.ownGoalZ(t);
       const dir = this.dirOf(t);
       const hw = RINK.goalWidth / 2 + 0.15;
       const zFront = gz, zBack = gz - dir * (RINK.goalDepth + 0.15);
@@ -392,19 +540,13 @@ export class Match {
         const crossedLine = dir * (puck.z - gz) < -puck.r * 0.5;
         if (wasInFront && Math.abs(prevX) < RINK.goalWidth / 2 - puck.r * 0.3) {
           if (crossedLine) { this.goalScored(1 - t); return; }
-          continue; // still in front of the line, nothing to do
+          continue;
         }
-        if (wasInFront) continue; // heading at a post; the post circles handle it
-        // came from behind or the side: push out of the box and bounce
+        if (wasInFront) continue;
         const pushSide = hw + puck.r - Math.abs(puck.x);
         const pushBack = dir > 0 ? (puck.z - zMin) : (zMax - puck.z);
-        if (pushSide < pushBack) {
-          puck.x += (puck.x >= 0 ? 1 : -1) * pushSide;
-          puck.vx = -puck.vx * PUCK.boardRestitution;
-        } else {
-          puck.z += dir > 0 ? -pushBack : pushBack;
-          puck.vz = -puck.vz * PUCK.boardRestitution;
-        }
+        if (pushSide < pushBack) { puck.x += (puck.x >= 0 ? 1 : -1) * pushSide; puck.vx = -puck.vx * PUCK.boardRestitution; }
+        else { puck.z += dir > 0 ? -pushBack : pushBack; puck.vz = -puck.vz * PUCK.boardRestitution; }
       }
     }
     // posts
@@ -419,7 +561,7 @@ export class Match {
           const nx = dx / d, nz = dz / d;
           puck.x = px + nx * min; puck.z = pz + nz * min;
           const vn = puck.vx * nx + puck.vz * nz;
-          if (vn < 0) { puck.vx -= (1 + 0.8) * vn * nx; puck.vz -= (1 + 0.8) * vn * nz; }
+          if (vn < 0) { puck.vx -= 1.8 * vn * nx; puck.vz -= 1.8 * vn * nz; }
           this.emit('post');
         }
       }
@@ -443,8 +585,7 @@ export class Match {
       const dx = puck.x - p.x, dz = puck.z - p.z;
       const d = Math.hypot(dx, dz);
       const reach = p.role === 'G' ? p.r + puck.r + 0.35 : PLAYER.reach;
-      if (d < reach && p.pickupCooldown <= 0 && d < bestD) { best = p; bestD = d; }
-      // physical bounce off the body
+      if (p.canPickup && d < reach && p.pickupCooldown <= 0 && d < bestD) { best = p; bestD = d; }
       const min = p.r + puck.r;
       if (d < min && d > 1e-4) {
         const nx = dx / d, nz = dz / d;
@@ -452,47 +593,47 @@ export class Match {
         const rvx = puck.vx - p.vx, rvz = puck.vz - p.vz;
         const vn = rvx * nx + rvz * nz;
         if (vn < 0) {
-          puck.vx -= (1 + PUCK.playerRestitution) * vn * nx;
-          puck.vz -= (1 + PUCK.playerRestitution) * vn * nz;
+          const rest = p.role === 'G' ? 0.35 : PUCK.playerRestitution; // goalies smother rebounds
+          puck.vx -= (1 + rest) * vn * nx;
+          puck.vz -= (1 + rest) * vn * nz;
           puck.untouched = false;
           if (p.role === 'G') this.emit('save', { by: p });
+          else if (p.role === 'O') this.emit('block', { by: p });
         }
       }
     }
     if (best) {
       const sp2 = Math.hypot(puck.vx - best.vx, puck.vz - best.vz);
-      // goalies "catch" only slow pucks; skaters take anything reasonably slow or
-      // anything passed by a teammate.
-      const limit = best.role === 'G' ? 9 : (puck.lastTouchTeam === best.team ? 26 : 17);
+      const limit = best.role === 'G' ? 9 : (puck.lastTouchTeam === best.team ? 27 : 17);
       if (sp2 < limit) this.possess(best);
       else { puck.untouched = false; puck.lastTouch = best; puck.lastTouchTeam = best.team; }
     }
-    // trail for rendering
     const tr = puck.trail;
     tr.push({ x: puck.x, z: puck.z });
     if (tr.length > 14) tr.shift();
   }
 
-  checkSteal(carrier) {
+  checkSteal(carrier, dt) {
     const puck = this.puck;
     for (const p of this.players) {
-      if (p.team === carrier.team || p.pickupCooldown > 0) continue;
+      if (p.team === carrier.team || p.pickupCooldown > 0 || !p.canSteal) continue;
       const d = Math.hypot(puck.x - p.x, puck.z - p.z);
       const reach = p.role === 'G' ? p.r + 0.3 : PLAYER.stealReach;
-      if (d < reach) { this.possess(p); return; }
+      // a steal needs a moment of contact, so the circling puck can slip past
+      if (d < reach) p.ai.stealCharge = (p.ai.stealCharge || 0) + dt;
+      else p.ai.stealCharge = Math.max(0, (p.ai.stealCharge || 0) - dt * 2);
+      if (p.ai.stealCharge >= PLAYER.stealTime) { p.ai.stealCharge = 0; this.possess(p); return; }
     }
   }
 
   // ---------------------------------------------------------------- rules
   checkRules() {
     const puck = this.puck;
-    // Offside: the puck enters the attacking zone while a team-mate of the
-    // player who moved it in is already in the zone.
-    for (const t of [0, 1]) {
-      const dir = this.dirOf(t);
-      const inZone = dir * puck.z > RINK.blueLineZ;
-      if (inZone && !this.inZone[t]) {
-        if (puck.lastTouchTeam === t) {
+    if (this.rules.offside) {
+      for (const t of [0, 1]) {
+        const dir = this.dirOf(t);
+        const inZone = dir * puck.z > RINK.blueLineZ;
+        if (inZone && !this.inZone[t] && puck.lastTouchTeam === t) {
           const offender = this.skaters(t).find((p) => p !== puck.carrier && p !== puck.lastTouch && dir * p.z > RINK.blueLineZ + 0.6);
           if (offender) {
             const spot = this.nearestFaceoffSpot(FACEOFF_SPOTS.neutral, puck.x, dir * 7);
@@ -500,34 +641,44 @@ export class Match {
             return;
           }
         }
+        this.inZone[t] = inZone;
       }
-      this.inZone[t] = inZone;
     }
-    // Icing: released from the defensive half, crossed the far goal line untouched.
-    if (!puck.carrier && puck.untouched && puck.releaseTeam >= 0) {
+    if (this.rules.icing && !puck.carrier && puck.untouched && puck.releaseTeam >= 0) {
       const t = puck.releaseTeam;
       const dir = this.dirOf(t);
       if (dir * puck.releaseZ < -0.5 && dir * puck.z > RINK.goalLineZ && Math.abs(puck.x) > RINK.goalWidth / 2) {
         const spot = this.nearestFaceoffSpot(FACEOFF_SPOTS.end.filter((s) => Math.sign(s.z) === -dir), puck.x, -dir * 20);
         this.whistle('ICING', spot);
-        return;
       }
     }
   }
 
   goalScored(team) {
     if (this.state !== 'play') return;
-    this.score[team]++;
-    this.state = 'goal';
-    this.stateTimer = RULES.goalCelebration;
-    this.message = 'GOAL!';
     const puck = this.puck;
     let scorer = puck.lastTouch;
     if (scorer && scorer.team !== team && puck.lastShooter && puck.lastShooter.team === team) scorer = puck.lastShooter;
+    if (this.training && team === 1 && !this.scenario.freePlay) {
+      this.state = 'lost'; this.stateTimer = RULES.drillLost; this.message = 'WRONG NET!';
+      puck.carrier = null; puck.vx *= 0.1; puck.vz *= 0.1;
+      this.emit('lost', { text: 'WRONG NET!' });
+      return;
+    }
+    // training drills can demand a pass before the goal
+    if (this.training && team === 0 && this.scenario.requireAssist && !(puck.lastShooter && puck.assist)) {
+      this.state = 'lost'; this.stateTimer = RULES.drillLost; this.message = 'PASS FIRST!';
+      puck.carrier = null; puck.vx *= 0.1; puck.vz *= 0.1;
+      this.emit('lost', { text: 'PASS FIRST!' });
+      return;
+    }
+    this.score[team]++;
+    this.state = 'goal';
+    this.stateTimer = this.training ? RULES.drillGoal : RULES.goalCelebration;
+    this.message = 'GOAL!';
     puck.carrier = null;
     puck.vx *= 0.15; puck.vz *= 0.15;
-    for (const p of this.players) { p.controlled = null; p.target = null; }
-    this.emit('goal', { team, scorer, ownGoal: scorer && scorer.team !== team });
+    this.emit('goal', { team, scorer, assist: puck.assist, ownGoal: scorer && scorer.team !== team });
   }
 
   endPeriod() {
@@ -545,73 +696,27 @@ export class Match {
     this.stateTimer = 2.5;
     this.message = `END OF PERIOD ${this.period}`;
     this.puck.carrier = null;
-    for (const p of this.players) { p.controlled = null; p.target = null; }
     this.emit('periodEnd', { period: this.period });
   }
 
   nextPeriod() {
-    if (this.period >= RULES.periods && !this.isOvertime) {
+    if (this.period >= RULES.periods) {
       this.isOvertime = true;
-      this.clock = 999; // sudden death, clock shows nothing meaningful
+      this.clock = 999;
       this.setupFaceoff(FACEOFF_SPOTS.center, 'SUDDEN DEATH');
       return;
     }
-    if (this.isOvertime) { this.clock = 999; this.setupFaceoff(FACEOFF_SPOTS.center, 'SUDDEN DEATH'); return; }
     this.period++;
     this.clock = this.periodSeconds;
     this.setupFaceoff(FACEOFF_SPOTS.center, `PERIOD ${this.period}`);
   }
 
-  finish() {
+  finish(won) {
     this.state = 'ended';
     this.ended = true;
-    this.message = 'FINAL';
+    this.won = won ?? (this.score[0] > this.score[1] ? true : this.score[0] < this.score[1] ? false : null);
+    this.message = this.training ? (won ? 'LEVEL COMPLETE!' : "TIME'S UP") : 'FINAL';
     this.puck.carrier = null;
-    for (const p of this.players) { p.controlled = null; p.target = null; }
-    this.emit('end', { score: [...this.score] });
-  }
-
-  // ---------------------------------------------------------------- input API (used by input.js)
-  /** Nearest free skater of the user's team to a world point. */
-  pickPlayer(x, z) {
-    const free = this.skaters(this.userTeam).filter((p) => p.controlled == null);
-    if (!free.length) return null;
-    let best = null, bd = Infinity;
-    for (const p of free) { const d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = p; } }
-    if (bd < 5.5) return best;
-    // Far from everyone: take the most relevant player instead.
-    const carrier = this.puck.carrier;
-    if (carrier && carrier.team === this.userTeam && carrier.controlled == null && carrier.role !== 'G') return carrier;
-    let nb = null, nd = Infinity;
-    for (const p of free) { const d = Math.hypot(p.x - this.puck.x, p.z - this.puck.z); if (d < nd) { nd = d; nb = p; } }
-    return nb;
-  }
-
-  /** The user tapped at a world point: pass to the team-mate there or shoot. */
-  userTap(x, z) {
-    const carrier = this.puck.carrier;
-    if (!carrier || carrier.team !== this.userTeam || this.state !== 'play') return false;
-    const gz = this.attackGoalZ(this.userTeam);
-    const dGoal = Math.hypot(x, z - gz);
-    let mate = null, md = Infinity;
-    for (const p of this.teamPlayers(this.userTeam)) {
-      if (p === carrier || p.role === 'G') continue;
-      const d = Math.hypot(p.x - x, p.z - z);
-      if (d < md) { md = d; mate = p; }
-    }
-    if (dGoal < 7.5 && dGoal < md) {
-      const half = RINK.goalWidth / 2 - 0.5;
-      const aimX = clamp(x, -half, half);
-      return this.release(carrier, aimX - carrier.x, gz - carrier.z, 25, 'shot');
-    }
-    if (mate) return this.passTo(carrier, mate, { accuracy: 1 });
-    return false;
-  }
-
-  /** The user flicked while dragging a player: shoot in that direction. */
-  userFlick(p, dx, dz, strength) {
-    if (this.puck.carrier !== p || this.state !== 'play') return false;
-    const power = clamp(strength, 13, 27);
-    return this.release(p, dx, dz, power, 'shot');
+    this.emit('end', { score: [...this.score], won: this.won });
   }
 }

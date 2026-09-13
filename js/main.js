@@ -4,28 +4,34 @@ import { Input } from './input.js';
 import { UI } from './ui.js';
 import { Sfx } from './audio.js';
 import { TEAMS, teamById, USER_TEAM_ID } from './teams.js';
-import { DEFAULT_TACTICS, SETTINGS_KEY, RULES } from './config.js';
+import { DEFAULT_TACTICS, SETTINGS_KEY, RULES, ORBIT } from './config.js';
 import { newSeason, loadSeason, saveSeason, advanceToUserFixture, recordUserResult, randomOpponent } from './season.js';
+import { LEVELS, loadTraining, saveTraining, isUnlocked } from './levels.js';
 
 const canvas = document.getElementById('game');
 const ui = new UI();
 const renderer = new Renderer(canvas);
 let match = null;
-let matchCtx = null;      // { type:'quick'|'season', fx, label }
+let matchCtx = null;      // { type:'quick'|'season'|'training', ... }
 let season = loadSeason();
+let training = loadTraining();
 let paused = false;
 let running = false;
-const input = new Input(canvas, renderer, () => (running && !paused ? match : null));
+const input = new Input(canvas, () => (running && !paused ? match : null));
 const sfx = new Sfx();
 window.addEventListener('pointerdown', () => sfx.unlock(), { passive: true });
 
+// The training opponents: a neutral gray side used for drills.
+const DRILL_TEAM = { id: 'drill', name: 'Training', short: 'TRN', primary: '#94a3b8', secondary: '#f97316', rating: 74, tactics: { ...DEFAULT_TACTICS, pressing: 0.7 } };
+
 // ------------------------------------------------------------------ settings
 function loadSettings() {
+  const base = { tactics: { ...DEFAULT_TACTICS }, periodSeconds: RULES.periodSeconds, orbitPeriod: ORBIT.period };
   try {
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
-    if (s) return { tactics: { ...DEFAULT_TACTICS, ...s.tactics }, periodSeconds: s.periodSeconds || RULES.periodSeconds };
+    if (s) return { ...base, ...s, tactics: { ...DEFAULT_TACTICS, ...(s.tactics || {}) } };
   } catch (e) { /* ignore */ }
-  return { tactics: { ...DEFAULT_TACTICS }, periodSeconds: RULES.periodSeconds };
+  return base;
 }
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* ignore */ } }
 let settings = loadSettings();
@@ -38,15 +44,16 @@ function startMatch(home, away, ctx) {
     home, away,
     tactics: [home.tactics, away.tactics],
     periodSeconds: settings.periodSeconds,
+    orbitPeriod: settings.orbitPeriod,
     overtime: ctx.type === 'season' && ctx.fx.type === 'cup',
+    scenario: ctx.scenario || null,
     onEvent: onMatchEvent,
   });
-  // the user always plays as team 0 (defending the bottom goal)
   renderer.buildPlayers(match);
   renderer.focusZ = 0;
   ui.hide();
   ui.showHud(match);
-  ui.showBanner(`${home.name} vs ${away.name}`, 'info', 2200);
+  if (!ctx.scenario) ui.showBanner(`${home.name} vs ${away.name}`, 'info', 2200);
   paused = false;
   running = true;
 }
@@ -56,33 +63,41 @@ function onMatchEvent(e) {
     case 'goal': {
       const t = match.teams[e.team];
       renderer.celebrate(e.team, [t.primary, t.secondary, '#ffffff'], match.attackGoalZ(e.team));
-      ui.showBanner(e.team === 0 ? 'GOAL!' : 'GOAL AGAINST', e.team === 0 ? 'goal' : 'bad', 2600);
+      ui.showBanner(e.team === 0 ? 'GOAL!' : 'GOAL AGAINST', e.team === 0 ? 'goal' : 'bad', 2400);
       sfx.horn();
       break;
     }
     case 'whistle': ui.showBanner(e.text, 'warn', 1800); sfx.whistle(); break;
+    case 'lost': ui.showBanner(e.text, 'bad', 1200); sfx.whistle(); break;
+    case 'drill': ui.showBanner(e.text, 'info', 900); break;
     case 'faceoff': if (e.text && e.text !== 'FACE-OFF') ui.showBanner(e.text, 'info', 1500); break;
-    case 'drop': sfx.drop(); break;
+    case 'drop': case 'go': sfx.drop(); break;
     case 'periodEnd': ui.showBanner(match.message, 'info', 2400); sfx.whistle(); break;
     case 'post': renderer.shake = Math.max(renderer.shake, 0.5); sfx.post(); break;
     case 'board': sfx.board(); break;
+    case 'block': sfx.board(); break;
     case 'shot': sfx.shot(); break;
     case 'pass': sfx.pass(); break;
     case 'steal': if (e.by.team === 0) sfx.steal(); break;
-    case 'end': sfx.whistle(); setTimeout(() => finishMatch(), 900); break;
+    case 'end': ui.showBanner(match.message, e.won === false ? 'bad' : 'goal', 1500); sfx.whistle(); setTimeout(() => finishMatch(), 1300); break;
   }
 }
 
 function finishMatch() {
   running = false;
-  input.releaseAll();
+  input.clear();
   ui.hideHud();
   if (matchCtx.type === 'season' && season) {
-    // the user is always team 0 in the engine; map the score back to home/away
     const fx = matchCtx.fx;
     const score = fx.userIsHome ? [match.score[0], match.score[1]] : [match.score[1], match.score[0]];
     recordUserResult(season, fx, score, match.isOvertime);
     saveSeason(season);
+  }
+  if (matchCtx.type === 'training') {
+    const lv = LEVELS[matchCtx.level];
+    if (match.won && !training.done.includes(lv.id)) { training.done.push(lv.id); saveTraining(training); }
+    ui.levelResult(match, lv, matchCtx.level, matchCtx.level + 1 < LEVELS.length);
+    return;
   }
   ui.matchResult(match, matchCtx);
 }
@@ -90,21 +105,22 @@ function finishMatch() {
 function quitMatch() {
   running = false;
   paused = false;
-  input.releaseAll();
+  input.clear();
   ui.hideHud();
   if (matchCtx.type === 'season' && season) {
-    // forfeit: recorded as a 0-3 loss
     const fx = matchCtx.fx;
     const score = fx.userIsHome ? [0, 3] : [3, 0];
     recordUserResult(season, fx, score, false);
     saveSeason(season);
     showHub();
-  } else showMenu();
+  } else if (matchCtx.type === 'training') showTraining();
+  else showMenu();
 }
 
 // ------------------------------------------------------------------ screens
 function showMenu() {
   running = false;
+  startDemo();
   ui.mainMenu({ hasSeason: !!season && !season.finished, trophies: season?.trophies });
 }
 
@@ -115,8 +131,29 @@ function showHub(tab = 'next') {
   ui.seasonHub(season, fx, tab);
 }
 
+function showTraining() { ui.training(LEVELS, training); }
+
+let pendingLevel = 0;
+function introLevel(i) {
+  if (!isUnlocked(training, i)) return;
+  pendingLevel = i;
+  ui.levelIntro(LEVELS[i], i);
+}
+
+function beginLevel() {
+  const lv = LEVELS[pendingLevel];
+  const away = lv.away.some((a) => a.role === 'D' || a.role === 'F') ? { ...TEAMS[3], tactics: { ...DEFAULT_TACTICS, pressing: 0.7 } } : DRILL_TEAM;
+  startMatch(userTeam(), away, { type: 'training', level: pendingLevel, label: lv.name, scenario: lv });
+}
+
 ui.on('menu', showMenu);
 ui.on('help', () => ui.help());
+ui.on('noop', () => {});
+ui.on('training', showTraining);
+ui.on('startLevel', (i) => introLevel(+i));
+ui.on('beginLevel', beginLevel);
+ui.on('retryLevel', () => { introLevel(pendingLevel); beginLevel(); });
+ui.on('nextLevel', () => { pendingLevel = Math.min(pendingLevel + 1, LEVELS.length - 1); introLevel(pendingLevel); });
 ui.on('continue', () => showHub());
 ui.on('newSeason', () => { season = newSeason(season); saveSeason(season); showHub(); });
 ui.on('tab', (tab) => showHub(tab));
@@ -132,15 +169,16 @@ ui.on('playFixture', () => {
 });
 ui.on('afterMatch', () => { if (matchCtx?.type === 'season') showHub(); else showMenu(); });
 ui.on('tactics', () => ui.tactics(settings.tactics, settings));
-ui.on('resetTactics', () => { settings = { tactics: { ...DEFAULT_TACTICS }, periodSeconds: RULES.periodSeconds }; saveSettings(); ui.tactics(settings.tactics, settings); });
+ui.on('resetTactics', () => { settings = { tactics: { ...DEFAULT_TACTICS }, periodSeconds: RULES.periodSeconds, orbitPeriod: ORBIT.period }; saveSettings(); ui.tactics(settings.tactics, settings); });
 ui.on('saveTactics', () => {
   const r = ui.readTactics();
   settings.tactics = { ...settings.tactics, ...r.tactics };
   if (r.settings.periodSeconds) settings.periodSeconds = r.settings.periodSeconds;
+  if (r.settings.orbitPeriod10) settings.orbitPeriod = r.settings.orbitPeriod10 / 10;
   saveSettings();
   showMenu();
 });
-ui.on('pause', () => { if (!running) return; paused = true; input.releaseAll(); ui.pause(); });
+ui.on('pause', () => { if (!running) return; paused = true; input.clear(); ui.pause(); });
 ui.on('resume', () => { paused = false; ui.hide(); });
 ui.on('quitMatch', quitMatch);
 
@@ -157,6 +195,8 @@ function frame(now) {
     acc += dt;
     while (acc >= STEP) { match.update(STEP); acc -= STEP; }
     ui.updateHud(match);
+  } else if (match && !running && matchCtx == null && !match.ended) {
+    match.update(dt); // demo behind the menus
   }
   renderer.update(match, dt);
 }
@@ -164,24 +204,14 @@ requestAnimationFrame(frame);
 
 document.addEventListener('visibilitychange', () => { if (document.hidden && running && !paused) ui.fire('pause'); });
 
-// Warm up the arena with a demo match behind the menu so the title screen is alive.
-const demoHome = userTeam();
-match = new Match({ home: demoHome, away: TEAMS[6], periodSeconds: 999, onEvent: () => {} });
-renderer.buildPlayers(match);
+// A fully automatic demo match plays behind the menu so the title screen is alive.
+function startDemo() {
+  if (match && matchCtx == null && !match.ended) return;
+  matchCtx = null;
+  match = new Match({ home: userTeam(), away: TEAMS[6], periodSeconds: 999, autoUser: true, onEvent: () => {} });
+  renderer.buildPlayers(match);
+}
 showMenu();
 
-// demo runs the AI on both teams while no real match is running
-(function demoLoop() {
-  let lastT = performance.now();
-  function tick(now) {
-    requestAnimationFrame(tick);
-    if (running) return;
-    let dt = Math.min(0.1, (now - lastT) / 1000);
-    lastT = now;
-    if (match && !match.ended && matchCtx == null) match.update(dt);
-  }
-  requestAnimationFrame(tick);
-})();
-
 // expose for debugging / automated tests
-window.__game = { get match() { return match; }, renderer, ui, startMatch, userTeam, TEAMS, get season() { return season; } };
+window.__game = { get match() { return match; }, renderer, ui, input, startMatch, userTeam, TEAMS, LEVELS, get season() { return season; }, get ctx() { return matchCtx; } };

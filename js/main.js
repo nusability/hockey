@@ -10,6 +10,7 @@ import { newSeason, loadSeason, saveSeason, advanceToUserFixture, recordUserResu
 import { LEVELS, loadTraining, saveTraining, isUnlocked } from './levels.js';
 import { t, tl, LANG } from './i18n.js';
 import { worldById, WORLD_IDS } from './worlds/index.js';
+import { checkForUpdate } from './update.js';
 
 const canvas = document.getElementById('game');
 const ui = new UI();
@@ -141,6 +142,8 @@ function showMenu() {
   running = false;
   startDemo();
   ui.mainMenu({ hasSeason: !!season && !season.finished, trophies: season?.trophies });
+  // a new build may have gone live while this tab was open; reload if so
+  checkForUpdate();
 }
 
 function showHub(tab = 'next') {

@@ -34,6 +34,9 @@ export function updateTeamAI(match, team, dt) {
   if (carrier) match.looseFor = 0;
   else if (team === 0) match.looseFor = (match.looseFor || 0) + dt;
   const looseFor = match.looseFor || 0;
+  // who goes in for the ball when the other side has it
+  const challengers = (carrier && carrier.team !== team)
+    ? pickChallengers(match, team, carrier, skaters, T) : null;
 
   for (const p of players) {
     p.ai.timer -= dt;
@@ -57,12 +60,10 @@ export function updateTeamAI(match, team, dt) {
       if (rank < chasers) { target = routeAroundNet(match, p, predictPuck(match, p)); chase = true; }
       else target = supportTarget(match, p, T);
     } else if (possession === 'their') {
-      const pressers = T.pressing > 0.75 ? 2 : 1;
-      const pressRange = (10 + T.pressing * 22) * (1 - (T.discipline ?? 0) * 0.35);
-      const dToCarrier = dist(p, carrier);
-      if (rank < pressers && dToCarrier < pressRange) {
-        // go for the carrier's body: the puck circles around it
-        target = { x: carrier.x + carrier.vx * 0.2, z: carrier.z + carrier.vz * 0.2 };
+      if (challengers && challengers.has(p)) {
+        // go in for the ball itself, not the player carrying it
+        target = challengeTarget(match, p, carrier);
+        chase = true;
       } else {
         target = defendTarget(match, p, T);
       }
@@ -132,6 +133,53 @@ function routeAroundNet(match, p, target) {
     }
   }
   return target;
+}
+
+/**
+ * Where to step to actually take the ball off a carrier. The ball orbits
+ * them, so aim at where it is swinging to rather than at the player: standing
+ * on the carrier keeps you a full orbit radius away from the ball.
+ */
+function challengeTarget(match, p, carrier) {
+  const b = match.puck;
+  const lead = 0.3;
+  const a = b.orbit + match.orbitSpeed * lead * (b.orbitDir || 1);
+  return {
+    x: carrier.x + Math.sin(a) * ORBIT.radius + carrier.vx * lead,
+    z: carrier.z + Math.cos(a) * ORBIT.radius + carrier.vz * lead,
+  };
+}
+
+/** Is p between the carrier and p's own goal, and near the route to it? */
+function isGoalSide(match, p, carrier) {
+  const dir = match.dirOf(p.team);
+  if (dir * p.z >= dir * carrier.z - 0.5) return false;     // not goal-side
+  const ownGoal = { x: 0, z: match.ownGoalZ(p.team) };
+  return pointSegDist(p, carrier, ownGoal) < 7;             // near their route
+}
+
+/**
+ * Pick who challenges the carrier. Players already between the carrier and
+ * our goal go first: they are the ones with something to defend, and an
+ * escort that never tackles is worse than no defender at all. Numbers stay
+ * small so the rest of the team keeps its shape.
+ */
+function pickChallengers(match, team, carrier, skaters, T) {
+  const puck = match.puck;
+  const ownGoal = { x: 0, z: match.ownGoalZ(team) };
+  const danger = dist(carrier, ownGoal) < 16;
+  const max = danger ? 3 : (T.pressing > 0.75 ? 2 : 1) + 1;
+  const pressRange = (10 + T.pressing * 22) * (1 - (T.discipline ?? 0) * 0.35);
+  const scored = skaters
+    .map((q) => ({
+      q,
+      goalSide: isGoalSide(match, q, carrier),
+      d: dist(q, puck),
+    }))
+    // a goal-side defender engages from further out; anyone else must be close
+    .filter((o) => o.d < (o.goalSide ? 16 : pressRange))
+    .sort((a, b) => (a.goalSide === b.goalSide ? a.d - b.d : (a.goalSide ? -1 : 1)));
+  return new Set(scored.slice(0, max).map((o) => o.q));
 }
 
 function interceptPoint(match, p) {

@@ -3,6 +3,7 @@ import { Renderer } from './render.js';
 import { Input } from './input.js';
 import { UI } from './ui.js';
 import { Sfx } from './audio.js';
+import { Director } from './director.js';
 import { TEAMS, teamById, USER_TEAM_ID } from './teams.js';
 import { DEFAULT_TACTICS, SETTINGS_KEY, RULES, ORBIT } from './config.js';
 import { newSeason, loadSeason, saveSeason, advanceToUserFixture, recordUserResult, randomOpponent } from './season.js';
@@ -21,6 +22,7 @@ let paused = false;
 let running = false;
 const input = new Input(canvas, () => (running && !paused ? match : null));
 const sfx = new Sfx();
+const director = new Director();
 window.addEventListener('pointerdown', () => sfx.unlock(), { passive: true });
 
 // The training opponents: a neutral gray side used for drills.
@@ -64,6 +66,7 @@ function onMatchEvent(e) {
   switch (e.type) {
     case 'goal': {
       const t = match.teams[e.team];
+      director.onGoal(match, e);
       renderer.celebrate(e.team, [t.primary, t.secondary, '#ffffff'], match.attackGoalZ(e.team));
       ui.showBanner(e.team === 0 ? 'GOAL!' : 'GOAL AGAINST', e.team === 0 ? 'goal' : 'bad', 2400);
       sfx.horn();
@@ -193,9 +196,10 @@ function frame(now) {
   let dt = (now - last) / 1000;
   last = now;
   if (dt > 0.1) dt = 0.1;
+  if (match) director.update(dt, match);
   if (match && running && !paused) {
     match.userPower = input.isHolding ? input.power : ORBIT.powerDefault;
-    acc += dt;
+    acc += dt * director.timeScale;
     while (acc >= STEP) { match.update(STEP); acc -= STEP; }
     ui.updateHud(match);
     const c = match.puck.carrier;
@@ -204,9 +208,9 @@ function frame(now) {
     if (showPower) powerFill.style.height = `${Math.round(input.power * 100)}%`;
   } else {
     powerEl.classList.add('hidden');
-    if (match && !running && matchCtx == null && !match.ended) match.update(dt); // demo behind the menus
+    if (match && !running && matchCtx == null && !match.ended) match.update(dt * director.timeScale); // demo behind the menus
   }
-  renderer.update(match, dt);
+  renderer.update(match, dt, director.override());
 }
 requestAnimationFrame(frame);
 
@@ -216,10 +220,10 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && run
 function startDemo() {
   if (match && matchCtx == null && !match.ended) return;
   matchCtx = null;
-  match = new Match({ home: userTeam(), away: TEAMS[6], periodSeconds: 999, autoUser: true, onEvent: () => {} });
+  match = new Match({ home: userTeam(), away: TEAMS[6], periodSeconds: 999, autoUser: true, onEvent: (e) => { if (e.type === 'goal') director.onGoal(match, e); } });
   renderer.buildPlayers(match);
 }
 showMenu();
 
 // expose for debugging / automated tests
-window.__game = { get match() { return match; }, renderer, ui, input, startMatch, userTeam, TEAMS, LEVELS, get season() { return season; }, get ctx() { return matchCtx; } };
+window.__game = { get match() { return match; }, renderer, ui, input, director, startMatch, userTeam, TEAMS, LEVELS, get season() { return season; }, get ctx() { return matchCtx; } };

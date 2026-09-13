@@ -417,6 +417,16 @@ export class Match {
         break;
       case 'goal':
         this.stateTimer -= dt;
+        // let the puck ripple into the mesh instead of freezing on the line
+        if (this.goalInfo) {
+          const g = this.goalInfo;
+          puck.x += puck.vx * dt; puck.z += puck.vz * dt;
+          const f = Math.exp(-4 * dt); puck.vx *= f; puck.vz *= f;
+          const back = g.goalZ - g.dir * (RINK.goalDepth - puck.r);
+          if (g.dir > 0 ? puck.z < back : puck.z > back) { puck.z = back; puck.vz = -puck.vz * 0.2; }
+          const hw = RINK.goalWidth / 2 - puck.r;
+          if (Math.abs(puck.x) > hw) { puck.x = Math.sign(puck.x) * hw; puck.vx = -puck.vx * 0.2; }
+        }
         if (this.stateTimer <= 0) {
           if (this.training) {
             if (this.score[0] >= this.goalsToWin) { this.finish(true); break; }
@@ -718,8 +728,8 @@ export class Match {
     this.stateTimer = this.training ? RULES.drillGoal : RULES.goalCelebration;
     this.message = 'GOAL!';
     puck.carrier = null;
-    puck.vx *= 0.15; puck.vz *= 0.15;
-    this.emit('goal', { team, scorer, assist: puck.assist, ownGoal: scorer && scorer.team !== team });
+    this.goalInfo = { team, goalZ: this.ownGoalZ(1 - team), dir: this.dirOf(1 - team), x: puck.x, z: puck.z };
+    this.emit('goal', { team, scorer, assist: puck.assist, ownGoal: scorer && scorer.team !== team, goalZ: this.goalInfo.goalZ });
   }
 
   endPeriod() {

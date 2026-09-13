@@ -63,7 +63,7 @@ export const RULES = {
   overtimeSuddenDeath: true,
   offside: false,       // arcade defaults; the engine still supports both
   icing: false,
-  drillReady: 1.0,      // training: pause before a drill starts
+  drillReady: 1.4,      // training: pause before a drill starts (camera settles)
   drillGoal: 1.6,       // training: celebration before the drill resets
   drillLost: 1.2,       // training: pause after losing the puck
 };

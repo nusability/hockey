@@ -144,7 +144,7 @@ export function recordUserResult(state, fx, score, overtime) {
 export function standings(state) {
   return Object.entries(state.league.table)
     .map(([id, s]) => ({ id, team: teamById(id), ...s, gd: s.gf - s.ga }))
-    .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.team.name.localeCompare(b.team.name));
+    .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.team.short.localeCompare(b.team.short));
 }
 
 function endSeason(state) {

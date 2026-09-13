@@ -1,19 +1,13 @@
 import { RINK, PLAYER, PUCK, RULES, ORBIT, FACEOFF_SPOTS, SPORTS } from './config.js';
 import { clamp, norm, sdRoundRect, roundRectNormal, rand, noise } from './math.js';
 import { updateTeamAI } from './ai.js';
+import { formationById, DEFAULT_FORMATION } from './formations.js';
 
 const HW = RINK.width / 2;
 const HL = RINK.length / 2;
 
 // Formation home positions for a full team attacking +Z. Mirrored for team 1.
-const FORMATION = [
-  { role: 'G', x: 0, z: -25 },
-  { role: 'D', x: -6.5, z: -17 },
-  { role: 'D', x: 6.5, z: -17 },
-  { role: 'F', x: -9, z: -5 },
-  { role: 'F', x: 0, z: -3 },
-  { role: 'F', x: 9, z: -5 },
-];
+
 
 let nextPlayerId = 1;
 
@@ -46,6 +40,7 @@ export class Match {
     this.training = !!this.scenario;
     this.rules = { offside: RULES.offside, icing: RULES.icing, ...(opts.rules || {}), ...(this.scenario?.rules || {}) };
     this.orbitSpeed = (Math.PI * 2) / (opts.orbitPeriod || ORBIT.period);
+    this.formations = opts.formations || [DEFAULT_FORMATION, DEFAULT_FORMATION];
     this.sport = SPORTS[opts.sport] || SPORTS.field;
     this.corner = this.sport.corner;
 
@@ -56,7 +51,8 @@ export class Match {
     } else {
       for (let t = 0; t < 2; t++) {
         const dir = t === 0 ? 1 : -1;
-        FORMATION.forEach((f) => this.addPlayer(t, { role: f.role, x: f.x * (t === 0 ? 1 : -1), z: f.z * dir }));
+        const shape = formationById(this.formations[t]);
+        shape.players.forEach((f) => this.addPlayer(t, { role: f.role, x: f.x * (t === 0 ? 1 : -1), z: f.z * dir }));
       }
     }
 

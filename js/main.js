@@ -11,6 +11,7 @@ import { LEVELS, loadTraining, saveTraining, isUnlocked } from './levels.js';
 import { t, tl, LANG } from './i18n.js';
 import { worldById, WORLD_IDS } from './worlds/index.js';
 import { checkForUpdate } from './update.js';
+import { DEFAULT_FORMATION } from './formations.js';
 
 const canvas = document.getElementById('game');
 const ui = new UI();
@@ -36,7 +37,7 @@ document.documentElement.lang = LANG;
 
 // ------------------------------------------------------------------ settings
 function loadSettings() {
-  const base = { tactics: { ...DEFAULT_TACTICS }, periodSeconds: RULES.periodSeconds, orbitPeriod: ORBIT.period };
+  const base = { tactics: { ...DEFAULT_TACTICS }, periodSeconds: RULES.periodSeconds, orbitPeriod: ORBIT.period, formation: DEFAULT_FORMATION };
   try {
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
     if (s) return { ...base, ...s, tactics: { ...DEFAULT_TACTICS, ...(s.tactics || {}) } };
@@ -58,6 +59,7 @@ function startMatch(home, away, ctx) {
     orbitPeriod: settings.orbitPeriod,
     overtime: ctx.type === 'season' && ctx.fx.type === 'cup',
     scenario: ctx.scenario || null,
+    formations: [settings.formation, DEFAULT_FORMATION],
     sport: world.sport,
     onEvent: onMatchEvent,
   });
@@ -194,7 +196,17 @@ ui.on('playFixture', () => {
 });
 ui.on('afterMatch', () => { if (matchCtx?.type === 'season') showHub(); else showMenu(); });
 ui.on('tactics', () => ui.tactics(settings.tactics, settings));
-ui.on('resetTactics', () => { settings = { tactics: { ...DEFAULT_TACTICS }, periodSeconds: RULES.periodSeconds, orbitPeriod: ORBIT.period }; saveSettings(); ui.tactics(settings.tactics, settings); });
+ui.on('pickFormation', (id) => {
+  // keep whatever the sliders are showing, then redraw with the new shape
+  const r = ui.readTactics();
+  settings.tactics = { ...settings.tactics, ...r.tactics };
+  if (r.settings.periodSeconds) settings.periodSeconds = r.settings.periodSeconds;
+  if (r.settings.orbitPeriod10) settings.orbitPeriod = r.settings.orbitPeriod10 / 10;
+  settings.formation = id;
+  saveSettings();
+  ui.tactics(settings.tactics, settings);
+});
+ui.on('resetTactics', () => { settings = { tactics: { ...DEFAULT_TACTICS }, periodSeconds: RULES.periodSeconds, orbitPeriod: ORBIT.period, formation: DEFAULT_FORMATION }; saveSettings(); ui.tactics(settings.tactics, settings); });
 ui.on('saveTactics', () => {
   const r = ui.readTactics();
   settings.tactics = { ...settings.tactics, ...r.tactics };

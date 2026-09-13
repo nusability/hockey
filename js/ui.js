@@ -3,6 +3,7 @@ import { standings } from './season.js';
 import { fmtClock } from './math.js';
 import { t, tl, ordinal } from './i18n.js';
 import { worldById } from './worlds/index.js';
+import { FORMATIONS, formationById } from './formations.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -116,6 +117,26 @@ export class UI {
       </div>`);
   }
 
+  /** A small top-down diagram of a formation, drawn with positioned dots. */
+  formationDiagram(f) {
+    const dots = f.players.map((p) => {
+      // the pitch runs -15..15 across and -26..0 deep (own half + centre)
+      const left = ((p.x + 15) / 30) * 100;
+      const top = ((0 - p.z) / 27) * 100;
+      return `<i class="fp ${p.role.toLowerCase()}" style="left:${left}%;top:${top}%"></i>`;
+    }).join('');
+    return `<span class="fdia">${dots}</span>`;
+  }
+
+  formationPicker(current) {
+    return `<div class="formations">${FORMATIONS.map((f) => `
+      <button class="fcard ${f.id === current ? 'on' : ''}" data-action="pickFormation" data-arg="${f.id}">
+        ${this.formationDiagram(f)}
+        <b>${tl(f.name)}</b>
+      </button>`).join('')}</div>
+      <p class="muted fblurb">${tl(formationById(current).blurb)}</p>`;
+  }
+
   tactics(tactics, settings) {
     const slider = (key, label, hint) => `
       <label class="slider"><span>${label}<small>${hint}</small></span>
@@ -125,6 +146,14 @@ export class UI {
       <div class="screen">
         <h2>${t('coach.title')}</h2>
         <p class="muted">${t('coach.intro')}</p>
+        <h3>${t('coach.formation')}</h3>
+        <p class="muted">${t('coach.formationHint')}</p>
+        ${this.formationPicker(settings.formation)}
+        <label class="slider"><span>${t('coach.discipline')}<small>${t('coach.disciplineHint')}</small></span>
+          <input type="range" min="0" max="100" value="${Math.round((tactics.discipline ?? 0) * 100)}" data-tactic="discipline">
+          <span class="ends"><small>${t('coach.free')}</small><small>${t('coach.strict')}</small></span>
+        </label>
+        <h3>${t('coach.tactics')}</h3>
         ${slider('pressing', t('coach.pressing'), t('coach.pressingHint'))}
         ${slider('covering', t('coach.covering'), t('coach.coveringHint'))}
         ${slider('pushUp', t('coach.pushUp'), t('coach.pushUpHint'))}

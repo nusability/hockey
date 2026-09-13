@@ -12,6 +12,7 @@ export class UI {
     this.hud = $('#hud');
     this.banner = $('#banner');
     this.handlers = {};
+    this.onClick = null;
     this.bannerTimer = null;
   }
 
@@ -24,6 +25,7 @@ export class UI {
     this.root.querySelectorAll('[data-action]').forEach((el) => {
       el.addEventListener('click', (e) => {
         e.preventDefault();
+        if (el.dataset.action !== 'noop') this.onClick?.();
         this.fire(el.dataset.action, el.dataset.arg, el);
       });
     });
@@ -62,7 +64,7 @@ export class UI {
       <div class="screen">
         <h2>${t('help.title')}</h2>
         <ul class="help">
-          ${[1, 2, 3, 4, 5, 6, 7].map((i) => `<li>${t(`help.${i}`)}</li>`).join('')}
+          ${[1, 2, 3, 4, 5, 6].map((i) => `<li>${t(`help.${i}`)}</li>`).join('')}
         </ul>
         <button class="btn primary" data-action="menu">${t('menu.back')}</button>
       </div>`);
@@ -264,8 +266,6 @@ export class UI {
     this.hud.classList.remove('hidden');
     $('#pauseBtn').addEventListener('click', () => this.fire('pause'));
     this.hudEls = { s0: $('#s0'), s1: $('#s1'), clock: $('#clock'), period: $('#period') };
-    const pw = document.querySelector('#power span');
-    if (pw) pw.textContent = t('hud.power');
   }
 
   hideHud() { this.hud.classList.add('hidden'); this.hideBanner(); }

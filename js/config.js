@@ -47,16 +47,13 @@ export const ORBIT = {
   period: 2.0,             // seconds per revolution (settings can change it)
   assistPass: 0.36,        // radians: snap to a team-mate within this angle
   assistGoal: 0.40,        // radians: snap to the goal within this angle
-  passSpeedMin: 13,
-  shotSpeed: 25,           // AI shot speed
-  freeSpeed: 19,           // release with nothing to snap to (AI)
-  // user power from the drag gesture: 0 = soft, 1 = full slapshot
-  powerDefault: 0.62,      // a plain tap (about the old fixed shot speed)
-  shotSpeedMin: 15,
-  shotSpeedMax: 30,
-  passScaleMin: 0.8,       // pass speed multiplier at power 0
-  passScaleMax: 1.35,      // ... and at power 1
-  dragPixels: 150,         // finger travel for full power
+  // One release, one speed: a shot on goal always leaves as hard as possible,
+  // and a pass gets faster the further it has to travel.
+  shotSpeed: 30,           // every shot on goal, both sides
+  freeSpeed: 24,           // release with nothing to snap to
+  passSpeedMin: 14,        // a short square ball
+  passSpeedMax: 30,        // a long ball is hit as hard as a shot
+  passSpeedPerMetre: 0.85,
 };
 
 export const PUCK = {

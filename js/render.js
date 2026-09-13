@@ -470,19 +470,18 @@ export class Renderer {
     this.aimGroup.position.set(c.x, 0, c.z);
     this.aimGroup.rotation.y = match.puck.orbit;
     const snap = match.aimTarget(c);
-    const power = match.userPower ?? ORBIT.powerDefault;
     const color = snap ? (snap.kind === 'goal' ? 0xf472b6 : 0x4ade80) : 0xfacc15;
     for (const m of [this.aimRibbon, this.aimGlow, this.aimHead, this.aimHeadGlow]) m.material.color.setHex(color);
     const pulse = snap ? 0.85 + Math.sin(this.time * 14) * 0.15 : 0.7;
     this.aimRibbon.material.opacity = pulse;
     this.aimHead.material.opacity = pulse;
-    this.aimGlow.material.opacity = 0.06 + power * 0.12 + (snap ? 0.06 : 0);
-    this.aimHeadGlow.material.opacity = 0.1 + power * 0.15;
+    this.aimGlow.material.opacity = snap ? 0.16 : 0.1;
+    this.aimHeadGlow.material.opacity = snap ? 0.22 : 0.15;
     if (snap?.kind === 'pass') {
       const m = this.playerMeshes.get(snap.target.id);
       if (m) { m.ring.visible = true; m.ring.scale.setScalar(1 + Math.sin(this.time * 10) * 0.08); }
     }
-    let len = 6 + power * (this.aimLenMax - 6);
+    let len = this.aimLenMax;
     if (snap?.kind === 'pass') len = Math.hypot(snap.target.x - c.x, snap.target.z - c.z) - ORBIT.radius - 1.6;
     else if (snap?.kind === 'goal') len = Math.hypot(c.x, match.attackGoalZ(c.team) - c.z) - ORBIT.radius - 1.2;
     const dx = Math.sin(match.puck.orbit), dz = Math.cos(match.puck.orbit);
@@ -492,16 +491,16 @@ export class Renderer {
       toBoards = d;
     }
     len = Math.max(2.5, Math.min(len, toBoards - ORBIT.radius - 1.2));
-    const width = 0.8 + power * 0.6;
+    const width = 1.1;
     const start = ORBIT.radius + 0.35;
     for (const r of [this.aimRibbon, this.aimGlow]) { r.scale.set(width, 1, len); r.position.z = start; }
     this.aimHead.position.z = start + len;
     this.aimHeadGlow.position.z = start + len;
-    const hs = 0.8 + power * 0.5;
+    const hs = 1.1;
     this.aimHead.scale.setScalar(hs);
     this.aimHeadGlow.scale.setScalar(hs * 1.3);
     this.dashTex.repeat.set(1, len / 1.3);
-    this.dashTex.offset.y -= dt * (1.2 + power * 1.5);
+    this.dashTex.offset.y -= dt * 2.4;
   }
 
   // ---------------------------------------------------------------- frame

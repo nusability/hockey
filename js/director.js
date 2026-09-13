@@ -7,6 +7,9 @@ import { clamp, lerp } from './math.js';
  * around it, and eases everything back to the play camera. All blends are
  * continuous: the play camera is never cut.
  */
+/** Shots taken from beyond this distance play at full speed. */
+const LONG_RANGE = 13;
+
 export class Director {
   constructor() {
     this.timeScale = 1;
@@ -15,6 +18,14 @@ export class Director {
     this.t = 0;               // real seconds in the current mode
     this.pose = { pos: { x: 0, y: 30, z: -20 }, look: { x: 0, y: 0, z: 0 }, fov: 50 };
     this.goal = null;
+    this.shotDist = 0;
+    this.longGoal = false;
+  }
+
+  /** A shot was released: remember how far out it was taken. */
+  onShot(match, e) {
+    const gz = match.attackGoalZ(e.by.team);
+    this.shotDist = Math.hypot(e.by.x, gz - e.by.z);
   }
 
   /** A goal was scored: e.goalZ is the line the puck crossed. */
@@ -25,6 +36,9 @@ export class Director {
     // start on the side the puck came from, slightly behind the net
     const side = puck.x >= 0 ? 1 : -1;
     this.goal = { gz, outward, side, x: clamp(puck.x, -1.5, 1.5) };
+    // A long-range strike should feel fast: keep the dramatic camera but skip
+    // the slow motion entirely.
+    this.longGoal = (this.shotDist ?? 0) > LONG_RANGE;
     this.mode = 'goal';
     this.t = 0;
   }
@@ -35,8 +49,10 @@ export class Director {
     let targetScale = 1, targetWeight = 0, k = 2.5;
 
     if (this.mode === 'goal') {
-      // slow motion, then ease back to real time over the celebration
-      const s = this.t < 1.3 ? 0.18 : this.t < 2.6 ? lerp(0.18, 1, (this.t - 1.3) / 1.3) : 1;
+      // slow motion, then ease back to real time over the celebration; a
+      // long-range goal plays at full speed so the strike keeps its punch
+      const s = this.longGoal ? 1
+        : this.t < 1.3 ? 0.18 : this.t < 2.6 ? lerp(0.18, 1, (this.t - 1.3) / 1.3) : 1;
       targetScale = s;
       targetWeight = 1;
       k = 4;
@@ -50,7 +66,10 @@ export class Director {
       const hit = this.incoming(match);
       if (hit) {
         this.mode = 'buildup';
-        targetScale = 0.45; targetWeight = 0.35; k = 6;
+        const long = (this.shotDist ?? 0) > LONG_RANGE;
+        targetScale = long ? 1 : 0.45;     // long shots stay at full speed
+        targetWeight = long ? 0.2 : 0.35;
+        k = 6;
         this.buildupPose(match, hit);
       } else {
         this.mode = 'play';

@@ -12,8 +12,6 @@ import { t, tl, LANG } from './i18n.js';
 import { worldById, WORLD_IDS } from './worlds/index.js';
 
 const canvas = document.getElementById('game');
-const powerEl = document.getElementById('power');
-const powerFill = powerEl.querySelector('i');
 const ui = new UI();
 const renderer = new Renderer(canvas);
 let match = null;
@@ -24,8 +22,12 @@ let paused = false;
 let running = false;
 const input = new Input(canvas, () => (running && !paused ? match : null));
 const sfx = new Sfx();
+ui.onClick = () => sfx.click();
 const director = new Director();
-window.addEventListener('pointerdown', () => sfx.unlock(), { passive: true });
+for (const ev of ['pointerdown', 'touchstart', 'click', 'keydown']) {
+  window.addEventListener(ev, () => sfx.unlock(), { passive: true });
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) sfx.unlock(); });
 
 // The training opponents: a neutral gray side used for drills.
 const DRILL_TEAM = { id: 'drill', name: { en: 'Training', de: 'Training' }, short: 'TRN', world: 'magicwood', primary: '#94a3b8', secondary: '#f97316', rating: 74, tactics: { ...DEFAULT_TACTICS, pressing: 0.7 } };
@@ -75,7 +77,7 @@ function onMatchEvent(e) {
       director.onGoal(match, e);
       renderer.celebrate(e.team, [t.primary, t.secondary, '#ffffff'], match.attackGoalZ(e.team));
       ui.showBanner(e.team === 0 ? 'GOAL!' : 'GOAL AGAINST', e.team === 0 ? 'goal' : 'bad', 2400);
-      sfx.horn();
+      if (e.team === 0) sfx.goal(); else sfx.goalAgainst();
       break;
     }
     case 'whistle': ui.showBanner(e.text, 'warn', 1800); sfx.whistle(); break;
@@ -87,10 +89,16 @@ function onMatchEvent(e) {
     case 'post': renderer.shake = Math.max(renderer.shake, 0.5); sfx.post(); break;
     case 'board': sfx.board(); break;
     case 'block': sfx.board(); break;
-    case 'shot': sfx.shot(); break;
+    case 'save': sfx.save(); break;
+    case 'possess': if (e.by.team === 0) sfx.receive(); break;
+    case 'shot': director.onShot(match, e); sfx.shot(e.speed); break;
     case 'pass': sfx.pass(); break;
-    case 'steal': if (e.by.team === 0) sfx.steal(); break;
-    case 'end': ui.showBanner(match.message, e.won === false ? 'bad' : 'goal', 1500, match.messageParams); sfx.whistle(); setTimeout(() => finishMatch(), 1300); break;
+    case 'steal': sfx.steal(); break;
+    case 'end':
+      ui.showBanner(match.message, e.won === false ? 'bad' : 'goal', 1500, match.messageParams);
+      sfx.whistle();
+      setTimeout(() => { (match.won === false ? sfx.fail() : sfx.success()); finishMatch(); }, 1300);
+      break;
   }
 }
 
@@ -198,6 +206,7 @@ ui.on('quitMatch', quitMatch);
 
 // ------------------------------------------------------------------ loop
 let last = performance.now();
+let lastTick = -1;
 let acc = 0;
 const STEP = 1 / 120;
 function frame(now) {
@@ -207,17 +216,17 @@ function frame(now) {
   if (dt > 0.1) dt = 0.1;
   if (match) director.update(dt, match);
   if (match && running && !paused) {
-    match.userPower = input.isHolding ? input.power : ORBIT.powerDefault;
     acc += dt * director.timeScale;
     while (acc >= STEP) { match.update(STEP); acc -= STEP; }
     ui.updateHud(match);
-    const c = match.puck.carrier;
-    const showPower = input.isHolding && c && match.isUserCarrier(c);
-    powerEl.classList.toggle('hidden', !showPower);
-    if (showPower) powerFill.style.height = `${Math.round(input.power * 100)}%`;
-  } else {
-    powerEl.classList.add('hidden');
-    if (match && !running && matchCtx == null && !match.ended) match.update(dt * director.timeScale); // demo behind the menus
+    // count down the last five seconds
+    if (match.state === 'play' && !match.isOvertime) {
+      const secs = Math.ceil(match.clock);
+      if (secs !== lastTick && secs <= 5 && secs > 0) { lastTick = secs; sfx.tick(); }
+      if (secs > 5) lastTick = -1;
+    }
+  } else if (match && !running && matchCtx == null && !match.ended) {
+    match.update(dt * director.timeScale); // demo behind the menus
   }
   renderer.update(match, dt, director.override());
 }
@@ -238,4 +247,4 @@ function startDemo() {
 showMenu();
 
 // expose for debugging / automated tests
-window.__game = { get match() { return match; }, renderer, ui, input, director, startMatch, userTeam, TEAMS, LEVELS, worldById, WORLD_IDS, get season() { return season; }, get ctx() { return matchCtx; } };
+window.__game = { get match() { return match; }, renderer, ui, input, director, sfx, startMatch, userTeam, TEAMS, LEVELS, worldById, WORLD_IDS, get season() { return season; }, get ctx() { return matchCtx; } };

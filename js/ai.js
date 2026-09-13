@@ -40,12 +40,13 @@ export function updateTeamAI(match, team, dt) {
 
     const rank = byPuckDist.indexOf(p);
     let target;
+    let chase = false;
     if (p.ai.expectPass > 0) p.ai.expectPass -= 0.2;
     if (possession === 'loose' && p.ai.expectPass > 0) {
-      target = interceptPoint(match, p);
+      target = interceptPoint(match, p); chase = true;
     } else if (possession === 'loose') {
       const chasers = 1 + (T.pressing > 0.5 ? 1 : 0);
-      if (rank < chasers) target = predictPuck(match, p);
+      if (rank < chasers) { target = predictPuck(match, p); chase = true; }
       else target = formationTarget(match, p, T, 0.5);
     } else if (possession === 'their') {
       const pressers = 1 + Math.round(T.pressing * 1.6);
@@ -66,15 +67,19 @@ export function updateTeamAI(match, team, dt) {
         target.z = dir * (RINK.blueLineZ - 0.8);
       }
     }
-    for (const q of skaters) {
-      if (q === p) continue;
-      const d = dist(q, target);
-      if (d < 3.2 && d > 1e-3) {
-        const n = norm(target.x - q.x, target.z - q.z);
-        target.x += n.x * (3.2 - d); target.z += n.z * (3.2 - d);
+    if (!chase) {
+      // keep a passing distance from every team-mate (including the carrier)
+      const minGap = possession === 'own' ? 6 : 3.5;
+      for (const q of players) {
+        if (q === p || q.role === 'G') continue;
+        const d = dist(q, target);
+        if (d < minGap && d > 1e-3) {
+          const n = norm(target.x - q.x, target.z - q.z);
+          target.x += n.x * (minGap - d); target.z += n.z * (minGap - d);
+        }
       }
+      keepOutOfOwnCrease(match, p, target);
     }
-    keepOutOfOwnCrease(match, p, target);
     target.x = clamp(target.x, -HW + 1.2, HW - 1.2);
     target.z = clamp(target.z, -HL + 1.2, HL - 1.2);
     p.target = target;
@@ -147,16 +152,49 @@ function defendTarget(match, p, T) {
   return f;
 }
 
+/**
+ * Attacking shape: team-mates spread into support slots around the carrier
+ * (wings ahead, a deep option, safety valves behind) so there is always a
+ * clean passing lane and nobody crowds the puck.
+ */
+const SLOTS = [
+  { x: -9, z: 8, role: 'F' },   // left wing ahead
+  { x: 9, z: 8, role: 'F' },    // right wing ahead
+  { x: 0, z: 13, role: 'F' },   // deep in the slot
+  { x: -8, z: -7, role: 'D' },  // left safety valve
+  { x: 8, z: -7, role: 'D' },   // right safety valve
+  { x: 0, z: -12, role: 'D' },
+];
+
 function supportTarget(match, p, T) {
   const dir = match.dirOf(p.team);
-  const puck = match.puck;
-  const f = formationTarget(match, p, T, 0.7);
-  if (p.role === 'F') {
-    f.z = Math.max(dir * f.z, dir * puck.z + 3) * dir;
-    f.z = clamp(dir * f.z, -HL + 3, RINK.goalLineZ - 4) * dir;
-  } else {
-    f.z = Math.min(dir * f.z, dir * puck.z - 4) * dir;
+  const c = match.puck.carrier || match.puck;
+  const mates = match.teamPlayers(p.team).filter((m) => m !== c && m.role !== 'G' && m.role !== 'O' && m.behavior === 'active');
+  const gz = match.attackGoalZ(p.team);
+  // world position of each slot, kept on the ice and out of the goal mouth
+  const world = SLOTS.map((sl) => {
+    let x = c.x + sl.x, z = c.z + dir * sl.z * (0.8 + T.pushUp * 0.4);
+    x = clamp(x, -HW + 2.5, HW - 2.5);
+    z = clamp(dir * z, -(RINK.goalLineZ - 3), RINK.goalLineZ - 5) * dir;
+    if (Math.hypot(x, gz - z) < 7) { x = x >= 0 ? Math.max(x, 7) : Math.min(x, -7); }
+    return { x, z, role: sl.role };
+  });
+  // greedy assignment: every team-mate takes the nearest matching free slot,
+  // in a stable order so players don't swap slots every tick
+  const order = [...mates].sort((a, b) => a.id - b.id);
+  const taken = new Set();
+  let mine = null;
+  for (const m of order) {
+    let best = -1, bd = Infinity;
+    for (let i = 0; i < world.length; i++) {
+      if (taken.has(i)) continue;
+      const rolePenalty = world[i].role === (m.role === 'D' ? 'D' : 'F') ? 0 : 8;
+      const d = dist(m, world[i]) + rolePenalty;
+      if (d < bd) { bd = d; best = i; }
+    }
+    if (best >= 0) { taken.add(best); if (m === p) mine = world[best]; }
   }
+  const f = mine ? { x: mine.x, z: mine.z } : formationTarget(match, p, T, 0.7);
   // get open: shift away from the nearest opponent (including obstacles)
   const opp = nearest(match.opponents(p.team), f);
   if (opp && dist(opp, f) < 3.4) {

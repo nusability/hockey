@@ -46,6 +46,7 @@ export class Match {
     this.training = !!this.scenario;
     this.rules = { offside: RULES.offside, icing: RULES.icing, ...(opts.rules || {}), ...(this.scenario?.rules || {}) };
     this.orbitSpeed = (Math.PI * 2) / (opts.orbitPeriod || ORBIT.period);
+    this.userPower = ORBIT.powerDefault;
 
     this.players = [];
     if (this.scenario) {
@@ -58,7 +59,7 @@ export class Match {
       }
     }
 
-    this.puck = { x: 0, z: 0, vx: 0, vz: 0, r: PUCK.radius, carrier: null, orbit: 0,
+    this.puck = { x: 0, z: 0, vx: 0, vz: 0, r: PUCK.radius, carrier: null, orbit: 0, orbitDir: 1,
       lastTouch: null, lastTouchTeam: -1, lastShooter: null, assist: null,
       releaseZ: 0, releaseTeam: -1, untouched: false, shotTime: -9, trail: [] };
 
@@ -129,6 +130,33 @@ export class Match {
   carryPoint(p) {
     const a = this.puck.carrier === p ? this.puck.orbit : p.facing;
     return { x: p.x + Math.sin(a) * ORBIT.radius, z: p.z + Math.cos(a) * ORBIT.radius };
+  }
+
+  /**
+   * Spin the puck towards the most likely target so the player never waits
+   * for the long way round: the goal when in range, else the best team-mate.
+   */
+  chooseOrbitDir(p) {
+    const gz = this.attackGoalZ(p.team);
+    const dir = this.dirOf(p.team);
+    const dGoal = Math.hypot(p.x, gz - p.z);
+    let aim = null;
+    if (dGoal < 24 && Math.abs(p.x) < 13) aim = Math.atan2(0 - p.x, gz - p.z);
+    else {
+      let best = null, bs = -Infinity;
+      for (const m of this.teamPlayers(p.team)) {
+        if (m === p || m.role === 'G' || m.role === 'O') continue;
+        const d = Math.hypot(m.x - p.x, m.z - p.z);
+        if (d < 3) continue;
+        let open = 9;
+        for (const o of this.opponents(p.team)) open = Math.min(open, Math.hypot(o.x - m.x, o.z - m.z));
+        const score = open + dir * (m.z - p.z) * 0.4 - Math.max(0, d - 18) * 0.5;
+        if (score > bs) { bs = score; best = m; }
+      }
+      if (best) aim = Math.atan2(best.x - p.x, best.z - p.z);
+    }
+    if (aim == null) return 1;
+    return angleDiff(aim, this.puck.orbit) >= 0 ? 1 : -1;
   }
 
   /** Unit vector the puck would be released along right now. */
@@ -256,6 +284,7 @@ export class Match {
     puck.carrier = p;
     puck.vx = puck.vz = 0;
     if (!silent) puck.orbit = Math.atan2(puck.x - p.x, puck.z - p.z);
+    puck.orbitDir = this.chooseOrbitDir(p);
     const cp = this.carryPoint(p);
     puck.x = cp.x; puck.z = cp.z;
     puck.lastTouch = p; puck.lastTouchTeam = p.team; puck.untouched = false;
@@ -295,7 +324,7 @@ export class Match {
     const acc = opts.accuracy ?? 1;
     const dx0 = receiver.x - p.x, dz0 = receiver.z - p.z;
     const d = Math.hypot(dx0, dz0);
-    const speed = clamp(11 + d * 0.55, ORBIT.passSpeedMin, 24);
+    const speed = clamp(11 + d * 0.55, ORBIT.passSpeedMin, 24) * (opts.speedScale ?? 1);
     const t = d / speed;
     let tx = receiver.x + receiver.vx * t * 0.8;
     let tz = receiver.z + receiver.vz * t * 0.8;
@@ -322,28 +351,34 @@ export class Match {
     if (this.puck.carrier !== p) return false;
     const snap = opts.assist === false ? null : this.aimTarget(p);
     const acc = opts.accuracy ?? 1;
-    if (snap?.kind === 'pass') return this.passTo(p, snap.target, { accuracy: acc });
-    if (snap?.kind === 'goal') return this.shootAtGoal(p, { accuracy: acc, power: ORBIT.shotSpeed });
+    const pw = opts.power; // 0..1 from the drag gesture, undefined for AI
+    if (snap?.kind === 'pass') {
+      const scale = pw == null ? 1 : ORBIT.passScaleMin + pw * (ORBIT.passScaleMax - ORBIT.passScaleMin);
+      return this.passTo(p, snap.target, { accuracy: acc, speedScale: scale });
+    }
+    const speed = pw == null ? ORBIT.shotSpeed : ORBIT.shotSpeedMin + pw * (ORBIT.shotSpeedMax - ORBIT.shotSpeedMin);
+    if (snap?.kind === 'goal') return this.shootAtGoal(p, { accuracy: acc, power: speed });
     const d = this.aimDirection();
-    return this.release(p, d.x, d.z, ORBIT.freeSpeed, 'shot');
+    return this.release(p, d.x, d.z, pw == null ? ORBIT.freeSpeed : speed * 0.85, 'shot');
   }
 
   /**
    * The user lifted their finger. If the line is about to reach a target
    * within a fraction of a second, wait for it (forgives early taps).
    */
-  userRelease() {
+  userRelease(power) {
     const c = this.puck.carrier;
+    if (power != null) this.userPower = power;
     if (!c || !this.isUserCarrier(c) || this.state !== 'play') return false;
-    if (this.aimTarget(c)) return this.releaseAimed(c, { assist: true, accuracy: 1 });
+    if (this.aimTarget(c)) return this.releaseAimed(c, { assist: true, accuracy: 1, power: this.userPower });
     const saved = this.puck.orbit;
     for (const t of [0.05, 0.1, 0.15, 0.2, 0.25]) {
-      this.puck.orbit = saved + this.orbitSpeed * t;
+      this.puck.orbit = saved + this.orbitSpeed * t * this.puck.orbitDir;
       const hit = this.aimTarget(c);
       this.puck.orbit = saved;
       if (hit) { this.pendingRelease = { player: c, until: this.time + t + 0.06 }; return true; }
     }
-    return this.releaseAimed(c, { assist: true, accuracy: 1 });
+    return this.releaseAimed(c, { assist: true, accuracy: 1, power: this.userPower });
   }
 
   // ---------------------------------------------------------------- update
@@ -411,14 +446,14 @@ export class Match {
     for (const p of this.players) this.constrainPlayer(p);
     if (live) this.updatePuck(dt);
     else if (puck.carrier) {
-      if (this.state === 'ready') puck.orbit += this.orbitSpeed * dt;
+      if (this.state === 'ready') puck.orbit += this.orbitSpeed * dt * puck.orbitDir;
       const cp = this.carryPoint(puck.carrier); puck.x = cp.x; puck.z = cp.z;
     }
     if (live) this.checkRules();
     // training: a puck nobody can reach resets the drill
     if (live && this.training) {
       this.looseTimer = puck.carrier ? 0 : (this.looseTimer || 0) + dt;
-      if (this.looseTimer > 7) { this.looseTimer = 0; this.lostPuck('RESET'); }
+      if (this.looseTimer > 10) { this.looseTimer = 0; this.lostPuck("RESET"); }
     }
     void moving;
   }
@@ -509,14 +544,15 @@ export class Match {
     const puck = this.puck;
     if (puck.carrier) {
       const c = puck.carrier;
-      puck.orbit += this.orbitSpeed * dt;
+      puck.orbit += this.orbitSpeed * dt * puck.orbitDir;
       if (puck.orbit > Math.PI) puck.orbit -= Math.PI * 2;
+      if (puck.orbit < -Math.PI) puck.orbit += Math.PI * 2;
       const cp = this.carryPoint(c);
       puck.x = cp.x; puck.z = cp.z; puck.vx = c.vx; puck.vz = c.vz;
       const pr = this.pendingRelease;
       if (pr) {
         if (pr.player !== c) this.pendingRelease = null;
-        else if (this.aimTarget(c) || this.time >= pr.until) { this.pendingRelease = null; this.releaseAimed(c, { assist: true, accuracy: 1 }); return; }
+        else if (this.aimTarget(c) || this.time >= pr.until) { this.pendingRelease = null; this.releaseAimed(c, { assist: true, accuracy: 1, power: this.userPower }); return; }
       }
       if (c.role !== 'G') this.checkSteal(c, dt);
       return;

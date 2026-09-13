@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 import { RINK, ORBIT, FACEOFF_SPOTS } from './config.js';
-import { clamp, lerp, rand, pick } from './math.js';
+import { clamp, lerp, rand, pick, sdRoundRect } from './math.js';
 
 const HW = RINK.width / 2;
 const HL = RINK.length / 2;
@@ -331,31 +331,74 @@ export class Renderer {
     return { group, body, ring, disc, baseY: h / 2 };
   }
 
-  /** Orbit ring around the carrier and the release line through the puck. */
+  /** Orbit ring around the carrier and the release arrow through the puck. */
   buildAim() {
-    this.orbitRing = new THREE.Mesh(new THREE.RingGeometry(ORBIT.radius - 0.06, ORBIT.radius + 0.06, 48),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+    this.orbitRing = new THREE.Mesh(new THREE.RingGeometry(ORBIT.radius - 0.05, ORBIT.radius + 0.05, 48),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }));
     this.orbitRing.rotation.x = -Math.PI / 2;
     this.orbitRing.position.y = 0.025;
     this.orbitRing.visible = false;
     this.scene.add(this.orbitRing);
-    this.aimLen = 16;
-    this.aimLine = new THREE.Mesh(new THREE.PlaneGeometry(0.22, this.aimLen),
-      new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
-    this.aimLine.rotation.x = -Math.PI / 2;
+
+    // Tapered ribbon of unit length along +Z (scaled per frame), with a flowing
+    // dash texture, a chevron head and a soft additive glow underneath.
+    const tapered = (w0, w1, segs = 12) => {
+      const pos = [], uv = [], idx = [];
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs;
+        const w = w0 + (w1 - w0) * t;
+        pos.push(-w / 2, 0, t, w / 2, 0, t);
+        uv.push(0, t, 1, t);
+        if (i < segs) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+      g.setIndex(idx);
+      return g;
+    };
+    const dashTex = (() => {
+      const c = document.createElement('canvas');
+      c.width = 64; c.height = 128;
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, 64, 128);
+      // one chevron-shaped dash per tile, pointing along +v
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(2, 34); ctx.lineTo(32, 6); ctx.lineTo(62, 34); ctx.lineTo(62, 70); ctx.lineTo(32, 42); ctx.lineTo(2, 70); ctx.closePath();
+      ctx.fill();
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.RepeatWrapping;
+      t.minFilter = THREE.LinearFilter;
+      return t;
+    })();
     this.aimGroup = new THREE.Group();
-    this.aimGroup.add(this.aimLine);
-    this.aimLine.position.set(0, 0.03, this.aimLen / 2 + ORBIT.radius);
-    this.aimHead = new THREE.Mesh(new THREE.CircleGeometry(0.5, 3), new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide }));
-    this.aimHead.rotation.x = -Math.PI / 2;
-    this.aimHead.rotation.z = Math.PI / 2 + Math.PI;
-    this.aimHead.position.set(0, 0.035, this.aimLen + ORBIT.radius);
-    this.aimGroup.add(this.aimHead);
-    this.scene.add(this.aimGroup);
     this.aimGroup.visible = false;
+    this.aimRibbon = new THREE.Mesh(tapered(0.62, 0.3),
+      new THREE.MeshBasicMaterial({ map: dashTex, color: 0xfacc15, transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide }));
+    this.aimRibbon.position.y = 0.04;
+    this.aimGlow = new THREE.Mesh(tapered(1.0, 0.5),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    this.aimGlow.position.y = 0.035;
+    const head = new THREE.Shape();
+    head.moveTo(0, 1.3); head.lineTo(-0.95, -0.2); head.lineTo(0, 0.25); head.lineTo(0.95, -0.2); head.closePath();
+    this.aimHead = new THREE.Mesh(new THREE.ShapeGeometry(head),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide }));
+    this.aimHead.rotation.x = -Math.PI / 2;
+    this.aimHead.rotation.z = Math.PI; // shape +y -> world -z after the tilt, so flip it
+    this.aimHead.position.y = 0.045;
+    this.aimHeadGlow = new THREE.Mesh(new THREE.ShapeGeometry(head),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    this.aimHeadGlow.rotation.copy(this.aimHead.rotation);
+    this.aimHeadGlow.scale.setScalar(1.3);
+    this.aimHeadGlow.position.y = 0.04;
+    this.aimGroup.add(this.aimGlow, this.aimRibbon, this.aimHeadGlow, this.aimHead);
+    this.scene.add(this.aimGroup);
+    this.dashTex = dashTex;
+    this.aimLenMax = 16;
   }
 
-  updateAim(match) {
+  updateAim(match, dt) {
     const c = match.puck.carrier;
     const show = c && match.isUserCarrier(c) && (match.state === 'play' || match.state === 'ready');
     this.orbitRing.visible = !!show;
@@ -366,22 +409,41 @@ export class Renderer {
     this.aimGroup.position.set(c.x, 0, c.z);
     this.aimGroup.rotation.y = match.puck.orbit;
     const snap = match.aimTarget(c);
+    const power = match.userPower ?? ORBIT.powerDefault;
     const color = snap ? (snap.kind === 'goal' ? 0xf472b6 : 0x4ade80) : 0xfacc15;
-    this.aimLine.material.color.setHex(color);
-    this.aimHead.material.color.setHex(color);
-    this.aimLine.material.opacity = snap ? 0.95 : 0.6;
+    for (const m of [this.aimRibbon, this.aimGlow, this.aimHead, this.aimHeadGlow]) m.material.color.setHex(color);
+    const pulse = snap ? 0.85 + Math.sin(this.time * 14) * 0.15 : 0.7;
+    this.aimRibbon.material.opacity = pulse;
+    this.aimHead.material.opacity = pulse;
+    this.aimGlow.material.opacity = 0.06 + power * 0.12 + (snap ? 0.06 : 0);
+    this.aimHeadGlow.material.opacity = 0.1 + power * 0.15;
     if (snap?.kind === 'pass') {
       const m = this.playerMeshes.get(snap.target.id);
-      if (m) m.ring.visible = true;
+      if (m) { m.ring.visible = true; m.ring.scale.setScalar(1 + Math.sin(this.time * 10) * 0.08); }
     }
-    // shorten the line so it ends at the target when snapped
-    let len = this.aimLen;
-    if (snap?.kind === 'pass') len = Math.hypot(snap.target.x - c.x, snap.target.z - c.z) - ORBIT.radius - 1;
-    else if (snap?.kind === 'goal') len = Math.hypot(c.x, match.attackGoalZ(c.team) - c.z) - ORBIT.radius - 0.5;
-    len = Math.max(2, len);
-    this.aimLine.scale.y = len / this.aimLen;
-    this.aimLine.position.z = len / 2 + ORBIT.radius;
-    this.aimHead.position.z = len + ORBIT.radius;
+    // length: to the target when locked, otherwise grows with the charged power
+    let len = 6 + power * (this.aimLenMax - 6);
+    if (snap?.kind === 'pass') len = Math.hypot(snap.target.x - c.x, snap.target.z - c.z) - ORBIT.radius - 1.6;
+    else if (snap?.kind === 'goal') len = Math.hypot(c.x, match.attackGoalZ(c.team) - c.z) - ORBIT.radius - 1.2;
+    // never draw past the boards
+    const dx = Math.sin(match.puck.orbit), dz = Math.cos(match.puck.orbit);
+    let toBoards = 0;
+    for (let d = 1; d < this.aimLenMax + 2; d += 0.5) {
+      if (sdRoundRect(c.x + dx * d, c.z + dz * d, HW, HL, RINK.corner) > -0.6) break;
+      toBoards = d;
+    }
+    len = Math.max(2.5, Math.min(len, toBoards - ORBIT.radius - 1.2));
+    const width = 0.8 + power * 0.6;
+    const start = ORBIT.radius + 0.35;
+    for (const r of [this.aimRibbon, this.aimGlow]) { r.scale.set(width, 1, len); r.position.z = start; }
+    this.aimHead.position.z = start + len;
+    this.aimHeadGlow.position.z = start + len;
+    const hs = 0.8 + power * 0.5;
+    this.aimHead.scale.setScalar(hs);
+    this.aimHeadGlow.scale.setScalar(hs * 1.3);
+    // flowing dashes: repeat with length, scroll along the arrow
+    this.dashTex.repeat.set(1, len / 1.3);
+    this.dashTex.offset.y -= dt * (1.2 + power * 1.5);
   }
 
   // ---------------------------------------------------------------- frame
@@ -447,7 +509,7 @@ export class Renderer {
         }
         m.disc.material.opacity = match.puck.carrier === p ? 0.55 : 0.2;
       }
-      this.updateAim(match);
+      this.updateAim(match, dt);
       const puck = match.puck;
       this.puck.position.set(puck.x, 0.1, puck.z);
       this.puck.rotation.y += dt * 4;

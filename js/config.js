@@ -85,6 +85,7 @@ export const DEFAULT_TACTICS = {
   pushUp: 0.55,     // how high the whole team pushes towards the puck
   passing: 0.55,    // how willing the carrier is to pass rather than carry
   shooting: 0.55,   // how eagerly the carrier shoots from range
+  discipline: 0.0,  // 0 = follow the play freely, 1 = hold the prescribed zone
 };
 
 // Faceoff dots: centre, four neutral zone dots, four end zone dots.

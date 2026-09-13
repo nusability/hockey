@@ -1,5 +1,5 @@
 import { RINK, ORBIT, PLAYER } from './config.js';
-import { clamp, dist, norm, pointSegDist, noise } from './math.js';
+import { clamp, dist, lerp, norm, pointSegDist, noise } from './math.js';
 import { angleDiff } from './match.js';
 
 const HW = RINK.width / 2;
@@ -58,7 +58,7 @@ export function updateTeamAI(match, team, dt) {
       else target = supportTarget(match, p, T);
     } else if (possession === 'their') {
       const pressers = T.pressing > 0.75 ? 2 : 1;
-      const pressRange = 10 + T.pressing * 22;
+      const pressRange = (10 + T.pressing * 22) * (1 - (T.discipline ?? 0) * 0.35);
       const dToCarrier = dist(p, carrier);
       if (rank < pressers && dToCarrier < pressRange) {
         // go for the carrier's body: the puck circles around it
@@ -76,6 +76,8 @@ export function updateTeamAI(match, team, dt) {
       }
     }
     if (!chase) {
+      // hold the coach's shape as tightly as discipline demands
+      applyDiscipline(match, p, T, target);
       // never crowd the ball: that is the chaser's job, not everyone's
       keepClearOfBall(match, target, possession === 'their' ? 5.5 : CLEAR_OF_BALL);
       // keep a passing distance from every team-mate (including the carrier)
@@ -206,6 +208,35 @@ const SLOTS = [
 
 /** Non-chasers never stand on top of the ball. */
 const CLEAR_OF_BALL = 7.5;
+
+/**
+ * The zone a disciplined player holds: their prescribed lane across the pitch,
+ * sliding up and down the pitch with the play but never leaving their band.
+ */
+function zoneTarget(match, p, T) {
+  const dir = match.dirOf(p.team);
+  const puck = match.puck;
+  // depth follows the ball, but only partly, so the lines keep their spacing
+  const follow = p.role === 'D' ? 0.35 : 0.5;
+  const z = p.home.z + (puck.z - p.home.z) * follow * (0.7 + T.pushUp * 0.6);
+  // the lane drifts a little towards the ball so the shape shuffles across
+  const x = p.home.x + (puck.x - p.home.x) * 0.22;
+  return { x, z };
+}
+
+/**
+ * Blend a free-flowing target with the player's zone. `discipline` 0 leaves
+ * the shape entirely to the play; 1 keeps everyone in the prescribed
+ * formation, shuffling with the ball rather than chasing it.
+ */
+function applyDiscipline(match, p, T, target) {
+  const d = T.discipline ?? 0;
+  if (d <= 0.001) return target;
+  const zone = zoneTarget(match, p, T);
+  target.x = lerp(target.x, zone.x, d);
+  target.z = lerp(target.z, zone.z, d);
+  return target;
+}
 
 function keepClearOfBall(match, target, minDist = CLEAR_OF_BALL) {
   const b = match.puck;

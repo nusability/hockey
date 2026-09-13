@@ -112,3 +112,19 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .hint { font-size: 17px; line-height: 1.45; margin: 8px 0 14px; }
 .hud .obj { font-size: 11px; letter-spacing: 2px; color: var(--muted); }
 
+
+/* Formation picker on the coach's board */
+.formations { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 6px; }
+.fcard { border: none; background: rgba(255,255,255,0.08); border-radius: 12px; padding: 8px 6px 6px; color: #fff;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; outline: 2px solid transparent; }
+.fcard.on { background: rgba(250,204,21,0.16); outline-color: var(--accent); }
+.fcard b { font-size: 11px; font-weight: 700; letter-spacing: 0.2px; text-align: center; line-height: 1.2; }
+.fdia { position: relative; display: block; width: 100%; aspect-ratio: 30 / 27; border-radius: 7px;
+  background: linear-gradient(180deg, rgba(74,222,128,0.13), rgba(74,222,128,0.05));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16); }
+.fdia .fp { position: absolute; width: 15%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%); }
+.fdia .fp.g { background: #fcd34d; }
+.fdia .fp.d { background: #93c5fd; }
+.fdia .fp.f { background: #fb7185; }
+.fblurb { margin: 0 0 6px; min-height: 2.4em; }
+.slider .ends { display: flex; justify-content: space-between; margin-top: -2px; }

@@ -43,10 +43,10 @@ export function updateTeamAI(match, team, dt) {
     let chase = false;
     if (p.ai.expectPass > 0) p.ai.expectPass -= 0.2;
     if (possession === 'loose' && p.ai.expectPass > 0) {
-      target = interceptPoint(match, p); chase = true;
+      target = routeAroundNet(match, p, interceptPoint(match, p)); chase = true;
     } else if (possession === 'loose') {
       const chasers = 1 + (T.pressing > 0.5 ? 1 : 0);
-      if (rank < chasers) { target = predictPuck(match, p); chase = true; }
+      if (rank < chasers) { target = routeAroundNet(match, p, predictPuck(match, p)); chase = true; }
       else target = formationTarget(match, p, T, 0.5);
     } else if (possession === 'their') {
       const pressers = 1 + Math.round(T.pressing * 1.6);
@@ -98,6 +98,28 @@ function keepOutOfOwnCrease(match, p, target) {
     const n = norm(dx === 0 && dz === 0 ? 1 : dx, dz);
     target.x = n.x * keep; target.z = gz + Math.abs(n.z) * keep * dir;
   }
+}
+
+/**
+ * Players cannot walk through a net, and the AI has no pathfinder, so a chase
+ * target behind a goal line gets a waypoint at the side of the net first.
+ */
+function routeAroundNet(match, p, target) {
+  for (const t of [0, 1]) {
+    const gz = match.ownGoalZ(t);
+    const dir = match.dirOf(t);
+    const behind = (z) => dir * (z - gz) < 0.4;      // at or past this goal line
+    if (!behind(target.z)) continue;
+    const hx = RINK.goalWidth / 2 + 1.6;
+    // only a problem when the target sits behind the net mouth
+    if (Math.abs(target.x) > hx) continue;
+    if (!behind(p.x === target.x && p.z === target.z ? p.z : p.z) || dir * (p.z - gz) > 0.4) {
+      // we are still in front of the line: aim for the corner of the net first
+      const side = p.x >= 0 ? 1 : -1;
+      return { x: side * hx, z: gz + dir * 0.6 };
+    }
+  }
+  return target;
 }
 
 function interceptPoint(match, p) {

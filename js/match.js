@@ -464,10 +464,15 @@ export class Match {
       const cp = this.carryPoint(puck.carrier); puck.x = cp.x; puck.z = cp.z;
     }
     if (live) this.checkRules();
-    // training: a puck nobody can reach resets the drill
-    if (live && this.training) {
-      this.looseTimer = puck.carrier ? 0 : (this.looseTimer || 0) + dt;
-      if (this.looseTimer > 10) { this.looseTimer = 0; this.lostPuck("RESET"); }
+    // a ball nobody manages to collect must never stall the match
+    if (live) {
+      const still = !puck.carrier && Math.hypot(puck.vx, puck.vz) < 2.5;
+      this.looseTimer = still ? (this.looseTimer || 0) + dt : 0;
+      if (this.looseTimer > 8) {
+        this.looseTimer = 0;
+        if (this.training) this.lostPuck('RESET');
+        else this.whistle('RESET', this.nearestFaceoffSpot([FACEOFF_SPOTS.center, ...FACEOFF_SPOTS.neutral, ...FACEOFF_SPOTS.end], puck.x, puck.z));
+      }
     }
     void moving;
   }
@@ -542,14 +547,21 @@ export class Match {
     for (const t of [0, 1]) {
       const gz = this.ownGoalZ(t);
       const dir = this.dirOf(t);
-      const zMin = Math.min(gz, gz - dir * RINK.goalDepth) - p.r;
-      const zMax = Math.max(gz, gz - dir * RINK.goalDepth) + p.r;
+      // the net occupies gz .. gz - dir*goalDepth; keep players out of that
+      // volume only, and let them walk around and behind it
+      const zA = gz, zB = gz - dir * RINK.goalDepth;
+      const zMin = Math.min(zA, zB) - p.r, zMax = Math.max(zA, zB) + p.r;
       const hx = RINK.goalWidth / 2 + p.r;
       if (Math.abs(p.x) < hx && p.z > zMin && p.z < zMax) {
-        const px = hx - Math.abs(p.x);
-        const pzFront = dir > 0 ? (zMax - p.z) : (p.z - zMin);
-        if (px < pzFront) p.x += (p.x >= 0 ? 1 : -1) * px;
-        else p.z += dir * pzFront;
+        // push out whichever of the four sides is nearest
+        const outL = p.x - (-hx), outR = hx - p.x;
+        const outFront = dir > 0 ? zMax - p.z : p.z - zMin;
+        const outBack = dir > 0 ? p.z - zMin : zMax - p.z;
+        const m = Math.min(outL, outR, outFront, outBack);
+        if (m === outL) p.x = -hx;
+        else if (m === outR) p.x = hx;
+        else if (m === outFront) p.z = dir > 0 ? zMax : zMin;
+        else p.z = dir > 0 ? zMin : zMax;
       }
     }
   }

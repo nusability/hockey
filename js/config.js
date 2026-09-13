@@ -1,10 +1,24 @@
 // Global game constants. Units are metres, the rink's long axis is Z.
 // Team 0 (the user) defends the goal at -Z and attacks towards +Z.
 
+// The two sports share one engine. Field hockey (grass, ball, square-ish
+// pitch) is the default; the Himalaya world plays ice hockey (ice, puck,
+// rounded boards).
+export const SPORTS = {
+  field: {
+    id: 'field', corner: 2.0, friction: 0.9, drag: 0.3, wallRestitution: 0.6,
+    ballRadius: 0.36, ball: 'ball', shotSpeedBoost: 1.0,
+  },
+  ice: {
+    id: 'ice', corner: 8.5, friction: 0.45, drag: 0.2, wallRestitution: 0.72,
+    ballRadius: 0.36, ball: 'puck', shotSpeedBoost: 1.0,
+  },
+};
+
 export const RINK = {
   length: 60,        // full length along Z
   width: 30,         // full width along X
-  corner: 8.5,       // corner radius of the boards
+  corner: 8.5,       // default corner radius (ice); a match uses its sport's value
   goalLineZ: 26,     // distance of each goal line from centre
   blueLineZ: 9.5,    // distance of each blue line from centre
   goalWidth: 6.0,    // stylised, wider than real life so shots can go in
@@ -87,6 +101,6 @@ export const FACEOFF_SPOTS = {
   ],
 };
 
-export const SAVE_KEY = 'slapshot-league-save-v1';
+export const SAVE_KEY = 'slapshot-league-save-v2';
 export const SETTINGS_KEY = 'slapshot-league-settings-v2';
 export const TRAINING_KEY = 'slapshot-league-training-v1';

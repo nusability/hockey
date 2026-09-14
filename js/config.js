@@ -34,6 +34,7 @@ export const PLAYER = {
   reach: 1.45,        // distance at which a skater picks up a loose puck
   stealReach: 0.9,    // distance to the puck at which a defender steals it
   stealTime: 0.18,    // seconds of contact with the puck before it is stolen
+  settleTime: 0.45,   // grace after winning the ball, so it cannot ping-pong
   aiSpeedBase: 6.2,   // scaled by rating
   goalieSpeed: 4.8,
   goalieReaction: 0.16, // seconds before a goalie reacts to a shot (+ more for low skill)

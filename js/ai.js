@@ -159,27 +159,46 @@ function isGoalSide(match, p, carrier) {
 }
 
 /**
+ * How hard a team goes in for the ball. These are deliberately modest: every
+ * extra challenger is a player out of position, and a game where possession
+ * changes constantly stops being a game about combinations.
+ */
+const CHALLENGE = {
+  max: 2,              // players who go in for the ball at once
+  goalSideRange: 10,   // how far out a goal-side defender will engage
+  commit: 0.7,         // seconds a challenger stays committed once it goes in
+};
+
+/**
  * Pick who challenges the carrier. Players already between the carrier and
  * our goal go first: they are the ones with something to defend, and an
  * escort that never tackles is worse than no defender at all. Numbers stay
- * small so the rest of the team keeps its shape.
+ * small so the rest of the team keeps its shape, and whoever is already
+ * engaged stays engaged rather than handing over every tick.
  */
 function pickChallengers(match, team, carrier, skaters, T) {
   const puck = match.puck;
-  const ownGoal = { x: 0, z: match.ownGoalZ(team) };
-  const danger = dist(carrier, ownGoal) < 16;
-  const max = danger ? 3 : (T.pressing > 0.75 ? 2 : 1) + 1;
+  const now = match.time;
+  const max = CHALLENGE.max + (T.pressing > 0.75 ? 1 : 0);
   const pressRange = (10 + T.pressing * 22) * (1 - (T.discipline ?? 0) * 0.35);
   const scored = skaters
     .map((q) => ({
       q,
+      committed: (q.ai.challengeUntil || 0) > now,
       goalSide: isGoalSide(match, q, carrier),
       d: dist(q, puck),
     }))
-    // a goal-side defender engages from further out; anyone else must be close
-    .filter((o) => o.d < (o.goalSide ? 16 : pressRange))
-    .sort((a, b) => (a.goalSide === b.goalSide ? a.d - b.d : (a.goalSide ? -1 : 1)));
-  return new Set(scored.slice(0, max).map((o) => o.q));
+    // a goal-side defender engages from further out; anyone else must be close.
+    // someone already committed stays in rather than pulling out half way.
+    .filter((o) => o.committed || o.d < (o.goalSide ? CHALLENGE.goalSideRange : pressRange))
+    .sort((a, b) => {
+      if (a.committed !== b.committed) return a.committed ? -1 : 1;
+      if (a.goalSide !== b.goalSide) return a.goalSide ? -1 : 1;
+      return a.d - b.d;
+    });
+  const set = new Set(scored.slice(0, max).map((o) => o.q));
+  for (const q of set) q.ai.challengeUntil = now + CHALLENGE.commit;
+  return set;
 }
 
 function interceptPoint(match, p) {

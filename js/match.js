@@ -281,6 +281,7 @@ export class Match {
     // remember who set this player up (for assists / give-and-go drills)
     puck.assist = puck.lastTouch && puck.lastTouch !== p && puck.lastTouch.team === p.team ? puck.lastTouch : null;
     puck.carrier = p;
+    puck.wonAt = this.time;
     puck.vx = puck.vz = 0;
     if (!silent) puck.orbit = Math.atan2(puck.x - p.x, puck.z - p.z);
     puck.orbitDir = this.chooseOrbitDir(p);
@@ -671,6 +672,9 @@ export class Match {
 
   checkSteal(carrier, dt) {
     const puck = this.puck;
+    // a freshly won ball is safe for a moment, so possession cannot ping-pong
+    // between two players standing next to each other
+    if (this.time - (puck.wonAt ?? -9) < PLAYER.settleTime) return;
     for (const p of this.players) {
       if (p.team === carrier.team || p.pickupCooldown > 0 || !p.canSteal) continue;
       const d = Math.hypot(puck.x - p.x, puck.z - p.z);

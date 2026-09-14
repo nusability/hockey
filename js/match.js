@@ -134,13 +134,18 @@ export class Match {
    * Spin the puck towards the most likely target so the player never waits
    * for the long way round: the goal when in range, else the best team-mate.
    */
-  chooseOrbitDir(p) {
+  /**
+   * The target the ball should spin towards first: the goal when it is in
+   * range, otherwise the best-placed team-mate.
+   */
+  orbitAim(p) {
     const gz = this.attackGoalZ(p.team);
     const dir = this.dirOf(p.team);
     const dGoal = Math.hypot(p.x, gz - p.z);
     let aim = null;
-    if (dGoal < 24 && Math.abs(p.x) < 13) aim = Math.atan2(0 - p.x, gz - p.z);
-    else {
+    if (dGoal < 24 && Math.abs(p.x) < 13) {
+      aim = Math.atan2(0 - p.x, gz - p.z);
+    } else {
       let best = null, bs = -Infinity;
       for (const m of this.teamPlayers(p.team)) {
         if (m === p || m.role === 'G' || m.role === 'O') continue;
@@ -153,6 +158,11 @@ export class Match {
       }
       if (best) aim = Math.atan2(best.x - p.x, best.z - p.z);
     }
+    return aim;
+  }
+
+  chooseOrbitDir(p) {
+    const aim = this.orbitAim(p);
     if (aim == null) return 1;
     return angleDiff(aim, this.puck.orbit) >= 0 ? 1 : -1;
   }
@@ -365,6 +375,23 @@ export class Match {
     const c = this.puck.carrier;
     if (!c || !this.isUserCarrier(c) || this.state !== 'play') return false;
     if (this.aimTarget(c)) return this.releaseAimed(c, { assist: true, accuracy: 1 });
+    // A press that lands just after the window closed still counts. Pressing
+    // early was always forgiven by the look-ahead below; being fractionally
+    // late should be forgiven too, or a chance in front of goal is over
+    // before a human can answer it.
+    {
+      const saved = this.puck.orbit;
+      const steps = 4;
+      for (let k = 1; k <= steps; k++) {
+        const t = (ORBIT.lateGrace * k) / steps;
+        this.puck.orbit = saved - this.orbitSpeed * t * this.puck.orbitDir;
+        const hit = this.aimTarget(c);
+        this.puck.orbit = saved;
+        if (!hit) continue;
+        if (hit.kind === 'pass') return this.passTo(c, hit.target, { accuracy: 1 });
+        return this.shootAtGoal(c, { accuracy: 1, power: ORBIT.shotSpeed });
+      }
+    }
     const saved = this.puck.orbit;
     for (const t of [0.05, 0.1, 0.15, 0.2, 0.25]) {
       this.puck.orbit = saved + this.orbitSpeed * t * this.puck.orbitDir;

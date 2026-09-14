@@ -55,6 +55,11 @@ export const ORBIT = {
   passSpeedMin: 14,        // a short square ball
   passSpeedMax: 30,        // a long ball is hit as hard as a shot
   passSpeedPerMetre: 0.85,
+  // A human cannot answer a window that opens and closes in a few frames.
+  // Pressing this long before a target comes up already worked; pressing this
+  // long after it has gone now counts too, which roughly doubles the window
+  // without slowing the ball down or costing any possession.
+  lateGrace: 0.25,
 };
 
 export const PUCK = {

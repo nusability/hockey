@@ -20,7 +20,7 @@ final class AimArrowView {
     private let head: ModelEntity
     private let headGlow: ModelEntity
     private let target: ModelEntity
-    private var dots: [ModelEntity] = []
+    private let dotted: ModelEntity
     private let mouth: ModelEntity
     private let strip: ModelEntity
     private var chevron: ShaderGraphMaterial
@@ -31,6 +31,10 @@ final class AimArrowView {
     private var stripMaterial: ShaderGraphMaterial
     private var targetMaterial: ShaderGraphMaterial
     private var dotMaterial: ShaderGraphMaterial
+    /// The receiver's ring and the dotted line: their vertices carry the lock-on's fade, so neither
+    /// is handed a material while it fades (SMASH-24).
+    private let targetMesh: DynamicMesh
+    private let dotsMesh: DynamicMesh
     private let corner: Double
     private let params = AimArrow.Params(maxLength: A.maxLength, minLength: A.minLength, passShort: A.passShort,
                                          shotShort: A.shotShort, boardMargin: A.boardMargin, boardProbe: A.boardProbe,
@@ -39,27 +43,28 @@ final class AimArrowView {
     private var showing = AimArrow.Showing()
     /// What each material currently says, so a material is written only when that changes.
     private var kindShown = -1
-    private var dotsOpacity = -1.0
-    private var targetOpacity = -1.0
+    private var mouthFade = -1.0
+    /// The ribbon's vertices, rewritten in place each frame (no resource is built).
+    private let ribbonMesh: DynamicMesh
 
     init(sport: Sport, feel: FeelMaterials.Set) throws {
         corner = sport.cornerRadius
         chevron = feel.chevron
-        FeelMaterials.set(&chevron, "Near", A.ribbonNear)
-        FeelMaterials.set(&chevron, "Far", A.ribbonFar)
         glowMaterial = feel.glow
         headGlowMaterial = feel.glow
         mouthMaterial = feel.glow
         stripMaterial = feel.glow
         headMaterial = feel.flat
-        targetMaterial = feel.flat
-        dotMaterial = feel.flat
+        targetMaterial = feel.trail
+        dotMaterial = feel.trail
         FeelMaterials.colour(&mouthMaterial, A.shot)
         FeelMaterials.colour(&stripMaterial, A.shot)
         FeelMaterials.colour(&headMaterial, A.free)
         FeelMaterials.set(&headMaterial, "Opacity", A.opacityFree)
         FeelMaterials.colour(&targetMaterial, Presentation.Player.target)
+        FeelMaterials.set(&targetMaterial, "Opacity", Presentation.Player.targetOpacity)
         FeelMaterials.colour(&dotMaterial, A.pass)
+        FeelMaterials.set(&dotMaterial, "Opacity", L.dotOpacity)
         let sort = ModelSortGroup(depthPass: nil)
         func model(_ kit: MeshKit, _ m: RealityKit.Material, order: Int32) throws -> ModelEntity {
             let e = ModelEntity(mesh: try kit.resource(), materials: [m])
@@ -67,7 +72,19 @@ final class AimArrowView {
             return e
         }
         glow = try model(Self.ribbon(A.glowNear, A.glowFar), glowMaterial, order: 0)
-        ribbon = try model(Self.ribbon(A.ribbonNear, A.ribbonFar), chevron, order: 1)
+        // The chevron ribbon is the one part whose shape changes every frame, so it is a low-level
+        // mesh written in place — as the ball's trail is — rather than a scaled one whose chevron
+        // count would have to be told to its material (SMASH-24).
+        var strips: [UInt16] = []
+        for i in 0..<Self.ribbonSteps {
+            let a = UInt16(2 * i)
+            strips += [a, a + 1, a + 2, a + 1, a + 3, a + 2]
+        }
+        let reach = Float(Tuning.Orbit.radius + A.start + A.maxLength) + 2
+        ribbonMesh = try DynamicMesh(vertexCount: 2 * (Self.ribbonSteps + 1), triangles: strips,
+                                     bounds: BoundingBox(min: [-2, -1, -1], max: [2, 1, reach]))
+        ribbon = ModelEntity(mesh: ribbonMesh.resource, materials: [chevron])
+        ribbon.components.set(ModelSortGroupComponent(group: sort, order: 1))
         headGlow = try model(Self.head(), headGlowMaterial, order: 2)
         head = try model(Self.head(), headMaterial, order: 3)
         let start = Float(Tuning.Orbit.radius + A.start)
@@ -76,20 +93,29 @@ final class AimArrowView {
         for e in [glow, ribbon, headGlow, head] { arrow.addChild(e) }
         root.addChild(arrow)
 
-        typealias P = Presentation.Player
-        let rr = Float(Tuning.Player.outfieldRadius)
-        target = try model(Shapes.ring(inner: rr + Float(P.targetInner), outer: rr + Float(P.targetOuter), segments: 32),
-                           targetMaterial, order: 0)
-        root.addChild(target)
-        var disc = MeshKit()
-        disc.disc(radius: Float(L.dot) / 2, y: 0, segments: 12)
-        let dotMesh = try disc.resource()
-        for _ in 0..<40 {
-            let d = ModelEntity(mesh: dotMesh, materials: [dotMaterial])
-            d.isEnabled = false
-            root.addChild(d)
-            dots.append(d)
+        var ringTris: [UInt16] = []
+        for i in 0..<Self.ringSteps {
+            let a = UInt16(2 * i)
+            ringTris += [a, a + 1, a + 2, a + 1, a + 3, a + 2]
         }
+        targetMesh = try DynamicMesh(vertexCount: 2 * (Self.ringSteps + 1), triangles: ringTris,
+                                     bounds: BoundingBox(min: [-4, -1, -4], max: [4, 1, 4]))
+        target = ModelEntity(mesh: targetMesh.resource, materials: [targetMaterial])
+        target.components.set(ModelSortGroupComponent(group: sort, order: 0))
+        root.addChild(target)
+        // One mesh for all the dots, not one entity each: the line is redrawn into its vertices.
+        var dotTris: [UInt16] = []
+        for d in 0..<Self.dotCount {
+            let base = UInt16(d * (Self.dotSteps + 1))
+            for i in 0..<Self.dotSteps {
+                dotTris += [base, base + UInt16(1 + i), base + UInt16(1 + (i + 1) % Self.dotSteps)]
+            }
+        }
+        dotsMesh = try DynamicMesh(vertexCount: Self.dotCount * (Self.dotSteps + 1), triangles: dotTris,
+                                   bounds: BoundingBox(min: [-40, -1, -40], max: [40, 1, 40]))
+        dotted = ModelEntity(mesh: dotsMesh.resource, materials: [dotMaterial])
+        dotted.components.set(ModelSortGroupComponent(group: sort, order: 0))
+        root.addChild(dotted)
         let half = Float(Tuning.Pitch.goalMouthWidth / 2)
         var sheet = MeshKit()
         sheet.quad([-half, 0, 0], [half, 0, 0], [half, Float(L.mouthHeight), 0], [-half, Float(L.mouthHeight), 0])
@@ -101,10 +127,70 @@ final class AimArrowView {
         hide()
     }
 
+    /// How many dots the line can hold, and the facets of one dot and of the receiver's ring.
+    static let dotCount = 40
+    static let dotSteps = 12
+    static let ringSteps = 32
+
+    /// Redraws the receiver's ring with the lock-on's `fade` in every vertex's `u` — the shader
+    /// multiplies its opacity by it (the Trail graph), so fading costs no material.
+    private func writeRing(fade: Float) {
+        typealias P = Presentation.Player
+        let rr = Float(Tuning.Player.outfieldRadius)
+        let inner = rr + Float(P.targetInner), outer = rr + Float(P.targetOuter)
+        let n = Self.ringSteps
+        targetMesh.write { v in
+            for i in 0...n {
+                let a = Float(i) / Float(n) * 2 * .pi
+                let (s, c) = (sin(a), cos(a))
+                v[2 * i] = .init(position: [inner * s, 0, inner * c], uv: [fade, 0])
+                v[2 * i + 1] = .init(position: [outer * s, 0, outer * c], uv: [fade, 1])
+            }
+        }
+    }
+
+    /// Redraws the dotted line: `count` discs at `at(i)`, the rest collapsed to a point so they
+    /// cover nothing. `fade` rides in `u`, as the ring's does.
+    private func writeDots(count: Int, fade: Float, at: (Int) -> SIMD3<Float>) {
+        let r = Float(L.dot) / 2
+        let n = Self.dotSteps
+        dotsMesh.write { v in
+            for d in 0..<Self.dotCount {
+                let base = d * (n + 1)
+                let centre = d < count ? at(d) : .zero
+                let size = d < count ? r : 0
+                v[base] = .init(position: centre, uv: [fade, 0])
+                for i in 0..<n {
+                    let a = Float(i) / Float(n) * 2 * .pi
+                    v[base + 1 + i] = .init(position: centre + [size * sin(a), 0, size * cos(a)], uv: [fade, 0])
+                }
+            }
+        }
+    }
+
+    /// Segments along a ribbon, the chevron one and the glow under it alike.
+    static let ribbonSteps = 12
+
+    /// Rewrites the chevron ribbon `len` metres long: `u` is metres from its start (the chevrons are
+    /// printed from it), `v` runs 0…1 across it, and the taper is in the vertices.
+    private func writeRibbon(_ len: Float) {
+        let n = Self.ribbonSteps
+        let w = Float(A.width)
+        ribbonMesh.write { v in
+            for i in 0...n {
+                let t = Float(i) / Float(n)
+                let half = Float(A.ribbonNear + (A.ribbonFar - A.ribbonNear) * Double(t)) / 2 * w
+                let u = len * t
+                v[2 * i] = .init(position: [-half, 0, u], uv: [u, 0])
+                v[2 * i + 1] = .init(position: [half, 0, u], uv: [u, 1])
+            }
+        }
+    }
+
     /// A tapered strip: z from 0 to 1, `near` wide at its start and `far` at its end (12 segments).
     static func ribbon(_ near: Double, _ far: Double) -> MeshKit {
         var k = MeshKit()
-        let n = 12
+        let n = ribbonSteps
         for i in 0..<n {
             let t0 = Float(i) / Float(n), t1 = Float(i + 1) / Float(n)
             let h0 = Float(near + (far - near) * Double(t0)) / 2, h1 = Float(near + (far - near) * Double(t1)) / 2
@@ -123,12 +209,18 @@ final class AimArrowView {
         return k
     }
 
+    /// Hands `m` to `e` — one more material the renderer takes ownership of (`Diagnostics`).
+    private func paint(_ e: ModelEntity, _ m: ShaderGraphMaterial) {
+        e.model?.materials = [m]
+        Diagnostics.materialWritten()
+    }
+
     private func hide() {
         arrow.isEnabled = false
         target.isEnabled = false
         mouth.isEnabled = false
         strip.isEnabled = false
-        for d in dots { d.isEnabled = false }
+        dotted.isEnabled = false
     }
 
     /// One frame: `positions` are the players' drawn positions, `angle` the drawn orbit angle,
@@ -138,6 +230,7 @@ final class AimArrowView {
                                  aim: s.aim, clock: clock, fadeIn: L.fadeIn)
         guard look.arrow, let c = s.ball.carrier, let aim = s.aim else {
             hide()
+            Diagnostics.second(clock) { "arrow=off state=\(s.state) mine=\(s.playerCarrier) carrier=\(String(describing: s.ball.carrier))" }
             return
         }
         let me = positions[c]
@@ -157,26 +250,31 @@ final class AimArrowView {
         root.position = SIMD3(Float(me.x), 0, Float(me.y))
         root.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
         arrow.orientation = simd_quatf(angle: Float(angle), axis: [0, 1, 0])
-        let rgb = [A.free, A.pass, A.shot][colour]
+        // Colour and the pulse are all these four materials say, and both follow `colour` alone —
+        // the beat itself runs in the shader — so on every other frame nothing is handed to the
+        // renderer (SMASH-24: a material written per frame is never given back).
         if colour != kindShown {
             kindShown = colour
+            let rgb = [A.free, A.pass, A.shot][colour]
+            let lit = snapped ? A.opacitySnapped : A.opacityFree
+            let beat = snapped ? A.pulse / A.opacitySnapped : 0
             FeelMaterials.colour(&chevron, rgb)
+            FeelMaterials.opacity(&chevron, lit, pulse: beat, rate: A.pulseRate)
+            paint(ribbon, chevron)
             FeelMaterials.colour(&glowMaterial, rgb)
+            FeelMaterials.opacity(&glowMaterial, snapped ? A.glowSnapped : A.glowFree)
+            paint(glow, glowMaterial)
             FeelMaterials.colour(&headGlowMaterial, rgb)
+            FeelMaterials.opacity(&headGlowMaterial, snapped ? A.headGlowSnapped : A.headGlowFree)
+            paint(headGlow, headGlowMaterial)
             FeelMaterials.colour(&headMaterial, rgb)
+            FeelMaterials.opacity(&headMaterial, lit, pulse: beat, rate: A.pulseRate)
+            paint(head, headMaterial)
         }
-        let opacity = snapped ? A.opacitySnapped + sin(clock * A.pulseRate) * A.pulse : A.opacityFree
-        FeelMaterials.set(&chevron, "Opacity", opacity)
-        FeelMaterials.set(&chevron, "Repeat", len / A.chevron)
-        FeelMaterials.set(&glowMaterial, "Opacity", snapped ? A.glowSnapped : A.glowFree)
-        FeelMaterials.set(&headGlowMaterial, "Opacity", snapped ? A.headGlowSnapped : A.headGlowFree)
-        FeelMaterials.set(&headMaterial, "Opacity", opacity)
-        ribbon.model?.materials = [chevron]
-        glow.model?.materials = [glowMaterial]
-        headGlow.model?.materials = [headGlowMaterial]
-        head.model?.materials = [headMaterial]
         let w = Float(A.width), l = Float(len), start = Float(Tuning.Orbit.radius + A.start)
-        ribbon.scale = [w, 1, l]
+        // The ribbon's length is written into its vertices, not into its material: the chevrons are
+        // printed from its texture coordinates (u in metres), so nothing about it is a resource.
+        writeRibbon(l)
         glow.scale = [w, 1, l]
         let hs = Float(A.headScale)
         head.position = [0, Float(A.lift) + 0.005, start + l]
@@ -187,6 +285,7 @@ final class AimArrowView {
         // The lock-on marker, in the pitch's frame (undo the carrier's offset).
         let dir = SIMD2(sin(angle), cos(angle))
         target.isEnabled = false
+        dotted.isEnabled = false
         mouth.isEnabled = false
         strip.isEnabled = false
         var dotsWanted = 0
@@ -197,12 +296,7 @@ final class AimArrowView {
             target.isEnabled = true
             target.position = local(r, y: 0.03, me)
             target.scale = SIMD3(repeating: Float(1 + sin(clock * P.targetPulseRate) * P.targetPulse))
-            let to = (P.targetOpacity * fade * 50).rounded() / 50
-            if to != targetOpacity {
-                targetOpacity = to
-                FeelMaterials.set(&targetMaterial, "Opacity", to)
-                target.model?.materials = [targetMaterial]
-            }
+            writeRing(fade: Float(fade))
             let p = s.players[m]
             let d = simd_distance(r, me)
             let o = Tuning.Orbit.self
@@ -210,34 +304,36 @@ final class AimArrowView {
             let lead = r + o.leadVelocityFactor * SIMD2(p.vx, p.vz) * t
             let tip = me + dir * (Tuning.Orbit.radius + A.start + len + A.head[1] * A.headScale)
             let span = simd_distance(lead, tip)
-            let count = min(dots.count, Int(span / L.dotGap))
+            let count = min(Self.dotCount, Int(span / L.dotGap))
             let step = count > 0 ? (lead - tip) / Double(count) : .zero
-            for i in 0..<count {
-                dots[i].isEnabled = true
-                dots[i].position = local(tip + step * (Double(i) + 0.5), y: Float(A.lift), me)
+            dotted.isEnabled = count > 0
+            writeDots(count: count, fade: Float(fade)) { i in
+                self.local(tip + step * (Double(i) + 0.5), y: Float(A.lift), me)
             }
             dotsWanted = count
-            let o2 = (L.dotOpacity * fade * 50).rounded() / 50
-            if o2 != dotsOpacity {
-                dotsOpacity = o2
-                FeelMaterials.set(&dotMaterial, "Opacity", o2)
-                for d in dots { d.model?.materials = [dotMaterial] }
-            }
         case .shot:
-            let breathe = 1 + L.mouthPulse * sin(clock * A.pulseRate)
             mouth.isEnabled = true
             mouth.position = local(SIMD2(0, goalZ), y: 0, me)
-            FeelMaterials.set(&mouthMaterial, "Opacity", L.mouthOpacity * fade * breathe)
-            mouth.model?.materials = [mouthMaterial]
             strip.isEnabled = true
             strip.position = local(SIMD2(0, goalZ), y: Float(A.lift) - 0.01, me)
             strip.scale = [1, 1, Float(-(goalZ > 0 ? 1 : -1) * L.mouthDepth)]
-            FeelMaterials.set(&stripMaterial, "Opacity", L.stripOpacity * fade * breathe)
-            strip.model?.materials = [stripMaterial]
+            // Only the fade is ours — the breathing is the shader's — so the two materials are
+            // written over the 0.08 s a snap fades in and never again while it stands.
+            let f = (fade * 50).rounded() / 50
+            if f != mouthFade {
+                mouthFade = f
+                FeelMaterials.opacity(&mouthMaterial, L.mouthOpacity * f, pulse: L.mouthPulse, rate: A.pulseRate)
+                paint(mouth, mouthMaterial)
+                FeelMaterials.opacity(&stripMaterial, L.stripOpacity * f, pulse: L.mouthPulse, rate: A.pulseRate)
+                paint(strip, stripMaterial)
+            }
         case .unassisted:
             break
         }
-        for i in dotsWanted..<dots.count { dots[i].isEnabled = false }
+        Diagnostics.second(clock) {
+            "arrow=on enabled=\(arrow.isEnabled) colour=\(colour) len=\(String(format: "%.2f", len)) "
+                + "fade=\(String(format: "%.2f", fade)) parts=\(root.children.count) dots=\(dotsWanted)"
+        }
     }
 
     /// A pitch point in the root's frame (the root stands on the carrier, unturned).

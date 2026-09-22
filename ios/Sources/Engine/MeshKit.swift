@@ -166,6 +166,7 @@ struct MeshKit {
             d.materials = .allFaces(UInt32(k))
             parts.append(d)
         }
+        Diagnostics.meshBuilt()
         return try MeshResource.generate(from: parts)
     }
 }

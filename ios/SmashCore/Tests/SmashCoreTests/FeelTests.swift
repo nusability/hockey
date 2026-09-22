@@ -255,6 +255,63 @@ import Testing
         #expect(look.fade >= 0 && look.fade <= 1)
     }
 
+    /// Twenty minutes of frames at 120 Hz, the match state, the carrier and the aim shuffled by a
+    /// seeded generator: the arrow is shown on **exactly** the frames §5.2 says it must be, whatever
+    /// sequence led there. SMASH-24 was "the arrow stops appearing after a few minutes" — this is
+    /// the half of that which the core owns, and it must stay ruled out by a test, not by reading.
+    @Test func theArrowNeverGetsStuckOverALongMatch() {
+        var showing = AimArrow.Showing()
+        var rng = SplitMix64(seed: 0x5EED_A1_ACE)
+        let states = MatchState.allCases
+        var clock = 0.0
+        var state = MatchState.play
+        var carrier: Int? = 1
+        var aim: MatchSnapshot.Aim? = .unassisted
+        var mine = true
+        // The snap on screen, tracked here independently of the thing under test.
+        var since = 0.0
+        var was: (carrier: Int, aim: MatchSnapshot.Aim)?
+        var shown = 0
+        for _ in 0..<(120 * 60 * 20) {
+            clock += 1.0 / 120
+            // Roughly a change a second in each of the four inputs, independently.
+            if rng.uniform() < 1.0 / 120 { state = states[Int(rng.uniform() * Double(states.count))] }
+            if rng.uniform() < 1.0 / 120 { carrier = rng.uniform() < 0.1 ? nil : Int(rng.uniform() * 12) }
+            if rng.uniform() < 1.0 / 120 { mine = rng.uniform() < 0.7 }
+            if rng.uniform() < 1.0 / 120 {
+                let r = rng.uniform()
+                aim = r < 0.1 ? nil : r < 0.4 ? .unassisted : r < 0.7 ? .pass(to: Int(rng.uniform() * 12)) : .shot
+            }
+            let look = showing.frame(state: state, playerCarrier: mine, carrier: carrier, aim: aim,
+                                     clock: clock, fadeIn: Rig.fadeIn)
+            let want = mine && carrier != nil && aim != nil && (state == .play || state == .ready)
+            #expect(look.arrow == want, "clock \(clock) state \(state) mine \(mine)")
+            guard want, let aim, let carrier else {
+                was = nil
+                continue
+            }
+            shown += 1
+            // The colour is the aim's, always.
+            let colour = switch aim { case .unassisted: 0; case .pass: 1; case .shot: 2 }
+            #expect(look.colour == colour)
+            // A snap begins when what it aims at changes, and when the ball changes hands.
+            if was == nil || was!.carrier != carrier || was!.aim != aim {
+                was = (carrier, aim)
+                since = clock
+            }
+            // A free arrow has no lock-on to fade in; a snap's fades over `fadeIn` and then stands.
+            let fade = colour == 0 ? 0 : min(1, (clock - since) / Rig.fadeIn)
+            #expect(abs(look.fade - fade) < 1e-9)
+            let lock: AimArrow.Lock = switch aim {
+            case .unassisted: .none
+            case .pass(let to): .pass(to)
+            case .shot: .shot
+            }
+            #expect(look.lock == lock)
+        }
+        #expect(shown > 120 * 60)           // the run really did spend minutes with the arrow up
+    }
+
     // MARK: banners (§16.4)
 
     @Test func theDrillsGetReadySaysWhy() {

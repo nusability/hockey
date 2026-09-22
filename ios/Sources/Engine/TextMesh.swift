@@ -48,6 +48,7 @@ enum TextMesh {
         let mesh = MeshResource.generateText(text, extrusionDepth: depth, font: font,
                                              containerFrame: .zero, alignment: .center, lineBreakMode: .byClipping)
         cache[key] = mesh
+        Diagnostics.meshBuilt()
         return mesh
     }
 

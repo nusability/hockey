@@ -87,6 +87,12 @@ Steps 2–4 and 6 are skills — invoke them; they carry the detailed procedure.
 9. **Tag** `spec-vX.Y.Z` (annotated). Close the Stori item; link the commit.
 
 One change in flight at a time (the uncommitted diff is your only to-be).
+
+**Parallel streams** (when the owner asks for them): each stream runs in its own git worktree on
+its own branch, owns a **declared set of paths and spec sections** it may edit, and is otherwise
+read-only on the tree. Within a stream the loop above holds — its spec diff and code travel
+together. The integrating session merges streams one at a time onto `main`, resolves overlaps,
+and owns the shared rows (the platform-delta table, `Spec-Version`, tags).
 Skills lifted in spirit from GitHub Spec Kit (`/clarify` · `/specify` · `/plan` · `/analyze`).
 
 ## Workflow rules

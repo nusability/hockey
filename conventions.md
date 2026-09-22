@@ -29,7 +29,7 @@ Those apply from the first line.
 - **Never copy-paste or transliterate web code into an app.**
 
 ## Game loop & feel
-- **The simulation steps at a fixed 1/120 s**, decoupled from the display, on both platforms
+- **The simulation steps at a fixed 1/240 s, advanced in 1/120 s ticks** (spec §4), decoupled from the display, on both platforms
   (the prototype's step; its tuning depends on it). Rendering interpolates or simply draws the latest
   state; it never advances the simulation by the frame's delta.
 - **Frame-rate independence is a correctness property.** A match plays identically at 60 and

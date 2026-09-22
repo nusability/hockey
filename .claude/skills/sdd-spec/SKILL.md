@@ -21,9 +21,8 @@ diff against the last committed spec becomes the exact scope.
    - Respect the declared split axis (see the spec header) — new capability = a new/edited step.
    - Never park future/maybe functionality here — that's Stori.
    - The spec covers **both apps** (iOS and Android, one text + the dated platform-delta
-     table) and, once it exists, the **release toolchain**. `web/` appears only as the named
-     parity reference and the source of the recorded vectors, never as a second system to
-     keep in sync.
+     table) and, once it exists, the **release toolchain**. `web/` appears only as the gameplay prototype the rules and numbers were
+     proven in, never as a second system to keep in sync.
    - **Both platforms.** A behaviour change is a two-codebase change; if one platform will
      land later, add its dated temporary delta row in this same diff.
    - Economy numbers that must hold (rates, caps, prices, drop odds) are **invariants** and

@@ -11,7 +11,7 @@ private func at(_ x: Float, _ y: Float, z: Float = 0, tilt: Float = 0) -> Transf
 /// ticking down, a pause button. A fake ball runs at a goal every few seconds; the score flips,
 /// the board jellies, GOAL! bounces across. At 0:00, FULL TIME, then the result.
 @MainActor
-final class MatchScreen: SketchScreen {
+final class SketchMatchScreen: SketchScreen {
     private(set) var pause: BlockButton!
     private(set) var resume: BlockButton!
     private var quit: BlockButton!

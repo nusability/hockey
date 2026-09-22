@@ -3,13 +3,13 @@ import SmashCore
 import simd
 
 /// Where the camera is: its eye, what it looks at, and its vertical field of view (degrees).
-struct CameraPose: Equatable {
+struct DirectorPose: Equatable {
     var eye: SIMD3<Double>
     var target: SIMD3<Double>
     var fov: Double
 
-    static func mix(_ a: CameraPose, _ b: CameraPose, _ w: Double) -> CameraPose {
-        CameraPose(eye: a.eye + (b.eye - a.eye) * w, target: a.target + (b.target - a.target) * w,
+    static func mix(_ a: DirectorPose, _ b: DirectorPose, _ w: Double) -> DirectorPose {
+        DirectorPose(eye: a.eye + (b.eye - a.eye) * w, target: a.target + (b.target - a.target) * w,
                    fov: a.fov + (b.fov - a.fov) * w)
     }
 }
@@ -33,7 +33,7 @@ struct Director {
     typealias P = Presentation.Camera
 
     private(set) var timeScale = 1.0
-    private(set) var pose: CameraPose
+    private(set) var pose: DirectorPose
     var reduceMotion = false
 
     // §8.6 — the goal's slow motion runs on real seconds since the goal.
@@ -45,7 +45,7 @@ struct Director {
     private var focus: SIMD2<Double>
     private var leadDirection = 1.0
     private var weight = 0.0
-    private var drama: CameraPose
+    private var drama: DirectorPose
     private var shake = 0.0
     private var shakeClock = 0.0
 
@@ -115,7 +115,7 @@ struct Director {
         }
         weight += (wanted - weight) * (1 - exp(-dt * blendRate))
         if case .play = mode, weight < 0.002 { goal = nil }
-        pose = CameraPose.mix(play, drama, weight)
+        pose = DirectorPose.mix(play, drama, weight)
 
         shakeClock += dt
         shake *= exp(-dt * P.Shake.decay)
@@ -149,26 +149,26 @@ struct Director {
         focus += (want - focus) * (1 - exp(-dt * C.rate))
     }
 
-    static func playPose(focus f: SIMD2<Double>) -> CameraPose {
+    static func playPose(focus f: SIMD2<Double>) -> DirectorPose {
         typealias C = P.Play
-        return CameraPose(eye: SIMD3(f.x, C.height, f.y - C.back), target: SIMD3(f.x, 0, f.y + C.lookAhead), fov: P.fov)
+        return DirectorPose(eye: SIMD3(f.x, C.height, f.y - C.back), target: SIMD3(f.x, 0, f.y + C.lookAhead), fov: P.fov)
     }
 
     // MARK: the dramatic cameras
 
     /// A shot about to score: low behind the ball, looking along it at the net.
-    private func buildupPose(_ m: DirectorInput) -> CameraPose {
+    private func buildupPose(_ m: DirectorInput) -> DirectorPose {
         typealias B = P.Buildup
         let outward = m.ballVelocity.y >= 0 ? 1.0 : -1.0
         let gz = outward * Tuning.Pitch.goalLineZ
         let t = abs(m.ballVelocity.y) > 1e-6 ? (gz - m.ball.y) / m.ballVelocity.y : 0
         let hitX = m.ball.x + m.ballVelocity.x * max(t, 0)
-        return CameraPose(eye: SIMD3(m.ball.x * 0.6, B.height, gz - outward * B.back),
+        return DirectorPose(eye: SIMD3(m.ball.x * 0.6, B.height, gz - outward * B.back),
                           target: SIMD3(hitX * 0.5, 0.6, gz), fov: B.fov)
     }
 
     /// The goal camera: beside the net on the side the ball came from, sweeping round behind it.
-    private func goalPose(_ t: Double, ball: SIMD2<Double>) -> CameraPose {
+    private func goalPose(_ t: Double, ball: SIMD2<Double>) -> DirectorPose {
         typealias G = P.Goal
         guard let g = goal else { return drama }
         let outward = g.z >= 0 ? 1.0 : -1.0
@@ -176,6 +176,6 @@ struct Director {
         let a = G.startAngle - run * G.sweep
         let eye = SIMD3(g.x + g.side * sin(a) * G.radius, G.height + run * G.rise, g.z + outward * cos(a) * G.radius)
         let target = SIMD3(ball.x * 0.4, G.lookHeight, g.z - outward * 0.5)
-        return CameraPose(eye: eye, target: target, fov: G.fov)
+        return DirectorPose(eye: eye, target: target, fov: G.fov)
     }
 }

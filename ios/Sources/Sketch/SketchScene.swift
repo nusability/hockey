@@ -18,7 +18,7 @@ final class SketchScene {
     private(set) var current: SketchScreenID?
     private var title: TitleScreen!
     private var hub: HubScreen!
-    private var match: MatchScreen!
+    private var match: SketchMatchScreen!
     private var result: ResultScreen!
     private var coach: CoachScreen!
 
@@ -44,7 +44,7 @@ final class SketchScene {
         let go: Go = { [weak self] id in self?.go(to: id) }
         title = TitleScreen(stage: stage, go: go)
         hub = HubScreen(stage: stage, go: go)
-        match = MatchScreen(stage: stage, world: world.root, go: go)
+        match = SketchMatchScreen(stage: stage, world: world.root, go: go)
         result = ResultScreen(stage: stage, go: go)
         coach = CoachScreen(stage: stage, go: go)
         screens = [.title: title, .hub: hub, .match: match, .result: result, .coach: coach]

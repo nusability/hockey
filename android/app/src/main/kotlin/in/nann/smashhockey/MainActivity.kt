@@ -30,6 +30,8 @@ import `in`.nann.smashhockey.spike.ScreenRect
 import `in`.nann.smashhockey.spike.SpikeScene
 import `in`.nann.smashhockey.scene.MatchPlan
 import `in`.nann.smashhockey.scene.MatchScene
+import `in`.nann.smashhockey.sketch.SketchScene
+import `in`.nann.smashhockey.ui.SemanticsOverlay
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
@@ -39,11 +41,14 @@ import androidx.core.view.WindowInsetsCompat
  * overlay takes no touches — they reach the surface and our own hit-test.
  *
  * Until the menus exist the intent picks the scene: `--es scene match` (with `quick`, `drill` or
- * `demo`, see [MatchPlan]) shows the match; anything else shows the renderer spike (SMASH-2).
+ * `demo`, see [MatchPlan]) shows the match; `--es scene spike` the renderer spike (SMASH-2); no
+ * extras open the SMASH-5 motion sketch, like iOS (`--ez sketchAutoplay true` walks it by itself,
+ * `--ez sketchReduceMotion true` shows its calm path).
  */
 class MainActivity : ComponentActivity() {
     private var spike: SpikeScene? = null
     private var match: MatchScene? = null
+    private var sketch: SketchScene? = null
     private val buttonRect = mutableStateOf<ScreenRect?>(null)
     private val pausedState = mutableStateOf(false)
 
@@ -71,6 +76,18 @@ class MainActivity : ComponentActivity() {
             label = getString(R.string.pause_title)
             tag = "match_pause_button"
             action = { m.togglePause() }
+        } else if (intent.getStringExtra("scene") != "spike") {
+            val s = SketchScene(this, surface, intent.getBooleanExtra("sketchAutoplay", false),
+                intent.getBooleanExtra("sketchReduceMotion", false))
+            sketch = s
+            surface.setOnTouchListener { _, e -> s.onTouch(e) }
+            setContent {
+                Box(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
+                    AndroidView(factory = { surface }, modifier = Modifier.fillMaxSize())
+                    s.stage.value?.let { SemanticsOverlay(it) }
+                }
+            }
+            return
         } else {
             val s = SpikeScene(this, surface) { buttonRect.value = it }
             spike = s
@@ -108,18 +125,22 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         spike?.start()
         match?.start()
+        sketch?.start()
     }
 
     override fun onPause() {
         match?.setPaused(true)          // §8.7: leaving the foreground pauses the match
         match?.stop()
         spike?.stop()
+        sketch?.stop()
         super.onPause()
     }
 
     override fun onDestroy() {
         spike?.destroy()
         match?.destroy()
+        sketch?.destroy()
+        sketch = null
         spike = null
         match = null
         super.onDestroy()

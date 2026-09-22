@@ -52,6 +52,7 @@
 "team.issue.secondaryNotInPalette" = { en = "PICK A TRIM", de = "WÄHLE EINEN BESATZ" }
 
 # The season hub (§16.3)
+"hub.season" = { en = "SEASON {n}", de = "SAISON {n}" }
 "hub.header" = { en = "MATCHDAY {m} OF {total}", de = "SPIELTAG {m} VON {total}" }
 "hub.league" = { en = "LEAGUE · ROUND {n}", de = "LIGA · RUNDE {n}" }
 "hub.cup" = { en = "CUP · {round}", de = "POKAL · {round}" }
@@ -163,3 +164,4 @@
 "event.passFirst" = { en = "PASS FIRST!", de = "ERST PASSEN!" }
 "event.wrongNet" = { en = "WRONG GOAL!", de = "FALSCHES TOR!" }
 "event.reset" = { en = "RESET", de = "NEUSTART" }
+"event.versus" = { en = "{home} VS {away}", de = "{home} GEGEN {away}", comment = "The intro banner of a match: the two teams' names." }

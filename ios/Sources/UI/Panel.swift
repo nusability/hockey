@@ -43,7 +43,9 @@ final class Panel: Presentable {
     func thud() { jiggle.kick(twist: 0, swell: -motion.kick(.celebrate) * 0.15) }
 
     func update(_ dt: Double, _ ctx: UIContext) {
+        let wasSettled = presence.isSettledIn
         presence.advance(dt, ctx)
+        if !wasSettled, presence.isSettledIn { KitSound.pop() }         // it lands
         presence.apply(to: entity, rest: rest, reduceMotion: ctx.reduceMotion)
         guard entity.isEnabled else { return }
         jiggle.advance(dt, reduceMotion: ctx.reduceMotion)

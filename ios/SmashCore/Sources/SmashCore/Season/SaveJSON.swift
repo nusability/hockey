@@ -59,6 +59,7 @@ public enum SaveRule: String, Sendable, CaseIterable {
     case fixtureNotInLeague
     case cupScoreLevel                      // §11.3: a cup match always has a winner
     case overtimeOutsideCup
+    case seasonNumber                       // §15: a season's number is 1 or more
 }
 
 // MARK: - The helpers the generated code calls

@@ -116,8 +116,9 @@ data class CreatedTeam(
     }
 }
 
-/** The season in progress (spec §11, §15): its stream's seed and position, the league's teams, every fixture drawn so far with its score, and the matchday — the index in Season.plan of the next matchday to play; Season.plan.count once the final is played. The table and the cup bracket follow from the fixtures. */
+/** The season in progress (spec §11, §15): its number in the career (the first is 1, each next season one more; starting over begins again at 1), its stream's seed and position, the league's teams, every fixture drawn so far with its score, and the matchday — the index in Season.plan of the next matchday to play; Season.plan.count once the final is played. The table and the cup bracket follow from the fixtures. */
 data class SeasonRecord(
+    val number: Int,
     val seed: Long,
     val stream: Long,
     val teams: List<TeamKey>,
@@ -127,6 +128,7 @@ data class SeasonRecord(
     /** This record as its canonical JSON value. */
     fun toJson(): JsonValue = JsonValue.Obj(
         listOf(
+            "number" to JsonValue.Num(number.toLong()),
             "seed" to SaveJson.u64(seed),
             "stream" to SaveJson.u64(stream),
             "teams" to JsonValue.Arr(teams.map { JsonValue.Str(it.key) }),
@@ -138,13 +140,14 @@ data class SeasonRecord(
     companion object {
         /** Decodes the record at [path] ("$" for the file's root), failing on anything but its exact shape. */
         fun fromJson(json: JsonValue, path: String): SeasonRecord {
-            val o = SaveJson.fields(json, path, listOf("seed", "stream", "teams", "matchday", "fixtures"))
+            val o = SaveJson.fields(json, path, listOf("number", "seed", "stream", "teams", "matchday", "fixtures"))
             val record = SeasonRecord(
-                seed = SaveJson.u64(o[0], "$path.seed"),
-                stream = SaveJson.u64(o[1], "$path.stream"),
-                teams = SaveJson.array(o[2], "$path.teams").mapIndexed { i, v -> SaveJson.key(v, "$path.teams[$i]", TeamKey.entries) { it.key } },
-                matchday = SaveJson.int(o[3], "$path.matchday"),
-                fixtures = SaveJson.array(o[4], "$path.fixtures").mapIndexed { i, v -> Fixture.fromJson(v, "$path.fixtures[$i]") },
+                number = SaveJson.int(o[0], "$path.number"),
+                seed = SaveJson.u64(o[1], "$path.seed"),
+                stream = SaveJson.u64(o[2], "$path.stream"),
+                teams = SaveJson.array(o[3], "$path.teams").mapIndexed { i, v -> SaveJson.key(v, "$path.teams[$i]", TeamKey.entries) { it.key } },
+                matchday = SaveJson.int(o[4], "$path.matchday"),
+                fixtures = SaveJson.array(o[5], "$path.fixtures").mapIndexed { i, v -> Fixture.fromJson(v, "$path.fixtures[$i]") },
             )
             record.validate(path)
             return record

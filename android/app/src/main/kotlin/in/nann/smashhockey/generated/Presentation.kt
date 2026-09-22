@@ -48,10 +48,11 @@ object Presentation {
             const val buildupWeight: Double = 0.15
         }
         object Shake {
-            const val post: Double = 0.28
-            const val board: Double = 0.08
-            const val decay: Double = 7.0
+            const val goal: Double = 1.2
+            const val post: Double = 0.5
+            const val decay: Double = 2.5
             const val frequency: Double = 21.0
+            const val reduceMotion: Double = 0.2
         }
     }
     object Player {
@@ -95,23 +96,138 @@ object Presentation {
         const val discOpacity: Double = 0.35
     }
     object Aim {
-        const val pass: Int = 0x34D399
-        const val shot: Int = 0xFF4F9A
-        const val free: Int = 0xFFFFFF
-        const val width: Double = 0.24
-        const val freeLength: Double = 7.0
-        const val opacity: Double = 0.85
+        const val free: Int = 0xFACC15
+        const val pass: Int = 0x4ADE80
+        const val shot: Int = 0xF472B6
+        const val start: Double = 0.35
+        const val maxLength: Double = 16.0
+        const val minLength: Double = 2.5
+        const val passShort: Double = 1.6
+        const val shotShort: Double = 1.2
+        const val boardMargin: Double = 1.2
+        const val boardProbe: Double = 0.6
+        const val probeStep: Double = 0.5
+        const val width: Double = 1.1
+        const val ribbonNear: Double = 0.62
+        const val ribbonFar: Double = 0.3
+        const val glowNear: Double = 1.0
+        const val glowFar: Double = 0.5
+        const val chevron: Double = 1.3
+        const val scroll: Double = 2.4
+        val head: List<Double> = listOf(0.0, 1.3, 0.95, -0.2, 0.0, 0.25)
+        const val headScale: Double = 1.1
+        const val headGlow: Double = 1.3
+        const val opacityFree: Double = 0.7
+        const val opacitySnapped: Double = 0.85
+        const val pulse: Double = 0.15
+        const val pulseRate: Double = 14.0
+        const val glowFree: Double = 0.1
+        const val glowSnapped: Double = 0.16
+        const val headGlowFree: Double = 0.15
+        const val headGlowSnapped: Double = 0.22
+        const val lift: Double = 0.04
         const val orbit: Int = 0xFFFFFF
-        const val orbitOpacity: Double = 0.35
-        const val orbitWidth: Double = 0.08
+        const val orbitOpacity: Double = 0.5
+        const val orbitWidth: Double = 0.1
+        object Lock {
+            const val fadeIn: Double = 0.08
+            const val dot: Double = 0.16
+            const val dotGap: Double = 0.55
+            const val dotOpacity: Double = 0.45
+            const val mouthHeight: Double = 1.9
+            const val mouthOpacity: Double = 0.2
+            const val mouthDepth: Double = 1.4
+            const val stripOpacity: Double = 0.28
+            const val mouthPulse: Double = 0.25
+        }
+    }
+    object Trail {
+        const val colour: Int = 0xFDE68A
+        const val minSpeed: Double = 6.0
+        const val fadeSpeed: Double = 3.0
+        const val seconds: Double = 0.16
+        const val width: Double = 0.5
+        const val opacity: Double = 0.6
+        const val samples: Int = 24
+        const val puckSpin: Double = 4.0
     }
     object Celebration {
-        const val pieces: Int = 70
-        const val seconds: Double = 2.8
-        const val speed: Double = 11.0
-        const val gravity: Double = 9.0
-        const val size: Double = 0.32
-        val colours: List<Int> = listOf(0xFF4F9A, 0xFFD23F, 0x34D399, 0x60A5FA, 0xFFFFFF, 0xC084FC)
+        const val pieces: Int = 160
+        val size: List<Double> = listOf(0.3, 0.07, 0.42)
+        const val spread: Double = 4.0
+        const val depth: Double = 2.0
+        val height: List<Double> = listOf(1.0, 3.0)
+        const val sideways: Double = 9.0
+        val up: List<Double> = listOf(6.0, 16.0)
+        const val gravity: Double = 18.0
+        const val floor: Double = 0.1
+        const val bounce: Double = 0.3
+        const val friction: Double = 0.8
+        const val spin: Double = 6.0
+        val life: List<Double> = listOf(1.8, 2.8)
+    }
+    object Pop {
+        const val seconds: Double = 0.35
+        const val radiusFrom: Double = 0.5
+        const val radiusTo: Double = 2.0
+        const val width: Double = 0.18
+        const val opacity: Double = 0.85
+        const val save: Int = 0xFFFFFF
+        const val steal: Int = 0xFB7185
+        const val block: Int = 0xFDBA74
+    }
+    object Net {
+        const val colour: Int = 0xF8FAFC
+        const val height: Double = 1.9
+        const val opacity: Double = 0.22
+        const val columns: Int = 12
+        const val rows: Int = 5
+        const val amplitude: Double = 0.35
+        const val decay: Double = 3.2
+        const val frequency: Double = 18.0
+        const val k: Double = 4.0
+        const val reach: Double = 2.5
+        const val seconds: Double = 1.6
+    }
+    object Banner {
+        const val versus: Double = 2.2
+        const val period: Double = 1.5
+        const val periodEnd: Double = 2.4
+        const val whistle: Double = 1.8
+        const val ready: Double = 0.9
+        const val lost: Double = 1.2
+        const val goal: Double = 2.4
+        const val end: Double = 1.5
+        const val good: Int = 0xFACC15
+        const val bad: Int = 0xFB7185
+        const val warn: Int = 0xFDBA74
+        const val info: Int = 0x22D3EE
+        const val heightGood: Double = 0.34
+        const val heightBad: Double = 0.3
+        const val heightWarn: Double = 0.24
+        const val heightInfo: Double = 0.2
+    }
+    object Haptics {
+        const val window: Double = 0.35
+        const val releaseLow: Double = 0.35
+        const val releaseHigh: Double = 1.0
+        const val releaseSlow: Double = 12.0
+        const val releaseFast: Double = 30.0
+        const val sharp: Double = 0.9
+        const val goal: Double = 1.0
+        val goalPulses: List<Double> = listOf(0.0, 0.5, 1.0)
+        const val against: Double = 0.4
+        const val tick: Double = 0.25
+    }
+    object Sound {
+        const val minRate: Double = 0.5
+        const val maxRate: Double = 2.0
+        const val pan: Double = 0.6
+        const val shotSlow: Double = 12.0
+        const val shotFast: Double = 30.0
+        const val countdown: Int = 5
+        const val voices: Int = 16
+        const val stingDelay: Double = 1.3
     }
     object Hud {
         const val depth: Double = 4.0

@@ -312,8 +312,18 @@ At any orbit angle, a release **snaps**:
   widened by up to 0.30 as the carrier closes from 14 to 0 away**. The goal wins over a pass when
   its angle is less than 0.9 × the pass's, or the carrier is within 9 of goal.
 
-The aim line shows the direction and what it would snap to — **pass** and **shot** each with their
-own colour.
+**The aim arrow** shows the direction and what a release now would snap to — the prototype's arrow,
+and only round **the player's own carrier** (with the white ring the ball circles on). It stands on
+the carrier's centre and points along the orbit angle, out through the ball — never at the target —
+so what it shows is where the ball is going round, and its colour says what letting go now would do:
+**yellow** free, **green** a pass, **pink** a shot. It is a tapered ribbon printed with chevrons that
+scroll outward, over a soft glow, ending in a notched arrowhead; snapped, it pulses. Its length says
+how far the release would carry: free, 16; a pass, to just short of the receiver; a shot, to just
+short of the goal — always stopping short of the boards (1.2 and the orbit radius before them) and
+never shorter than 2.5. When a snap begins a **lock-on marker** fades in within 0.08 s: for a pass the
+receiver's pulsing ring and a faint dotted line in the pass colour from the arrowhead to where the
+pass would go (§5.4's lead point); for a shot a pink glow across the goal mouth. Every measure and
+colour is declared once for both apps (`shared/data/presentation.toml` `[aim]`).
 
 #### 5.3 The player's release
 The ball circles by itself; **touching and holding anywhere** is the player saying "not yet", and
@@ -592,11 +602,41 @@ unassisted releases and clears, never passes.
   from further than 13 plays at full speed.
 - Time-scale changes ease at rate 4/s (8/s during a goal). Leaving a goal, the scale starts from
   at least 0.6.
-- **Reduce Motion** keeps the slow motion and tames the camera.
+- **Reduce Motion** keeps the slow motion and tames the camera and the shake (§8.8).
 
 #### 8.7 Quitting
 A match can be paused (automatically when the app leaves the foreground) and quit from the pause.
 Quitting a **season** match forfeits it as a **0–3** loss. Quitting anything else just leaves.
+
+#### 8.8 What a match looks, sounds and feels like
+Everything here is presentation: it reads the match and never changes a tick (§4.2). What each event
+sets off is decided once for both apps (the cores' `Feel`), every number is declared once
+(`shared/data/presentation.toml`), and the sounds are the bank's (`shared/data/sounds.toml`). The
+player's own matches and drills get all of it; the demo behind the menus (§9) only what is seen —
+never a banner, a sound or a haptic.
+
+- **The ball.** A field ball rolls along its travel; a puck spins. A loose ball faster than 6 draws
+  a tapered, fading ribbon behind it in the ball's yellow, through where it was over the last 0.16 s.
+- **Goals.** Confetti bursts from the scored-in net at real speed — 160 cards in the scoring side's
+  primary, secondary and white, thrown sideways and high, falling, bouncing and tumbling; the net's
+  sheets ripple out from where the ball struck; the camera shakes (a kick of 1.2 falling off by 2.5 a
+  second); the scorers hop (§16.4's banner, the horn and the crowd for a goal of ours, a sigh for one
+  against).
+- **Knocks.** A post shakes the camera (0.5) and rings; the boards only sound. A save, a steal or a
+  block pops a quick ring at the spot. Reduce Motion keeps a fifth of every shake.
+- **Sound.** Every event of the prototype has its sound — the shot (soft, medium or hard by its
+  speed), the pass, the player's side taking the ball, the boards, a dummy, the post, the save, the
+  steal, the face-off drop, the whistles (a stoppage, a goal, a drill interrupted; a period's end and
+  full time), the goal horn with the crowd, the goal against, the last five seconds of a period or a
+  drill ticking, and 1.3 s after the end the result's sting (a win or a draw, a loss or time up). The
+  3D UI kit sounds too: a press, a refusal, a flip digit turning, a panel landing, the camera's
+  whoosh, a slider's step. A sound made on the pitch pans with where it happened and follows the
+  time scale (§8.6); the rest play at real speed, centred. Sound follows the silent switch on iOS and
+  the media volume on Android.
+- **Haptics**, on the system's haptics setting: a light tick when the player's carrier's aim enters a
+  pass or shot window (§5.2), an impact on the player's release scaled by its speed, a sharp tap for a
+  steal, a save or a post, three pulses with the horn for a goal of ours (one soft one for a goal
+  against), and a soft tick with each second of the countdown.
 
 ### 9. The demo match
 A match plays behind the menus so the title screen is alive: the player's team (Moss Foxes
@@ -763,7 +803,8 @@ name and drill text exists in both.
 ### 15. What is kept on the device
 - **The career:** the chosen club, or the created team's name, short code, kit and home world;
   and the trophy counts.
-- **The season in progress:** its seed and stream position, its teams, every fixture drawn so
+- **The season in progress:** its number in the career (the first is 1, each next one more;
+  starting over begins again at 1), its seed and stream position, its teams, every fixture drawn so
   far with its result, and the matchday. The table and the cup bracket follow from the results.
   A season read back from the device continues with exactly the draws it would have made.
 - **Training:** which drills are won.
@@ -807,6 +848,7 @@ The logo, and: **Season** (continue, or start the next one — §11.4), **Traini
 coach's board; there is no other settings screen.
 
 #### 16.3 The season hub
+- **Which season:** "Season n" (§15) heads the hub, with the matchday.
 - **Next fixture:** both teams' kits, league round or cup round, the world it is played in, and
   **Play**, which starts the match in one tap (A2).
 - **League table** (§11.4), the player's row marked; **the cup** bracket with results so far.
@@ -814,21 +856,40 @@ coach's board; there is no other settings screen.
 
 #### 16.4 The match
 The HUD: both teams' short codes on their kit colours, the score and the clock as flip digits, the
-period (or OT), and a pause button in a corner, clear of the pitch (§8.6's slow motion leaves the
-HUD at real speed). Goals flip the score and wobble the board. The pause panel: **Resume** and
-**Quit** — quitting a season match says it forfeits 0–3 before it does (§8.7).
+period as three pips, and a pause button in a corner, clear of the pitch (§8.6's slow motion leaves
+the HUD at real speed). In overtime **OT** takes the clock's place. Goals flip the score and wobble
+the board. The pause panel: **Resume** and **Quit** — quitting a season match says it forfeits 0–3
+before it does (§8.7).
 
 In a drill the HUD shows goals scored of the target and the clock; the drill's hint is the
 intro card before "get ready" (§10).
 
+**Banners** — the prototype's, built from the kit's lettering in the middle of the screen, each for
+its time in real seconds and then gone (a new one replaces the last):
+
+| When | Banner | Style | Seconds |
+|---|---|---|---|
+| a match (not a drill) starts | "*Home* VS *Away*" (the teams' names) | info | 2.2 |
+| a face-off after a period's end | PERIOD *n*, or SUDDEN DEATH into overtime | info | 1.5 |
+| a period ends (not the last) | END OF PERIOD *n* | info | 2.4 |
+| the last period ends level in the cup | OVERTIME | info | 2.4 |
+| a drill's get ready | GET READY; AGAIN! after an interruption; NICE! AGAIN after a goal | info | 0.9 |
+| a dead ball in a match (§6.5) | RESET | warn | 1.8 |
+| a drill interrupted (§10) | SAVED! · STOLEN! · WRONG GOAL! · PASS FIRST! · RESET | bad | 1.2 |
+| a goal | GOAL! (ours) · GOAL AGAINST | good · bad | 2.4 |
+| the end | FINAL (a match) · DRILL DONE! / TIME'S UP (a drill) | good, or bad for a loss | 1.5 |
+
+Good is the sun yellow and pops in big; bad a coral red; warn orange; info cyan.
+
 #### 16.5 The result
-The final score, win/draw/loss, overtime if it happened, and one button on: back to the hub (season),
-**Again** (a drill, one tap — A2) or **Next drill** when won, back to the title (quick match).
+The final score, win/draw/loss, overtime if it happened, and the way on: back to the hub (season);
+after a failed drill **Again** (one tap — A2) and **Training** (back to the drills); **Next drill**
+when won; back to the title (quick match).
 
 #### 16.6 Training
 The eight drills as cards in order: name, world, goals/time, what opposes (none, goalie, dummies,
 defenders), won or locked (§10). A locked card does not start. Choosing an open one shows its
-intro (the hint) and **Start**.
+intro (the hint) and **Start**; while the intro stands, the cards behind it take no taps.
 
 #### 16.7 The coach's board
 Sliders for pressing, covering, push up and discipline (§12), the five formations as a picker

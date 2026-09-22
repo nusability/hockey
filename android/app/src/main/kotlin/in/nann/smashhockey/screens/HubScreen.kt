@@ -49,7 +49,9 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
         val career = checkNotNull(game.save.career) { "the hub is reached only with a career" }
         val season = checkNotNull(game.save.season) { "the hub is reached only with a season" }
         val over = season.isFinished
-        val header = if (over) L(CopyKey.HUB_OVER) else L(CopyKey.HUB_HEADER, season.matchday + 1, Season.plan.size)
+        // The season's number in the career heads the hub (§16.3, §15).
+        val header = L(CopyKey.HUB_SEASON, season.number) + " · " +
+            (if (over) L(CopyKey.HUB_OVER) else L(CopyKey.HUB_HEADER, season.matchday + 1, Season.plan.size))
         part(Label3D(kit, header, 0.1f, C.CREAM, maxWidth = 1.7f, entrance = Entrance.Drop), at(0f, top - 0.14f))
         card = part(Panel(kit, 1.72f, 0.62f, S.SLAB_DEPTH, C.CREAM, Entrance.Tumble), at(0f, top - 0.62f, tilt = -0.02f))
         val f = game.save.playerFixture

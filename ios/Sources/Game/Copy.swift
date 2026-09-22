@@ -9,6 +9,13 @@ func L(_ key: CopyKey, _ args: CustomStringConvertible...) -> String {
     return String(format: format, locale: .current, arguments: args.map { $0.description as NSString })
 }
 
+/// The declared copy with its arguments as a list (a banner's, §16.4).
+func L(_ key: CopyKey, arguments: [String]) -> String {
+    let format = Bundle.main.localizedString(forKey: key.rawValue, value: nil, table: nil)
+    guard !arguments.isEmpty else { return format }
+    return String(format: format, locale: .current, arguments: arguments.map { $0 as NSString })
+}
+
 /// Names the screens show, from the career or the declarations.
 enum Names {
     /// A team's name in capitals: a club's localized name, or the created team's own.

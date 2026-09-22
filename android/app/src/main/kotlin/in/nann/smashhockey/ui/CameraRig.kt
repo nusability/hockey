@@ -48,6 +48,7 @@ class CameraRig(private val camera: Camera, start: CameraPose, motion: Motion) {
 
     /** Screens further apart swoop higher; [roll] tilts the horizon into the turn (radians). */
     fun swoop(pose: CameraPose, arc: Float? = null, roll: Float = 0.1f) {
+        KitSound.swoop()
         follow = null
         begin(pose, MENU_FOV, arc, roll)
     }
@@ -55,6 +56,7 @@ class CameraRig(private val camera: Camera, start: CameraPose, motion: Motion) {
     /** Swoops onto a moving pose and then follows it exactly — the match camera (§8.6). */
     fun track(roll: Float = 0.1f, source: () -> Pair<CameraPose, Double>) {
         val (pose, fov) = source()
+        KitSound.swoop()
         follow = source
         begin(pose, fov, null, roll)
     }

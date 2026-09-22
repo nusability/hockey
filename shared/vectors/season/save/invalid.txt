@@ -22,3 +22,4 @@ period-not-a-choice.json brokenRule $.board.period_seconds notABoardChoice
 season-without-career.json brokenRule $.season seasonWithoutCareer
 career-created-missing.json brokenRule $.career careerTeamAndCreatedDisagree
 drill-won-twice.json brokenRule $.training.won drillWonTwice
+season-zero.json brokenRule $.season.number seasonNumber

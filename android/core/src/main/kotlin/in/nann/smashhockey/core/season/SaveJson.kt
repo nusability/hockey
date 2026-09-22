@@ -131,6 +131,7 @@ enum class SaveRule(val key: String) {
     FIXTURE_NOT_IN_LEAGUE("fixtureNotInLeague"),
     CUP_SCORE_LEVEL("cupScoreLevel"),
     OVERTIME_OUTSIDE_CUP("overtimeOutsideCup"),
+    SEASON_NUMBER("seasonNumber"),
 }
 
 internal fun refuse(error: SaveDecodeError): Nothing = throw SaveDecodeException(error)

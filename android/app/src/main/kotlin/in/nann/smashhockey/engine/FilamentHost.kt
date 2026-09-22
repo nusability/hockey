@@ -57,6 +57,7 @@ class FilamentHost(
                 swapChain?.let { engine.destroySwapChain(it) }
                 swapChain = engine.createSwapChain(surface)
                 displayHelper.attach(renderer, surfaceView.display)
+                RefreshRate.request(surface, surfaceView.display)   // 90/120 Hz where the display has it
             }
 
             override fun onDetachedFromSurface() {

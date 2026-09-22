@@ -34,6 +34,7 @@
     <string name="team_issue_shortCodeIsAClubs">KÜRZEL: SCHON VERGEBEN</string>
     <string name="team_issue_primaryNotInPalette">WÄHLE EIN TRIKOT</string>
     <string name="team_issue_secondaryNotInPalette">WÄHLE EINEN BESATZ</string>
+    <string name="hub_season">SAISON %1$s</string>
     <string name="hub_header">SPIELTAG %1$s VON %2$s</string>
     <string name="hub_league">LIGA · RUNDE %1$s</string>
     <string name="hub_cup">POKAL · %1$s</string>
@@ -134,6 +135,8 @@
     <string name="event_passFirst">ERST PASSEN!</string>
     <string name="event_wrongNet">FALSCHES TOR!</string>
     <string name="event_reset">NEUSTART</string>
+    <!-- The intro banner of a match: the two teams' names. -->
+    <string name="event_versus">%1$s GEGEN %2$s</string>
     <string name="world_magicwood_name">Zauberwald</string>
     <string name="world_space_name">Tiefer Weltraum</string>
     <string name="world_oasis_name">Wüstenoase</string>

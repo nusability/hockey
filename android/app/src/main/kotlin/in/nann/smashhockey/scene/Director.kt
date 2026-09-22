@@ -64,10 +64,13 @@ class Director {
         this.goalZ = goalZ; goalSide = if (ballX >= 0) 1.0 else -1.0; goalX = ballX.coerceIn(-1.5, 1.5); hasGoal = true
     }
 
+    /**
+     * A kick of [amplitude] metres (§8.8: a goal, a post) — the prototype's shake: it falls off
+     * linearly at the decay rate; Reduce Motion keeps only a share of it.
+     */
     fun knock(amplitude: Double) {
-        if (reduceMotion) return
-        shake = max(shake, amplitude)
-        shakeClock = 0.0
+        val a = amplitude * if (reduceMotion) P.Shake.reduceMotion else 1.0
+        if (a > shake) { shake = a; shakeClock = 0.0 }
     }
 
     private sealed interface Mode { data object Play : Mode; data object Buildup : Mode; data class Goal(val t: Double) : Mode }
@@ -119,15 +122,16 @@ class Director {
         if (mode == Mode.Play && weight < 0.002) hasGoal = false
         pose = CameraPose.mix(play, drama, weight)
         shakeClock += dt
-        shake *= exp(-dt * P.Shake.decay)
+        shake = max(0.0, shake - dt * P.Shake.decay)
     }
 
     /** The camera shake as an offset of the world; the camera and its HUD stay steady. */
     val shakeOffset: DoubleArray
         get() {
-            if (shake <= 0.002) return doubleArrayOf(0.0, 0.0, 0.0)
+            if (shake <= 0.0) return doubleArrayOf(0.0, 0.0, 0.0)
             val w = 2 * PI * P.Shake.frequency * shakeClock
-            return doubleArrayOf(sin(w) * shake, sin(w * 1.31 + 1.7) * shake, 0.0)
+            val half = shake / 2       // the prototype jittered by up to half the kick either way
+            return doubleArrayOf(sin(w) * half, sin(w * 1.31 + 1.7) * half, 0.0)
         }
 
     /** The prototype's play camera: the focus eases toward a share of the ball's z. */

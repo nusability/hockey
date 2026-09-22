@@ -63,11 +63,9 @@ struct Director {
         goal = (goalZ, ballX >= 0 ? 1 : -1, min(max(ballX, -1.5), 1.5))
     }
 
-    /// The ball rang a post, or smacked the boards (a board hit, §6.2).
+    /// A shake's kick (§8.8: a goal, a post) of `amplitude` metres; Reduce Motion keeps a share of it.
     mutating func knock(_ amplitude: Double) {
-        guard !reduceMotion else { return }
-        shake = max(shake, amplitude)
-        shakeClock = 0
+        shake = max(shake, amplitude * (reduceMotion ? P.Shake.reduceMotion : 1))
     }
 
     /// One frame of real time: the time scale for the ticks to come, and the camera.
@@ -118,15 +116,16 @@ struct Director {
         pose = DirectorPose.mix(play, drama, weight)
 
         shakeClock += dt
-        shake *= exp(-dt * P.Shake.decay)
+        shake = max(0, shake - dt * P.Shake.decay)      // the prototype's linear fall-off
     }
 
     /// The camera shake as an offset of the world — the camera and the HUD hanging from it stay
-    /// steady, so the HUD never shakes (ADR 0005: the HUD is parented to the camera).
+    /// steady, so the HUD never shakes (ADR 0005: the HUD is parented to the camera). Up to half the
+    /// kick either way, across and up, as the prototype's.
     var shakeOffset: SIMD3<Double> {
-        guard shake > 0.002 else { return .zero }
+        guard shake > 0 else { return .zero }
         let w = 2 * Double.pi * P.Shake.frequency * shakeClock
-        return SIMD3(sin(w), sin(w * 1.31 + 1.7), 0) * shake
+        return SIMD3(sin(w), sin(w * 1.31 + 1.7), 0) * (shake / 2)
     }
 
     private enum Mode { case play, buildup, goal(Double) }

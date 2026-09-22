@@ -18,9 +18,10 @@ public struct TableRow: Sendable, Hashable {
 }
 
 extension SeasonRecord {
-    /// A new season for `career` (§11.1), its stream seeded with `seed`: the league order and the
-    /// cup order shuffled, every league fixture and the quarter-finals drawn.
-    public static func start(seed: UInt64, career: CareerRecord) -> SeasonRecord {
+    /// A new season for `career` (§11.1) — the career's `number`-th (§15) — its stream seeded with
+    /// `seed`: the league order and the cup order shuffled, every league fixture and the
+    /// quarter-finals drawn.
+    public static func start(seed: UInt64, career: CareerRecord, number: Int = 1) -> SeasonRecord {
         let teams = career.league
         var rng = SplitMix64(seed: seed)
         let order = shuffled(teams, &rng)
@@ -37,7 +38,7 @@ extension SeasonRecord {
                 break
             }
         }
-        return SeasonRecord(seed: seed, stream: rng.state, teams: teams, matchday: 0, fixtures: fixtures)
+        return SeasonRecord(number: number, seed: seed, stream: rng.state, teams: teams, matchday: 0, fixtures: fixtures)
     }
 
     /// Fisher–Yates from the last position down, `j = floor(u × (i + 1))`, i = n−1 … 1.

@@ -54,8 +54,9 @@ secondary = "rgb"
 world = "world"
 
 [record.SeasonRecord]
-_doc = "The season in progress (spec §11, §15): its stream's seed and position, the league's teams, every fixture drawn so far with its score, and the matchday — the index in Season.plan of the next matchday to play; Season.plan.count once the final is played. The table and the cup bracket follow from the fixtures."
+_doc = "The season in progress (spec §11, §15): its number in the career (the first is 1, each next season one more; starting over begins again at 1), its stream's seed and position, the league's teams, every fixture drawn so far with its score, and the matchday — the index in Season.plan of the next matchday to play; Season.plan.count once the final is played. The table and the cup bracket follow from the fixtures."
 _validate = true
+number = "int"
 seed = "u64"
 stream = "u64"
 teams = "[team]"

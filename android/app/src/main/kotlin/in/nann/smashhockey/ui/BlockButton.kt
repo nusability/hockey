@@ -107,7 +107,7 @@ class BlockButton(
     }
 
     override fun touchDown(ray: TouchRay) {
-        if (!isEnabled) { nope.kick(motion.kick(KickName.NOPE), 0.0); return }
+        if (!isEnabled) { nope.kick(motion.kick(KickName.NOPE), 0.0); KitSound.refuse(); return }
         held = true
         press.target = motion.pressHold
         press.kick(motion.pressKick * 0.5)
@@ -118,13 +118,14 @@ class BlockButton(
         held = false
         press.target = 0.0
         press.kick(-motion.pressKick * 0.6)      // spring back through a stretch
-        if (inside) action()
+        if (inside) { KitSound.press(); action() }
     }
 
     /** TalkBack's activation, and the sketch's autoplay: the same squash and the same action. */
     override fun activate() {
-        if (!isEnabled) { nope.kick(motion.kick(KickName.NOPE), 0.0); return }
+        if (!isEnabled) { nope.kick(motion.kick(KickName.NOPE), 0.0); KitSound.refuse(); return }
         press.kick(motion.pressKick)
+        KitSound.press()
         action()
     }
 

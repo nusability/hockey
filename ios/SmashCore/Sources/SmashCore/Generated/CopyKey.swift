@@ -34,6 +34,7 @@ public enum CopyKey: String, Sendable, CaseIterable {
     case teamIssueShortCodeIsAClubs = "team.issue.shortCodeIsAClubs"
     case teamIssuePrimaryNotInPalette = "team.issue.primaryNotInPalette"
     case teamIssueSecondaryNotInPalette = "team.issue.secondaryNotInPalette"
+    case hubSeason = "hub.season"
     case hubHeader = "hub.header"
     case hubLeague = "hub.league"
     case hubCup = "hub.cup"
@@ -131,6 +132,7 @@ public enum CopyKey: String, Sendable, CaseIterable {
     case eventPassFirst = "event.passFirst"
     case eventWrongNet = "event.wrongNet"
     case eventReset = "event.reset"
+    case eventVersus = "event.versus"
     case worldMagicwoodName = "world.magicwood.name"
     case worldSpaceName = "world.space.name"
     case worldOasisName = "world.oasis.name"
@@ -201,6 +203,7 @@ public enum CopyKey: String, Sendable, CaseIterable {
         case .titleTrophies: ["league", "cups"]
         case .teamConfirm: ["team"]
         case .teamStrength: ["rating"]
+        case .hubSeason: ["n"]
         case .hubHeader: ["m", "total"]
         case .hubLeague: ["n"]
         case .hubCup: ["round"]
@@ -213,6 +216,7 @@ public enum CopyKey: String, Sendable, CaseIterable {
         case .coachSeconds: ["s"]
         case .eventPeriod: ["n"]
         case .eventPeriodEnd: ["n"]
+        case .eventVersus: ["home", "away"]
         default: []
         }
     }

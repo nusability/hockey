@@ -49,6 +49,7 @@ private class FlipCard(
     private val flipping get() = abs(turn.value - turn.target) > 0.35
 
     private fun start(c: Char) {
+        KitSound.flip()
         flips += 1
         kit.retext(faces[flips % 2], c.toString(), textHeight)
         shown = c

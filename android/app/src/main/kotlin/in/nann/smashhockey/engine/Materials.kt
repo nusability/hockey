@@ -19,7 +19,12 @@ import kotlin.math.sqrt
 class Materials(private val engine: Engine, assets: Assets) {
     private val toon = assets.material(engine, "toon")
     private val flat = assets.material(engine, "flat")
+    private val aim = assets.material(engine, "aim")
+    private val glow = assets.material(engine, "glow")
+    private val trail = assets.material(engine, "trail")
     private val instances = HashMap<String, MaterialInstance>()
+    /** Instances whose parameters change every frame: one per user, never shared. */
+    private val owned = ArrayList<MaterialInstance>()
 
     /** A toon-shaded flat colour, lit by [look]. */
     fun toon(rgb: Int, look: WorldLook): MaterialInstance = instances.getOrPut("t$rgb/$look") {
@@ -40,10 +45,42 @@ class Materials(private val engine: Engine, assets: Assets) {
         }
     }
 
+    /** A flat colour whose opacity its one user changes every frame ([set]); [release] it with its user. */
+    fun flatOwned(rgb: Int): MaterialInstance = own(flat.createInstance(), rgb)
+
+    /** The aim ribbon's chevrons (aim.mat): taper and scroll fixed; colour, opacity and chevron count per frame. */
+    fun aim(near: Double, far: Double, scroll: Double): MaterialInstance = own(aim.createInstance(), 0xFFFFFF).also {
+        it.setParameter("near", near.toFloat()); it.setParameter("far", far.toFloat())
+        it.setParameter("scroll", scroll.toFloat()); it.setParameter("cells", 1f)
+    }
+
+    /** An additive glow (glow.mat); colour and opacity per frame. */
+    fun glow(rgb: Int): MaterialInstance = own(glow.createInstance(), rgb)
+
+    /** The trail's colour fading along the ribbon (trail.mat). */
+    fun trail(rgb: Int): MaterialInstance = own(trail.createInstance(), rgb)
+
+    private fun own(mi: MaterialInstance, rgb: Int): MaterialInstance {
+        set(mi, rgb, 0.0); mi.setDepthWrite(false); owned += mi; return mi
+    }
+
+    /** Sets an owned instance's colour and opacity (each of these materials has both). */
+    fun set(mi: MaterialInstance, rgb: Int, alpha: Double) {
+        linear(rgb).let { mi.setParameter("baseColor", Colors.RgbType.LINEAR, it[0], it[1], it[2]) }
+        mi.setParameter("alpha", alpha.toFloat())
+    }
+
+    /** Destroys owned instances whose user is going (after its renderables are). */
+    fun release(mis: Collection<MaterialInstance>) {
+        for (mi in mis) if (owned.remove(mi)) engine.destroyMaterialInstance(mi)
+    }
+
     fun destroy() {
         instances.values.forEach { engine.destroyMaterialInstance(it) }
         instances.clear()
-        listOf(toon, flat).forEach { engine.destroyMaterial(it) }
+        owned.forEach { engine.destroyMaterialInstance(it) }
+        owned.clear()
+        listOf(toon, flat, aim, glow, trail).forEach { engine.destroyMaterial(it) }
     }
 
     companion object {

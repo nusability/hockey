@@ -1,0 +1,23 @@
+// The ball's trail (spec §8.8): a flat colour whose opacity falls along the ribbon — uv0.x is 0 at the
+// ball and 1 at its oldest point. The twin of iOS's trail shader. Premultiplied, both sides, no depth
+// write.
+material {
+    name : trail,
+    shadingModel : unlit,
+    parameters : [
+        { type : float3, name : baseColor },
+        { type : float, name : alpha }
+    ],
+    requires : [ uv0 ],
+    blending : transparent,
+    depthWrite : false,
+    culling : none
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        float a = materialParams.alpha * clamp(1.0 - getUV0().x, 0.0, 1.0);
+        material.baseColor = vec4(materialParams.baseColor * a, a);
+    }
+}

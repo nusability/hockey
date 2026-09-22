@@ -50,6 +50,17 @@ targets:
         buildPhase: resources
       - path: ../shared/data/motion.json
         buildPhase: resources
+    # The sound bank (spec §8.8, shared/data/sounds.toml): iOS plays the .m4a twin of each file, into
+    # the bundle's sounds/ keeping the bank's folders; the .ogg twins are Android's.
+    postCompileScripts:
+      - name: Bundle the sound bank
+        basedOnDependencyAnalysis: false
+        script: |
+          set -eu
+          SRC="$SRCROOT/../shared/assets/sounds"
+          DST="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/sounds"
+          mkdir -p "$DST"
+          rsync -a --delete --include='*/' --include='*.m4a' --exclude='*' "$SRC/" "$DST/"
     # Keys the generated plist has no build setting for. xcodegen writes ios/Info.plist from this
     # (untracked); GENERATE_INFOPLIST_FILE merges the INFOPLIST_KEY_* settings into it.
     info:
@@ -65,6 +76,8 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UIRequiresFullScreen: "YES"
         TARGETED_DEVICE_FAMILY: "1"
+        # The sound bank's copy step reads shared/assets/sounds/ outside the target's declared inputs.
+        ENABLE_USER_SCRIPT_SANDBOXING: "NO"
 
   SmashHockeyTests:
     type: bundle.unit-test

@@ -96,7 +96,7 @@ import Testing
     @Test func theTableBreaksTiesByGoalDifferenceGoalsForThenShortCode() {
         let career = CareerRecord.picked(.mossfoxes)
         let teams = career.league
-        var s = SeasonRecord(seed: 0, stream: 0, teams: teams, matchday: 1, fixtures: [
+        var s = SeasonRecord(number: 1, seed: 0, stream: 0, teams: teams, matchday: 1, fixtures: [
             Fixture(home: .rocketlynx, away: .glowowls, matchday: 0, score: Score(home: 3, away: 1, overtime: false)),
             Fixture(home: .nebula, away: .kraken, matchday: 0, score: Score(home: 2, away: 0, overtime: false)),
             Fixture(home: .mossfoxes, away: .falcons, matchday: 0, score: Score(home: 2, away: 0, overtime: false)),

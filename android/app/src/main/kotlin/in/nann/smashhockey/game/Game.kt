@@ -17,6 +17,9 @@ import com.google.android.filament.View
 import `in`.nann.smashhockey.core.generated.BoardRecord
 import `in`.nann.smashhockey.core.generated.SaveRecord
 import `in`.nann.smashhockey.core.generated.World
+import `in`.nann.smashhockey.audio.Haptics
+import `in`.nann.smashhockey.audio.Sfx
+import `in`.nann.smashhockey.core.feel.Cue
 import `in`.nann.smashhockey.core.match.MatchEvent
 import `in`.nann.smashhockey.core.match.MatchResult
 import `in`.nann.smashhockey.core.season.GameException
@@ -45,6 +48,7 @@ import `in`.nann.smashhockey.screens.TitleScreen
 import `in`.nann.smashhockey.screens.TrainingScreen
 import `in`.nann.smashhockey.ui.CameraPose
 import `in`.nann.smashhockey.ui.Kit
+import `in`.nann.smashhockey.ui.KitSound
 import `in`.nann.smashhockey.ui.Motion
 import `in`.nann.smashhockey.ui.UIStage
 import `in`.nann.smashhockey.core.generated.Drill
@@ -79,6 +83,9 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         Motion.load(assets), World.OASIS.look)   // the UI blocks are lit by one fixed light, whatever world stands
     val pitch = Pitch(context, engine, host.scene, assets)
     val keyboard = Keyboard()
+    private val haptics = Haptics(context)
+    /** The sound bank, loaded (and checked — a missing file fails the launch) before anything plays. */
+    private val sfx = Sfx(context.assets)
     private val store = SaveStore(context.filesDir)
     var save: SaveRecord; private set
     private val refusal: String?
@@ -108,6 +115,8 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         host.camera.setExposure(16f, 1f / 125f, 100f)
         host.onResize = { w, h -> width = w; height = h; pitch.aspect = w.toDouble() / h; stageState.value?.resize(w, h) }
         pitch.onEvent = { matchEvent(it) }
+        pitch.onCue = { cue(it) }
+        KitSound.play = { sfx.play(it) }
         when (val loaded = store.load()) {
             is SaveStore.Loaded.New -> { save = loaded.record; refusal = null }
             is SaveStore.Loaded.Found -> { save = loaded.record; refusal = null }
@@ -219,7 +228,10 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         playing = plan
         demoOn = false
         pitch.start(plan, kickoff)
+        sfx.sport = kickoff.world.sport
+        sfx.crowd()
         hud = MatchHud(this, plan, kickoff).also { it.show(0.5) }
+        kickoff.names?.let { pitch.intro(it[0], it[1]) }
         stage.rig.track { pitch.pose }
     }
 
@@ -246,6 +258,7 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
     private fun rememberTable() { save.career?.let { c -> tableBefore = save.season?.table(c) } }
 
     private fun endMatch() {
+        sfx.clearLater()
         hud?.leave()
         hud = null
         playing = null
@@ -271,6 +284,16 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         stage.after(Presentation.Screens.resultDelay) { if (playing == plan) go(Place.Result(outcome)) }
     }
 
+    /** What the match sets off beyond the pitch (§8.8, §16.4): the HUD's banners, the haptics, the sounds. */
+    private fun cue(c: Cue) {
+        when (c) {
+            is Cue.Show -> hud?.banner(c.banner)
+            is Cue.Sound -> sfx.play(c.cue, c.x, c.delay)
+            is Cue.Feel -> if (c.delay > 0) stage.after(c.delay) { if (playing != null) haptics.play(c.haptic) } else haptics.play(c.haptic)
+            is Cue.Shake, is Cue.Pop -> Unit      // the pitch draws these itself
+        }
+    }
+
     /**
      * The demo behind the menus (§9): the player's team against a random club, in the worlds in
      * turn — starting from whichever world stands, so a menu never waits for a load.
@@ -285,8 +308,8 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
 
     // ---------------------------------------------------------------- the frame, the one clock (ADR 0005)
 
-    fun start() = host.start()
-    fun stop() = host.stop()
+    fun start() { host.start(); sfx.resume() }
+    fun stop() { host.stop(); sfx.pause(); haptics.stop() }
 
     private fun frame(dt: Double, @Suppress("UNUSED_PARAMETER") frameTimeNanos: Long) {
         if (stageState.value == null) {
@@ -299,6 +322,7 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         stage.reduceMotion = reduce
         pitch.reduceMotion = reduce
         pitch.update(dt)
+        sfx.update(step, pitch.timeScale)
         val p = pitch.plan
         if (demoOn && p is MatchPlan.Demo && pitch.endedFor > Presentation.Screens.demoRest) {
             demoRound = p.round + 1
@@ -359,6 +383,8 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         host.stop()
         kit.destroy()
         pitch.destroy()
+        sfx.release()
+        KitSound.play = null
         host.destroy()
     }
 

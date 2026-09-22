@@ -29,6 +29,8 @@ final class Game {
     let pitch: Pitch
     let keyboard = Keyboard()
     private let store: SaveStore
+    /// The sounds and haptics (§8.8).
+    private let feedback: Feedback
     private(set) var save: SaveRecord
     private var screen: Screen?
     private var hud: MatchHud?
@@ -52,14 +54,17 @@ final class Game {
         }
     }
 
-    private init(stage: UIStage, pitch: Pitch, store: SaveStore, save: SaveRecord) {
+    private init(stage: UIStage, pitch: Pitch, store: SaveStore, save: SaveRecord, feedback: Feedback) {
         self.stage = stage
         self.pitch = pitch
         self.store = store
         self.save = save
+        self.feedback = feedback
         root.addChild(pitch.root)
         root.addChild(stage.root)
         pitch.onEvent = { [weak self] e in self?.matchEvent(e) }
+        pitch.onCue = { [weak self] c in self?.cue(c) }
+        KitSound.play = { [weak feedback] cue in feedback?.ui(cue) }
     }
 
     /// Loads what the game draws with, reads the save and opens the first screen: the refusal
@@ -72,8 +77,9 @@ final class Game {
         Blocks.light(with: materials, look: World.oasis.look)
         let stage = UIStage(pose: CameraPose(Presentation.Screens.Refused.eye, Presentation.Screens.Refused.target),
                             viewSize: viewSize, insets: insets, motion: motion)
-        let pitch = Pitch(materials: materials)
+        let pitch = try Pitch(materials: materials, feel: try await FeelMaterials.load())
         pitch.aspect = viewSize.width / max(viewSize.height, 1)
+        let feedback = Feedback(audio: try Audio())
         let directory = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
                                                     appropriateFor: nil, create: true)
         let store = SaveStore(directory: directory)
@@ -83,7 +89,7 @@ final class Game {
         case .new(let s), .loaded(let s): save = s
         case .refused: save = .fresh
         }
-        let game = Game(stage: stage, pitch: pitch, store: store, save: save)
+        let game = Game(stage: stage, pitch: pitch, store: store, save: save, feedback: feedback)
         if case .refused(let why) = loaded {
             game.log.error("save refused: \(why, privacy: .public)")
             game.go(.refused(why))
@@ -201,10 +207,12 @@ final class Game {
         hud?.leave()
         playing = plan
         demoOn = false
-        pitch.start(plan, kickoff)
         let hud = MatchHud(game: self, plan: plan, kickoff: kickoff)
         self.hud = hud
         hud.show(after: 0.5)
+        feedback.audio.sport = kickoff.world.sport
+        feedback.audio.crowd(true)
+        pitch.start(plan, kickoff)
         stage.rig.track { [weak self] in self?.pitch.pose ?? (CameraPose(eye: .zero, target: [0, 0, 1]), 50) }
     }
 
@@ -236,6 +244,15 @@ final class Game {
         hud = nil
         playing = nil
         pitch.paused = false
+        feedback.cancelMatchCues()
+        feedback.audio.crowd(false)
+    }
+
+    /// What the player's match set off beyond the pitch (§8.8, §16.4): banners to the HUD, the
+    /// sounds and haptics to the feedback.
+    private func cue(_ c: Cue) {
+        guard playing != nil, pitch.plan == playing else { return }
+        if case .banner(let b) = c { hud?.show(b) } else { feedback.perform(c) }
     }
 
     private func matchEvent(_ e: MatchEvent) {
@@ -278,6 +295,7 @@ final class Game {
     func update(_ dt: Double) {
         let step = min(max(dt, 0), 0.1)
         pitch.update(dt)
+        feedback.update(step, timeScale: pitch.timeScale)
         if demoOn, !pitch.isLoading, case .demo(let round, _)? = pitch.plan, pitch.endedFor > Presentation.Screens.demoRest {
             demoRound = round + 1
             let plan = MatchPlan.demo(round: demoRound, save: save)

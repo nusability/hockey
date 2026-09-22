@@ -74,7 +74,11 @@ final class TrainingScreen: Screen {
         guard game.save.isOpen(d) else { return }
         closeIntro()
         intro = d
-        for (i, c) in cards.enumerated() { c.isSelected = Drill.allCases[i] == d }
+        for (i, c) in cards.enumerated() {
+            c.isSelected = Drill.allCases[i] == d
+            c.isEnabled = false                     // the intro stands in front: the cards behind take no taps
+        }
+        KitSound.sweep()
         let m = motion
         let panel = child(Panel(size: [1.62, 1.5, 0.14], colour: C.cream, entrance: .tumble, motion: m), at: at(0, 0.05, z: 0.5),
                           on: layer)
@@ -105,7 +109,10 @@ final class TrainingScreen: Screen {
         for p in introParts.reversed() { p.hide(after: 0) }
         introParts = []
         intro = nil
-        for c in cards { c.isSelected = false }
+        for (i, c) in cards.enumerated() {
+            c.isSelected = false
+            c.isEnabled = game.save.isOpen(Drill.allCases[i])
+        }
         stage.after(0.9) { [weak stage] in stage?.remove(under: panel.entity) }
     }
 

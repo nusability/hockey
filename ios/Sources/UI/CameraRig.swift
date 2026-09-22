@@ -54,12 +54,14 @@ final class CameraRig {
 
     /// Screens further apart swoop higher; `roll` tilts the horizon into the turn (radians).
     func swoop(to pose: CameraPose, arc: Float? = nil, roll: Float = 0.1) {
+        KitSound.swoop()
         follow = nil
         begin(pose, fov: CameraRig.menuFov, arc: arc, roll: roll)
     }
 
     /// Swoops onto a moving pose and then follows it exactly — the match camera.
     func track(roll: Float = 0.1, _ source: @escaping () -> (CameraPose, Float)) {
+        KitSound.swoop()
         let (pose, fov) = source()
         follow = source
         begin(pose, fov: fov, arc: nil, roll: roll)

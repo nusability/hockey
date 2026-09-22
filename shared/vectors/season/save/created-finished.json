@@ -13,6 +13,7 @@
     "cups": 0
   },
   "season": {
+    "number": 1,
     "seed": "0x000000000000002A",
     "stream": "0x58A99A077E9DF1F1",
     "teams": [

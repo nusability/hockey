@@ -83,7 +83,7 @@ final class WaveText: Semantic, Presentable {
     private var fit: Float = 1
 
     init(_ text: String, height: Float, colour: Int, tracking: Float = 0.02, bob: Float = 1,
-         maxWidth: Float = DesignTokens.Size.frameWidth - 0.1, id: String, motion: MotionTokens) {
+         maxWidth: Float = DesignTokens.Size.frameWidth - 0.1, entrance: Entrance = .drop, id: String, motion: MotionTokens) {
         semantics = Semantics(id: id, label: text, trait: .header)
         bobScale = bob
         stagger = motion.staggerSeconds
@@ -102,7 +102,7 @@ final class WaveText: Semantic, Presentable {
             let node = Entity()
             node.addChild(m)
             entity.addChild(node)
-            letters.append((node, m, Presence(.drop, motion: motion), cx - total / 2))
+            letters.append((node, m, Presence(entrance, motion: motion), cx - total / 2))
         }
         bounds_ = BoundingBox(min: [-total / 2, -height * 0.6, 0], max: [total / 2, height * 0.6, height * 0.4])
         fit = total > maxWidth ? maxWidth / total : 1

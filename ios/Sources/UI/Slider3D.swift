@@ -87,6 +87,7 @@ final class Slider3D: Interactive, Presentable {
         let c = min(1, max(0, v))
         let q = stops.map { n in (c * Double(n - 1)).rounded() / Double(n - 1) } ?? (c / 0.01).rounded() * 0.01
         guard q != value else { return }
+        if notify, (q / step).rounded(.down) != (value / step).rounded(.down) { KitSound.step() }       // a step crossed
         value = q
         knob.target = q
         semantics.value = format(q)

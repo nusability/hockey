@@ -1,62 +1,86 @@
 import RealityKit
 import simd
 
-/// A goal's confetti: cards thrown up from the net, tumbling down on real time. Presentation only —
-/// its randomness is its own generator, never a match stream (§4.3). The twin of Confetti.kt.
+/// A goal's confetti (spec §8.8), the prototype's burst: cards thrown from the scored-in net in the
+/// scoring side's primary, secondary and white, sideways and high, falling, bouncing and tumbling on
+/// real time. Presentation only — its randomness is its own generator, never a match stream (§4.3).
+/// The twin of Confetti.kt.
 @MainActor
 final class Confetti {
     typealias C = Presentation.Celebration
     let root = Entity()
-    private var pieces: [(e: ModelEntity, v: SIMD3<Float>, spin: SIMD3<Float>)] = []
-    private var age = Double.infinity
+    private struct Piece {
+        let e: ModelEntity
+        var p = SIMD3<Float>.zero
+        var v = SIMD3<Float>.zero
+        var rx: Float = 0, ry: Float = 0, sx: Float = 0, sy: Float = 0
+        var life: Float = 0
+    }
+    private var pieces: [Piece] = []
+    private var alive = false
     private var rng = SplitMixLite(seed: 0x5EED)
+    private let materials: Materials
+    private let look: WorldLook
 
     init(materials: Materials, look: WorldLook) throws {
-        let mesh = try Shapes.card().resource()
-        let colours = try C.colours.map { try materials.toon($0, look: look) }
-        for i in 0..<C.pieces {
-            let e = ModelEntity(mesh: mesh, materials: [colours[i % colours.count]])
+        self.materials = materials
+        self.look = look
+        var k = MeshKit()
+        k.box(.zero, SIMD3(C.size.map(Float.init)))
+        let mesh = try k.resource()
+        for _ in 0..<C.pieces {
+            let e = ModelEntity(mesh: mesh, materials: [])
             e.isEnabled = false
             root.addChild(e)
-            pieces.append((e, .zero, .zero))
+            pieces.append(Piece(e: e))
         }
     }
 
-    /// Throws the confetti up from the net on goal line `goalZ`.
-    func burst(goalZ: Float) {
-        age = 0
-        let size = Float(C.size)
+    private func r(_ lo: Float, _ hi: Float) -> Float { lo + (hi - lo) * rng.next() }
+
+    /// Throws the confetti from the net on goal line `goalZ`, in the scorers' `colours`.
+    func burst(goalZ: Float, colours: TeamColours) throws {
+        let kit = try [colours.primary, colours.secondary, 0xFFFFFF].map { try materials.toon($0, look: look) }
+        let s = Float(C.spread), d = Float(C.depth), side = Float(C.sideways), spin = Float(C.spin)
         for i in pieces.indices {
-            let a = rng.next() * 2 * .pi
-            let up = 0.55 + 0.45 * rng.next()
-            let speed = Float(C.speed) * (0.6 + 0.4 * rng.next())
-            let out: Float = goalZ >= 0 ? -1 : 1
-            pieces[i].v = SIMD3(cos(a) * (1 - up), up, sin(a) * (1 - up) * 0.6 + out * 0.25) * speed
-            pieces[i].spin = SIMD3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5) * 14
-            let e = pieces[i].e
-            e.position = SIMD3((rng.next() - 0.5) * 6, 1.2, goalZ + (rng.next() - 0.5) * 1.5)
-            e.scale = SIMD3(repeating: size)
-            e.isEnabled = true
+            var q = pieces[i]
+            q.p = SIMD3(r(-s, s), r(Float(C.height[0]), Float(C.height[1])), goalZ + r(-d, d))
+            q.v = SIMD3(r(-side, side), r(Float(C.up[0]), Float(C.up[1])), r(-side, side))
+            q.rx = r(0, 6); q.ry = r(0, 6); q.sx = r(-spin, spin); q.sy = r(-spin, spin)
+            q.life = r(Float(C.life[0]), Float(C.life[1]))
+            q.e.model?.materials = [kit[i % 3]]
+            q.e.isEnabled = true
+            pieces[i] = q
         }
+        alive = true
     }
 
-    /// Real time: fall, flutter, shrink away at the end.
+    /// Real time: fall, bounce, tumble; a piece whose life is over is gone.
     func advance(_ dt: Double) {
-        guard age < C.seconds else { return }
-        age += dt
-        let t = Float(dt), g = Float(C.gravity)
-        let fade = Float(max(0, min(1, (C.seconds - age) / 0.6)))
+        guard alive else { return }
+        let t = Float(dt), g = Float(C.gravity), floor = Float(C.floor)
+        var any = false
         for i in pieces.indices {
-            var p = pieces[i]
-            p.v.y -= g * t
-            p.v *= exp(-1.4 * t)
-            p.e.position += p.v * t
-            if p.e.position.y < 0.05 { p.e.position.y = 0.05; p.v = .zero }
-            p.e.orientation = simd_quatf(angle: simd_length(p.spin) * t, axis: simd_normalize(p.spin)) * p.e.orientation
-            p.e.scale = SIMD3(repeating: Float(C.size) * fade)
-            p.e.isEnabled = age < C.seconds
-            pieces[i] = p
+            var q = pieces[i]
+            guard q.life > 0 else { continue }
+            q.life -= t
+            if q.life <= 0 { q.e.isEnabled = false; pieces[i] = q; continue }
+            any = true
+            q.v.y -= g * t
+            q.p += q.v * t
+            if q.p.y < floor {
+                q.p.y = floor
+                q.v.y *= -Float(C.bounce)
+                q.v.x *= Float(C.friction)
+                q.v.z *= Float(C.friction)
+            }
+            q.rx += q.sx * t
+            q.ry += q.sy * t
+            q.e.position = q.p
+            q.e.orientation = simd_quatf(angle: q.rx, axis: [1, 0, 0]) * simd_quatf(angle: q.ry, axis: [0, 1, 0])
+            pieces[i] = q
         }
+        alive = any
     }
 }
 

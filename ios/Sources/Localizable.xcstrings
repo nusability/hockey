@@ -885,6 +885,24 @@
         }
       }
     },
+    "event.versus" : {
+      "comment" : "The intro banner of a match: the two teams' names.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ GEGEN %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ VS %2$@"
+          }
+        }
+      }
+    },
     "event.wrongNet" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1425,6 +1443,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "QUARTER-FINAL"
+          }
+        }
+      }
+    },
+    "hub.season" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SAISON %1$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SEASON %1$@"
           }
         }
       }

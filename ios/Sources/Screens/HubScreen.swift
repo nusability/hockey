@@ -22,7 +22,8 @@ final class HubScreen: Screen {
         }
         let m = motion
         let over = season.isFinished
-        let header = over ? L(.hubOver) : L(.hubHeader, season.matchday + 1, Season.plan.count)
+        // Which season of the career this is (§15, §16.3), then the matchday.
+        let header = L(.hubSeason, season.number) + " · " + (over ? L(.hubOver) : L(.hubHeader, season.matchday + 1, Season.plan.count))
         part(Label3D(header, height: 0.1, colour: C.cream, maxWidth: 1.7, entrance: .drop, motion: m), at: at(0, top - 0.14))
         card = part(Panel(size: [1.72, 0.62, S.slabDepth], colour: C.cream, entrance: .tumble, motion: m),
                     at: at(0, top - 0.62, tilt: -0.02))

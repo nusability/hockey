@@ -2,9 +2,9 @@ package `in`.nann.smashhockey.screens
 
 import `in`.nann.smashhockey.core.generated.CopyKey
 import `in`.nann.smashhockey.core.generated.Tuning
-import `in`.nann.smashhockey.core.match.DrillInterruption
+import `in`.nann.smashhockey.core.feel.Banner
 import `in`.nann.smashhockey.core.match.MatchEvent
-import `in`.nann.smashhockey.core.match.MatchResult
+import `in`.nann.smashhockey.generated.Presentation
 import `in`.nann.smashhockey.core.match.snapshot
 import `in`.nann.smashhockey.game.Game
 import `in`.nann.smashhockey.game.Kickoff
@@ -14,6 +14,7 @@ import `in`.nann.smashhockey.game.Names
 import `in`.nann.smashhockey.ui.BlockButton
 import `in`.nann.smashhockey.ui.Entrance
 import `in`.nann.smashhockey.ui.FlipDigits
+import `in`.nann.smashhockey.ui.KitSound
 import `in`.nann.smashhockey.ui.Label3D
 import `in`.nann.smashhockey.ui.Panel
 import `in`.nann.smashhockey.ui.Presentable
@@ -69,7 +70,8 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
                 pips += kit.slab(0.07f, 0.07f, 0.03f, if (i == 0) C.SUN else C.DISABLED_SHADE, holder.content, corner = 0.02f)
                     .also { it.setPosition((i - 1) * 0.1f, 0f, 0.01f) }
             }
-            overtime = child(Label3D(kit, L(CopyKey.HUD_OT), 0.08f, C.CORAL, entrance = Entrance.Pop), at(0.34f, top - 0.6f, z = 0.06f), layer)
+            // In overtime "OT" takes the clock's place (§16.4).
+            overtime = child(Label3D(kit, L(CopyKey.HUD_OT), 0.11f, C.CORAL, entrance = Entrance.Pop), at(-0.12f, top - 0.6f, z = 0.06f), layer)
         }
         pause = part(BlockButton(kit, "II", "match_pause_button", BlockButton.Style.QUIET, 0.26f, 0.26f, 0.11f, Entrance.Pop,
             label = L(CopyKey.HUD_PAUSE)) { game.pause(true) }, at(0.72f, top - 0.26f))
@@ -102,7 +104,10 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
     }
 
     fun setPaused(on: Boolean) {
-        if (on) for ((i, p) in pauseParts.withIndex()) p.show(i * motion.staggerSeconds * 2)
+        if (on) {
+            KitSound.sweep()
+            for ((i, p) in pauseParts.withIndex()) p.show(i * motion.staggerSeconds * 2)
+        }
         else for (p in pauseParts.asReversed()) p.hide(0.0)
         pause.isEnabled = !on
     }
@@ -116,49 +121,40 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
 
     // ---------------------------------------------------------------- what the match says
 
+    /** The board reacts to a goal; the pause goes once the match is over. The banners come from [banner]. */
     fun event(e: MatchEvent) {
         when (e) {
-            is MatchEvent.Goal -> {
-                val ours = e.team == 0
-                raise(L(if (ours) CopyKey.EVENT_GOAL else CopyKey.EVENT_GOAL_AGAINST), if (ours) C.SUN else C.CREAM, if (ours) 0.36f else 0.24f)
-                board.celebrate(if (ours) 1.0 else 0.5)
-            }
-            is MatchEvent.DrillInterrupted -> raise(L(when (e.reason) {
-                DrillInterruption.SAVED -> CopyKey.EVENT_SAVED
-                DrillInterruption.STOLEN -> CopyKey.EVENT_STOLEN
-                DrillInterruption.WRONG_NET -> CopyKey.EVENT_WRONG_NET
-                DrillInterruption.NO_ASSIST -> CopyKey.EVENT_PASS_FIRST
-                DrillInterruption.DEAD_BALL -> CopyKey.EVENT_RESET
-            }), C.CARD_INK, 0.22f)
-            MatchEvent.Ready -> raise(L(CopyKey.EVENT_GET_READY), C.CREAM, 0.18f)
-            is MatchEvent.End -> {
-                val key = if (drillGoals != null) {
-                    if (e.result == MatchResult.WON) CopyKey.RESULT_DRILL_WON else CopyKey.RESULT_TIME_UP
-                } else when (e.result) {
-                    MatchResult.WON -> CopyKey.RESULT_WIN
-                    MatchResult.LOST -> CopyKey.RESULT_LOSS
-                    MatchResult.DRAWN -> CopyKey.RESULT_DRAW
-                }
-                raise(L(key), if (e.result == MatchResult.WON) C.SUN else C.CREAM, 0.28f)
-                pause.isEnabled = false
-            }
+            is MatchEvent.Goal -> board.celebrate(if (e.team == 0) 1.0 else 0.5)
+            is MatchEvent.End -> pause.isEnabled = false
             else -> Unit
         }
     }
 
-    /** A word in the middle of the screen: letters drop in, bob, and hop away. */
-    private fun raise(text: String, colour: Int, height: Float) {
+    /**
+     * A banner (§16.4, decided by the core's MatchCues): a word in the middle of the screen whose
+     * letters drop in — pop, for a good one — bob, and hop away after its seconds.
+     */
+    fun banner(b: Banner) {
+        val bs = Presentation.Banner
+        val (colour, height) = when (b.style) {
+            Banner.Style.GOOD -> bs.good to bs.heightGood
+            Banner.Style.BAD -> bs.bad to bs.heightBad
+            Banner.Style.WARN -> bs.warn to bs.heightWarn
+            Banner.Style.INFO -> bs.info to bs.heightInfo
+        }
         banner?.let { old ->
             old.hide(0.0)
             stage.after(0.8) { stage.remove(old.node) }
         }
-        val b = child(WaveText(kit, text, height, colour, bob = 2f, id = "match_banner_header"), at(0f, 0.35f, z = 0.3f, tilt = 0.06f), layer)
-        b.show(0.0)
-        banner = b
-        stage.after(1.6) {
-            if (banner !== b) return@after
-            b.hide(0.0)
-            stage.after(0.8) { stage.remove(b.node) }
+        val good = b.style == Banner.Style.GOOD
+        val w = child(WaveText(kit, L(b.key, *b.args.toTypedArray()), height.toFloat(), colour, bob = if (good) 2.5f else 1.5f,
+            id = "match_banner_header", entrance = if (good) Entrance.Pop else Entrance.Drop), at(0f, 0.35f, z = 0.3f, tilt = 0.06f), layer)
+        w.show(0.0)
+        banner = w
+        stage.after(b.seconds) {
+            if (banner !== w) return@after
+            w.hide(0.0)
+            stage.after(0.8) { stage.remove(w.node) }
             banner = null
         }
     }
@@ -196,9 +192,8 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
         if (s.overtime != shownOvertime) {
             shownOvertime = s.overtime
             if (s.overtime) {
-                pips.forEach { it.enabled = false }
+                clock.hide(0.0)
                 overtime?.show(0.0)
-                raise(L(CopyKey.EVENT_SUDDEN_DEATH), C.CORAL, 0.24f)
             }
         }
     }

@@ -203,6 +203,7 @@ let invalid: [(String, [UInt8])] = [
     ("season-without-career.json", Array(edit(club, "\"career\": {\n    \"team\": \"falcons\",\n    \"created\": null,\n    \"league_titles\": 0,\n    \"cups\": 0\n  },", "\"career\": null,").utf8)),
     ("career-created-missing.json", Array(edit(club, "\"team\": \"falcons\"", "\"team\": \"created\"").utf8)),
     ("drill-won-twice.json", Array(edit(club, "\"shot\",\n      \"pass\"", "\"shot\",\n      \"shot\"").utf8)),
+    ("season-zero.json", Array(edit(club, "\"number\": 1,", "\"number\": 0,").utf8)),
 ]
 var invalidLines: [String] = []
 for (name, bytes) in invalid {

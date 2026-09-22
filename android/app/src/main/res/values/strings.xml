@@ -34,6 +34,7 @@
     <string name="team_issue_shortCodeIsAClubs">CODE: A CLUB HAS IT</string>
     <string name="team_issue_primaryNotInPalette">PICK A SHIRT</string>
     <string name="team_issue_secondaryNotInPalette">PICK A TRIM</string>
+    <string name="hub_season">SEASON %1$s</string>
     <string name="hub_header">MATCHDAY %1$s OF %2$s</string>
     <string name="hub_league">LEAGUE · ROUND %1$s</string>
     <string name="hub_cup">CUP · %1$s</string>
@@ -134,6 +135,8 @@
     <string name="event_passFirst">PASS FIRST!</string>
     <string name="event_wrongNet">WRONG GOAL!</string>
     <string name="event_reset">RESET</string>
+    <!-- The intro banner of a match: the two teams' names. -->
+    <string name="event_versus">%1$s VS %2$s</string>
     <string name="world_magicwood_name">Magic Wood</string>
     <string name="world_space_name">Deep Space</string>
     <string name="world_oasis_name">Desert Oasis</string>

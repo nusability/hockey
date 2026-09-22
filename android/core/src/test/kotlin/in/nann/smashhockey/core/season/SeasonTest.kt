@@ -111,7 +111,7 @@ class SeasonTest {
 
     @Test fun theTableBreaksTiesByGoalDifferenceGoalsForThenShortCode() {
         val career = CareerRecord.picked(Club.MOSSFOXES)
-        val s = SeasonRecord(0, 0, career.league, 1, listOf(
+        val s = SeasonRecord(1, 0, 0, career.league, 1, listOf(
             Fixture(TeamKey.ROCKETLYNX, TeamKey.GLOWOWLS, 0, Score(3, 1, false)),
             Fixture(TeamKey.NEBULA, TeamKey.KRAKEN, 0, Score(2, 0, false)),
             Fixture(TeamKey.MOSSFOXES, TeamKey.FALCONS, 0, Score(2, 0, false)),

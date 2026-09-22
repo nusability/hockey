@@ -47,10 +47,11 @@ enum Presentation {
             static let buildupWeight: Double = 0.15
         }
         enum Shake {
-            static let post: Double = 0.28
-            static let board: Double = 0.08
-            static let decay: Double = 7.0
+            static let goal: Double = 1.2
+            static let post: Double = 0.5
+            static let decay: Double = 2.5
             static let frequency: Double = 21.0
+            static let reduceMotion: Double = 0.2
         }
     }
     enum Player {
@@ -94,23 +95,138 @@ enum Presentation {
         static let discOpacity: Double = 0.35
     }
     enum Aim {
-        static let pass: UInt32 = 0x34D399
-        static let shot: UInt32 = 0xFF4F9A
-        static let free: UInt32 = 0xFFFFFF
-        static let width: Double = 0.24
-        static let freeLength: Double = 7.0
-        static let opacity: Double = 0.85
+        static let free: UInt32 = 0xFACC15
+        static let pass: UInt32 = 0x4ADE80
+        static let shot: UInt32 = 0xF472B6
+        static let start: Double = 0.35
+        static let maxLength: Double = 16.0
+        static let minLength: Double = 2.5
+        static let passShort: Double = 1.6
+        static let shotShort: Double = 1.2
+        static let boardMargin: Double = 1.2
+        static let boardProbe: Double = 0.6
+        static let probeStep: Double = 0.5
+        static let width: Double = 1.1
+        static let ribbonNear: Double = 0.62
+        static let ribbonFar: Double = 0.3
+        static let glowNear: Double = 1.0
+        static let glowFar: Double = 0.5
+        static let chevron: Double = 1.3
+        static let scroll: Double = 2.4
+        static let head: [Double] = [0.0, 1.3, 0.95, -0.2, 0.0, 0.25]
+        static let headScale: Double = 1.1
+        static let headGlow: Double = 1.3
+        static let opacityFree: Double = 0.7
+        static let opacitySnapped: Double = 0.85
+        static let pulse: Double = 0.15
+        static let pulseRate: Double = 14.0
+        static let glowFree: Double = 0.1
+        static let glowSnapped: Double = 0.16
+        static let headGlowFree: Double = 0.15
+        static let headGlowSnapped: Double = 0.22
+        static let lift: Double = 0.04
         static let orbit: UInt32 = 0xFFFFFF
-        static let orbitOpacity: Double = 0.35
-        static let orbitWidth: Double = 0.08
+        static let orbitOpacity: Double = 0.5
+        static let orbitWidth: Double = 0.1
+        enum Lock {
+            static let fadeIn: Double = 0.08
+            static let dot: Double = 0.16
+            static let dotGap: Double = 0.55
+            static let dotOpacity: Double = 0.45
+            static let mouthHeight: Double = 1.9
+            static let mouthOpacity: Double = 0.2
+            static let mouthDepth: Double = 1.4
+            static let stripOpacity: Double = 0.28
+            static let mouthPulse: Double = 0.25
+        }
+    }
+    enum Trail {
+        static let colour: UInt32 = 0xFDE68A
+        static let minSpeed: Double = 6.0
+        static let fadeSpeed: Double = 3.0
+        static let seconds: Double = 0.16
+        static let width: Double = 0.5
+        static let opacity: Double = 0.6
+        static let samples: Int = 24
+        static let puckSpin: Double = 4.0
     }
     enum Celebration {
-        static let pieces: Int = 70
-        static let seconds: Double = 2.8
-        static let speed: Double = 11.0
-        static let gravity: Double = 9.0
-        static let size: Double = 0.32
-        static let colours: [UInt32] = [0xFF4F9A, 0xFFD23F, 0x34D399, 0x60A5FA, 0xFFFFFF, 0xC084FC]
+        static let pieces: Int = 160
+        static let size: [Double] = [0.3, 0.07, 0.42]
+        static let spread: Double = 4.0
+        static let depth: Double = 2.0
+        static let height: [Double] = [1.0, 3.0]
+        static let sideways: Double = 9.0
+        static let up: [Double] = [6.0, 16.0]
+        static let gravity: Double = 18.0
+        static let floor: Double = 0.1
+        static let bounce: Double = 0.3
+        static let friction: Double = 0.8
+        static let spin: Double = 6.0
+        static let life: [Double] = [1.8, 2.8]
+    }
+    enum Pop {
+        static let seconds: Double = 0.35
+        static let radiusFrom: Double = 0.5
+        static let radiusTo: Double = 2.0
+        static let width: Double = 0.18
+        static let opacity: Double = 0.85
+        static let save: UInt32 = 0xFFFFFF
+        static let steal: UInt32 = 0xFB7185
+        static let block: UInt32 = 0xFDBA74
+    }
+    enum Net {
+        static let colour: UInt32 = 0xF8FAFC
+        static let height: Double = 1.9
+        static let opacity: Double = 0.22
+        static let columns: Int = 12
+        static let rows: Int = 5
+        static let amplitude: Double = 0.35
+        static let decay: Double = 3.2
+        static let frequency: Double = 18.0
+        static let k: Double = 4.0
+        static let reach: Double = 2.5
+        static let seconds: Double = 1.6
+    }
+    enum Banner {
+        static let versus: Double = 2.2
+        static let period: Double = 1.5
+        static let periodEnd: Double = 2.4
+        static let whistle: Double = 1.8
+        static let ready: Double = 0.9
+        static let lost: Double = 1.2
+        static let goal: Double = 2.4
+        static let end: Double = 1.5
+        static let good: UInt32 = 0xFACC15
+        static let bad: UInt32 = 0xFB7185
+        static let warn: UInt32 = 0xFDBA74
+        static let info: UInt32 = 0x22D3EE
+        static let heightGood: Double = 0.34
+        static let heightBad: Double = 0.3
+        static let heightWarn: Double = 0.24
+        static let heightInfo: Double = 0.2
+    }
+    enum Haptics {
+        static let window: Double = 0.35
+        static let releaseLow: Double = 0.35
+        static let releaseHigh: Double = 1.0
+        static let releaseSlow: Double = 12.0
+        static let releaseFast: Double = 30.0
+        static let sharp: Double = 0.9
+        static let goal: Double = 1.0
+        static let goalPulses: [Double] = [0.0, 0.5, 1.0]
+        static let against: Double = 0.4
+        static let tick: Double = 0.25
+    }
+    enum Sound {
+        static let minRate: Double = 0.5
+        static let maxRate: Double = 2.0
+        static let pan: Double = 0.6
+        static let shotSlow: Double = 12.0
+        static let shotFast: Double = 30.0
+        static let countdown: Int = 5
+        static let voices: Int = 16
+        static let stingDelay: Double = 1.3
     }
     enum Hud {
         static let depth: Double = 4.0

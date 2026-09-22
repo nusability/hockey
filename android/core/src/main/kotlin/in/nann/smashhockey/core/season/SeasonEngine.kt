@@ -53,7 +53,7 @@ object SeasonEngine {
      * A new season for [career] (§11.1), its stream seeded with [seed]: the league order and the
      * cup order shuffled, every league fixture and the quarter-finals drawn.
      */
-    fun start(seed: Long, career: CareerRecord): SeasonRecord {
+    fun start(seed: Long, career: CareerRecord, number: Int = 1): SeasonRecord {
         val teams = career.league
         val rng = SplitMix64.seeded(seed)
         val order = shuffled(teams, rng)
@@ -68,7 +68,7 @@ object SeasonEngine {
                     pairs(cupOrder).forEach { (h, a) -> fixtures.add(Fixture(h, a, md, null)) }
             }
         }
-        return SeasonRecord(seed, rng.state, teams, 0, fixtures)
+        return SeasonRecord(number, seed, rng.state, teams, 0, fixtures)
     }
 
     /** Fisher–Yates from the last position down, `j = floor(u × (i + 1))`, i = n−1 … 1. */

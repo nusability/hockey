@@ -113,7 +113,7 @@ class SeasonVectorTest {
     /** Every refused save is refused with exactly the recorded, typed error — never read. */
     @Test fun brokenSavesAreRefusedTyped() {
         val cases = lines("save/invalid.txt")
-        assertEquals(21, cases.size)
+        assertEquals(22, cases.size)
         for (line in cases) {
             val name = line.substringBefore(' ')
             val expected = line.substringAfter(' ')

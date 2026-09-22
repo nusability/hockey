@@ -125,15 +125,17 @@ extension CreatedTeam {
     }
 }
 
-/// The season in progress (spec §11, §15): its stream's seed and position, the league's teams, every fixture drawn so far with its score, and the matchday — the index in Season.plan of the next matchday to play; Season.plan.count once the final is played. The table and the cup bracket follow from the fixtures.
+/// The season in progress (spec §11, §15): its number in the career (the first is 1, each next season one more; starting over begins again at 1), its stream's seed and position, the league's teams, every fixture drawn so far with its score, and the matchday — the index in Season.plan of the next matchday to play; Season.plan.count once the final is played. The table and the cup bracket follow from the fixtures.
 public struct SeasonRecord: Sendable, Hashable {
+    public var number: Int
     public var seed: UInt64
     public var stream: UInt64
     public var teams: [TeamKey]
     public var matchday: Int
     public var fixtures: [Fixture]
 
-    public init(seed: UInt64, stream: UInt64, teams: [TeamKey], matchday: Int, fixtures: [Fixture]) {
+    public init(number: Int, seed: UInt64, stream: UInt64, teams: [TeamKey], matchday: Int, fixtures: [Fixture]) {
+        self.number = number
         self.seed = seed
         self.stream = stream
         self.teams = teams
@@ -146,6 +148,7 @@ extension SeasonRecord {
     /// This record as its canonical JSON value.
     func json() -> JSONValue {
         .object([
+            ("number", .int(number)),
             ("seed", SaveJSON.u64(seed)),
             ("stream", SaveJSON.u64(stream)),
             ("teams", .array(teams.map { .string($0.rawValue) })),
@@ -156,17 +159,18 @@ extension SeasonRecord {
 
     /// Decodes the record at `path` ("$" for the file's root), failing on anything but its exact shape.
     init(json: JSONValue, at path: String) throws(SaveDecodeError) {
-        let o = try SaveJSON.fields(json, at: path, ["seed", "stream", "teams", "matchday", "fixtures"])
-        self.seed = try SaveJSON.u64(o[0], at: path + ".seed")
-        self.stream = try SaveJSON.u64(o[1], at: path + ".stream")
+        let o = try SaveJSON.fields(json, at: path, ["number", "seed", "stream", "teams", "matchday", "fixtures"])
+        self.number = try SaveJSON.int(o[0], at: path + ".number")
+        self.seed = try SaveJSON.u64(o[1], at: path + ".seed")
+        self.stream = try SaveJSON.u64(o[2], at: path + ".stream")
         var teams: [TeamKey] = []
-        for (i, v) in try SaveJSON.array(o[2], at: path + ".teams").enumerated() {
+        for (i, v) in try SaveJSON.array(o[3], at: path + ".teams").enumerated() {
             teams.append(try SaveJSON.key(v, at: path + ".teams" + "[\(i)]") as TeamKey)
         }
         self.teams = teams
-        self.matchday = try SaveJSON.int(o[3], at: path + ".matchday")
+        self.matchday = try SaveJSON.int(o[4], at: path + ".matchday")
         var fixtures: [Fixture] = []
-        for (i, v) in try SaveJSON.array(o[4], at: path + ".fixtures").enumerated() {
+        for (i, v) in try SaveJSON.array(o[5], at: path + ".fixtures").enumerated() {
             fixtures.append(try Fixture(json: v, at: path + ".fixtures" + "[\(i)]"))
         }
         self.fixtures = fixtures

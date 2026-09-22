@@ -48,8 +48,8 @@ android {
     // pipeline's, not the app's.
     sourceSets["main"].assets.srcDirs("src/main/assets", "../../shared/assets", "../../shared/data")
     androidResources {
-        ignoreAssetsPattern = "!*.usdz:!*.py:!*.txt:!.*"
-        noCompress += listOf("glb", "filamat")
+        ignoreAssetsPattern = "!*.usdz:!*.m4a:!*.py:!*.txt:!.*"      // .m4a: the sound bank's iOS twins
+        noCompress += listOf("glb", "filamat", "ogg")      // SoundPool opens the .ogg files by descriptor
     }
 }
 

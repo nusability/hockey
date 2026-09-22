@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.filament.utils.Utils
+import `in`.nann.smashhockey.engine.RefreshRate
 import `in`.nann.smashhockey.game.Game
 import `in`.nann.smashhockey.game.Keyboard
 import `in`.nann.smashhockey.game.Launch
@@ -56,6 +57,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         // A game in front holds the screen on; the system still sleeps it when the app leaves.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        RefreshRate.prefer(this)       // the display's highest refresh; the simulation keeps its fixed ticks (§4)
         Utils.init()
         val surface = SurfaceView(this)
         val g = Game(this, surface, Launch.plan(intent))

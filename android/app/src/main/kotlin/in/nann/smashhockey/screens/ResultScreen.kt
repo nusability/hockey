@@ -64,7 +64,13 @@ class ResultScreen(game: Game, private val outcome: Outcome) :
                 if (later != null) button(CopyKey.RESULT_NEXT_DRILL, "result_next_button") { game.go(Game.Place.Training(later)) }
                 else button(CopyKey.RESULT_DRILLS, "result_drills_button") { game.go(Game.Place.Training(null)) }
             }
-            plan is MatchPlan.Practice -> button(CopyKey.RESULT_AGAIN, "result_again_button", 0.14f) { game.play(MatchPlan.Practice(plan.drill)) }
+            plan is MatchPlan.Practice -> {
+                // A failed drill: again in one tap (A2), or back to the drills (§16.5).
+                part(BlockButton(kit, L(CopyKey.TRAINING_TITLE), "result_training_button", BlockButton.Style.QUIET, 1.0f, 0.3f, 0.1f) {
+                    game.go(Game.Place.Training(null))
+                }, at(0f, bottom + 0.9f))
+                button(CopyKey.RESULT_AGAIN, "result_again_button", 0.14f) { game.play(MatchPlan.Practice(plan.drill)) }
+            }
             else -> button(CopyKey.RESULT_TITLE, "result_title_button", 0.14f) { game.go(game.home) }
         }
         next.bobs = true

@@ -51,6 +51,7 @@ private final class FlipCard {
         Blocks.retext(faces[flips % 2], String(c), height: textHeight)
         shown = c
         turn.target = Double(flips) * .pi
+        KitSound.flip()
     }
 
     func update(_ dt: Double, reduceMotion: Bool) {

@@ -67,12 +67,13 @@ fun SaveRecord.startOver(): SaveRecord = copy(career = null, season = null)
 
 /**
  * Starts the first season, or the next once the last one is over, keeping the career and its
- * trophies. [seed] seeds the season's stream (§4.3); the app draws it, the vectors fix it.
+ * trophies; each season's number is one more than the last's (§15). [seed] seeds the season's stream
+ * (§4.3); the app draws it, the vectors fix it.
  */
 fun SaveRecord.startSeason(seed: Long): SaveRecord {
     val career = career ?: refuse(GameError.NoCareer)
     if (season != null && !season.isFinished) refuse(GameError.SeasonInProgress)
-    return copy(season = SeasonEngine.start(seed, career).advance(career.team, career).first)
+    return copy(season = SeasonEngine.start(seed, career, (season?.number ?: 0) + 1).advance(career.team, career).first)
 }
 
 /** The player's fixture on the current matchday. */
@@ -121,6 +122,7 @@ internal fun CareerRecord.validate(path: String) {
 }
 
 internal fun SeasonRecord.validate(path: String) {
+    if (number < 1) refuse(SaveDecodeError.BrokenRule("$path.number", SaveRule.SEASON_NUMBER))
     if (teams.toSet().size != teams.size || teams.size != Tuning.Season.leagueTeams) {
         refuse(SaveDecodeError.BrokenRule("$path.teams", SaveRule.LEAGUE_IS_NOT_THE_CAREERS))
     }

@@ -1,0 +1,21 @@
+// An additive glow (spec §5.2): the aim ribbon's and arrowhead's glow, the lock-on's goal-mouth sheet
+// and strip — a flat colour × alpha added over what is behind it. The twin of iOS's glow shader.
+// Premultiplied, both sides, no depth write.
+material {
+    name : glow,
+    shadingModel : unlit,
+    parameters : [
+        { type : float3, name : baseColor },
+        { type : float, name : alpha }
+    ],
+    blending : add,
+    depthWrite : false,
+    culling : none
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        material.baseColor = vec4(materialParams.baseColor * materialParams.alpha, materialParams.alpha);
+    }
+}

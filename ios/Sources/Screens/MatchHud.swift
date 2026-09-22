@@ -60,8 +60,9 @@ final class MatchHud: Screen {
                 holder.content.addChild(pip)
                 pips.append(pip)
             }
-            overtime = child(Label3D(L(.hudOt), height: 0.08, colour: C.coral, entrance: .pop, motion: m),
-                             at: at(0.34, top - 0.6, z: 0.06), on: layer)
+            // In overtime "OT" takes the clock's place (§16.4).
+            overtime = child(Label3D(L(.hudOt), height: 0.11, colour: C.coral, entrance: .pop, motion: m),
+                             at: at(-0.12, top - 0.6, z: 0.06), on: layer)
         }
         pause = part(BlockButton("II", id: "match_pause_button", label: L(.hudPause), style: .quiet, size: [0.26, 0.26], textHeight: 0.11,
                                  entrance: .pop, motion: m) { [weak game] in game?.pause(true) }, at: at(0.72, top - 0.26))
@@ -101,6 +102,7 @@ final class MatchHud: Screen {
     func setPaused(_ on: Bool) {
         if on {
             for (i, p) in pauseParts.enumerated() { p.show(after: Double(i) * motion.staggerSeconds * 2) }
+            KitSound.sweep()
         } else {
             for p in pauseParts.reversed() { p.hide(after: 0) }
         }
@@ -119,41 +121,38 @@ final class MatchHud: Screen {
     func event(_ e: MatchEvent) {
         switch e {
         case .goal(let team, _, _, _):
-            let ours = team == 0
-            raise(L(ours ? .eventGoal : .eventGoalAgainst), colour: ours ? C.sun : C.cream, height: ours ? 0.36 : 0.24)
-            board.celebrate(ours ? 1 : 0.5)
-        case .drillInterrupted(let why):
-            let key: CopyKey = switch why {
-            case .saved: .eventSaved
-            case .stolen: .eventStolen
-            case .wrongNet: .eventWrongNet
-            case .noAssist: .eventPassFirst
-            case .deadBall: .eventReset
-            }
-            raise(L(key), colour: C.cardInk, height: 0.22)
-        case .ready:
-            raise(L(.eventGetReady), colour: C.cream, height: 0.18)
-        case .end(let result):
-            let key: CopyKey = drillGoals != nil ? (result == .won ? .resultDrillWon : .resultTimeUp)
-                : result == .won ? .resultWin : result == .lost ? .resultLoss : .resultDraw
-            raise(L(key), colour: result == .won ? C.sun : C.cream, height: 0.28)
+            board.celebrate(team == 0 ? 1 : 0.5)
+        case .end:
             pause.isEnabled = false
         default:
             break
         }
     }
 
-    /// A word in the middle of the screen: letters drop in, bob, and hop away.
-    private func raise(_ text: String, colour: Int, height: Float) {
+    /// A banner the match raised (§16.4, core `MatchCues`): its words in its style for its seconds.
+    func show(_ b: Banner) {
+        typealias P = Presentation.Banner
+        let (colour, height): (UInt32, Double) = switch b.style {
+        case .good: (P.good, P.heightGood)
+        case .bad: (P.bad, P.heightBad)
+        case .warn: (P.warn, P.heightWarn)
+        case .info: (P.info, P.heightInfo)
+        }
+        raise(L(b.key, arguments: b.args), colour: Int(colour), height: Float(height), seconds: b.seconds, pop: b.style == .good)
+    }
+
+    /// A word in the middle of the screen: letters drop in (a good one pops), bob, and hop away.
+    private func raise(_ text: String, colour: Int, height: Float, seconds: Double, pop: Bool) {
         if let old = banner {
             old.hide(after: 0)
             stage.after(0.8) { [weak stage] in stage?.remove(under: old.entity) }
         }
-        let b = child(WaveText(text, height: height, colour: colour, bob: 2, id: "match_banner_header", motion: motion),
+        let b = child(WaveText(text, height: height, colour: colour, bob: pop ? 2.5 : 1.5, entrance: pop ? .pop : .drop,
+                               id: "match_banner_header", motion: motion),
                       at: at(0, 0.35, z: 0.3, tilt: 0.06), on: layer)
         b.show(after: 0)
         banner = b
-        stage.after(1.6) { [weak self, weak b] in
+        stage.after(seconds) { [weak self, weak b] in
             guard let self, let b, self.banner === b else { return }
             b.hide(after: 0)
             self.stage.after(0.8) { [weak stage = self.stage] in stage?.remove(under: b.entity) }
@@ -181,7 +180,7 @@ final class MatchHud: Screen {
                 shownScore[side] = s.score[side]
             }
         }
-        clock.set(Names.clock(s.clock))
+        if !s.overtime { clock.set(Names.clock(s.clock)) }
         if s.period != shownPeriod {
             shownPeriod = s.period
             for (i, pip) in pips.enumerated() { Blocks.recolour(pip, i < s.period ? C.sun : C.disabledShade) }
@@ -189,9 +188,8 @@ final class MatchHud: Screen {
         if s.overtime != shownOvertime {
             shownOvertime = s.overtime
             if s.overtime {
-                pips.forEach { $0.isEnabled = false }
-                overtime?.show(after: 0)
-                raise(L(.eventSuddenDeath), colour: C.coral, height: 0.24)
+                clock.hide(after: 0)            // "OT" replaces the clock (§16.4)
+                overtime?.show(after: 0.25)
             }
         }
     }

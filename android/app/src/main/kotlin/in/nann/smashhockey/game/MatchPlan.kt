@@ -52,6 +52,8 @@ sealed interface MatchPlan {
         val myCode = career?.short(career.team) ?: Career.demoClub.short
         val me = TeamColours(mine.first, mine.second)
         fun kit(c: Club) = TeamColours(c.primary, c.secondary)
+        fun name(c: Club) = L(c.nameKey).uppercase()
+        val myName = career?.let { Names.team(it.team, it) } ?: name(Career.demoClub)
         return when (this) {
             Season -> {
                 val c = career ?: return null
@@ -60,12 +62,12 @@ sealed interface MatchPlan {
                 val them = if (f.home == c.team) f.away else f.home
                 val k = c.kit(them)
                 Kickoff(Match(setup), setup.orbitPeriod, c.homeWorld(f.home), dress(me, TeamColours(k.first, k.second)),
-                    listOf(myCode, c.short(them)), null)
+                    listOf(myCode, c.short(them)), null, listOf(Names.team(f.home, c), Names.team(f.away, c)))
             }
             is Quick -> {
                 val setup = save.quickMatch(draw, seed)
                 Kickoff(Match(setup), setup.orbitPeriod, draw.world, dress(me, kit(draw.opponent)),
-                    listOf(myCode, draw.opponent.short), null)
+                    listOf(myCode, draw.opponent.short), null, listOf(myName, name(draw.opponent)))
             }
             is Practice -> {
                 val setup = save.drill(drill, seed)
@@ -80,7 +82,8 @@ sealed interface MatchPlan {
             is Friendly -> {
                 val setup = MatchSetup(seed, world.sport, SideSetup.club(home), SideSetup.club(away), save.board.periodSeconds,
                     save.board.ballSpinSeconds, false, Control.PLAYER)
-                Kickoff(Match(setup), setup.orbitPeriod, world, dress(kit(home), kit(away)), listOf(home.short, away.short), null)
+                Kickoff(Match(setup), setup.orbitPeriod, world, dress(kit(home), kit(away)), listOf(home.short, away.short), null,
+                    listOf(name(home), name(away)))
             }
         }
     }
@@ -117,6 +120,8 @@ class Kickoff(
     val codes: List<String>?,
     /** A drill's goal target; null in a match. */
     val drillGoals: Int?,
+    /** The home and the away side's names, for the intro banner (§16.4); null in a drill and the demo. */
+    val names: List<String>? = null,
 )
 
 /**

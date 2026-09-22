@@ -43,10 +43,11 @@ enum Shapes {
         return k
     }
 
-    /// The field ball: a smooth sphere of the ball's radius, resting on the ground.
+    /// The field ball: a smooth sphere of the ball's radius, centred on its origin (it rolls about
+    /// its centre; the scene stands it on the ground).
     static func ball(radius r: Float) -> MeshKit {
         var k = MeshKit()
-        k.sphere(smooth: SIMD3(0, r, 0), radius: r, rings: 14, segments: 18)
+        k.sphere(smooth: .zero, radius: r, rings: 14, segments: 18)
         return k
     }
 
@@ -64,31 +65,10 @@ enum Shapes {
         return k
     }
 
-    /// A unit strip on the ground: x in ±0.5, z from 0 to 1 — scaled into the aim line.
-    static func strip() -> MeshKit {
-        var k = MeshKit()
-        k.quad(SIMD3(-0.5, 0, 0), SIMD3(-0.5, 0, 1), SIMD3(0.5, 0, 1), SIMD3(0.5, 0, 0))
-        return k
-    }
-
-    /// The aim line's arrowhead: a unit triangle pointing down +Z from z = 0.
-    static func arrowhead() -> MeshKit {
-        var k = MeshKit()
-        k.triangle(SIMD3(-0.5, 0, 0), SIMD3(0, 0, 1), SIMD3(0.5, 0, 0))
-        return k
-    }
-
     /// A flat ring from radius `inner` to `outer` on the ground.
     static func ring(inner: Float, outer: Float, segments: Int = 40) -> MeshKit {
         var k = MeshKit()
         k.annulus(inner: inner, outer: outer, y: 0, segments: segments)
-        return k
-    }
-
-    /// A confetti piece: a thin square card.
-    static func card() -> MeshKit {
-        var k = MeshKit()
-        k.box(.zero, SIMD3(1, 0.08, 0.7))
         return k
     }
 }

@@ -1,5 +1,6 @@
 package `in`.nann.smashhockey.scene
 
+import android.opengl.Matrix
 import com.google.android.filament.Engine
 import com.google.android.filament.Scene
 import `in`.nann.smashhockey.engine.Geometry
@@ -7,28 +8,36 @@ import `in`.nann.smashhockey.engine.Materials
 import `in`.nann.smashhockey.engine.Node
 import `in`.nann.smashhockey.generated.Presentation
 import `in`.nann.smashhockey.generated.WorldLook
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.exp
-import kotlin.math.sin
 
 /**
- * A goal's confetti: cards thrown up from the net, tumbling down on real time — the twin of iOS's
- * Confetti.swift. Presentation only: its randomness is its own generator, never a match stream (§4.3).
+ * A goal's confetti (spec §8.8), the prototype's burst — the twin of iOS's Confetti.swift: cards in
+ * the scoring side's primary, secondary and white, thrown sideways and up from the scored-in net,
+ * falling, bouncing and tumbling on real time. Presentation only: its randomness is its own
+ * generator, never a match stream (§4.3).
  */
-class Confetti(private val engine: Engine, private val scene: Scene, parent: Int, materials: Materials, look: WorldLook) {
+class Confetti(
+    private val engine: Engine,
+    private val scene: Scene,
+    parent: Int,
+    materials: Materials,
+    look: WorldLook,
+    colours: List<TeamColours>,
+) {
     private val c = Presentation.Celebration
-    private val geometry = Geometry(engine, Shapes.card())
-    private class Piece(val node: Node) { var vx = 0f; var vy = 0f; var vz = 0f; var sx = 0f; var sy = 0f; var sz = 0f }
+    private val geometry = Geometry(engine, Shapes.card(c.size))
+    /** Per side, the three card colours: primary, secondary, white. */
+    private val palettes = colours.map { k -> listOf(k.primary, k.secondary, 0xFFFFFF).map { materials.toon(it, look) } }
+    private class Piece(val node: Node) {
+        var vx = 0f; var vy = 0f; var vz = 0f; var rx = 0f; var ry = 0f; var wx = 0f; var wy = 0f; var life = 0f
+        var alive = false
+    }
     private val pieces: List<Piece>
-    private var age = Double.POSITIVE_INFINITY
     private var state = 0x5EEDL
-    private var visible = false
+    private var live = 0
 
     init {
-        val colours = c.colours.map { materials.toon(it, look) }
         pieces = (0 until c.pieces).map { i ->
-            val e = geometry.renderable(listOf(colours[i % colours.size]), shadows = false)
+            val e = geometry.renderable(listOf(palettes[0][i % 3]), shadows = false)
             Piece(Node(engine, parent, existing = e))
         }
     }
@@ -42,42 +51,55 @@ class Confetti(private val engine: Engine, private val scene: Scene, parent: Int
         return ((z xor (z ushr 31)) ushr 40).toFloat() / (1 shl 24).toFloat()
     }
 
-    fun burst(goalZ: Float) {
-        age = 0.0
-        if (!visible) { pieces.forEach { scene.addEntity(it.node.entity) }; visible = true }
+    private fun u(lo: Double, hi: Double) = (lo + (hi - lo) * next()).toFloat()
+
+    /** Throws the confetti from the net on goal line [goalZ], in [team]'s colours. */
+    fun burst(goalZ: Float, team: Int) {
+        val rm = engine.renderableManager
+        val side = c.sideways
+        for ((i, p) in pieces.withIndex()) {
+            rm.setMaterialInstanceAt(rm.getInstance(p.node.entity), 0, palettes[team][i % 3])
+            p.node.x = u(-c.spread, c.spread); p.node.y = u(c.height[0], c.height[1]); p.node.z = goalZ + u(-c.depth, c.depth)
+            p.vx = u(-side, side); p.vy = u(c.up[0], c.up[1]); p.vz = u(-side, side)
+            p.rx = u(0.0, 6.0); p.ry = u(0.0, 6.0); p.wx = u(-c.spin, c.spin); p.wy = u(-c.spin, c.spin)
+            p.life = u(c.life[0], c.life[1])
+            if (!p.alive) { scene.addEntity(p.node.entity); p.alive = true }
+            place(p)
+        }
+        live = pieces.size
+    }
+
+    /** Real time: fall, bounce, tumble; a card whose life is over goes. */
+    fun advance(dt: Double) {
+        if (live == 0) return
+        val t = dt.toFloat()
+        val g = c.gravity.toFloat(); val floor = c.floor.toFloat()
         for (p in pieces) {
-            val a = next() * 2f * PI.toFloat()
-            val up = 0.55f + 0.45f * next()
-            val speed = c.speed.toFloat() * (0.6f + 0.4f * next())
-            val out = if (goalZ >= 0) -1f else 1f
-            p.vx = cos(a) * (1 - up) * speed; p.vy = up * speed; p.vz = (sin(a) * (1 - up) * 0.6f + out * 0.25f) * speed
-            p.sx = (next() - 0.5f) * 14; p.sy = (next() - 0.5f) * 14; p.sz = (next() - 0.5f) * 14
-            p.node.x = (next() - 0.5f) * 6; p.node.y = 1.2f; p.node.z = goalZ + (next() - 0.5f) * 1.5f
-            p.node.scale(c.size.toFloat()); p.node.apply()
+            if (!p.alive) continue
+            p.life -= t
+            if (p.life <= 0f) { scene.removeEntity(p.node.entity); p.alive = false; live--; continue }
+            p.vy -= g * t
+            val n = p.node
+            n.x += p.vx * t; n.y += p.vy * t; n.z += p.vz * t
+            if (n.y < floor) {
+                n.y = floor; p.vy *= -c.bounce.toFloat(); p.vx *= c.friction.toFloat(); p.vz *= c.friction.toFloat()
+            }
+            p.rx += p.wx * t; p.ry += p.wy * t
+            place(p)
         }
     }
 
-    fun advance(dt: Double) {
-        if (age >= c.seconds) return
-        age += dt
-        if (age >= c.seconds) { pieces.forEach { scene.removeEntity(it.node.entity) }; visible = false; return }
-        val t = dt.toFloat()
-        val fade = ((c.seconds - age) / 0.6).coerceIn(0.0, 1.0).toFloat()
-        val drag = exp(-1.4f * t)
-        for (p in pieces) {
-            p.vy -= c.gravity.toFloat() * t
-            p.vx *= drag; p.vy *= drag; p.vz *= drag
-            val n = p.node
-            n.x += p.vx * t; n.y += p.vy * t; n.z += p.vz * t
-            if (n.y < 0.05f) { n.y = 0.05f; p.vx = 0f; p.vy = 0f; p.vz = 0f }
-            n.yaw += p.sy * t; n.pitch += p.sx * t; n.roll += p.sz * t
-            n.scale(c.size.toFloat() * fade)
-            n.apply()
-        }
+    /** Rotation Rx(rx)·Ry(ry), the prototype's order. */
+    private fun place(p: Piece) {
+        val m = FloatArray(16)
+        Matrix.setRotateM(m, 0, Math.toDegrees(p.rx.toDouble()).toFloat(), 1f, 0f, 0f)
+        Matrix.rotateM(m, 0, Math.toDegrees(p.ry.toDouble()).toFloat(), 0f, 1f, 0f)
+        p.node.rotation = m
+        p.node.apply()
     }
 
     fun destroy() {
-        if (visible) pieces.forEach { scene.removeEntity(it.node.entity) }
+        pieces.forEach { if (it.alive) scene.removeEntity(it.node.entity) }
         geometry.destroy()
     }
 }

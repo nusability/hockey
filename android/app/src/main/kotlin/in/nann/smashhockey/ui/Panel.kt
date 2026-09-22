@@ -20,6 +20,7 @@ class Panel(
     val presence = Presence(entrance, kit.motion)
     private val jiggle = Jiggle(kit.motion.spring(SpringName.WOBBLY))
     private val motion = kit.motion
+    private var landed = false
 
     init {
         kit.slab(w, h, d, colour, body, corner)
@@ -43,6 +44,9 @@ class Panel(
     override fun update(dt: Double, ctx: UiContext) {
         presence.advance(dt, ctx)
         presence.apply(node, rest, ctx.reduceMotion)
+        val settled = presence.isSettledIn
+        if (settled && !landed) KitSound.land()        // a panel lands its entrance with a pop
+        landed = settled
         if (!node.enabled) return
         jiggle.advance(dt, ctx.reduceMotion)
         body.transform.rot.set(jiggle.rotation)

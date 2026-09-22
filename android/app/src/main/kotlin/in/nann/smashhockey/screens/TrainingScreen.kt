@@ -13,6 +13,7 @@ import `in`.nann.smashhockey.game.Names
 import `in`.nann.smashhockey.generated.Presentation
 import `in`.nann.smashhockey.ui.BlockButton
 import `in`.nann.smashhockey.ui.Entrance
+import `in`.nann.smashhockey.ui.KitSound
 import `in`.nann.smashhockey.ui.Label3D
 import `in`.nann.smashhockey.ui.Panel
 import `in`.nann.smashhockey.ui.Paragraph
@@ -81,6 +82,7 @@ class TrainingScreen(game: Game, intro: Drill?) :
         if (!game.save.isOpen(d)) return
         closeIntro()
         for ((i, c) in cards.withIndex()) c.isSelected = Drill.entries[i] == d
+        cards.forEach { it.isEnabled = false }      // the cards behind the intro take no taps (§16.6)
         val panel = child(Panel(kit, 1.62f, 1.5f, 0.14f, C.CREAM, Entrance.Tumble), at(0f, 0.05f, z = 0.5f), layer)
         child(Label3D(kit, L(CopyKey.TRAINING_DRILL, d.number), 0.05f, C.TEAL_SHADE), at(0f, 0.6f), panel.content).show(0.0)
         child(Label3D(kit, L(d.nameKey).uppercase(), 0.11f, C.INK, maxWidth = 1.45f), at(0f, 0.45f), panel.content).show(0.0)
@@ -95,6 +97,7 @@ class TrainingScreen(game: Game, intro: Drill?) :
             closeIntro()
         }, at(-0.46f, -0.52f), panel.content)
         val parts = listOf(panel, start, close)
+        KitSound.sweep()
         for ((i, p) in parts.withIndex()) p.show(i * motion.staggerSeconds * 3)
         introParts = parts
     }
@@ -104,6 +107,7 @@ class TrainingScreen(game: Game, intro: Drill?) :
         for (p in introParts.asReversed()) p.hide(0.0)
         introParts = emptyList()
         for (c in cards) c.isSelected = false
+        for ((i, c) in cards.withIndex()) c.isEnabled = game.save.isOpen(Drill.entries[i])
         stage.after(0.9) { stage.remove(panel.node) }
     }
 

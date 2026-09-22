@@ -80,6 +80,8 @@ class WaveText(
     bob: Float = 1f,
     maxWidth: Float = DesignTokens.Size.FRAME_WIDTH - 0.1f,
     id: String,
+    /** How each letter arrives: dropped in by default; a big moment pops them (§16.4). */
+    private val entrance: Entrance = Entrance.Drop,
 ) : Semantic, Presentable {
     private class Letter(val node: UiNode, val presence: Presence, val x: Float) { val pose = Xform() }
 
@@ -106,7 +108,7 @@ class WaveText(
             x += w + tracking
         }
         val total = x - tracking
-        for ((letter, cx) in parts) letters += Letter(letter, Presence(Entrance.Drop, kit.motion), cx - total / 2)
+        for ((letter, cx) in parts) letters += Letter(letter, Presence(entrance, kit.motion), cx - total / 2)
         bounds = Bounds(-total / 2, -height * 0.6f, 0f, total / 2, height * 0.6f, height * 0.4f)
         fit = if (total > maxWidth) maxWidth / total else 1f
         node.enabled = false

@@ -108,11 +108,13 @@ final class BlockButton: Interactive, Presentable {
     func touchDown(_ ray: TouchRay) {
         guard isEnabled else {
             nope.kick(twist: motion.kick(.nope), swell: 0)
+            KitSound.nope()
             return
         }
         held = true
         press.target = motion.pressHold
         press.kick(motion.pressKick * 0.5)
+        KitSound.press()
     }
 
     func touchUp(_ ray: TouchRay, inside: Bool) {
@@ -125,8 +127,9 @@ final class BlockButton: Interactive, Presentable {
 
     /// VoiceOver's activation, and the sketch's autoplay: the same squash and the same action.
     func activate() {
-        guard isEnabled else { nope.kick(twist: motion.kick(.nope), swell: 0); return }
+        guard isEnabled else { nope.kick(twist: motion.kick(.nope), swell: 0); KitSound.nope(); return }
         press.kick(motion.pressKick)
+        KitSound.press()
         action()
     }
 

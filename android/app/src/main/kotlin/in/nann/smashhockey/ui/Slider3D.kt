@@ -75,6 +75,7 @@ class Slider3D(
         val c = min(1.0, max(0.0, v))
         val q = if (stops != null) (c * (stops - 1)).roundHalfAway() / (stops - 1) else (c / 0.01).roundHalfAway() * 0.01
         if (q == value) return
+        if (notify && (q / step).roundHalfAway() != (value / step).roundHalfAway()) KitSound.step()
         value = q
         knob.target = q
         semantics.value = format(q)

@@ -112,7 +112,7 @@ import Testing
     /// Every refused save is refused with exactly the recorded, typed error — never read.
     @Test func brokenSavesAreRefusedTyped() throws {
         let cases = try Self.lines("save/invalid.txt")
-        #expect(cases.count == 21)
+        #expect(cases.count == 22)
         for line in cases {
             let file = String(line.prefix { $0 != " " })
             let expected = String(line.dropFirst(file.count + 1))

@@ -89,7 +89,7 @@ class Tile(
     }
 
     override fun touchDown(ray: TouchRay) {
-        if (!isEnabled) { nope.kick(motion.kick(KickName.NOPE), 0.0); return }
+        if (!isEnabled) { nope.kick(motion.kick(KickName.NOPE), 0.0); KitSound.refuse(); return }
         held = true
         press.target = motion.pressHold
         press.kick(motion.pressKick * 0.4)
@@ -100,12 +100,13 @@ class Tile(
         held = false
         press.target = 0.0
         press.kick(-motion.pressKick * 0.5)
-        if (inside) action()
+        if (inside) { KitSound.press(); action() }
     }
 
     override fun activate() {
-        if (!isEnabled) { nope.kick(motion.kick(KickName.NOPE), 0.0); return }
+        if (!isEnabled) { nope.kick(motion.kick(KickName.NOPE), 0.0); KitSound.refuse(); return }
         press.kick(motion.pressKick)
+        KitSound.press()
         action()
     }
 

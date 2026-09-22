@@ -26,14 +26,24 @@ class Node(private val engine: Engine, parent: Int? = null, val mesh: GpuMesh? =
         parent?.let { tm.setParent(instance, tm.getInstance(it)) }
     }
 
-    /** Writes the local transform: translate · rotate(yaw about Y, pitch about X, roll about Z) · scale. */
+    /** A rotation (column-major 4×4) used in place of yaw/pitch/roll when set — a rolling ball's. */
+    var rotation: FloatArray? = null
+
+    /** Writes the local transform: translate · rotate(yaw about Y, pitch about X, roll about Z, or [rotation]) · scale. */
     fun apply() {
         val m = FloatArray(16)
         Matrix.setIdentityM(m, 0)
         Matrix.translateM(m, 0, x, y, z)
-        Matrix.rotateM(m, 0, Math.toDegrees(yaw.toDouble()).toFloat(), 0f, 1f, 0f)
-        Matrix.rotateM(m, 0, Math.toDegrees(pitch.toDouble()).toFloat(), 1f, 0f, 0f)
-        if (roll != 0f) Matrix.rotateM(m, 0, Math.toDegrees(roll.toDouble()).toFloat(), 0f, 0f, 1f)
+        val r = rotation
+        if (r != null) {
+            val t = FloatArray(16)
+            Matrix.multiplyMM(t, 0, m, 0, r, 0)
+            System.arraycopy(t, 0, m, 0, 16)
+        } else {
+            Matrix.rotateM(m, 0, Math.toDegrees(yaw.toDouble()).toFloat(), 0f, 1f, 0f)
+            Matrix.rotateM(m, 0, Math.toDegrees(pitch.toDouble()).toFloat(), 1f, 0f, 0f)
+            if (roll != 0f) Matrix.rotateM(m, 0, Math.toDegrees(roll.toDouble()).toFloat(), 0f, 0f, 1f)
+        }
         Matrix.scaleM(m, 0, sx, sy, sz)
         tm.setTransform(instance, m)
     }

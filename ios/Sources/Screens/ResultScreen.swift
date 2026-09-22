@@ -2,9 +2,9 @@ import RealityKit
 import SmashCore
 
 /// The result (spec §16.5): the final score flipping up goal by goal, win, draw or loss, overtime if
-/// it happened — and one button on: back to the hub after a season match, Again after a drill (one
-/// tap, A2) or Next drill once it is won, the menu after a quick match. The result was saved before
-/// this screen appeared (§15). The twin of Android's ResultScreen.kt.
+/// it happened — and the way on: back to the hub after a season match, Again (one tap, A2) or Training
+/// after a failed drill, Next drill once it is won, the menu after a quick match. The result was saved
+/// before this screen appeared (§15). The twin of Android's ResultScreen.kt.
 @MainActor
 final class ResultScreen: Screen {
     private let outcome: Outcome
@@ -63,8 +63,12 @@ final class ResultScreen: Screen {
                                    textHeight: 0.13, motion: m) { [weak game] in game?.go(.training(intro: nil)) }
             }
         case .drill(let d):
+            // A failed drill: again in one tap (A2), or back to the drills.
             next = BlockButton(L(.resultAgain), id: "result_again_button", style: .primary, size: [1.3, 0.38],
                                textHeight: 0.14, motion: m) { [weak game] in game?.play(.drill(d)) }
+            part(BlockButton(L(.trainingTitle), id: "result_training_button", style: .quiet, size: [1.0, 0.3],
+                             textHeight: 0.1, motion: m) { [weak game] in game?.go(.training(intro: nil)) },
+                 at: at(0, bottom + 0.9))
         default:
             next = BlockButton(L(.resultTitle), id: "result_title_button", style: .primary, size: [1.3, 0.38],
                                textHeight: 0.14, motion: m) { [weak game] in game.map { $0.go($0.home) } }

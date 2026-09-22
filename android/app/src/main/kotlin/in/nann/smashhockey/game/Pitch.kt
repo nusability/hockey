@@ -21,7 +21,11 @@ import `in`.nann.smashhockey.engine.Node
 import `in`.nann.smashhockey.engine.World
 import `in`.nann.smashhockey.generated.Presentation
 import `in`.nann.smashhockey.scene.Actors
+import `in`.nann.smashhockey.core.feel.Cue
+import `in`.nann.smashhockey.core.feel.MatchCues
 import `in`.nann.smashhockey.scene.Confetti
+import `in`.nann.smashhockey.scene.NetRipple
+import `in`.nann.smashhockey.scene.Pops
 import `in`.nann.smashhockey.scene.Director
 import `in`.nann.smashhockey.scene.DirectorInput
 import `in`.nann.smashhockey.ui.CameraPose
@@ -29,7 +33,8 @@ import `in`.nann.smashhockey.core.generated.World as WorldId
 
 /**
  * The pitch and whatever match is on it (spec §8, §9) — the twin of iOS's Pitch.swift: a `Match`
- * from the core, drawn in its world — the players, the ball, the aim line, the confetti — with the
+ * from the core, drawn in its world — the players, the ball, the aim arrow, the confetti, the pops and
+ * the rippling nets — with the
  * director's camera and slow motion (§8.6). The demo behind the menus and the player's own matches
  * are the same thing here; the game decides which one runs. It never draws a HUD: the screens do.
  *
@@ -49,6 +54,8 @@ class Pitch(context: Context, private val engine: Engine, private val scene: Sce
     var paused = false
     /** What the match emitted this frame, after the pitch itself has reacted. */
     var onEvent: ((MatchEvent) -> Unit)? = null
+    /** What the match sets off that the pitch does not draw itself: banners, sounds, haptics (§8.8). */
+    var onCue: ((Cue) -> Unit)? = null
 
     var plan: MatchPlan? = null; private set
     var kickoff: Kickoff? = null; private set
@@ -59,6 +66,9 @@ class Pitch(context: Context, private val engine: Engine, private val scene: Sce
     private var world: World? = null
     private var actors: Actors? = null
     private var confetti: Confetti? = null
+    private val pops = Pops(engine, scene, root.entity, materials)
+    private val nets = NetRipple(engine, scene, root.entity, materials)
+    private var cues: MatchCues? = null
     private var director = Director()
     private var phase = 0.0
     private var clock = 0.0
@@ -80,7 +90,8 @@ class Pitch(context: Context, private val engine: Engine, private val scene: Sce
         actors?.destroy(); confetti?.destroy()
         val first = kickoff.match.snapshot
         actors = Actors(engine, scene, root.entity, first, kickoff.colours, kickoff.world.sport, kickoff.orbitPeriod, materials, w.look)
-        confetti = Confetti(engine, scene, root.entity, materials, w.look)
+        confetti = Confetti(engine, scene, root.entity, materials, w.look, kickoff.colours)
+        cues = MatchCues(Feel.params, drill = plan is MatchPlan.Practice, audible = !plan.isDemo)
         this.plan = plan
         this.kickoff = kickoff
         match = kickoff.match
@@ -109,11 +120,14 @@ class Pitch(context: Context, private val engine: Engine, private val scene: Sce
                 s = m.snapshot
                 snapshot = s
                 for (e in m.drainEvents()) handle(e, m, s)
+                cues?.frame(s)?.forEach(::cue)
             }
         }
         if (s.state != MatchState.GOAL) celebrating = null
         actors?.update(s, if (paused) 0.0 else phase * Tuning.Time.tickSeconds, celebrating, clock)
         confetti?.advance(real)
+        pops.advance(real)
+        nets.advance(real)
         val shake = director.shakeOffset
         root.x = -shake[0].toFloat(); root.y = -shake[1].toFloat(); root.z = -shake[2].toFloat(); root.apply()
         if (s.state == MatchState.ENDED) endedFor += real else endedFor = 0.0
@@ -133,21 +147,36 @@ class Pitch(context: Context, private val engine: Engine, private val scene: Sce
             b.carrier?.let { s.players[it].team })
     }
 
+    /** §8.6's time scale now — what the match's sounds play at (§8.8); 0 while paused. */
+    val timeScale: Double get() = if (paused || match == null) 0.0 else director.timeScale
+
+    /** A player's match (not a drill) opens with "Home vs Away" (§16.4). */
+    fun intro(home: String, away: String) { cues?.intro(home, away)?.forEach(::cue) }
+
+    /** The pitch draws the shakes and pops itself; the rest goes to the game. */
+    private fun cue(c: Cue) {
+        when (c) {
+            is Cue.Shake -> director.knock(c.metres)
+            is Cue.Pop -> pops.pop(c.kind, c.x, c.z)
+            else -> onCue?.invoke(c)
+        }
+    }
+
     /** The camera, the confetti and the celebration react; then the game hears of it. */
     private fun handle(e: MatchEvent, m: Match, s: MatchSnapshot) {
         when (e) {
             is MatchEvent.Goal -> {
                 val goalZ = (if (e.team == 0) 1.0 else -1.0) * Tuning.Pitch.goalLineZ
                 director.goalScored(goalZ, s.ball.x, m.lastShotDistance)
-                confetti?.burst(goalZ.toFloat())
+                confetti?.burst(goalZ.toFloat(), e.team)
+                nets.ripple(goalZ, s.ball.x)
                 celebrating = e.team
                 Log.i(TAG, "goal team ${e.team} own ${e.ownGoal} score ${s.score[0]}-${s.score[1]}")
             }
-            MatchEvent.Post -> director.knock(Presentation.Camera.Shake.post)
-            is MatchEvent.Board -> director.knock(Presentation.Camera.Shake.board * minOf(e.speed / 12, 1.0))
             is MatchEvent.End -> Log.i(TAG, "end ${e.result.key}")
             else -> Unit
         }
+        cues?.hear(e, s)?.forEach(::cue)
         onEvent?.invoke(e)
     }
 
@@ -161,7 +190,7 @@ class Pitch(context: Context, private val engine: Engine, private val scene: Sce
     }
 
     fun destroy() {
-        actors?.destroy(); confetti?.destroy(); world?.destroy()
+        actors?.destroy(); confetti?.destroy(); world?.destroy(); pops.destroy(); nets.destroy()
         materials.destroy()
         engine.destroyEntity(root.entity); EntityManager.get().destroy(root.entity)
     }

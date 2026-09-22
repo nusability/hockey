@@ -34,6 +34,7 @@ enum MatchPlan: Equatable {
         let career = save.career
         let mine = career.map { $0.kit(of: $0.team) } ?? (Career.demoClub.primary, Career.demoClub.secondary)
         let myCode = career.map { $0.short(of: $0.team) } ?? Career.demoClub.short
+        let myName = career.map { Names.team($0.team, $0) } ?? L(Career.demoClub.nameKey).uppercased()
         func kit(_ c: Club) -> TeamColours { TeamColours(primary: c.primary, secondary: c.secondary) }
         let me = TeamColours(primary: mine.0, secondary: mine.1)
         switch self {
@@ -43,28 +44,31 @@ enum MatchPlan: Equatable {
             let k = career.kit(of: them)
             return Kickoff(match: Match(setup), orbitPeriod: setup.orbitPeriod, world: career.homeWorld(of: f.home),
                            colours: Self.dress(me, TeamColours(primary: k.primary, secondary: k.secondary)),
-                           codes: [myCode, career.short(of: them)], drillGoals: nil)
+                           codes: [myCode, career.short(of: them)], drillGoals: nil,
+                           names: [Names.team(f.home, career), Names.team(f.away, career)])
         case .quick(let q):
             let setup = save.quickMatch(q, seed: seed)
             return Kickoff(match: Match(setup), orbitPeriod: setup.orbitPeriod, world: q.world,
-                           colours: Self.dress(me, kit(q.opponent)), codes: [myCode, q.opponent.short], drillGoals: nil)
+                           colours: Self.dress(me, kit(q.opponent)), codes: [myCode, q.opponent.short], drillGoals: nil,
+                           names: [myName, L(q.opponent.nameKey).uppercased()])
         case .drill(let d):
             let setup = save.drill(d, seed: seed)
             let sparring = TeamColours(primary: Presentation.Player.sparringPrimary,
                                        secondary: Presentation.Player.sparringSecondary)
             return Kickoff(match: Match(setup), orbitPeriod: setup.orbitPeriod, world: d.world,
-                           colours: Self.dress(me, sparring), codes: nil, drillGoals: d.goals)
+                           colours: Self.dress(me, sparring), codes: nil, drillGoals: d.goals, names: nil)
         case .demo(let round, let opponent):
             let world = World.allCases[round % World.allCases.count]
             let setup = save.demo(world: world, opponent: opponent, seed: seed)
             return Kickoff(match: Match(setup), orbitPeriod: setup.orbitPeriod, world: world,
-                           colours: Self.dress(me, kit(opponent)), codes: [myCode, opponent.short], drillGoals: nil)
+                           colours: Self.dress(me, kit(opponent)), codes: [myCode, opponent.short], drillGoals: nil, names: nil)
         case .friendly(let home, let away, let world):
             let setup = MatchSetup(seed: seed, sport: world.sport, home: .club(home), away: .club(away),
                                    periodSeconds: save.board.periodSeconds, orbitPeriod: save.board.ballSpinSeconds,
                                    cup: false, control: .player)
             return Kickoff(match: Match(setup), orbitPeriod: setup.orbitPeriod, world: world,
-                           colours: Self.dress(kit(home), kit(away)), codes: [home.short, away.short], drillGoals: nil)
+                           colours: Self.dress(kit(home), kit(away)), codes: [home.short, away.short], drillGoals: nil,
+                           names: [L(home.nameKey).uppercased(), L(away.nameKey).uppercased()])
         }
     }
 
@@ -93,6 +97,8 @@ struct Kickoff {
     let codes: [String]?
     /// A drill's goal target; nil in a match.
     let drillGoals: Int?
+    /// The two sides' names for the intro banner (§16.4), home first; nil in a drill or the demo.
+    let names: [String]?
 }
 
 /// Where the app opens (the developer shortcuts; a player's launch has none of these). Launch

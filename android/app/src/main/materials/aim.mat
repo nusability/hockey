@@ -1,0 +1,43 @@
+// The aim arrow's ribbon (spec §5.2): the prototype's chevrons, computed here rather than sampled — the
+// twin of iOS's aim shader, formula for formula. The ribbon mesh is unit long along +z (v = z), tapered
+// from `near` to `far` across x; `cells` chevrons fill it, scrolling outward at `scroll` chevrons a
+// second on the renderer's clock. Premultiplied, both sides, no depth write.
+material {
+    name : aim,
+    shadingModel : unlit,
+    parameters : [
+        { type : float3, name : baseColor },
+        { type : float, name : alpha },
+        { type : float, name : near },
+        { type : float, name : far },
+        { type : float, name : cells },
+        { type : float, name : scroll }
+    ],
+    variables : [ local ],
+    blending : transparent,
+    depthWrite : false,
+    culling : none
+}
+
+vertex {
+    void materialVertex(inout MaterialVertexInputs material) {
+        material.local = vec4(getPosition().xyz, 0.0);
+    }
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        float v = variable_local.z;
+        float w = mix(materialParams.near, materialParams.far, v);
+        float u = variable_local.x / w + 0.5;
+        float c = fract(v * materialParams.cells - materialParams.scroll * getUserTime().x);
+        float s = 1.0 - abs(2.0 * u - 1.0);
+        float top = 0.72 + 0.233 * s;
+        float bottom = top - 0.281;
+        float mask = smoothstep(bottom - 0.02, bottom + 0.02, c) * (1.0 - smoothstep(top - 0.02, top + 0.02, c))
+                   * step(0.031, u) * step(u, 0.969);
+        float a = mask * materialParams.alpha;
+        material.baseColor = vec4(materialParams.baseColor * a, a);
+    }
+}

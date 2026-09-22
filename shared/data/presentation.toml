@@ -1,4 +1,5 @@
-# How a match looks on screen (spec §5.2 aim line, §8.6 camera choreography, §13 worlds), declared
+# How a match looks, sounds and feels (spec §5.2 aim arrow, §8.6 camera choreography, §8.8 feedback,
+# §13 worlds, §16.4 banners), declared
 # once and generated into both apps by tools/generate-data.py — into the app targets, never into the
 # simulation core: nothing here can change what a tick does. The time-scale numbers of §8.6 are the
 # rules' own (rules.toml [slow_motion]); this file holds only what the camera and the scene do.
@@ -54,16 +55,20 @@ rate_in = 4.0
 rate_out = 1.6             # back to the play camera once the face-off comes
 
 # Reduce Motion keeps the slow motion (§8.6) and tames the camera: the goal camera blends in only
-# part of the way and does not sweep; there is no shake.
+# part of the way and does not sweep; the shake is tamed ([camera.shake] reduce_motion).
 [camera.reduce_motion]
 goal_weight = 0.35
 buildup_weight = 0.15
 
+# The prototype's shake: a kick of this many metres that falls off linearly at `decay` metres per
+# second of real time; while it lasts the world is offset across and up by up to half of it, jittering
+# at `frequency`. The boards shake nothing. Reduce Motion keeps `reduce_motion` of every kick.
 [camera.shake]
-post = 0.28                # amplitude (m) when the ball rings a post
-board = 0.08               # … and when it smacks the boards hard (§6.2 board hit)
-decay = 7.0                # per second
+goal = 1.2
+post = 0.5
+decay = 2.5
 frequency = 21.0           # Hz
+reduce_motion = 0.2
 
 # The players, exactly the web prototype's disks (ADR 0006): a squat body of the player's radius
 # (spec §3) in the kit's primary, slightly narrower at the foot, toon-shaded; on top a dot in the
@@ -114,26 +119,191 @@ disc = "#facc15"
 disc_radius = 0.8
 disc_opacity = 0.35
 
-# §5.2: the aim line shows the direction and what the release would snap to. The colours are the
-# help text's (copy help.3): green for a pass, pink for a shot.
+# §5.2: the aim arrow — the prototype's exactly — shown only for the player's own carrier. It is
+# anchored at the carrier's centre and turned by the orbit angle, so it points out through the ball,
+# never at the target. Along it: a tapered ribbon (width × ribbon_near at its start to × ribbon_far at
+# its end) printed with chevrons, one every `chevron` metres, scrolling outward at `scroll` chevrons a
+# second; under it an additive glow ribbon (× glow_near … × glow_far); at its end a notched arrowhead
+# — the outline `head` (x, z pairs: tip, one wing, the notch; the other wing mirrored) × head_scale —
+# over an additive copy × head_glow. The ribbon starts `start` outside the orbit radius (§5.1).
+# Its length: free — max_length; a pass — distance to the receiver − orbit radius − pass_short; a shot
+# — distance to the goal centre − orbit radius − shot_short; always stopped board_margin + orbit
+# radius short of the boards (marching out from 1 m in steps of probe_step, up to max_length + 2, to
+# the last point whose distance to the boundary (§1) is under −board_probe), and never under
+# min_length. Colours: free, pass, shot (the help text's green and pink, copy help.3). Snapped, the
+# ribbon and head pulse at opacity_snapped ± pulse at pulse_rate (radians per second of real time);
+# free, they stand at opacity_free.
 [aim]
-pass = "#34d399"
-shot = "#ff4f9a"
-free = "#ffffff"
-width = 0.24
-free_length = 7.0          # an unassisted release's line (the ball goes on at 24, §5.4)
-opacity = 0.85
-orbit = "#ffffff"          # the ring the ball circles on (§5.1)
-orbit_opacity = 0.35
-orbit_width = 0.08
+free = "#facc15"
+pass = "#4ade80"
+shot = "#f472b6"
+start = 0.35
+max_length = 16.0
+min_length = 2.5
+pass_short = 1.6
+shot_short = 1.2
+board_margin = 1.2
+board_probe = 0.6
+probe_step = 0.5
+width = 1.1
+ribbon_near = 0.62
+ribbon_far = 0.3
+glow_near = 1.0
+glow_far = 0.5
+chevron = 1.3
+scroll = 2.4
+head = [0.0, 1.3, 0.95, -0.2, 0.0, 0.25]
+head_scale = 1.1
+head_glow = 1.3
+opacity_free = 0.7
+opacity_snapped = 0.85
+pulse = 0.15
+pulse_rate = 14.0
+glow_free = 0.1
+glow_snapped = 0.16
+head_glow_free = 0.15
+head_glow_snapped = 0.22
+lift = 0.04                # the ribbon's height above the pitch; the glow sits just under it
+orbit = "#ffffff"          # the ring the ball circles on (§5.1), only round the player's carrier
+orbit_opacity = 0.5
+orbit_width = 0.1
 
+# The lock-on marker (§5.2): when a snap begins it fades in over `fade_in` seconds of real time. A pass:
+# the receiver's pulsing ring ([player] target) and a dotted line in the pass colour from the arrow's
+# tip to the receiver's lead point — a dot of `dot` metres every `dot_gap` metres at dot_opacity. A
+# shot: a glow in the shot colour across the goal mouth — a sheet filling the mouth (the posts' width,
+# mouth_height tall) at mouth_opacity and a strip on the pitch mouth_depth deep in front of the line at
+# strip_opacity, breathing by mouth_pulse at pulse_rate.
+[aim.lock]
+fade_in = 0.08
+dot = 0.16
+dot_gap = 0.55
+dot_opacity = 0.45
+mouth_height = 1.9
+mouth_opacity = 0.2
+mouth_depth = 1.4
+strip_opacity = 0.28
+mouth_pulse = 0.25
+
+# §8.8: a loose ball faster than min_speed draws a ribbon behind it through where it was over the
+# last `seconds` of match time — width `width` at the ball tapering to nothing, opacity `opacity`
+# fading to nothing — faded in and out over `fade_speed` m/s above min_speed. Field ball: it rolls
+# (its spin follows its travel over its radius); puck: it spins at puck_spin radians per second.
+[trail]
+colour = "#fde68a"
+min_speed = 6.0
+fade_speed = 3.0
+seconds = 0.16
+width = 0.5
+opacity = 0.6
+samples = 24
+puck_spin = 4.0
+
+# §8.8: a goal's confetti, thrown at real time from the scored-in net in the scoring side's primary,
+# secondary and white (in turn): `pieces` cards of `size`, each from within ±spread across and
+# ±depth along the goal line at a height in `height`, thrown across and along within ±sideways and
+# up within `up`, falling at `gravity`; under `floor` it bounces (vertical speed × −bounce, the
+# rest × friction). Each tumbles about two axes within ±spin radians per second and lives a time
+# within `life`.
 [celebration]
-pieces = 70
-seconds = 2.8
-speed = 11.0               # launch speed (m/s), upward-biased
-gravity = 9.0
-size = 0.32
-colours = ["#ff4f9a", "#ffd23f", "#34d399", "#60a5fa", "#ffffff", "#c084fc"]
+pieces = 160
+size = [0.3, 0.07, 0.42]
+spread = 4.0
+depth = 2.0
+height = [1.0, 3.0]
+sideways = 9.0
+up = [6.0, 16.0]
+gravity = 18.0
+floor = 0.1
+bounce = 0.3
+friction = 0.8
+spin = 6.0
+life = [1.8, 2.8]
+
+# §8.8: a save, a steal or a block pops at the spot: a flat ring grows from radius_from to radius_to
+# over `seconds` of real time, fading from `opacity`, in the kind's colour; the ring is `width` of its
+# radius wide (from (1 − width) × radius to the radius).
+[pop]
+seconds = 0.35
+radius_from = 0.5
+radius_to = 2.0
+width = 0.18
+opacity = 0.85
+save = "#ffffff"
+steal = "#fb7185"
+block = "#fdba74"
+
+# §8.8: a goal ripples the net it went into — its back and roof sheets (the net's shape, spec §1)
+# bulge outward in a wave from where the ball struck: displacement = amplitude × e^(−decay·t) ×
+# sin(frequency·t − k·r) × e^(−r/reach), r the distance on the sheet from the strike, t real seconds
+# since the goal, for `seconds`. The sheets are a light mesh of `columns` × `rows` cells at `opacity`.
+[net]
+colour = "#f8fafc"
+height = 1.9               # the goal's height (the worlds' goal frames)
+opacity = 0.22
+columns = 12
+rows = 5
+amplitude = 0.35
+decay = 3.2
+frequency = 18.0
+k = 4.0
+reach = 2.5
+seconds = 1.6
+
+# §16.4: the banners the match raises (the prototype's), each shown for its seconds of real time and
+# then leaving. Styles: good (a goal of ours, a win: popped big in the sun colour), bad (a goal
+# against, a loss, a drill interrupted), warn (a dead-ball reset), info (the intro, periods, the
+# drills' get ready). The heights are metres on the HUD plane.
+[banner]
+versus = 2.2
+period = 1.5
+period_end = 2.4
+whistle = 1.8
+ready = 0.9
+lost = 1.2
+goal = 2.4
+end = 1.5
+good = "#facc15"
+bad = "#fb7185"
+warn = "#fdba74"
+info = "#22d3ee"
+height_good = 0.34
+height_bad = 0.3
+height_warn = 0.24
+height_info = 0.2
+
+# §8.8: haptics, on the system's haptic setting. Intensities are 0–1. A light tick when the player's
+# carrier's aim enters a pass or shot window; a release's impact from release_low at release_slow m/s
+# to release_high at release_fast; a sharp transient for a steal, a save or a post; three pulses with
+# the goal horn at goal_pulses seconds (a goal of ours; one soft pulse for a goal against); a soft tick
+# with each countdown second.
+[haptics]
+window = 0.35
+release_low = 0.35
+release_high = 1.0
+release_slow = 12.0
+release_fast = 30.0
+sharp = 0.9
+goal = 1.0
+goal_pulses = [0.0, 0.5, 1.0]
+against = 0.4
+tick = 0.25
+
+# §8.8: sound (shared/data/sounds.toml). A sound made on the pitch (the ball's: a shot, a pass, a
+# board, a post, a save, …) plays at rate = pitch × time scale (§8.6), clamped to min_rate…max_rate,
+# and pans with the ball: x / 15 × pan (x the ball's across the pitch); every other sound plays at
+# its pitch, centred. A shot sounds soft, medium or hard by the third of shot_slow…shot_fast its
+# speed falls in. The last `countdown` seconds of a period (or a drill) tick; the result sting
+# sounds sting_delay seconds of real time after the end. The playback layer has `voices` voices.
+[sound]
+min_rate = 0.5
+max_rate = 2.0
+pan = 0.6
+shot_slow = 12.0
+shot_fast = 30.0
+countdown = 5
+voices = 16                # the playback layer's voices, shared by every cue
+sting_delay = 1.3
 
 [hud]
 depth = 4.0                # metres in front of the camera

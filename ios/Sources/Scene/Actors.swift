@@ -9,8 +9,8 @@ struct TeamColours: Equatable {
 }
 
 /// Everything that moves in a match, drawn from its snapshot (spec §5, §8): the twelve players as
-/// the prototype's disks (ADR 0006), the ball or puck, the orbit ring and the aim line (§5.2). The
-/// twin of Android's Actors.kt.
+/// the prototype's disks (ADR 0006), the ball or puck (rolling or spinning, with its trail), the
+/// orbit ring and the aim arrow round the player's carrier (§5.2). The twin of Android's Actors.kt.
 ///
 /// Between ticks it extrapolates by at most one tick (`ahead`, match seconds) along the snapshot's
 /// velocities — drawing only; the simulation is advanced by the core's tick clock alone (§4.2).
@@ -24,16 +24,16 @@ final class Actors {
     private let ball: ModelEntity
     private let ballDisc: ModelEntity
     private let orbit: ModelEntity
-    private let aim: ModelEntity
-    private let arrow: ModelEntity
-    private let target: ModelEntity
-    private let aimColours: [UnlitMaterial]     // pass, shot, free
-    private var aimKind = -1
+    private let aim: AimArrowView
+    private let trail: BallTrail
+    private var spin = BallSpin()
+    private let isPuck: Bool
     private let omega: Double
 
     init(first s: MatchSnapshot, colours: [TeamColours], sport: Sport, orbitPeriod: Double,
-         materials: Materials, look: WorldLook) throws {
+         materials: Materials, feel: FeelMaterials.Set, look: WorldLook) throws {
         omega = 2 * .pi / orbitPeriod
+        isPuck = sport == .ice
         typealias D = Presentation.Dummy
         var meshes: [String: MeshResource] = [:]
         func mesh(_ key: String, _ kit: @autoclosure () -> MeshKit) throws -> MeshResource {
@@ -73,7 +73,7 @@ final class Actors {
 
         typealias B = Presentation.Ball
         let r = Float(s.ball.radius)
-        if sport == .ice {
+        if isPuck {
             ball = model(try Shapes.puck(radius: r, height: Float(B.puckHeight)).resource(), try materials.toon(B.ice, look: look))
         } else {
             ball = model(try Shapes.ball(radius: r).resource(), try materials.toon(B.field, look: look))
@@ -84,26 +84,19 @@ final class Actors {
         root.addChild(ball)
 
         typealias A = Presentation.Aim
-        func mark(_ kit: MeshKit, _ m: UnlitMaterial) throws -> ModelEntity {
-            let e = ModelEntity(mesh: try kit.resource(), materials: [m])
-            e.isEnabled = false
-            return e
-        }
         let orbitRadius = Float(Tuning.Orbit.radius), half = Float(A.orbitWidth) / 2
-        orbit = try mark(Shapes.ring(inner: orbitRadius - half, outer: orbitRadius + half, segments: 48),
-                         Materials.flat(A.orbit, opacity: A.orbitOpacity))
-        aimColours = [A.pass, A.shot, A.free].map { Materials.flat($0, opacity: A.opacity) }
-        aim = try mark(Shapes.strip(), aimColours[0])
-        arrow = try mark(Shapes.arrowhead(), aimColours[0])
-        let rr = Float(Tuning.Player.outfieldRadius)
-        target = try mark(Shapes.ring(inner: rr + Float(P.targetInner), outer: rr + Float(P.targetOuter), segments: 32),
-                          Materials.flat(P.target, opacity: P.targetOpacity))
-        for e in [orbit, aim, arrow, target] { root.addChild(e) }
+        orbit = model(try Shapes.ring(inner: orbitRadius - half, outer: orbitRadius + half, segments: 48).resource(),
+                      Materials.flat(A.orbit, opacity: A.orbitOpacity))
+        orbit.isEnabled = false
+        aim = try AimArrowView(sport: sport, feel: feel)
+        trail = try BallTrail(ballRadius: s.ball.radius, feel: feel)
+        for e in [orbit, aim.root, trail.entity] { root.addChild(e) }
     }
 
-    /// Draws snapshot `s`, `ahead` match seconds past its tick (0 ≤ ahead < one tick).
-    /// `celebrating` is the team that just scored, whose players hop on real time `clock`.
-    func update(_ s: MatchSnapshot, ahead: Double, celebrating: Int?, clock: Double) {
+    /// Draws snapshot `s`, `ahead` match seconds past its tick (0 ≤ ahead < one tick), `dt` real
+    /// seconds after the last frame. `celebrating` is the team that just scored, whose players hop on
+    /// real time `clock`.
+    func update(_ s: MatchSnapshot, ahead: Double, dt: Double, celebrating: Int?, clock: Double) {
         var positions: [SIMD2<Double>] = []
         for (i, p) in s.players.enumerated() {
             let pos = SIMD2(p.x + p.vx * ahead, p.z + p.vz * ahead)
@@ -129,7 +122,7 @@ final class Actors {
             carrierShown = carrier
         }
 
-        // The ball: on its orbit round the carrier (§5.1), else where it rolls.
+        // The ball: on its orbit round the carrier (§5.1), else where it rolls; it turns as it goes.
         let b = s.ball
         var ballPos = SIMD2(b.x + b.vx * ahead, b.z + b.vz * ahead)
         var angle = b.orbit
@@ -138,59 +131,13 @@ final class Actors {
             ballPos = positions[c] + Tuning.Orbit.radius * SIMD2(sin(angle), cos(angle))
             orbit.position = SIMD3(Float(positions[c].x), 0.025, Float(positions[c].y))
         }
-        ball.position = SIMD3(Float(ballPos.x), 0, Float(ballPos.y))
-        orbit.isEnabled = b.carrier != nil
+        ball.position = SIMD3(Float(ballPos.x), isPuck ? 0 : Float(b.radius), Float(ballPos.y))
+        ball.orientation = spin.advance(to: ballPos, radius: b.radius, puck: isPuck, realDt: dt)
+        // The ring the ball circles on: only round the player's own carrier (§5.2).
+        orbit.isEnabled = b.carrier != nil && s.playerCarrier && (s.state == .play || s.state == .ready)
         ballDisc.position = SIMD3(Float(ballPos.x), 0.02, Float(ballPos.y))
-        drawAim(s, positions: positions, ball: ballPos, angle: angle, clock: clock)
-    }
-
-    /// The aim line (§5.2): from the ball toward where a release now would go, coloured by what it
-    /// would snap to — a pass (with the green ring under the receiver), a shot, or nothing.
-    private func drawAim(_ s: MatchSnapshot, positions: [SIMD2<Double>], ball: SIMD2<Double>, angle: Double, clock: Double) {
-        typealias A = Presentation.Aim
-        guard s.playerCarrier, let c = s.ball.carrier, let kind = s.aim, s.state == .play || s.state == .ready else {
-            aim.isEnabled = false; arrow.isEnabled = false; target.isEnabled = false
-            return
-        }
-        let me = positions[c]
-        var end: SIMD2<Double>
-        var colour = 2
-        target.isEnabled = false
-        switch kind {
-        case .pass(let m):
-            let p = s.players[m]
-            let d = simd_distance(positions[m], me)
-            let t = d / max(Tuning.Orbit.leadSpeedMin, Tuning.Orbit.leadSpeedBase + Tuning.Orbit.leadSpeedPerMetre * d)
-            let lead = positions[m] + Tuning.Orbit.leadVelocityFactor * SIMD2(p.vx, p.vz) * t
-            end = ball + simd_normalize(lead - me) * simd_distance(lead, ball)
-            colour = 0
-            target.isEnabled = true
-            target.position = SIMD3(Float(positions[m].x), 0.03, Float(positions[m].y))
-            target.scale = SIMD3(repeating: Float(1 + sin(clock * P.targetPulseRate) * P.targetPulse))
-        case .shot:
-            let goal = SIMD2(0.0, s.players[c].team == 0 ? Tuning.Pitch.goalLineZ : -Tuning.Pitch.goalLineZ)
-            end = ball + simd_normalize(goal - me) * simd_distance(goal, ball)
-            colour = 1
-        case .unassisted:
-            end = ball + A.freeLength * SIMD2(sin(angle), cos(angle))
-        }
-        if colour != aimKind {
-            aimKind = colour
-            for e in [aim, arrow] { e.model?.materials = [aimColours[colour]] }
-        }
-        let v = end - ball
-        let length = Float(simd_length(v))
-        let head = min(Float(A.width) * 3, length * 0.5)
-        let yaw = simd_quatf(angle: Float(atan2(v.x, v.y)), axis: [0, 1, 0])
-        let start = SIMD3(Float(ball.x), 0.07, Float(ball.y))
-        let dir = SIMD3(Float(v.x), 0, Float(v.y)) / max(length, 1e-4)
-        aim.isEnabled = true
-        aim.position = start
-        aim.orientation = yaw
-        aim.scale = SIMD3(Float(A.width), 1, max(length - head, 0.01))
-        arrow.isEnabled = true
-        arrow.position = start + dir * (length - head)
-        arrow.orientation = yaw
-        arrow.scale = SIMD3(Float(A.width) * 2.6, 1, head)
+        trail.update(ball: ballPos, time: s.time + ahead, loose: b.carrier == nil,
+                     speed: (b.vx * b.vx + b.vz * b.vz).squareRoot())
+        aim.update(s, positions: positions, angle: angle, clock: clock, dt: dt)
     }
 }

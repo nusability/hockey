@@ -61,11 +61,12 @@ extension SaveRecord {
     // MARK: - The season (§11)
 
     /// Starts the first season, or the next once the last one is over, keeping the career and its
-    /// trophies. `seed` seeds the season's stream (§4.3); the app draws it, the vectors fix it.
+    /// trophies; each season's number is one more than the last's (§15). `seed` seeds the season's
+    /// stream (§4.3); the app draws it, the vectors fix it.
     public mutating func startSeason(seed: UInt64) throws(GameError) {
         guard let career else { throw .noCareer }
         if let season, !season.isFinished { throw .seasonInProgress }
-        var next = SeasonRecord.start(seed: seed, career: career)
+        var next = SeasonRecord.start(seed: seed, career: career, number: (season?.number ?? 0) + 1)
         _ = next.advance(career.team, career: career)
         season = next
     }
@@ -133,6 +134,7 @@ extension CareerRecord {
 
 extension SeasonRecord {
     func validate(at path: String) throws(SaveDecodeError) {
+        guard number >= 1 else { throw .brokenRule(path: path + ".number", .seasonNumber) }
         guard Set(teams).count == teams.count, teams.count == Tuning.Season.leagueTeams else {
             throw .brokenRule(path: path + ".teams", .leagueIsNotTheCareers)
         }

@@ -33,8 +33,35 @@ object Shapes {
     /** The soft disc under a player: radius + the margin. */
     fun shadow(r: Float) = MeshKit().apply { disc(r + P.shadowMargin.toFloat(), 0.02f, 24) }
 
-    /** The field ball: a smooth sphere of the ball's radius, resting on the ground. */
-    fun ball(r: Float) = MeshKit().apply { smoothSphere(Vec3(0f, r, 0f), r, 14, 18) }
+    /** The field ball: a smooth sphere of the ball's radius about its own centre (drawn one radius up, so it rolls about it). */
+    fun ball(r: Float) = MeshKit().apply { smoothSphere(Vec3(0f, 0f, 0f), r, 14, 18) }
+
+    /**
+     * The aim arrow's ribbon (§5.2): unit long down +z in 12 segments, its width tapering from [near]
+     * at z = 0 to [far] at z = 1, centred on x.
+     */
+    fun ribbon(near: Float, far: Float) = MeshKit().apply {
+        val n = 12
+        for (i in 0 until n) {
+            val t0 = i.toFloat() / n; val t1 = (i + 1).toFloat() / n
+            val w0 = (near + (far - near) * t0) / 2; val w1 = (near + (far - near) * t1) / 2
+            quad(Vec3(-w0, 0f, t0), Vec3(-w1, 0f, t1), Vec3(w1, 0f, t1), Vec3(w0, 0f, t0))
+        }
+    }
+
+    /**
+     * The arrowhead (§5.2): the outline [head] — (x, z) of the tip, one wing and the notch; the other
+     * wing mirrored — × [scale], its notch toward the ribbon.
+     */
+    fun arrowhead(head: List<Double>, scale: Float) = MeshKit().apply {
+        fun v(x: Double, z: Double) = Vec3((x * scale).toFloat(), 0f, (z * scale).toFloat())
+        val tip = v(head[0], head[1]); val notch = v(head[4], head[5])
+        triangle(tip, v(head[2], head[3]), notch)
+        triangle(tip, notch, v(-head[2], head[3]))
+    }
+
+    /** A unit quad standing up: x in ±0.5, y from 0 to 1 (the goal mouth's glow). */
+    fun sheet() = MeshKit().apply { quad(Vec3(-0.5f, 0f, 0f), Vec3(0.5f, 0f, 0f), Vec3(0.5f, 1f, 0f), Vec3(-0.5f, 1f, 0f)) }
 
     /** The puck (ice, §1): a flat cylinder of the ball's radius. */
     fun puck(r: Float, h: Float) = MeshKit().apply { cylinder(0f, h, r, r, 18) }
@@ -45,12 +72,11 @@ object Shapes {
     /** A unit strip on the ground: x in ±0.5, z from 0 to 1. */
     fun strip() = MeshKit().apply { quad(Vec3(-0.5f, 0f, 0f), Vec3(-0.5f, 0f, 1f), Vec3(0.5f, 0f, 1f), Vec3(0.5f, 0f, 0f)) }
 
-    /** The aim line's arrowhead: a unit triangle pointing down +Z. */
-    fun arrowhead() = MeshKit().apply { triangle(Vec3(-0.5f, 0f, 0f), Vec3(0f, 0f, 1f), Vec3(0.5f, 0f, 0f)) }
-
     /** A flat ring from radius [inner] to [outer] on the ground. */
     fun ring(inner: Float, outer: Float, segments: Int = 40) = MeshKit().apply { annulus(inner, outer, 0f, segments) }
 
-    /** A confetti piece: a thin square card. */
-    fun card() = MeshKit().apply { box(Vec3(0f, 0f, 0f), Vec3(1f, 0.08f, 0.7f)) }
+    /** A confetti piece (§8.8): a thin card of the declared size. */
+    fun card(size: List<Double>) = MeshKit().apply {
+        box(Vec3(0f, 0f, 0f), Vec3(size[0].toFloat(), size[1].toFloat(), size[2].toFloat()))
+    }
 }

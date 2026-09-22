@@ -49,10 +49,13 @@ Those apply from the first line.
 - **Shared assets where one file serves both** (`shared/assets/`: models, textures, sounds);
   the scene code that places and animates them is each platform's own. A world is one Blender
   script writing its `.glb` (Filament) and `.usdz` (RealityKit) twin — `tools/build-worlds.sh`.
+- **The look is the prototype's, computed by our own shaders** (ADR 0006): Lambert/toon under a
+  hemisphere light and a sun, written as unlit materials on both platforms, no engine lighting,
+  no tone mapping, **no fog**, no shadow maps (disc shadows under players and the ball). Its
+  constants live in `shared/data`; the formula is in ADR 0006.
 - **Materials are bound by name, and the two platforms treat an asset the same way**: the same V
   flip for the shared palette, the same face culling (world assets are double-sided), the same
-  fog formula (Filament's; iOS reproduces it in a surface shader). A difference in treatment is
-  a parity bug, not a platform trait.
+  shading formula. A difference in treatment is a parity bug, not a platform trait.
 - **Android's materials are compiled with the Filament release the app links** (`tools/
   build-materials.sh` reads the version from the catalog); the `.filamat` files are committed.
 - **One clock per platform**: RealityKit's scene update on iOS, one Choreographer callback on

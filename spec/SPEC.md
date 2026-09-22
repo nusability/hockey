@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.5.0
+Spec-Version: 0.6.0
 Status: as-is — **the whole game's rules, running on both platforms, bit for bit; neither app
 lets anyone play them yet.** The match, the drills, the season, the career and the save (§1–§12,
 §15) run in each platform's core and agree to the last bit, pinned by golden vectors; what is
@@ -36,8 +36,10 @@ file (§1–§13); from `spec-v0.3.0` on, this file is their only authority and 
 read for them. A change to any rule or number here is a spec change, not a tuning session — and
 where it touches the simulation, it moves a golden vector (§4).
 
-Nothing else carries over: the apps' worlds, look, UI, camera choreography and sound are designed
-for the apps. **The UI is part of the 3D world** — menus, scoreboards and the HUD are animated
+**Its art direction carries over too** (ADR 0006): the apps match the prototype's look — flat,
+saturated Lambert/toon shading under a hemisphere light and a sun, no fog, players drawn as the
+prototype's disks, and its five worlds re-authored to match. Its code does not carry over. The
+UI, camera choreography and sound are designed for the apps. **The UI is part of the 3D world** — menus, scoreboards and the HUD are animated
 objects in the scene, playful rather than standard; each screen is specified here when it is
 designed.
 

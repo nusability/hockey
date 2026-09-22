@@ -1,5 +1,5 @@
 # 0002 — The web build is a gameplay prototype and nothing else
-Date: 2026-09-22 · Status: **accepted** (revised the same day — see *History*)
+Date: 2026-09-22 · Status: **accepted** (revised the same day — see *History*) · **narrowed by 0006**: the prototype's art direction carries over too
 
 ## Context
 
@@ -36,6 +36,10 @@ It stays no-build, vanilla JS + Three.js. Nothing in it is bound by the spec.
 - When the apps ship, revisit whether `web/` is frozen, retired, or rebuilt as a store-page demo.
 
 ## History
+
+- Narrowed the same evening by ADR 0006 after the first builds on the owner's phones: the
+  prototype's **art direction** — its shading, disk players, worlds and no fog — is the target
+  look. Its code still never enters the apps; the worlds are re-authored in Blender to match.
 
 - First version (same day) made `web/` also the parity reference for look, the recorder of the
   golden vectors, and the source of the worlds (ADR 0004). The owner narrowed it: the web build

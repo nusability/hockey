@@ -115,6 +115,11 @@ Skills lifted in spirit from GitHub Spec Kit (`/clarify` · `/specify` · `/plan
   player would feel differently — are the escalation that survives.
 
 ## Verification
+- **Never run memory or allocation profilers on this machine.** No Instruments, `leaks`,
+  `footprint` or allocation sampling, and no long simulator soaks: the Mac has 16 GB and
+  profiling has crashed it. Diagnose by reading the code, by headless tests, and by cheap
+  counters the app logs itself — or ship a diagnostic behind a launch flag and let the owner
+  run one match on his phone.
 - **Budget: the cheap checks are the default, the owner's phones are the judge.** Every change runs
   `python3 tools/generate-data.py --check`, `swift test` (ios/SmashCore), `./gradlew :core:test`
   and one compile of each app. Simulators, emulators, screenshot loops and `xcodebuild test` are

@@ -12,6 +12,7 @@ import com.google.android.filament.RenderableManager
 import com.google.android.filament.Scene
 import com.google.android.filament.SurfaceOrientation
 import com.google.android.filament.VertexBuffer
+import `in`.nann.smashhockey.core.feel.TextLayout
 import `in`.nann.smashhockey.engine.Assets
 import `in`.nann.smashhockey.engine.Materials
 import `in`.nann.smashhockey.engine.MeshData
@@ -64,10 +65,16 @@ class Palette(private val engine: Engine, assets: Assets, private val look: Worl
 }
 
 /** Geometry uploaded once and drawn by any number of nodes (a flip digit, a slab size). */
-class SharedMesh internal constructor(engine: Engine, data: MeshData) {
+class SharedMesh internal constructor(engine: Engine, data: MeshData, layoutWidth: Float = -1f) {
     val minX = data.min.x; val minY = data.min.y; val minZ = data.min.z
     val maxX = data.max.x; val maxY = data.max.y; val maxZ = data.max.z
     val width get() = maxX - minX
+    /**
+     * How wide this mesh is *for layout* — for lettering the string's advance width from the
+     * core's `TextLayout`, not the ink the mesher happened to draw (so a screen measures the same
+     * on both platforms). Anything else is as wide as it looks.
+     */
+    val layoutWidth: Float = if (layoutWidth >= 0f) layoutWidth else maxX - minX
     internal val vertexBuffer: VertexBuffer
     internal val indexBuffer: IndexBuffer
     internal val indexCount: Int
@@ -147,29 +154,36 @@ class Kit(val engine: Engine, val scene: Scene, assets: Assets, private val type
     /**
      * Centred extruded lettering with its back face on z = 0 and its front toward +Z. Depth
      * follows the height by token.
+     *
+     * Centred means **on the font's box, not on the ink**: the core's [TextLayout] says how wide
+     * the string is and where its line sits, so "ANPFIFF" and "ZURÜCKSETZEN" sit on the same line
+     * on their slab and iOS's mesher and ours cannot place the same word differently.
      */
     fun text(s: String, height: Float, rgb: Int, parent: UiNode?): UiNode =
-        model(textMesh(s, height), rgb, parent).also { centre(it) }
+        model(textMesh(s, height), rgb, parent).also { place(it, s, height) }
 
     /** Replaces a text node's string in place, keeping it centred. Cached meshes: no re-meshing. */
     fun retext(node: UiNode, s: String, height: Float) {
         node.remesh(textMesh(s, height))
-        centre(node)
+        place(node, s, height)
     }
 
-    fun width(node: UiNode): Float = node.mesh?.width ?: 0f
+    fun width(node: UiNode): Float = node.mesh?.layoutWidth ?: 0f
 
-    /** How wide [s] would be as lettering of [height] — measured on the (cached) mesh itself. */
-    fun measure(s: String, height: Float): Float = textMesh(s, height).width
+    /** How wide [s] would be as lettering of [height] — from the font's metrics (`TextLayout`). */
+    fun measure(s: String, height: Float): Float = TextLayout.width(s, height.toDouble()).toFloat()
 
-    private fun centre(node: UiNode) {
+    /** Puts the mesh (pen at x = 0, baseline at y = 0) on its layout anchor, back face on z = 0. */
+    private fun place(node: UiNode, s: String, height: Float) {
         val m = node.mesh ?: return
-        node.setPosition(-(m.minX + m.maxX) / 2, -(m.minY + m.maxY) / 2, -m.minZ)
+        node.setPosition(-measure(s, height) / 2, -TextLayout.centreY(height.toDouble()).toFloat(), -m.minZ)
     }
 
     private fun textMesh(s: String, height: Float): SharedMesh {
         val depth = height * DesignTokens.Size.TEXT_DEPTH_RATIO
-        return texts.getOrPut(TextKey(s, height, depth)) { SharedMesh(engine, TextMesh.build(s, typeface, height, depth)) }
+        return texts.getOrPut(TextKey(s, height, depth)) {
+            SharedMesh(engine, TextMesh.build(s, typeface, height, depth), measure(s, height))
+        }
     }
 
     private fun box(w: Float, h: Float, d: Float, corner: Float): SharedMesh {

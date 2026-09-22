@@ -1,5 +1,6 @@
 import CoreText
 import RealityKit
+import SmashCore
 import UIKit
 
 /// Extruded 3D lettering from the shared font (ADR 0005), via RealityKit's own text mesher — the
@@ -7,7 +8,8 @@ import UIKit
 /// text is centred on its bounds, and its front face points down +Z.
 @MainActor
 enum TextMesh {
-    private static let capHeightPerEm: Float = 0.72     // Lilita One's caps are ~0.72 em
+    /// The font's own cap height, the unit every `height` in the kit is given in (FontMetrics).
+    private static let capHeightPerEm = Float(FontMetrics.capHeight) / Float(FontMetrics.unitsPerEm)
     private static var registered = false
 
     static func registerFont() throws {

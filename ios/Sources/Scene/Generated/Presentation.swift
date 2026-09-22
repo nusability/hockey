@@ -289,16 +289,18 @@ struct WorldLook: Sendable, Hashable {
     let sun: UInt32
     let sunStrength: Double
     let sunDirection: [Double]
+    /// How much of the sun a face turned away from it keeps — the toon band's dark side. A world keeps the prototype's 0.7; the UI's own light (design.json) drops much lower, so an extruded letter's sides read as a bevel instead of as more of the same colour.
+    let shade: Double
 }
 
 extension World {
     var look: WorldLook {
         switch self {
-        case .magicwood: WorldLook(hemiSky: 0x9FB2FF, hemiGround: 0x2A3820, hemiStrength: 0.3501, sun: 0xFFD6A6, sunStrength: 0.6048, sunDirection: [26.0, 50.0, -30.0])
-        case .space: WorldLook(hemiSky: 0x9FD0FF, hemiGround: 0x1A1240, hemiStrength: 0.3342, sun: 0xFFF1D8, sunStrength: 0.6048, sunDirection: [18.0, 60.0, -20.0])
-        case .oasis: WorldLook(hemiSky: 0xFFD9A8, hemiGround: 0xB27A4C, hemiStrength: 0.2865, sun: 0xFFC98A, sunStrength: 0.7958, sunDirection: [-40.0, 30.0, 14.0])
-        case .himalaya: WorldLook(hemiSky: 0xD6E9FF, hemiGround: 0x9FB6CC, hemiStrength: 0.3024, sun: 0xFFE4BF, sunStrength: 0.6366, sunDirection: [-35.0, 46.0, -26.0])
-        case .ocean: WorldLook(hemiSky: 0xB8F1FA, hemiGround: 0x2A7A8A, hemiStrength: 0.4138, sun: 0xF2FEFF, sunStrength: 0.573, sunDirection: [14.0, 60.0, -10.0])
+        case .magicwood: WorldLook(hemiSky: 0x9FB2FF, hemiGround: 0x2A3820, hemiStrength: 0.3501, sun: 0xFFD6A6, sunStrength: 0.6048, sunDirection: [26.0, 50.0, -30.0], shade: 0.7)
+        case .space: WorldLook(hemiSky: 0x9FD0FF, hemiGround: 0x1A1240, hemiStrength: 0.3342, sun: 0xFFF1D8, sunStrength: 0.6048, sunDirection: [18.0, 60.0, -20.0], shade: 0.7)
+        case .oasis: WorldLook(hemiSky: 0xFFD9A8, hemiGround: 0xB27A4C, hemiStrength: 0.2865, sun: 0xFFC98A, sunStrength: 0.7958, sunDirection: [-40.0, 30.0, 14.0], shade: 0.7)
+        case .himalaya: WorldLook(hemiSky: 0xD6E9FF, hemiGround: 0x9FB6CC, hemiStrength: 0.3024, sun: 0xFFE4BF, sunStrength: 0.6366, sunDirection: [-35.0, 46.0, -26.0], shade: 0.7)
+        case .ocean: WorldLook(hemiSky: 0xB8F1FA, hemiGround: 0x2A7A8A, hemiStrength: 0.4138, sun: 0xF2FEFF, sunStrength: 0.573, sunDirection: [14.0, 60.0, -10.0], shade: 0.7)
         }
     }
 }

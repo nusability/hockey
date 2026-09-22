@@ -1,6 +1,7 @@
 package `in`.nann.smashhockey.ui
 
 import kotlin.math.sin
+import `in`.nann.smashhockey.core.feel.TextLayout
 import `in`.nann.smashhockey.ui.generated.DesignTokens
 
 /**
@@ -17,7 +18,16 @@ class Label3D(
     val maxWidth: Float? = null,
     entrance: Entrance = Entrance.Pop,
 ) : Presentable {
-    enum class Align { CENTRE, LEADING, TRAILING }
+    enum class Align { CENTRE, LEADING, TRAILING;
+
+        /** The core's alignment — the kit and both platforms name the same three. */
+        val shared: TextLayout.Align
+            get() = when (this) {
+                CENTRE -> TextLayout.Align.CENTRE
+                LEADING -> TextLayout.Align.LEADING
+                TRAILING -> TextLayout.Align.TRAILING
+            }
+    }
 
     override val node = kit.node(null)
     val body = kit.node(node)
@@ -52,13 +62,8 @@ class Label3D(
 
     private fun realign() {
         val natural = kit.width(model)
-        val m = maxWidth
-        body.setScale(if (m != null && natural > m) m / natural else 1f)
-        body.transform.tx = when (align) {
-            Align.CENTRE -> 0f
-            Align.LEADING -> width / 2
-            Align.TRAILING -> -width / 2
-        }
+        body.setScale(TextLayout.fit(natural.toDouble(), maxWidth?.toDouble()).toFloat())
+        body.transform.tx = TextLayout.alignX(align.shared, width.toDouble()).toFloat()
         body.changed()
     }
 

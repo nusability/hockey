@@ -78,14 +78,9 @@ class Screen {
 
     private static func fit(_ node: Entity, _ m: ModelEntity, maxWidth: Float?, align: Label3D.Align, at p: SIMD3<Float>) {
         let w = Blocks.width(of: m)
-        let k = maxWidth.map { w > $0 ? $0 / w : 1 } ?? 1
+        let k = Float(TextLayout.fit(Double(w), maxWidth.map(Double.init)))
         node.scale = SIMD3(repeating: k)
-        let dx: Float = switch align {
-        case .centre: 0
-        case .leading: w * k / 2
-        case .trailing: -w * k / 2
-        }
-        node.position = p + SIMD3(dx, 0, 0)
+        node.position = p + SIMD3(Float(TextLayout.alignX(align, width: Double(w * k))), 0, 0)
     }
 
     /// Arrivals, one after another on the stagger token.

@@ -52,8 +52,10 @@ final class MatchHud: Screen {
             child(Label3D(":", height: 0.12, colour: C.cardInk, motion: m), on: board.content).show(after: 0)
         }
         let seconds = kickoff.match.snapshot.clock
+        // The clock's cards are silent: only the last five seconds of a period are counted down
+        // audibly (§8.5), and a clack a second reads as a tick that never stops.
         clock = part(FlipDigits(Names.clock(seconds), cardSize: [0.11, 0.15], id: "match_clock", label: L(.matchClock),
-                                entrance: .drop, motion: m), at: at(-0.12, top - 0.6))
+                                entrance: .drop, face: .clock, motion: m), at: at(-0.12, top - 0.6))
         if drillGoals == nil {
             let holder = part(Panel(size: [0.36, 0.13, 0.05], colour: C.board, entrance: .drop, motion: m),
                               at: at(0.34, top - 0.6))

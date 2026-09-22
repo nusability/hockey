@@ -19,6 +19,8 @@ private class FlipCard(
     w: Float, h: Float, depth: Float,
     private val textHeight: Float,
     cardColour: Int, ink: Int,
+    /** Whether a flip is heard — the clock's are not (Scoreboard.Face, §8.5). */
+    private val clacks: Boolean,
 ) {
     val node = kit.node(parent)
     private val faceNodes: Array<UiNode>
@@ -67,7 +69,7 @@ private class FlipCard(
     private val flipping get() = abs(turn.value - turn.target) > 0.35
 
     private fun start(c: Char) {
-        KitSound.flip()
+        if (clacks) KitSound.flip()
         flips += 1
         write(flips % 2, c)
         shown = c
@@ -104,6 +106,8 @@ class FlipDigits(
     cardColour: Int = Colour.CARD,
     ink: Int = Colour.CARD_INK,
     entrance: Entrance = Entrance.Pop,
+    /** What this group shows: the score clacks as it flips, the clock is silent (§8.5). */
+    face: Scoreboard.Face = Scoreboard.Face.SCORE,
 ) : Semantic, Presentable {
     override val node = kit.node(null)
     val body = kit.node(node)
@@ -133,7 +137,7 @@ class FlipDigits(
                 sep.setPosition(cx, 0f, 0f)
                 kit.text(c.toString(), textHeight * 0.8f, ink, sep)
             } else {
-                val card = FlipCard(kit, c, body, cardW, cardH, depth, textHeight, cardColour, ink)
+                val card = FlipCard(kit, c, body, cardW, cardH, depth, textHeight, cardColour, ink, face.clacks)
                 card.node.setPosition(cx, 0f, 0f)
                 card.onLanded = { landed() }
                 cards[i] = card

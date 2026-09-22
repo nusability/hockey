@@ -440,12 +440,13 @@ def colour(text, where):
 
 
 LOOK_COLOURS = ("hemi_sky", "hemi_ground", "sun")
-LOOK_NUMBERS = ("hemi_strength", "sun_strength")
+LOOK_NUMBERS = ("hemi_strength", "sun_strength", "shade")
 
 
 def world_look(look, where):
     """A world's light (§13, ADR 0006): the hemisphere's sky and ground colours and its strength, the
-    sun's colour, strength and direction — presentation only, generated into the apps."""
+    sun's colour, strength and direction, and `shade` — how much of the sun a face turned away from
+    it keeps, the toon band's dark side. Presentation only, generated into the apps."""
     if not isinstance(look, dict):
         fail(where, "expected a [world.look] table")
     expect_keys(look, set(LOOK_COLOURS + LOOK_NUMBERS + ("sun_direction",)), where)
@@ -454,6 +455,9 @@ def world_look(look, where):
     for k in LOOK_NUMBERS:
         if out[k] < 0.0:
             fail(f"{where}.{k}", "a light's strength is not negative")
+    # The toon band's dark side is a share of the sun, so it lives in 0…1 (ADR 0006).
+    if out["shade"] > 1.0:
+        fail(f"{where}.shade", "the shaded side keeps at most all of the sun (0…1)")
     d = look["sun_direction"]
     if not isinstance(d, list) or len(d) != 3:
         fail(f"{where}.sun_direction", "expected [x, y, z] toward the sun")

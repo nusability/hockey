@@ -14,7 +14,7 @@
     "green_ink": "#15803d",
     "disabled": "#c7cbda",
     "disabled_shade": "#8a90a6",
-    "disabled_ink": "#5a607a",
+    "disabled_ink": "#474d6a",
     "board": "#1e1b4b",
     "card": "#2a2660",
     "card_ink": "#ffc83d",
@@ -24,6 +24,27 @@
     "row_dark": "#eef1fa",
     "row_highlight": "#ffc83d"
   },
+
+  "_contrast": "Every pair of colours the UI puts lettering on, and the rule of spec \u00a716: anything text-like clears 4.5:1 against what it sits on. The generator computes the WCAG ratio of each pair and refuses to write the tokens if one falls short, so a palette tweak cannot quietly make a caption unreadable. Shading does not change these ratios: a letter's front face and the slab's front face are lit by the same term of ADR 0006's formula, so both move together.",
+  "contrast": [
+    ["ink", "paper"],
+    ["ink", "paper_shade"],
+    ["ink", "sun"],
+    ["ink", "green"],
+    ["ink", "pink"],
+    ["ink", "row_light"],
+    ["ink", "row_dark"],
+    ["ink", "row_highlight"],
+    ["pink_ink", "paper"],
+    ["green_ink", "paper"],
+    ["disabled_ink", "disabled"],
+    ["card_ink", "card"],
+    ["paper", "board"],
+    ["paper", "chalk"],
+    ["paper", "rail"],
+    ["sun", "board"],
+    ["pink", "board"]
+  ],
 
   "size": {
     "frame_depth": 4.0,
@@ -47,13 +68,14 @@
     "knob_depth": 0.07
   },
 
-  "_look": "The light the UI is lit by (ADR 0006's formula, the same one the players are shaded with), and **not** the light of the world standing behind it: a menu looks the same in the oasis and in space, and a white slab reads white rather than taking the world's tint. Neutral and slightly cool from above, the sun low and toward the viewer, so a block's front face is bright, its top a little less and its sides less again — enough shading to read as a toy-plastic object, never enough to colour it.",
+  "_look": "The light the UI is lit by (ADR 0006's formula, the same one the players are shaded with), and **not** the light of the world standing behind it: a menu looks the same in the oasis and in space, and a white slab reads white rather than taking the world's tint. Neutral and slightly cool from above, the key from above and to the left but still toward the viewer, so only a block's front face catches it: its top is lighter than its sides because the sky is, its sides drop to `shade`, and its underside is darkest. That step is what makes an extruded letter read as a solid object with a bevel rather than as a flat blob — the UI's `shade` is set much lower than a world's for exactly that reason. The key stays inside the toon band on every face but the front (|x| and y below the band's 0.4), so every side of a glyph drops by the same clear step and no face is accidentally as bright as the front.",
   "look": {
     "hemi_sky": "#ffffff",
-    "hemi_ground": "#dfe3f2",
-    "hemi_strength": 0.38,
+    "hemi_ground": "#b9c0da",
+    "hemi_strength": 0.3,
     "sun": "#ffffff",
-    "sun_strength": 0.52,
-    "sun_direction": [-0.45, 0.4, 1.0]
+    "sun_strength": 0.62,
+    "sun_direction": [-0.35, 0.3, 1.0],
+    "shade": 0.34
   }
 }

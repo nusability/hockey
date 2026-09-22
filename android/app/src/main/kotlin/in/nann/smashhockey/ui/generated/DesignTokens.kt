@@ -18,7 +18,7 @@ object DesignTokens {
         const val GREEN_INK = 0x15803D
         const val DISABLED = 0xC7CBDA
         const val DISABLED_SHADE = 0x8A90A6
-        const val DISABLED_INK = 0x5A607A
+        const val DISABLED_INK = 0x474D6A
         const val BOARD = 0x1E1B4B
         const val CARD = 0x2A2660
         const val CARD_INK = 0xFFC83D
@@ -52,5 +52,5 @@ object DesignTokens {
     }
 
     /** The UI's own light (ADR 0006's formula), so a menu looks the same in every world. */
-    val LOOK = WorldLook(0xFFFFFF, 0xDFE3F2, 0.38, 0xFFFFFF, 0.52, listOf(-0.45, 0.4, 1.0))
+    val LOOK = WorldLook(0xFFFFFF, 0xB9C0DA, 0.3, 0xFFFFFF, 0.62, listOf(-0.35, 0.3, 1.0), 0.34)
 }

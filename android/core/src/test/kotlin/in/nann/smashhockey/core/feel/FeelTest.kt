@@ -14,6 +14,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.pow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -342,13 +343,29 @@ class FeelTest {
         assertEquals(1, c.hear(MatchEvent.Pass(8, 9), snapshot(ballVx = 20.0)).size)
     }
 
+    /**
+     * The only audible count of time is the countdown (§8.5): the clock's split-flap cards change
+     * every second and must not clack, or the match ticks from the first whistle.
+     */
+    @Test fun onlyTheScoreClacks() {
+        assertTrue(Scoreboard.Face.SCORE.clacks)
+        assertFalse(Scoreboard.Face.CLOCK.clacks)
+    }
+
     @Test fun theLastFiveSecondsTick() {
         val c = MatchCues(params, drill = false, audible = true)
         assertTrue(c.frame(snapshot(clock = 5.5)).isEmpty())
         assertEquals(2, c.frame(snapshot(clock = 4.99)).size)
         assertTrue(c.frame(snapshot(clock = 4.2)).isEmpty())
         assertEquals(2, c.frame(snapshot(clock = 3.99)).size)
-        assertTrue(c.frame(snapshot(clock = 0.5, overtime = true)).isEmpty())
+        assertEquals(2, c.frame(snapshot(clock = 2.5)).size)
+        assertEquals(2, c.frame(snapshot(clock = 1.5)).size)
+        assertEquals(2, c.frame(snapshot(clock = 0.5)).size)
+        assertTrue(c.frame(snapshot(clock = 0.0)).isEmpty())            // nothing on zero itself
+        // Overtime is sudden death: it is never counted down, at any clock (§8.5).
+        for (clock in listOf(5.5, 4.5, 3.5, 2.5, 1.5, 0.5)) {
+            assertTrue(c.frame(snapshot(clock = clock, overtime = true)).isEmpty())
+        }
         assertTrue(c.frame(snapshot(state = MatchState.PERIOD_END, clock = 0.0)).isEmpty())
     }
 

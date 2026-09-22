@@ -17,9 +17,13 @@ private final class FlipCard {
     private(set) var shown: Character
     private var queued: Character?
     private let textHeight: Float
+    private let clacks: Bool
     var onLanded: (() -> Void)?
 
-    init(_ c: Character, size: SIMD2<Float>, depth: Float, textHeight: Float, cardColour: Int, ink: Int, motion: MotionTokens) {
+    /// `clacks`: whether a flip is heard — the clock's are not (`Scoreboard.Face`, §8.5).
+    init(_ c: Character, size: SIMD2<Float>, depth: Float, textHeight: Float, cardColour: Int, ink: Int,
+         clacks: Bool, motion: MotionTokens) {
+        self.clacks = clacks
         shown = c
         self.textHeight = textHeight
         self.ink = ink
@@ -71,7 +75,7 @@ private final class FlipCard {
         write(flips % 2, c)
         shown = c
         turn.target = Double(flips) * .pi
-        KitSound.flip()
+        if clacks { KitSound.flip() }
     }
 
     func update(_ dt: Double, reduceMotion: Bool) {
@@ -104,9 +108,10 @@ final class FlipDigits: Semantic, Presentable {
     var onLanded: (() -> Void)?
 
     /// `cardSize` is one tile; the text height follows it.
+    /// `face`: what this group shows — the score clacks as it flips, the clock is silent (§8.5).
     init(_ initial: String, cardSize: SIMD2<Float>, id: String, label: String,
          cardColour: Int = DesignTokens.Colour.card, ink: Int = DesignTokens.Colour.cardInk,
-         entrance: Entrance = .pop, motion: MotionTokens) {
+         entrance: Entrance = .pop, face: Scoreboard.Face = .score, motion: MotionTokens) {
         text = initial
         self.motion = motion
         semantics = Semantics(id: id, label: label, value: initial, trait: .staticText)
@@ -132,7 +137,7 @@ final class FlipDigits: Semantic, Presentable {
                 cards.append(nil)
             } else {
                 let card = FlipCard(c, size: cardSize, depth: depth, textHeight: textHeight,
-                                    cardColour: cardColour, ink: ink, motion: motion)
+                                    cardColour: cardColour, ink: ink, clacks: face.clacks, motion: motion)
                 card.entity.position = [cx, 0, 0]
                 body.addChild(card.entity)
                 cards.append(card)

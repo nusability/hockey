@@ -71,12 +71,7 @@ final class TableRow: Semantic, Presentable {
 
     private func place(_ node: Entity, _ m: ModelEntity, _ col: Column) {
         let cx = -size.x / 2 + col.at * size.x
-        let w = Blocks.width(of: m)
-        switch col.align {
-        case .centre: node.position.x = cx
-        case .leading: node.position.x = cx + w / 2
-        case .trailing: node.position.x = cx - w / 2
-        }
+        node.position.x = cx + Float(TextLayout.alignX(col.align, width: Double(Blocks.width(of: m))))
     }
 
     var boundsEntity: Entity { entity }

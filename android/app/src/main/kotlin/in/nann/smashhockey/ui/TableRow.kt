@@ -5,6 +5,7 @@ import `in`.nann.smashhockey.ui.generated.DesignTokens.Size
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import `in`.nann.smashhockey.core.feel.TextLayout
 import `in`.nann.smashhockey.engine.Spring
 
 /**
@@ -67,12 +68,7 @@ class TableRow(
 
     private fun place(cell: UiNode, m: UiNode, col: Column) {
         val cx = -w / 2 + col.at * w
-        val width = kit.width(m)
-        cell.transform.tx = when (col.align) {
-            Label3D.Align.CENTRE -> cx
-            Label3D.Align.LEADING -> cx + width / 2
-            Label3D.Align.TRAILING -> cx - width / 2
-        }
+        cell.transform.tx = cx + TextLayout.alignX(col.align.shared, kit.width(m).toDouble()).toFloat()
         cell.changed()
     }
 

@@ -1,7 +1,9 @@
 // A toon-shaded flat colour — players, the ball, confetti, the HUD (ADR 0006; the twin of iOS's
 // toon shader graph in Materials.swift): the prototype's toon material, lit by our own formula as
 // an unlit material, the sun's term in two bands:
-//   colour = albedo × (mix(ground, sky, 0.5 + 0.5·n.y) + sun · (n·l > 0.4 ? 1 : 0.7))
+//   colour = albedo × (mix(ground, sky, 0.5 + 0.5·n.y) + sun · (n·l > 0.4 ? 1 : shade))
+// `shade` is the band's dark side, a share of the sun: a world keeps the prototype's 0.7, the 3D
+// UI's own light drops much lower so an extruded letter's sides read as a bevel (design.json).
 // Every colour linear, sky, ground and sun already carrying their strengths. `alpha` lets the 3D UI
 // fade a block; a solid instance (alpha 1) sets depth writes on (Materials, the UI kit's Palette).
 material {
@@ -13,6 +15,7 @@ material {
         { type : float3, name : ground },
         { type : float3, name : sun },
         { type : float3, name : sunDirection },
+        { type : float, name : shade },
         { type : float, name : alpha }
     ],
     variables : [ shadingNormal ],
@@ -34,7 +37,7 @@ fragment {
         prepareMaterial(material);
         float3 n = normalize(variable_shadingNormal.xyz);
         float3 hemi = mix(materialParams.ground, materialParams.sky, 0.5 + 0.5 * n.y);
-        float band = dot(n, materialParams.sunDirection) > 0.4 ? 1.0 : 0.7;
+        float band = dot(n, materialParams.sunDirection) > 0.4 ? 1.0 : materialParams.shade;
         float3 colour = materialParams.albedo * (hemi + materialParams.sun * band);
         material.baseColor = vec4(colour * materialParams.alpha, materialParams.alpha);
     }

@@ -21,7 +21,7 @@ def load(root):
         raise DataError(f"{path} is missing")
     with open(path, "rb") as f:
         doc = json.load(f)
-    for section in ("colour", "size", "look"):
+    for section in ("colour", "size", "look", "contrast"):
         if section not in doc:
             raise DataError(f"design.json has no '{section}'")
     colours = {}
@@ -34,6 +34,7 @@ def load(root):
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             fail(f"design.json.size.{key}", f"not a number: {value!r}")
         sizes[key] = float(value)
+    check_contrast(doc["contrast"], colours)
     look = {}
     for key, kind in LOOK_FIELDS:
         if key not in doc["look"]:
@@ -41,6 +42,42 @@ def load(root):
         value = doc["look"][key]
         look[key] = rgb(value) if kind == "colour" else value
     return colours, sizes, look
+
+
+#: Spec §16: anything text-like clears this against what it sits on.
+MIN_CONTRAST = 4.5
+
+
+def relative_luminance(value):
+    """WCAG 2 relative luminance of an sRGB 0xRRGGBB colour."""
+    def channel(c):
+        v = (value >> c & 0xFF) / 255
+        return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+    return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
+
+
+def contrast(a, b):
+    """The WCAG contrast ratio of two sRGB colours, 1…21."""
+    la, lb = relative_luminance(a), relative_luminance(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def check_contrast(pairs, colours):
+    """Every declared lettering-on-ground pair clears spec §16's 4.5:1, or nothing is written."""
+    if not isinstance(pairs, list) or not pairs:
+        raise DataError("design.json.contrast is the list of lettering-on-ground pairs to check")
+    for pair in pairs:
+        if not (isinstance(pair, list) and len(pair) == 2):
+            fail("design.json.contrast", f"expected [ink, ground] pairs: {pair!r}")
+        ink, ground = pair
+        for key in pair:
+            if key not in colours:
+                fail("design.json.contrast", f"{key!r} is not a declared colour")
+        ratio = contrast(colours[ink], colours[ground])
+        if ratio < MIN_CONTRAST:
+            fail(f"design.json.contrast.{ink}-on-{ground}",
+                 f"{ratio:.2f}:1 — spec \u00a716 wants at least {MIN_CONTRAST}:1; "
+                 f"darken {ink} (#{colours[ink]:06x}) or lighten {ground} (#{colours[ground]:06x})")
 
 
 def float_lit(v):

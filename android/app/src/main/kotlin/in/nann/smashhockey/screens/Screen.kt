@@ -1,5 +1,6 @@
 package `in`.nann.smashhockey.screens
 
+import `in`.nann.smashhockey.core.feel.TextLayout
 import `in`.nann.smashhockey.game.Game
 import `in`.nann.smashhockey.generated.Presentation
 import `in`.nann.smashhockey.ui.CameraPose
@@ -91,14 +92,9 @@ open class Screen private constructor(val pose: CameraPose, val game: Game, hud:
 
     private fun fit(holder: UiNode, m: UiNode, maxWidth: Float?, align: Label3D.Align, x: Float, y: Float, z: Float) {
         val w = kit.width(m)
-        val k = if (maxWidth != null && w > maxWidth) maxWidth / w else 1f
+        val k = TextLayout.fit(w.toDouble(), maxWidth?.toDouble()).toFloat()
         holder.setScale(k)
-        val dx = when (align) {
-            Label3D.Align.CENTRE -> 0f
-            Label3D.Align.LEADING -> w * k / 2
-            Label3D.Align.TRAILING -> -w * k / 2
-        }
-        holder.setPosition(x + dx, y, z)
+        holder.setPosition(x + TextLayout.alignX(align.shared, (w * k).toDouble()).toFloat(), y, z)
     }
 
     /** Arrivals, one after another on the stagger token. */

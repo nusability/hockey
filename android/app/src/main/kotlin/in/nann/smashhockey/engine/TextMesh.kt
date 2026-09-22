@@ -4,6 +4,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Typeface
 import earcut4j.Earcut
+import `in`.nann.smashhockey.core.feel.TextLayout
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -12,8 +13,11 @@ import kotlin.math.sqrt
  * own font engine — the same outlines RealityKit's `generateText` reads on iOS — flattened,
  * sorted into shapes with holes, triangulated with earcut, and extruded.
  *
- * Output is in metres: [height] is the cap height the text is laid out at, the text is centred
- * on its bounds, and its front face points down +Z.
+ * Output is in metres, **in the font's own space**: the pen starts at x = 0 on a baseline at
+ * y = 0, [height] is the cap height the text is laid out at, and the front face points down +Z.
+ * The mesh is deliberately *not* centred on its own ink: where a string sits is decided by the
+ * core's `TextLayout` from the font's metrics, so the two platforms place a word the same way
+ * whatever their meshers report (see `Kit.text`).
  */
 object TextMesh {
     private const val LAYOUT_SIZE = 100f      // text is laid out at 100 px, then scaled
@@ -26,7 +30,8 @@ object TextMesh {
         }
         val path = Path()
         paint.getTextPath(text, 0, text.length, 0f, 0f, path)
-        val scale = height / (LAYOUT_SIZE * 0.72f)   // Lilita One's caps are ~0.72 em
+        // One em is TextLayout.em(height) metres, and the path is laid out at LAYOUT_SIZE px per em.
+        val scale = (TextLayout.em(height.toDouble()) / LAYOUT_SIZE).toFloat()
         val contours = contoursOf(path, scale)
         val shapes = shapesOf(contours)
         return extrude(shapes, depth)
@@ -113,7 +118,7 @@ object TextMesh {
                 }
             }
         }
-        return out.build(centre = true)
+        return out.build()
     }
 
     private fun signedArea(c: List<Vec2>): Float {

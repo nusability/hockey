@@ -24,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from datagen import copyout, design, effects, kotlin, presentation, save, sounds, swift  # noqa: E402
+from datagen import copyout, design, effects, font, kotlin, presentation, save, sounds, swift  # noqa: E402
 from datagen.common import Bits  # noqa: E402
 from datagen.model import DataError, camel, load, upper_snake  # noqa: E402
 
@@ -50,6 +50,7 @@ def render():
     files.update(design.emit(ROOT))
     files.update(effects.emit(ROOT))
     files.update(sounds.emit(ROOT))
+    files.update(font.emit(ROOT))
     return files
 
 

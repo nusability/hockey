@@ -34,6 +34,19 @@ public enum Scoreboard {
         return "\(pad)\(digits)/\(min(max(target, 0), maxScore))"
     }
 
+    /// What a split-flap group is showing — and whether its cards **clack** when they change
+    /// (spec §8.5, §16.4).
+    ///
+    /// The score clacks: a goal is worth a noise. The clock does not. Its cards change once a
+    /// second for the whole match, and a clack on each of them reads as a tick that never stops —
+    /// while the spec says the only audible count of time is the countdown of a period's last five
+    /// seconds (§8.5, `MatchCues.frame`), which never sounds in overtime.
+    public enum Face: Sendable, Hashable, CaseIterable {
+        case score, clock
+
+        public var clacks: Bool { self == .score }
+    }
+
     /// Where the board's pieces stand, in the design frame's metres, measured out from the colon in
     /// the middle. Every measure is derived, so the two platforms cannot drift apart.
     public struct Metrics: Sendable, Hashable {

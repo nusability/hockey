@@ -338,13 +338,27 @@ import Testing
         #expect(c.hear(.pass(from: 8, to: 9), Self.snapshot(ball: (x: 0, vx: 20))).count == 1)
     }
 
+    /// The only audible count of time is the countdown (§8.5): the clock's split-flap cards
+    /// change every second and must not clack, or the match ticks from the first whistle.
+    @Test func onlyTheScoreClacks() {
+        #expect(Scoreboard.Face.score.clacks)
+        #expect(!Scoreboard.Face.clock.clacks)
+    }
+
     @Test func theLastFiveSecondsTick() {
         var c = MatchCues(Self.params, drill: false, audible: true)
         #expect(c.frame(Self.snapshot(clock: 5.5)).isEmpty)
         #expect(c.frame(Self.snapshot(clock: 4.99)).count == 2)
         #expect(c.frame(Self.snapshot(clock: 4.2)).isEmpty)
         #expect(c.frame(Self.snapshot(clock: 3.99)).count == 2)
-        #expect(c.frame(Self.snapshot(clock: 0.5, overtime: true)).isEmpty)
+        #expect(c.frame(Self.snapshot(clock: 2.5)).count == 2)
+        #expect(c.frame(Self.snapshot(clock: 1.5)).count == 2)
+        #expect(c.frame(Self.snapshot(clock: 0.5)).count == 2)
+        #expect(c.frame(Self.snapshot(clock: 0)).isEmpty)              // nothing on zero itself
+        // Overtime is sudden death: it is never counted down, at any clock (§8.5).
+        for clock in [5.5, 4.5, 3.5, 2.5, 1.5, 0.5] {
+            #expect(c.frame(Self.snapshot(clock: clock, overtime: true)).isEmpty)
+        }
         #expect(c.frame(Self.snapshot(state: .periodEnd, clock: 0)).isEmpty)
     }
 

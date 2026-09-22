@@ -13,7 +13,7 @@ import UIKit
 /// - **sky** — the dome's palette gradient, unlit.
 ///
 /// `colour = albedo × (mix(ground, sky, 0.5 + 0.5·n.y) · hemiStrength + sun · sunStrength · band(n·l))`,
-/// `band = max(0, n·l)` for the world and `n·l > 0.4 ? 1 : 0.7` for toon; n the world-space normal,
+/// `band = max(0, n·l)` for the world and `n·l > 0.4 ? 1 : look.shade` for toon; n the world-space normal,
 /// l the unit vector toward the sun, every colour linear. No engine light and no tone mapping touch
 /// it: world and toon are RealityKit shader graphs ending in the **unlit** surface with
 /// `applyPostProcessToneMap` off, flat and sky are `UnlitMaterial(applyPostProcessToneMap: false)` —
@@ -100,6 +100,7 @@ final class Materials {
         try m.setParameter(name: "Ground", value: .color(linearColour(linear(look.hemiGround) * Float(look.hemiStrength))))
         try m.setParameter(name: "Sun", value: .color(linearColour(linear(look.sun) * Float(look.sunStrength))))
         try m.setParameter(name: "SunDirection", value: .simd3Float(sunDirection(look)))
+        try m.setParameter(name: "Shade", value: .float(Float(look.shade)))
     }
 
     static func sunDirection(_ look: WorldLook) -> SIMD3<Float> {
@@ -178,7 +179,8 @@ enum ShadingGraph {
         """
     }
 
-    /// One material: `colour = albedo × (mix(Ground, Sky, 0.5 + 0.5·n.y) + Sun · band(n·SunDirection))`.
+    /// One material: `colour = albedo × (mix(Ground, Sky, 0.5 + 0.5·n.y) + Sun · band(n·SunDirection))`,
+    /// the toon band's dark side being the look's `Shade`.
     private static func material(_ name: String, toon: Bool) -> String {
         let p = "/Root/\(name)"
         let albedoInput = toon
@@ -193,7 +195,7 @@ enum ShadingGraph {
                     float inputs:value1.connect = <\(p)/Facing.outputs:out>
                     float inputs:value2 = 0.4
                     float inputs:in1 = 1
-                    float inputs:in2 = 0.7
+                    float inputs:in2.connect = <\(p).inputs:Shade>
                     float outputs:out
                 }
             """
@@ -233,6 +235,7 @@ enum ShadingGraph {
                 color3f inputs:Ground = (0, 0, 0)
                 color3f inputs:Sun = (0, 0, 0)
                 float3 inputs:SunDirection = (0, 1, 0)
+                float inputs:Shade = 0.7
                 token outputs:mtlx:surface.connect = <\(p)/Surface.outputs:out>
                 token outputs:realitykit:vertex
 

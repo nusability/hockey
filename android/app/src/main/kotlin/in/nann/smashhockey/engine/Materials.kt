@@ -96,6 +96,8 @@ class Materials(private val engine: Engine, assets: Assets) {
             set("sun", look.sun, look.sunStrength)
             val d = sunDirection(look)
             mi.setParameter("sunDirection", d[0], d[1], d[2])
+            // The world shader's band is max(0, n·l) and has no dark side to set.
+            if (mi.material.hasParameter("shade")) mi.setParameter("shade", look.shade.toFloat())
         }
 
         /** The unit vector toward [look]'s sun. */

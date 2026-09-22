@@ -290,13 +290,15 @@ data class WorldLook(
     val sun: Int,
     val sunStrength: Double,
     val sunDirection: List<Double>,
+    /** How much of the sun a face turned away from it keeps — the toon band's dark side. A world keeps the prototype's 0.7; the UI's own light (design.json) drops much lower, so an extruded letter's sides read as a bevel instead of as more of the same colour. */
+    val shade: Double,
 )
 
 val World.look: WorldLook
     get() = when (this) {
-        World.MAGICWOOD -> WorldLook(0x9FB2FF, 0x2A3820, 0.3501, 0xFFD6A6, 0.6048, listOf(26.0, 50.0, -30.0))
-        World.SPACE -> WorldLook(0x9FD0FF, 0x1A1240, 0.3342, 0xFFF1D8, 0.6048, listOf(18.0, 60.0, -20.0))
-        World.OASIS -> WorldLook(0xFFD9A8, 0xB27A4C, 0.2865, 0xFFC98A, 0.7958, listOf(-40.0, 30.0, 14.0))
-        World.HIMALAYA -> WorldLook(0xD6E9FF, 0x9FB6CC, 0.3024, 0xFFE4BF, 0.6366, listOf(-35.0, 46.0, -26.0))
-        World.OCEAN -> WorldLook(0xB8F1FA, 0x2A7A8A, 0.4138, 0xF2FEFF, 0.573, listOf(14.0, 60.0, -10.0))
+        World.MAGICWOOD -> WorldLook(0x9FB2FF, 0x2A3820, 0.3501, 0xFFD6A6, 0.6048, listOf(26.0, 50.0, -30.0), 0.7)
+        World.SPACE -> WorldLook(0x9FD0FF, 0x1A1240, 0.3342, 0xFFF1D8, 0.6048, listOf(18.0, 60.0, -20.0), 0.7)
+        World.OASIS -> WorldLook(0xFFD9A8, 0xB27A4C, 0.2865, 0xFFC98A, 0.7958, listOf(-40.0, 30.0, 14.0), 0.7)
+        World.HIMALAYA -> WorldLook(0xD6E9FF, 0x9FB6CC, 0.3024, 0xFFE4BF, 0.6366, listOf(-35.0, 46.0, -26.0), 0.7)
+        World.OCEAN -> WorldLook(0xB8F1FA, 0x2A7A8A, 0.4138, 0xF2FEFF, 0.573, listOf(14.0, 60.0, -10.0), 0.7)
     }

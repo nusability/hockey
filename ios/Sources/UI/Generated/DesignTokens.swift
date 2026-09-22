@@ -15,7 +15,7 @@ enum DesignTokens {
         static let greenInk = 0x15803D
         static let disabled = 0xC7CBDA
         static let disabledShade = 0x8A90A6
-        static let disabledInk = 0x5A607A
+        static let disabledInk = 0x474D6A
         static let board = 0x1E1B4B
         static let card = 0x2A2660
         static let cardInk = 0xFFC83D
@@ -49,5 +49,5 @@ enum DesignTokens {
     }
 
     /// The UI's own light (ADR 0006's formula), so a menu looks the same in every world.
-    static let look = WorldLook(hemiSky: 0xFFFFFF, hemiGround: 0xDFE3F2, hemiStrength: 0.38, sun: 0xFFFFFF, sunStrength: 0.52, sunDirection: [-0.45, 0.4, 1.0])
+    static let look = WorldLook(hemiSky: 0xFFFFFF, hemiGround: 0xB9C0DA, hemiStrength: 0.3, sun: 0xFFFFFF, sunStrength: 0.62, sunDirection: [-0.35, 0.3, 1.0], shade: 0.34)
 }

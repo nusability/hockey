@@ -67,8 +67,10 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
             child(Label3D(kit, ":", 0.12f, C.CARD_INK), parent = board.content).show(0.0)
         }
         shownClock = Names.clock(kickoff.match.snapshot.clock)
-        clock = part(FlipDigits(kit, shownClock, 0.11f, 0.15f, "match_clock", L(CopyKey.MATCH_CLOCK), entrance = Entrance.Drop),
-            at(-0.12f, top - 0.6f))
+        // The clock's cards are silent: only the last five seconds of a period are counted down
+        // audibly (§8.5), and a clack a second reads as a tick that never stops.
+        clock = part(FlipDigits(kit, shownClock, 0.11f, 0.15f, "match_clock", L(CopyKey.MATCH_CLOCK),
+            entrance = Entrance.Drop, face = Scoreboard.Face.CLOCK), at(-0.12f, top - 0.6f))
         if (drillGoals == null) {
             val holder = part(Panel(kit, 0.36f, 0.13f, 0.05f, C.BOARD, Entrance.Drop), at(0.34f, top - 0.6f))
             for (i in 0 until Tuning.Match.periods) {
@@ -184,8 +186,9 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
                 shownScore[side] = s.score[side]
             }
         }
+        // In overtime "OT" has taken the clock's place, so its cards stop moving altogether.
         val c = Names.clock(s.clock)
-        if (c != shownClock) { shownClock = c; clock.set(c) }
+        if (!s.overtime && c != shownClock) { shownClock = c; clock.set(c) }
         if (s.period != shownPeriod) {
             shownPeriod = s.period
             for ((i, pip) in pips.withIndex()) pip.recolour(if (i < s.period) C.SUN else C.DISABLED_SHADE)

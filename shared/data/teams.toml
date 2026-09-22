@@ -19,6 +19,7 @@ hemi_strength = 0.3501   # 1.1 / π
 sun = "#ffd6a6"
 sun_strength = 0.6048    # 1.9 / π
 sun_direction = [26.0, 50.0, -30.0]
+shade = 0.7             # the toon band's dark side; the worlds keep the prototype's value
 
 [[world]]
 id = "space"
@@ -31,6 +32,7 @@ hemi_strength = 0.3342   # 1.05 / π
 sun = "#fff1d8"
 sun_strength = 0.6048    # 1.9 / π
 sun_direction = [18.0, 60.0, -20.0]
+shade = 0.7             # the toon band's dark side; the worlds keep the prototype's value
 
 [[world]]
 id = "oasis"
@@ -43,6 +45,7 @@ hemi_strength = 0.2865   # 0.9 / π
 sun = "#ffc98a"
 sun_strength = 0.7958    # 2.5 / π
 sun_direction = [-40.0, 30.0, 14.0]
+shade = 0.7             # the toon band's dark side; the worlds keep the prototype's value
 
 [[world]]
 id = "himalaya"
@@ -55,6 +58,7 @@ hemi_strength = 0.3024   # 0.95 / π
 sun = "#ffe4bf"
 sun_strength = 0.6366    # 2.0 / π
 sun_direction = [-35.0, 46.0, -26.0]
+shade = 0.7             # the toon band's dark side; the worlds keep the prototype's value
 
 [[world]]
 id = "ocean"
@@ -67,6 +71,7 @@ hemi_strength = 0.4138   # 1.3 / π
 sun = "#f2feff"
 sun_strength = 0.5730    # 1.8 / π
 sun_direction = [14.0, 60.0, -10.0]
+shade = 0.7             # the toon band's dark side; the worlds keep the prototype's value
 
 # §3 — formations for a team attacking +Z; team 1's are mirrored in x and z. Players are listed in
 # roster order after the goalie. The first is the default.

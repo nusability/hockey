@@ -1,5 +1,7 @@
 package `in`.nann.smashhockey.ui
 
+import `in`.nann.smashhockey.core.feel.TextLayout
+
 /**
  * Running text in the world — the twin of iOS's `Paragraph`: the words wrapped greedily into
  * lines no wider than [width], one extruded line each, stacked and centred on the element's
@@ -24,20 +26,21 @@ class Paragraph(
     val blockHeight: Float
 
     init {
-        val lines = wrap(kit, text, height, width)
+        val lines = TextLayout.wrap(text, height.toDouble(), width.toDouble())
         val step = height * lineSpacing
         blockHeight = height + step * maxOf(0, lines.size - 1)
         for ((i, line) in lines.withIndex()) {
             val holder = kit.node(node)
             val m = kit.text(line, height, colour, holder)
             val w = kit.width(m)
-            val fit = if (w > width) width / w else 1f
+            val fit = TextLayout.fit(w.toDouble(), width.toDouble()).toFloat()
             holder.setScale(fit)
-            val x = when (align) {
+            val edge = when (align) {
                 Label3D.Align.CENTRE -> 0f
-                Label3D.Align.LEADING -> -width / 2 + w * fit / 2
-                Label3D.Align.TRAILING -> width / 2 - w * fit / 2
+                Label3D.Align.LEADING -> -width / 2
+                Label3D.Align.TRAILING -> width / 2
             }
+            val x = edge + TextLayout.alignX(align.shared, (w * fit).toDouble()).toFloat()
             holder.setPosition(x, blockHeight / 2 - height / 2 - i * step, 0f)
         }
         node.enabled = false
@@ -55,26 +58,4 @@ class Paragraph(
         presence.apply(node, rest, ctx.reduceMotion)
     }
 
-    companion object {
-        /** Greedy wrap: as many words on a line as fit [width], measured on the lettering itself. */
-        fun wrap(kit: Kit, text: String, height: Float, width: Float): List<String> {
-            val space = height * 0.3f
-            val lines = ArrayList<String>()
-            var line = ""
-            var lineWidth = 0f
-            for (word in text.split(' ').filter { it.isNotEmpty() }) {
-                val w = kit.measure(word, height)
-                if (line.isEmpty()) {
-                    line = word; lineWidth = w
-                } else if (lineWidth + space + w <= width) {
-                    line += " $word"; lineWidth += space + w
-                } else {
-                    lines += line
-                    line = word; lineWidth = w
-                }
-            }
-            if (line.isNotEmpty()) lines += line
-            return lines
-        }
-    }
 }

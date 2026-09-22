@@ -1,4 +1,5 @@
 import RealityKit
+import SmashCore
 import simd
 
 /// Running text in the world: the words wrapped greedily into lines no wider than `width`, one
@@ -19,7 +20,7 @@ final class Paragraph: Semantic, Presentable {
         self.width = width
         semantics = Semantics(id: id, label: text, trait: .staticText)
         presence = Presence(entrance, motion: motion)
-        let lines = Paragraph.wrap(text, height: height, width: width)
+        let lines = TextLayout.wrap(text, height: Double(height), width: Double(width))
         let step = height * lineSpacing
         blockHeight = height + step * Float(max(0, lines.count - 1))
         for (i, line) in lines.enumerated() {
@@ -27,43 +28,18 @@ final class Paragraph: Semantic, Presentable {
             let node = Entity()
             node.addChild(m)
             let w = Blocks.width(of: m)
-            let fit = w > width ? width / w : 1
+            let fit = Float(TextLayout.fit(Double(w), Double(width)))
             node.scale = SIMD3(repeating: fit)
-            let x: Float = switch align {
+            let edge: Float = switch align {
             case .centre: 0
-            case .leading: -width / 2 + w * fit / 2
-            case .trailing: width / 2 - w * fit / 2
+            case .leading: -width / 2
+            case .trailing: width / 2
             }
+            let x = edge + Float(TextLayout.alignX(align, width: Double(w * fit)))
             node.position = [x, blockHeight / 2 - height / 2 - Float(i) * step, 0]
             entity.addChild(node)
         }
         entity.isEnabled = false
-    }
-
-    /// Greedy wrap: as many words on a line as fit `width`, measured on the lettering itself.
-    static func wrap(_ text: String, height: Float, width: Float) -> [String] {
-        let depth = height * DesignTokens.Size.textDepthRatio
-        func measure(_ s: String) -> Float { TextMesh.mesh(s, height: height, depth: depth).bounds.extents.x }
-        let space = height * 0.3
-        var lines: [String] = []
-        var line = ""
-        var lineWidth: Float = 0
-        for word in text.split(separator: " ").map(String.init) {
-            let w = measure(word)
-            if line.isEmpty {
-                line = word
-                lineWidth = w
-            } else if lineWidth + space + w <= width {
-                line += " " + word
-                lineWidth += space + w
-            } else {
-                lines.append(line)
-                line = word
-                lineWidth = w
-            }
-        }
-        if !line.isEmpty { lines.append(line) }
-        return lines
     }
 
     var boundsEntity: Entity { entity }

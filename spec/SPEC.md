@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.11.0
+Spec-Version: 0.12.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -650,7 +650,10 @@ A goal counts for the team attacking that net. The scorer is the last player to 
 unless that was an opponent and the last release was by the scoring team, in which case the
 releaser scores. The assist is the team-mate whose touch set the scorer up: the last touch before
 the scorer won the ball, when that was a team-mate of theirs. A goal into your own net is an own
-goal, and has no assist. The last 5 seconds of every period are counted down audibly.
+goal, and has no assist. The last 5 seconds of every period are counted down audibly — and that
+countdown is the **only** audible count of time. Nothing else in the game marks a passing second:
+the clock's split-flap cards change every second and do so silently, while the score's cards clack
+as they flip. Overtime is never counted down (§8.4).
 
 #### 8.6 Slow motion
 Presentation sets the time scale (§4.2); the camera choreography around it is designed for the
@@ -897,15 +900,28 @@ comes from the declared copy (§14).
 
 **The look.** Panels, slabs, cards and rows are **white**; everything that reads as lettering, a
 digit or an accent is a saturated colour from the game's own set — the sun yellow, the pink, the
-green and the deep navy. Anything text-like clears **4.5:1** against what it sits on. The whole
-palette, the design frame's sizes and the UI's own light are declared once in
-`shared/data/design.json` and generated into both apps; no screen or component spells a colour or
-a size of its own.
+green and the deep navy. Anything text-like clears **4.5:1** against what it sits on; the pairs the
+UI puts lettering on are declared alongside the palette and the ratio is **checked when the tokens
+are generated**, so a palette tweak cannot quietly make a caption unreadable. The whole palette, the
+design frame's sizes and the UI's own light are declared once in `shared/data/design.json` and
+generated into both apps; no screen or component spells a colour or a size of its own.
 
 **The UI has its own light**, not the light of the world standing behind it: the kit's blocks are
 toon-shaded (ADR 0006) under one neutral rig — bright from the front, a little less from above, less
-again from the sides — so a white slab reads white and a menu looks the same in every world. The
-shading is there to make a block feel like an object, never to colour it.
+again from the sides — so a white slab reads white and a menu looks the same in every world. How
+much of the key a face turned away from it keeps is part of a light (`shade`): a world keeps the
+prototype's value, and the **UI's own light drops much lower**, because an extruded letter is only
+legible when its sides read as a bevel rather than as more of the front's colour. The shading is
+there to make a block feel like an object, never to colour it.
+
+**Lettering is measured from the font, not from the mesh.** Both apps extrude the same outlines
+from the same font file, but each does it with its own engine, and the box an engine reports around
+the result is its own. So how wide a string is, where its line sits, how far a long word shrinks to
+fit a slab, how a piece of lettering is placed against the point it is aligned to, and where running
+text breaks are **one computation over the font's own metrics**, shared by both platforms. Two
+consequences a player can see: a caption's line does not move with the characters in it — a German
+word with an umlaut sits on its slab exactly where an all-caps English one does — and the same
+screen is laid out identically on both phones.
 
 **A transition finishes.** An element that arrives ends on its exact pose; an element that leaves
 ends hidden, and is only then taken off the screen. This holds however the motion is being played —

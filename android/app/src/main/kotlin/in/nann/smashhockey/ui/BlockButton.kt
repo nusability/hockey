@@ -4,6 +4,7 @@ import `in`.nann.smashhockey.ui.generated.DesignTokens.Colour
 import `in`.nann.smashhockey.ui.generated.DesignTokens.Size
 import kotlin.math.max
 import kotlin.math.sin
+import `in`.nann.smashhockey.core.feel.TextLayout
 import `in`.nann.smashhockey.engine.Spring
 
 /**
@@ -71,9 +72,8 @@ class BlockButton(
 
     /** Keeps a margin of lettering either side; a long word shrinks to fit. */
     private fun fitLabel() {
-        val room = w - 2 * textHeight * 0.6f
-        val natural = kit.width(label)
-        labelNode.setScale(if (natural > room) room / natural else 1f)
+        val room = TextLayout.room(w.toDouble(), textHeight.toDouble())
+        labelNode.setScale(TextLayout.fit(kit.width(label).toDouble(), room).toFloat())
     }
 
     /** A new caption (and TalkBack label). */

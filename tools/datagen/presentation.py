@@ -65,10 +65,14 @@ def emit(root, model):
 
 
 LOOK_FIELDS = (("hemi_sky", "colour"), ("hemi_ground", "colour"), ("hemi_strength", "double"),
-               ("sun", "colour"), ("sun_strength", "double"), ("sun_direction", "vector"))
+               ("sun", "colour"), ("sun_strength", "double"), ("sun_direction", "vector"),
+               ("shade", "double"))
 LOOK_DOCS = {
     "hemi_sky": "The hemisphere light (ADR 0006): its colour from above and from below, sRGB 0xRRGGBB, and its strength.",
     "sun": "The sun: its colour, sRGB 0xRRGGBB, its strength, and the direction toward it (not normalized).",
+    "shade": "How much of the sun a face turned away from it keeps — the toon band's dark side. A world keeps the "
+             "prototype's 0.7; the UI's own light (design.json) drops much lower, so an extruded letter's sides read "
+             "as a bevel instead of as more of the same colour.",
 }
 
 

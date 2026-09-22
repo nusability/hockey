@@ -68,9 +68,8 @@ final class BlockButton: Interactive, Presentable {
 
     /// Keeps a margin of lettering either side; a long word shrinks to fit.
     private func fitLabel() {
-        let room = size.x - 2 * textHeight * 0.6
-        let natural = Blocks.width(of: label)
-        labelNode.scale = SIMD3(repeating: natural > room ? room / natural : 1)
+        let room = TextLayout.room(slabWidth: Double(size.x), textHeight: Double(textHeight))
+        labelNode.scale = SIMD3(repeating: Float(TextLayout.fit(Double(Blocks.width(of: label)), room)))
     }
 
     /// A new caption (and VoiceOver label).

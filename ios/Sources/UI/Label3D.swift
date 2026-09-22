@@ -1,10 +1,12 @@
 import RealityKit
+import SmashCore
 
 /// Extruded lettering from the shared font (ADR 0005), placed by its centre, its left or its
 /// right edge. Changing the text re-meshes through TextMesh's cache.
 @MainActor
 final class Label3D: Presentable {
-    enum Align { case centre, leading, trailing }
+    /// The core's three alignments, so the kit and both platforms name the same thing.
+    typealias Align = TextLayout.Align
 
     let entity = Entity()
     let body = Entity()
@@ -52,13 +54,9 @@ final class Label3D: Presentable {
     }
 
     private func realign() {
-        let natural = Blocks.width(of: model)
-        body.scale = SIMD3(repeating: maxWidth.map { natural > $0 ? $0 / natural : 1 } ?? 1)
-        switch align {
-        case .centre: body.position.x = 0
-        case .leading: body.position.x = width / 2
-        case .trailing: body.position.x = -width / 2
-        }
+        let natural = Double(Blocks.width(of: model))
+        body.scale = SIMD3(repeating: Float(TextLayout.fit(natural, maxWidth.map(Double.init))))
+        body.position.x = Float(TextLayout.alignX(align, width: Double(width)))
     }
 
     func update(_ dt: Double, _ ctx: UIContext) {

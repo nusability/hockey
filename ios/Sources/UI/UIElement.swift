@@ -1,4 +1,5 @@
 import RealityKit
+import SmashCore
 import UIKit
 
 /// What every frame hands a UI element: the tokens, the time, and whether to be calm.
@@ -109,7 +110,10 @@ enum Blocks {
     private static var shading: (materials: Materials, look: WorldLook)?
 
     /// Must be called once the world's materials are loaded, before any block is built.
-    static func light(with materials: Materials, look: WorldLook) { shading = (materials, look) }
+    static func light(with materials: Materials, look: WorldLook) {
+        TextBox.registerComponent()
+        shading = (materials, look)
+    }
 
     static func material(_ rgb: Int) -> RealityKit.Material {
         guard let (materials, look) = shading else {
@@ -145,8 +149,11 @@ enum Blocks {
     }
 
     /// Centred extruded text with its front face toward +Z. Depth follows the height by token.
+    /// The mesh is centred on RealityKit's own text box, and its **layout** width is remembered
+    /// from the core's `TextLayout` — see `TextBox`.
     static func text(_ s: String, height: Float, _ rgb: Int) -> ModelEntity {
         let e = model(TextMesh.mesh(s, height: height, depth: height * DesignTokens.Size.textDepthRatio), rgb)
+        e.components.set(TextBox(s, height: height))
         centre(e)
         return e
     }
@@ -154,6 +161,7 @@ enum Blocks {
     /// Replaces a text model's string in place, keeping it centred.
     static func retext(_ e: ModelEntity, _ s: String, height: Float) {
         e.model?.mesh = TextMesh.mesh(s, height: height, depth: height * DesignTokens.Size.textDepthRatio)
+        e.components.set(TextBox(s, height: height))
         centre(e)
     }
 
@@ -166,5 +174,22 @@ enum Blocks {
         e.position = SIMD3(-b.center.x, -b.center.y, -b.min.z)   // back face on z = 0
     }
 
-    static func width(of e: ModelEntity) -> Float { e.model?.mesh.bounds.extents.x ?? 0 }
+    /// How wide a piece of lettering is **for layout**: the string's advance width from the core's
+    /// `TextLayout`, never RealityKit's mesh bounds. The two engines draw the same outlines but do
+    /// not report the same box around them, and a screen laid out from that box came out different
+    /// on the two phones (spec §16). Anything that is not lettering is as wide as its mesh.
+    static func width(of e: ModelEntity) -> Float {
+        if let box = e.components[TextBox.self] { return box.width }
+        return e.model?.mesh.bounds.extents.x ?? 0
+    }
+}
+
+/// What a lettering model's string measures, kept on the entity so every layout reads the same
+/// number the Android kit reads (`SharedMesh.layoutWidth`).
+struct TextBox: Component {
+    let width: Float
+
+    init(_ text: String, height: Float) {
+        width = Float(TextLayout.width(text, height: Double(height)))
+    }
 }

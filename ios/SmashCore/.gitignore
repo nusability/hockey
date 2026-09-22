@@ -1,0 +1,3 @@
+# SwiftPM build output and Xcode's package workspace state — regenerable.
+.build/
+.swiftpm/

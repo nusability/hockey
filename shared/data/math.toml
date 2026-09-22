@@ -1,0 +1,65 @@
+# The deterministic math (spec §4.3–§4.4): the constants of our own sin, cos, atan2 and exp,
+# declared once and generated into both apps by tools/generate-data.py.
+#
+# Every coefficient is an IEEE-754 double given as its exact bit pattern, so no decimal parser on
+# either toolchain stands between this file and the bits. They are the minimax coefficients of
+# fdlibm (Sun Microsystems, 1993; freely redistributable), whose polynomials are far inside the
+# spec's 1e-9 bound; the evaluation order is ours and is written identically on both platforms
+# (ios/SmashCore/Sources/SmashCore/Math/DetMath.swift, android/core/.../math/DetMath.kt).
+# The golden vectors in shared/vectors/math/ pin the result to the bit.
+
+[splitmix]
+gamma = "0x9E3779B97F4A7C15"
+mix1 = "0xBF58476D1CE4E5B9"
+mix2 = "0x94D049BB133111EB"
+shift1 = 30
+shift2 = 27
+shift3 = 31
+mantissa_shift = 11                     # uniform = (out >> 11) × 2^−53
+unit = "0x3CA0000000000000"             # 2^−53
+noise_center = "0x3FF8000000000000"     # 1.5: noise(s) = (u₁ + u₂ + u₃ − 1.5) × s
+
+[trig]
+# Range reduction: k = floor(x × 2/π + 0.5), r = ((x − k·p1) − k·p2) − k·p3, |r| ≤ π/4 (+ε).
+# p1 and p2 carry 33 significant bits, so k·p1 and k·p2 are exact while |k| < 2^20; inputs beyond
+# max_input fail loud rather than lose accuracy.
+max_input = "0x412E848000000000"        # 1e6
+inv_pio2 = "0x3FE45F306DC9C883"         # 2/π
+pio2_1 = "0x3FF921FB54400000"           # π/2, first 33 bits
+pio2_2 = "0x3DD0B4611A600000"           # next 33 bits
+pio2_3 = "0x3BA3198A2E037073"           # the rest
+# sin r ≈ r + r·z·(s1 + z·(s2 + z·(s3 + z·(s4 + z·(s5 + z·s6))))), z = r²
+sin = ["0xBFC5555555555549", "0x3F8111111110F8A6", "0xBF2A01A019C161D5", "0x3EC71DE357B1FE7D", "0xBE5AE5E68A2B9CEB", "0x3DE5D93A5ACFD57C"]
+# cos r ≈ (1 − 0.5·z) + z·z·(c1 + z·(c2 + z·(c3 + z·(c4 + z·(c5 + z·c6)))))
+cos = ["0x3FA555555555554C", "0xBF56C16C16C15177", "0x3EFA01A019CB1590", "0xBE927E4F809C52AD", "0x3E21EE9EBDB4B1C4", "0xBDA8FAE9BE8838D4"]
+
+[atan]
+# atan t for t in [0, 1]:  t < 7/16 → poly(t);  t < 11/16 → atan(½) + poly((2t − 1)/(2 + t));
+# else → atan(1) + poly((t − 1)/(t + 1)).  poly(t) = t − t·(s1 + s2), z = t², w = z²,
+# s1 = z·(a0 + w·(a2 + w·(a4 + w·(a6 + w·(a8 + w·a10))))), s2 = w·(a1 + w·(a3 + w·(a5 + w·(a7 + w·a9)))).
+# A reference at hi + lo adds as hi − ((t·(s1 + s2) − lo) − t).
+split_low = "0x3FDC000000000000"        # 7/16
+split_high = "0x3FE6000000000000"       # 11/16
+half_hi = "0x3FDDAC670561BB4F"          # atan(½)
+half_lo = "0x3C7A2B7F222F65E2"
+one_hi = "0x3FE921FB54442D18"           # atan(1) = π/4
+one_lo = "0x3C81A62633145C07"
+pio2_hi = "0x3FF921FB54442D18"          # π/2
+pio2_lo = "0x3C91A62633145C07"
+pi_hi = "0x400921FB54442D18"            # π
+pi_lo = "0x3CA1A62633145C07"
+a = [
+  "0x3FD555555555550D", "0xBFC999999998EBC4", "0x3FC24924920083FF", "0xBFBC71C6FE231671",
+  "0x3FB745CDC54C206E", "0xBFB3B0F2AF749A6D", "0x3FB10D66A0D03D51", "0xBFADDE2D52DEFD9A",
+  "0x3FA97B4B24760DEB", "0xBFA2B4442C6A6C2F", "0x3F90AD3AE322DA11",
+]
+
+[exp]
+# k = floor(x / ln 2 + 0.5), hi = x − k·ln2_hi, lo = k·ln2_lo, r = hi − lo, z = r²,
+# c = r − z·(p1 + z·(p2 + z·(p3 + z·(p4 + z·p5)))), y = 1 − ((lo − (r·c)/(2 − c)) − hi), exp = y · 2^k.
+overflow = "0x40862E42FEFA39EF"         # 709.78…: above → +∞
+underflow = "0xC0874910D52D3051"        # −745.13…: below → 0
+inv_ln2 = "0x3FF71547652B82FE"
+ln2_hi = "0x3FE62E42FEE00000"
+ln2_lo = "0x3DEA39EF35793C76"
+p = ["0x3FC555555555553E", "0xBF66C16C16BEBD93", "0x3F11566AAF25DE2C", "0xBEBBBD41C5D26BF1", "0x3E66376972BEA4D0"]

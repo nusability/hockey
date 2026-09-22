@@ -1,0 +1,128 @@
+# The eight training drills (spec §10), in unlock order, declared once and generated into both
+# apps by tools/generate-data.py.
+#
+# Positions are absolute pitch coordinates; the player's side attacks +Z. Roles: G goalie,
+# D defender, F forward, O dummy (static, or patrolling between its start and `patrol`).
+# `speed` multiplies top speed (1.0 when absent — the spec's "at speed" column names every other
+# value). `rule`: "none", "assist" (goals count only after a pass) or "free_play" (§10).
+# `ball_to` is the index in `home` of the player who starts with the ball.
+
+[[drill]]
+id = "shot"
+world = "magicwood"
+goals = 3
+seconds = 60.0
+rule = "none"
+ball_to = 0
+home = [{ role = "F", x = 0.0, z = -2.0 }]
+away = []
+name = { en = "First shot", de = "Erster Schuss" }
+hint = { en = "Touch and hold anywhere: the ball circles your player. Lift your finger when the arrow points at the goal.", de = "Irgendwo tippen und halten: Der Ball kreist um deinen Spieler. Hebe den Finger, wenn der Pfeil aufs Tor zeigt." }
+
+[[drill]]
+id = "pass"
+world = "oasis"
+goals = 3
+seconds = 90.0
+rule = "assist"
+ball_to = 0
+home = [{ role = "F", x = -7.0, z = -6.0 }, { role = "F", x = 7.0, z = 4.0 }]
+away = []
+name = { en = "Give and go", de = "Doppelpass" }
+hint = { en = "Lift when the arrow points at your team-mate to pass. Goals only count after a pass.", de = "Hebe den Finger, wenn der Pfeil auf deinen Mitspieler zeigt, um zu passen. Tore zählen nur nach einem Pass." }
+
+[[drill]]
+id = "goalie"
+world = "ocean"
+goals = 3
+seconds = 90.0
+rule = "none"
+ball_to = 0
+home = [{ role = "F", x = -6.0, z = -4.0 }, { role = "F", x = 6.0, z = 6.0 }]
+away = [{ role = "G", x = 0.0, z = 24.6, speed = 0.6 }]
+name = { en = "Beat the goalie", de = "Torwart überwinden" }
+hint = { en = "The goalie follows the ball. Shoot early, or pass across to pull the goalie out of position.", de = "Der Torwart folgt dem Ball. Schieße früh oder spiele quer, um den Torwart aus der Position zu locken." }
+
+[[drill]]
+id = "cones"
+world = "space"
+goals = 3
+seconds = 90.0
+rule = "none"
+ball_to = 0
+home = [{ role = "F", x = -8.0, z = -8.0 }, { role = "F", x = 8.0, z = -2.0 }, { role = "F", x = -6.0, z = 10.0 }]
+away = [
+  { role = "G", x = 0.0, z = 24.6, speed = 0.65 },
+  { role = "O", x = 0.0, z = 6.0 }, { role = "O", x = -5.0, z = 14.0 },
+  { role = "O", x = 5.0, z = 14.0 }, { role = "O", x = 0.0, z = 19.0 },
+]
+name = { en = "Cones", de = "Hütchen" }
+hint = { en = "Dummies block passes and shots. Move the ball around them.", de = "Dummys blocken Pässe und Schüsse. Spiele den Ball um sie herum." }
+
+[[drill]]
+id = "moving"
+world = "himalaya"
+goals = 3
+seconds = 90.0
+rule = "none"
+ball_to = 0
+home = [{ role = "F", x = -8.0, z = -8.0 }, { role = "F", x = 8.0, z = -2.0 }, { role = "F", x = 0.0, z = 10.0 }]
+away = [
+  { role = "G", x = 0.0, z = 24.6, speed = 0.7 },
+  { role = "O", x = -8.0, z = 8.0, patrol = { x = 8.0, z = 8.0, speed = 1.1, phase = 0.0 } },
+  { role = "O", x = 8.0, z = 15.0, patrol = { x = -8.0, z = 15.0, speed = 0.9, phase = 1.5 } },
+  { role = "O", x = -4.0, z = 20.0, patrol = { x = 4.0, z = 20.0, speed = 1.6, phase = 0.0 } },
+]
+name = { en = "Moving cones", de = "Wandernde Hütchen" }
+hint = { en = "The dummies slide back and forth. Time your passes through the gaps.", de = "Die Dummys gleiten hin und her. Passe im richtigen Moment durch die Lücken." }
+
+[[drill]]
+id = "sleepy"
+world = "magicwood"
+goals = 3
+seconds = 100.0
+rule = "none"
+ball_to = 0
+home = [{ role = "F", x = -8.0, z = -6.0 }, { role = "F", x = 8.0, z = -2.0 }, { role = "F", x = 0.0, z = 8.0 }]
+away = [
+  { role = "G", x = 0.0, z = 24.6, speed = 0.75 },
+  { role = "D", x = -5.0, z = 12.0, speed = 0.45 }, { role = "D", x = 5.0, z = 12.0, speed = 0.45 },
+]
+name = { en = "Sleepy defenders", de = "Schläfrige Verteidiger" }
+hint = { en = "These defenders chase the ball, slowly. If one reaches your carrier they steal it, so keep passing.", de = "Diese Verteidiger jagen den Ball, aber langsam. Erreicht einer deinen Ballführer, klaut er ihn – also weiterpassen." }
+
+[[drill]]
+id = "press"
+world = "oasis"
+goals = 3
+seconds = 110.0
+rule = "none"
+ball_to = 0
+home = [{ role = "F", x = -8.0, z = -6.0 }, { role = "F", x = 8.0, z = -2.0 }, { role = "F", x = 0.0, z = 8.0 }, { role = "D", x = 0.0, z = -14.0 }]
+away = [
+  { role = "G", x = 0.0, z = 24.6, speed = 1.0 },
+  { role = "D", x = -6.0, z = 14.0, speed = 0.75 }, { role = "D", x = 6.0, z = 14.0, speed = 0.75 },
+  { role = "F", x = 0.0, z = 4.0, speed = 0.75 },
+]
+name = { en = "Under pressure", de = "Unter Druck" }
+hint = { en = "Three real defenders at three-quarter speed. Quick passes beat pressure.", de = "Drei echte Verteidiger mit Dreivierteltempo. Schnelle Pässe schlagen jedes Pressing." }
+
+[[drill]]
+id = "scrimmage"
+world = "space"
+goals = 3
+seconds = 150.0
+rule = "free_play"
+ball_to = 1
+home = [
+  { role = "F", x = -9.0, z = -5.0 }, { role = "F", x = 0.0, z = -3.0 }, { role = "F", x = 9.0, z = -5.0 },
+  { role = "D", x = -6.5, z = -17.0 }, { role = "D", x = 6.5, z = -17.0 }, { role = "G", x = 0.0, z = -24.6 },
+]
+away = [
+  { role = "G", x = 0.0, z = 24.6, speed = 0.7 },
+  { role = "D", x = -6.5, z = 17.0, speed = 0.85 }, { role = "D", x = 6.5, z = 17.0, speed = 0.85 },
+  { role = "F", x = -9.0, z = 5.0, speed = 0.85 }, { role = "F", x = 0.0, z = 3.0, speed = 0.85 },
+  { role = "F", x = 9.0, z = 5.0, speed = 0.85 },
+]
+name = { en = "Scrimmage", de = "Trainingsspiel" }
+hint = { en = "A real game: they attack too. Score three before the clock runs out and you are ready for the league.", de = "Ein echtes Spiel: Die anderen greifen auch an. Erziele drei Tore, bevor die Zeit abläuft, und du bist bereit für die Liga." }

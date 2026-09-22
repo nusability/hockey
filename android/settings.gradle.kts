@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "SmashHockey"
 include(":app")
+// The game's platform-independent core: generated config, deterministic math, the simulation.
+include(":core")

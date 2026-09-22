@@ -1,0 +1,191 @@
+# Worlds, formations, tactics, the coach's board, the clubs and the career (spec §2, §3, §12,
+# §13), declared once and generated into both apps by tools/generate-data.py. Localized names
+# live next to what they name and are generated into the copy (§14).
+
+# §13 — the five worlds, in the demo match's order (§9).
+[[world]]
+id = "magicwood"
+sport = "field"
+name = { en = "Magic Wood", de = "Zauberwald" }
+
+[[world]]
+id = "space"
+sport = "field"
+name = { en = "Deep Space", de = "Tiefer Weltraum" }
+
+[[world]]
+id = "oasis"
+sport = "field"
+name = { en = "Desert Oasis", de = "Wüstenoase" }
+
+[[world]]
+id = "himalaya"
+sport = "ice"
+name = { en = "Himalaya", de = "Himalaya" }
+
+[[world]]
+id = "ocean"
+sport = "field"
+name = { en = "Ocean World", de = "Ozeanwelt" }
+
+# §3 — formations for a team attacking +Z; team 1's are mirrored in x and z. Players are listed in
+# roster order after the goalie. The first is the default.
+[formation_goalie]
+x = 0.0
+z = -25.0
+
+[[formation]]
+id = "balanced"
+name = { en = "2-3 Balanced", de = "2-3 Ausgeglichen" }
+blurb = { en = "Two at the back, three up front. The all-round shape.", de = "Zwei hinten, drei vorne. Die Allrounder-Aufstellung." }
+players = [
+  { role = "D", x = -6.5, z = -17.0 }, { role = "D", x = 6.5, z = -17.0 },
+  { role = "F", x = -9.0, z = -5.0 }, { role = "F", x = 0.0, z = -3.0 }, { role = "F", x = 9.0, z = -5.0 },
+]
+
+[[formation]]
+id = "defensive"
+name = { en = "3-2 Defensive", de = "3-2 Defensiv" }
+blurb = { en = "Three at the back. Hard to break down, slower to attack.", de = "Drei hinten. Schwer zu knacken, langsamer im Angriff." }
+players = [
+  { role = "D", x = -8.5, z = -17.0 }, { role = "D", x = 0.0, z = -20.0 }, { role = "D", x = 8.5, z = -17.0 },
+  { role = "F", x = -6.0, z = -3.0 }, { role = "F", x = 6.0, z = -3.0 },
+]
+
+[[formation]]
+id = "attacking"
+name = { en = "1-4 Attacking", de = "1-4 Offensiv" }
+blurb = { en = "One sweeper, four forwards. Constant pressure, open at the back.", de = "Ein Ausputzer, vier Stürmer. Dauerdruck, hinten offen." }
+players = [
+  { role = "D", x = 0.0, z = -18.0 },
+  { role = "F", x = -11.0, z = -6.0 }, { role = "F", x = -4.0, z = 0.0 }, { role = "F", x = 4.0, z = 0.0 }, { role = "F", x = 11.0, z = -6.0 },
+]
+
+[[formation]]
+id = "diamond"
+name = { en = "2-1-2 Diamond", de = "2-1-2 Raute" }
+blurb = { en = "A link player between the lines. Good for combinations.", de = "Ein Verbindungsspieler zwischen den Linien. Gut für Kombinationen." }
+players = [
+  { role = "D", x = -6.0, z = -17.0 }, { role = "D", x = 6.0, z = -17.0 },
+  { role = "F", x = 0.0, z = -9.0 },
+  { role = "F", x = -8.0, z = -1.0 }, { role = "F", x = 8.0, z = -1.0 },
+]
+
+[[formation]]
+id = "wide"
+name = { en = "2-3 Wide", de = "2-3 Breit" }
+blurb = { en = "Wingers hug the sidelines. Stretches the pitch for long balls.", de = "Flügel kleben an den Seitenlinien. Zieht das Feld für lange Bälle auseinander." }
+players = [
+  { role = "D", x = -7.0, z = -17.0 }, { role = "D", x = 7.0, z = -17.0 },
+  { role = "F", x = -12.5, z = -4.0 }, { role = "F", x = 0.0, z = -7.0 }, { role = "F", x = 12.5, z = -4.0 },
+]
+
+# §12 — the default tactics. A club lists only its differences.
+[default_tactics]
+pressing = 0.55
+covering = 0.55
+push_up = 0.55
+passing = 0.55
+shooting = 0.55
+discipline = 0.0
+
+# §12 — the coach's board. A 0–1 slider is continuous; the timed settings are discrete choices,
+# listed so every value is an exact literal on both platforms (no 1.4 + n × 0.2 drift).
+[board]
+tactic_min = 0.0
+tactic_max = 1.0
+period_seconds = [60.0, 90.0, 120.0, 150.0, 180.0, 210.0, 240.0]
+period_seconds_default = 120.0
+ball_spin_seconds = [1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2]
+ball_spin_seconds_default = 2.0
+
+# §2.1 — the eight clubs. Kit colours are sRGB.
+[[club]]
+id = "mossfoxes"
+short = "MOS"
+world = "magicwood"
+rating = 76
+primary = "#2563eb"
+secondary = "#fb923c"
+tactics = {}
+name = { en = "Moss Foxes", de = "Moosfüchse" }
+
+[[club]]
+id = "glowowls"
+short = "GLO"
+world = "magicwood"
+rating = 80
+primary = "#a855f7"
+secondary = "#fde68a"
+tactics = { pressing = 0.65, covering = 0.65 }
+name = { en = "Glow Owls", de = "Leuchteulen" }
+
+[[club]]
+id = "nebula"
+short = "NEB"
+world = "space"
+rating = 82
+primary = "#22d3ee"
+secondary = "#1e1b4b"
+tactics = { passing = 0.8, push_up = 0.7 }
+name = { en = "Nebula Narwhals", de = "Nebelnarwale" }
+
+[[club]]
+id = "rocketlynx"
+short = "ROC"
+world = "space"
+rating = 85
+primary = "#ef4444"
+secondary = "#facc15"
+tactics = { shooting = 0.85, push_up = 0.75, pressing = 0.7 }
+name = { en = "Rocket Lynx", de = "Raketenluchse" }
+
+[[club]]
+id = "scorpions"
+short = "DUN"
+world = "oasis"
+rating = 78
+primary = "#f59e0b"
+secondary = "#7c2d12"
+tactics = { pressing = 0.8, shooting = 0.7 }
+name = { en = "Dune Scorpions", de = "Dünenskorpione" }
+
+[[club]]
+id = "falcons"
+short = "MIR"
+world = "oasis"
+rating = 72
+primary = "#14b8a6"
+secondary = "#fef3c7"
+tactics = { passing = 0.4, shooting = 0.4, covering = 0.7 }
+name = { en = "Mirage Falcons", de = "Wüstenfalken" }
+
+[[club]]
+id = "wolves"
+short = "GLW"
+world = "himalaya"
+rating = 70
+primary = "#3b82f6"
+secondary = "#f8fafc"
+tactics = { covering = 0.85, push_up = 0.3, pressing = 0.3 }
+name = { en = "Glacier Wolves", de = "Gletscherwölfe" }
+
+[[club]]
+id = "kraken"
+short = "COR"
+world = "ocean"
+rating = 75
+primary = "#f43f5e"
+secondary = "#fbcfe8"
+tactics = { passing = 0.7, covering = 0.4 }
+name = { en = "Coral Kraken", de = "Korallenkraken" }
+
+# §2.2, §9 — the career.
+[career]
+demo_club = "mossfoxes"          # the demo's team before a career exists (§9)
+created_rating = 77              # the mean of the clubs' ratings, rounded — checked by the generator
+created_replaces = "wolves"      # the weakest club, replaced in the league and cup
+name_min_length = 2
+name_max_length = 16
+short_code_length = 3
+kit_palette_slots = 12           # PLACEHOLDER: the curated kit palette is not designed yet

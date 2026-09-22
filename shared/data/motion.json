@@ -1,5 +1,5 @@
 {
-  "_comment": "Motion tokens (ADR 0005): the 3D UI's springs and fades, read by both platforms so both move the same way. Hand-written until the shared/data generator lands (SMASH-6). Springs are integrated in fixed 1/240 s substeps with semi-implicit Euler: a = -stiffness*(x - target) - damping*v.",
+  "_comment": "Motion tokens (ADR 0005): the 3D UI's springs and fades, read by both platforms so both move the same way. The apps load this file at runtime (Motion.swift, Motion.kt), and tools/generate-data.py also generates it into Tuning.Motion in SmashCore and :core. Springs are integrated in fixed 1/240 s substeps with semi-implicit Euler: a = -stiffness*(x - target) - damping*v.",
   "spring": {
     "bouncy": { "stiffness": 420.0, "damping": 11.0 },
     "soft":   { "stiffness": 160.0, "damping": 18.0 }

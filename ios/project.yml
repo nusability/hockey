@@ -22,10 +22,17 @@ settings:
     MARKETING_VERSION: "0.1"
     CURRENT_PROJECT_VERSION: "1"
 
+# The game's platform-independent core: generated config, deterministic math, the simulation.
+packages:
+  SmashCore:
+    path: SmashCore
+
 targets:
   SmashHockey:
     type: application
     platform: iOS
+    dependencies:
+      - package: SmashCore
     sources:
       - path: Sources
       # Shared assets and data are referenced from shared/, never copied (ADR 0001, 0005).
@@ -67,3 +74,4 @@ schemes:
     test:
       targets:
         - SmashHockeyTests
+        - package: SmashCore/SmashCoreTests

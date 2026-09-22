@@ -1,0 +1,371 @@
+# The simulation's numbers (spec §1, §3–§8, §11), declared once and generated into both apps by
+# tools/generate-data.py. Every value cites its spec section; changing one is a spec change, and
+# where it touches the simulation it moves a golden vector (§4.7).
+#
+# Types are TOML's: an integer is a count or an index, a float is a quantity. Keys become
+# camelCase constants under `Tuning.<Table>` (Swift) / `Tuning.<Table>` (Kotlin).
+
+[time] # §4.1–§4.2
+steps_per_second = 240          # the fixed step is 1/240 s
+steps_per_tick = 2              # a tick is 1/120 s: two steps
+max_real_gap = 0.1              # real-time gaps are clamped to this (s)
+
+[pitch] # §1
+half_width = 15.0               # x
+half_length = 30.0              # z
+goal_line_z = 26.0
+goal_mouth_width = 6.0
+goal_depth = 1.6
+net_frame_margin = 0.15         # the net's frame, for the ball, on every outer side (6.3 × 1.75)
+crease_radius = 3.2
+post_x = 3.0                    # §6.2: posts at x = ±3.0 on each goal line
+post_radius = 0.18
+post_restitution = 0.8
+players_per_side = 6
+faceoff_center = { x = 0.0, z = 0.0 }
+faceoff_neutral = [{ x = -7.0, z = -7.0 }, { x = 7.0, z = -7.0 }, { x = -7.0, z = 7.0 }, { x = 7.0, z = 7.0 }]
+faceoff_end = [{ x = -7.0, z = -20.0 }, { x = 7.0, z = -20.0 }, { x = -7.0, z = 20.0 }, { x = 7.0, z = 20.0 }]
+
+[player] # §2.1, §3
+outfield_radius = 0.8
+goalie_radius = 1.0
+dummy_radius = 0.9              # §10
+rating_origin = 60.0            # skill = clamp((rating − 60) / 30, 0, 1); speed 6.2 + (rating − 60) × 0.045
+skill_span = 30.0
+outfield_speed_base = 6.2
+outfield_speed_per_rating = 0.045
+goalie_top_speed = 4.8
+acceleration_rate = 4.75        # 38/8: velocity approaches the wanted velocity by 1 − exp(−4.75·dt)
+arrive_gain = 6.0               # wanted speed min(top, 6·d)
+arrive_dead_zone = 0.02
+turn_rate = 14.0                # facing turns by angleDiff × min(1, 14·dt)
+turn_min_speed = 0.6
+
+[orbit] # §5.1–§5.2
+radius = 1.5
+demo_period = 2.0               # the orbit period in the demo match
+spin_goal_range = 24.0          # turn toward the goal first within 24 and |x| < 13
+spin_goal_max_x = 13.0
+spin_mate_min_distance = 3.0
+spin_openness_cap = 9.0
+spin_progress_weight = 0.4
+spin_distance_free = 18.0
+spin_distance_weight = 0.5
+pass_window = 0.36              # rad
+lead_velocity_factor = 0.8      # lead position: position + 0.8 × velocity × t
+lead_speed_min = 14.0           # t = distance / max(14, 11 + 0.55 × distance)
+lead_speed_base = 11.0
+lead_speed_per_metre = 0.55
+goal_window = 0.40              # rad
+goal_window_widen = 0.30        # widened by up to 0.30 as the carrier closes from 14 to 0
+goal_window_widen_distance = 14.0
+goal_over_pass_ratio = 0.9      # the goal wins when its angle < 0.9 × the pass's
+goal_force_distance = 9.0       # … or the carrier is within 9 of goal
+
+[release] # §5.3–§5.4
+late_grace = [0.0625, 0.125, 0.1875, 0.25]      # instants looked back at (s)
+early_look = [0.05, 0.10, 0.15, 0.20, 0.25]     # instants looked ahead at (s)
+pending_fallback = 0.06         # unassisted this long after the instant if nothing snaps
+pass_speed_base = 14.0          # clamp(14 + 0.85 × distance, 14, 30)
+pass_speed_per_metre = 0.85
+pass_speed_min = 14.0
+pass_speed_max = 30.0
+pass_noise = 1.6                # noise(1.6 × (1.15 − accuracy))
+pass_noise_offset = 1.15
+pass_expectation = 1.6
+pass_expectation_decay = 0.2
+shot_speed = 30.0
+shot_post_inset = 0.85          # aims at ±(3.0 − 0.85)
+shot_pull = 0.3                 # pulled to 30 % on a 25 % draw
+shot_pull_chance = 0.25
+shot_noise = 1.5                # noise(1.5 × (1.2 − accuracy))
+shot_noise_offset = 1.2
+free_speed = 24.0
+player_accuracy = 1.0
+carrier_velocity_inherit = 0.2
+goal_guard_z = 25.7             # a release point with |z| > 25.7 and |x| < 3.6 …
+goal_guard_x = 3.6
+goal_guard_clamp_z = 25.5       # … is moved to the carrier, z kept within 25.5
+releaser_cooldown = 0.45
+
+[ball] # §6
+max_speed = 30.0
+board_hit_speed = 4.0
+player_restitution = 0.85
+goalie_restitution = 0.35
+pickup_reach_outfield = 1.45
+pickup_reach_goalie_extra = 0.35  # radius + ball radius + 0.35
+pickup_limit_goalie = 9.0
+pickup_limit_own_touch = 27.0
+pickup_limit_other = 17.0
+settle_time = 0.45              # a carrier is safe this long after winning the ball
+steal_reach_outfield = 0.9
+steal_reach_goalie_extra = 0.3  # radius + 0.3
+steal_time = 0.18
+steal_decay_factor = 2.0        # contact is lost twice as fast out of reach
+steal_loser_cooldown = 0.6
+dead_speed = 2.5
+dead_time = 8.0
+dead_slow_factor = 0.2
+whistle_delay = 1.4
+
+[ai] # §7
+think_base = 0.12               # outfield re-think every 0.12 + 0.1u
+think_spread = 0.1
+first_think_spread = 0.2        # first re-think at 0.2u
+
+[ai.loose] # §7.1
+expect_slow_ball = 2.0
+chase_lead = 0.7
+chase_time_max = 1.2
+chase_speed_floor = 1.0
+two_chasers_pressing = 0.75
+two_chasers_distance = 9.0
+two_chasers_loose_time = 1.5
+corner_line_margin = 0.4
+corner_center_x = 4.6
+corner_waypoint_x = 4.6
+corner_waypoint_in_front = 0.6
+
+[ai.challenge] # §7.2
+challengers = 2
+challengers_pressing = 3
+pressing_threshold = 0.75
+commit_time = 0.7
+goal_side_margin = 0.5
+goal_side_route = 7.0
+goal_side_range = 10.0
+press_range_base = 10.0         # (10 + 22 × pressing) × (1 − 0.35 × discipline)
+press_range_per_pressing = 22.0
+press_range_discipline = 0.35
+orbit_lead = 0.3
+
+[ai.defend] # §7.3
+danger_depth_weight = 0.6
+mark_chance_base = 0.35         # 0.35 + 0.6 × covering
+mark_chance_per_covering = 0.6
+mark_distance_base = 1.4        # 1.4 + 3 × (1 − covering)
+mark_distance_per_loose = 3.0
+hold_k = 0.35
+ball_goal_side_trigger = 1.0
+ball_goal_side_offset = 1.5
+
+[ai.support] # §7.4 — slots for a team attacking +Z; a mirror slot's x is absolute (see the spec)
+slots = [
+  { x = 10.0, z = 6.0, role = "F", mirror = true },    # far post / far side, ahead
+  { x = -9.0, z = 2.0, role = "F", mirror = true },    # near-side width, level
+  { x = 2.0, z = 14.0, role = "F", mirror = false },   # highest player, beyond the defence
+  { x = -9.0, z = -8.0, role = "D", mirror = true },   # wide outlet behind
+  { x = 9.0, z = -9.0, role = "D", mirror = true },    # opposite outlet
+  { x = 0.0, z = -15.0, role = "D", mirror = false },  # back of the defence
+]
+depth_base = 0.8                # depth × (0.8 + 0.4 × push up)
+depth_per_push_up = 0.4
+sideline_inset = 2.5
+own_goal_inset = 3.0
+opponent_goal_inset = 5.0
+goal_zone = 7.0
+ball_distance = 7.5
+role_mismatch_cost = 8.0
+crowded_distance = 3.4
+crowded_shift_across = 3.5
+crowded_shift_along = 1.5
+
+[ai.shape] # §7.5
+spot_along_defender = 0.35
+spot_along_forward = 0.55
+spot_push_base = 0.6            # × (0.6 + 0.8 × push up) × 2 × k
+spot_push_per_push_up = 0.8
+spot_push_factor = 2.0
+spot_max_fraction = 0.9
+k_defending = 0.35
+k_supporting = 0.7
+spot_across_defender = 0.3
+spot_across_forward = 0.4
+defender_max_ahead = 2.0
+zone_along_defender = 0.35
+zone_along_forward = 0.5
+zone_push_base = 0.7
+zone_push_per_push_up = 0.6
+zone_across = 0.22
+ball_distance = 7.5
+ball_distance_defending = 5.5
+mate_distance_possession = 6.0
+mate_distance_otherwise = 3.5
+crease_extra = 1.2              # at least 3.2 + 1.2 from the goal centre
+goal_line_min = 2.2
+clamp_x = 13.8
+clamp_z = 28.8
+
+[ai.carrier] # §7.6
+decide_after = 0.15
+rethink_base = 0.2              # 0.2 + 0.15u
+rethink_spread = 0.15
+forced_threat = 2.6
+forced_hold = 3.5
+shoot_range_base = 11.0         # 11 + 11 × shooting
+shoot_range_per_shooting = 11.0
+shoot_max_x = 11.0
+shoot_lane_width = 1.3
+shoot_close = 6.0
+shoot_chance_base = 0.35
+shoot_chance_per_shooting = 0.5
+pass_min = 3.0
+pass_max = 26.0
+pass_openness_cap = 6.0
+pass_openness_weight = 1.2
+pass_progress_weight = 0.35
+pass_lane_width = 1.4
+pass_lane_penalty = 6.0
+pass_own_goal_zone = 5.0
+pass_own_goal_penalty = 10.0
+pass_backward = 6.0
+pass_backward_weight = 0.3
+pass_long = 18.0
+pass_long_weight = 0.4
+pass_noise = 0.8
+pass_threshold = 3.5
+pass_chance_per_passing = 0.3
+pass_chance_threat = 0.45
+pass_chance_threat_distance = 4.0
+pass_chance_held = 0.3
+pass_chance_held_time = 2.0
+forced_shoot_range = 24.0
+align_speed_base = 11.0         # t = distance / clamp(11 + 0.55 × distance, 14, 24)
+align_speed_per_metre = 0.55
+align_speed_min = 14.0
+align_speed_max = 24.0
+align_tolerance_base = 0.22     # 0.22 + 0.12 × (1 − skill), +0.5 with an opponent within 2.2
+align_tolerance_per_unskill = 0.12
+align_tolerance_pressed = 0.5
+align_pressed_distance = 2.2
+accuracy_base = 0.55
+accuracy_per_skill = 0.5
+shot_power_base = 20.0          # 20 + 6 × skill + 2u
+shot_power_per_skill = 6.0
+shot_power_spread = 2.0
+
+[ai.movement] # §7.7
+ahead = 6.0
+swerve_side = 5.0
+swerve_away = 2.0
+swerve_range = 6.0
+dummy_range = 4.5
+dummy_push = 1.5
+goal_approach = 8.5
+goal_approach_side = 4.0
+goal_approach_center_x = 6.0
+goal_approach_pull = 1.2
+
+[ai.goalie] # §7.8
+out_base = 1.2                  # (1.2 + 0.5 × skill) out
+out_per_skill = 0.5
+x_scale = 1.6
+x_limit_extra = 0.4             # ±(3.0 + 0.4)
+front_min = 0.6
+front_max = 2.4
+read_base = 0.16                # 0.16 + 0.2 × (1 − skill)
+read_per_unskill = 0.2
+read_speed = 4.0
+read_aim_factor = 0.9
+read_lead_base = 0.75
+read_lead_per_skill = 0.25
+read_horizon = 2.5
+smother_speed = 7.0
+smother_range = 3.5
+smother_max_x = 6.0
+smother_line = 5.0
+hold_before_pass = 0.4
+openness_cap = 8.0
+blocked_penalty = 5.0
+defender_bonus = 1.0
+pick_noise = 0.5
+release_window = 0.35
+release_timeout = 2.5
+pass_accuracy = 0.9
+
+[match] # §8
+ease_factor = 0.8               # outside play, velocity × 0.8 after the §3 blend
+faceoff_time = 1.3
+faceoff_goalie_out = 1.3
+faceoff_wing_side = 4.5         # slots 1, 2
+faceoff_wing_back = 8.0
+faceoff_inner_side = 5.5        # slots 3, 5
+faceoff_inner_back = 1.4
+faceoff_center_back = 1.5       # slot 4
+faceoff_clamp_x = 13.0
+faceoff_clamp_z = 28.0
+faceoff_goal_line_min = 3.0
+drop_speed = 3.0
+periods = 3
+period_pause = 2.5
+goal_celebration = 3.0
+overtime_pause = 2.5
+countdown_seconds = 5
+forfeit_for = 0
+forfeit_against = 3
+
+[slow_motion] # §8.6
+shot_speed = 8.0
+shot_post_margin = 0.8
+shot_horizon = 0.6
+shot_scale = 0.45
+long_shot = 13.0
+goal_scale = 0.18
+goal_hold = 1.3
+goal_ease_back = 1.3
+ease_rate = 4.0
+goal_ease_rate = 8.0
+leave_goal_min = 0.6
+
+[training] # §10
+ready = 1.4
+goal_reset = 1.6
+lost_reset = 1.2
+player_rating = 76
+opponent_rating = 74
+opponent_rating_outfield = 70   # when the opponents include real defenders or forwards
+opponent_pressing = 0.7
+opposing_goalie = { x = 0.0, z = 24.6 }
+
+[season] # §11
+league_teams = 8
+league_rounds = 14
+points_win = 3
+points_draw = 1
+goal_mean = 2.3                 # 2.3 × exp((home − away) / 22) + 0.15
+goal_mean_scale = 22.0
+home_bonus = 0.15
+
+# §11.1 — the matchday plan, in order: league rounds (1-based, inclusive) and cup rounds.
+[[matchday_block]]
+league = [1, 4]
+[[matchday_block]]
+cup = "quarterFinal"
+[[matchday_block]]
+league = [5, 9]
+[[matchday_block]]
+cup = "semiFinal"
+[[matchday_block]]
+league = [10, 14]
+[[matchday_block]]
+cup = "final"
+
+# §1 — the two sports. The first is the default.
+[[sport]]
+id = "field"
+corner_radius = 2.0
+ball_friction = 0.9
+ball_drag = 0.3
+wall_restitution = 0.6
+ball_radius = 0.36
+ball_kind = "ball"
+
+[[sport]]
+id = "ice"
+corner_radius = 8.5
+ball_friction = 0.45
+ball_drag = 0.2
+wall_restitution = 0.72
+ball_radius = 0.36
+ball_kind = "puck"

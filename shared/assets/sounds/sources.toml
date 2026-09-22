@@ -1,0 +1,680 @@
+# Where every sound file in this directory comes from, and exactly how it was cut from its original.
+# Read by tools/prepare-sounds.py, which fetches each [source] (pinned by sha256), cuts every [[clip]],
+# levels it by its loudness class and encodes it twice (.m4a for iOS, .ogg for Android), then writes
+# LICENSES.md from this file. Nothing in this directory is edited by hand.
+#
+# The licence rule (owner, 2026-09-22): CC0 / public domain first; CC-BY only with its attribution line
+# recorded and flagged; never non-commercial, share-alike, unclear, or ripped audio. Every source below
+# is CC0 1.0 — no attribution is owed (the credits in LICENSES.md are a courtesy, not an obligation).
+#
+# Freesound: the original upload needs a signed-in account to download, so we fetch the public
+# high-quality preview (Ogg Vorbis, ~190 kbit/s) of the same sound. CC0 covers every copy of the work;
+# the preview is lossy, which is inaudible after our own re-encode at game-SFX sizes. To use the
+# lossless original instead, download it from `page`, drop it into .originals/ under the cached name
+# and update `url`/`sha256` — the clip times are the same.
+#
+# Clip fields: `out` (path without extension), `parts` (one or more cuts, [source, start s, end s]
+# with an optional pause before each later part as a fourth element), `class` (loudness class, see
+# [class] below), `offset_db` (level relative to its class target, default 0), `fade` (fade-out
+# seconds, default 0.03), `highpass` (Hz, optional), `stereo` (default false: mono), `note` (what it is, for LICENSES.md). A Kenney part names its file inside
+# the pack's zip; start/end may be omitted to take the whole file.
+
+# Loudness classes: each clip is levelled so its loudest 100 ms (RMS, dBFS) sits at `target`, unless
+# that would push its sample peak over `ceiling` — then the peak wins and the report says so. Impacts
+# are loudest, crowd and stings a little under, the UI well under the match. Loudness of a sound this
+# short is its energy over ~100 ms, so a needle-thin crack reads quiet at a full-scale peak: where a
+# class sets `max_crest` (dB, peak over loudest-100-ms RMS), a look-ahead limiter (0.5 ms attack, 8 ms
+# release) first shaves the peak toward that crest, but by no more than `max_shave` dB, so a crack
+# stays a crack — the report lists how many dB each clip lost. The real field-hockey hits are such
+# needles that they reach the cap and stay a few dB under the class target (tune by ear: gain_db).
+[class.impact]
+target = -18.0
+ceiling = -2.0
+max_crest = 18.0
+max_shave = 6.0
+[class.crowd]
+target = -20.0
+ceiling = -2.0
+[class.whistle]
+target = -19.0
+ceiling = -2.0
+[class.sting]
+target = -20.0
+ceiling = -2.0
+[class.ui]
+target = -24.0
+ceiling = -3.0
+max_crest = 18.0
+max_shave = 6.0
+[class.whoosh]
+target = -26.0
+ceiling = -3.0
+
+# ---------------------------------------------------------------------------------------- sources
+
+[source.kenney-impact]
+title = "Impact Sounds (1.0)"
+author = "Kenney (kenney.nl)"
+page = "https://kenney.nl/assets/impact-sounds"
+url = "https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "029d734af1582474edf3a694d1b0cebc97c1c152f2f39fa34d4c2bafc5de77f8"
+
+[source.kenney-interface]
+title = "Interface Sounds (1.0)"
+author = "Kenney (kenney.nl)"
+page = "https://kenney.nl/assets/interface-sounds"
+url = "https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232"
+
+[source.kenney-ui]
+title = "UI Audio"
+author = "Kenney (kenney.nl)"
+page = "https://kenney.nl/assets/ui-audio"
+url = "https://kenney.nl/media/pages/assets/ui-audio/490d233f68-1677590494/kenney_ui-audio.zip"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "946fc23a63d535d693eb31b2eabb80c8c28d6351e2186b344ceb71b2cb1d5eb6"
+
+[source.kenney-jingles]
+title = "Music Jingles"
+author = "Kenney (kenney.nl)"
+page = "https://kenney.nl/assets/music-jingles"
+url = "https://kenney.nl/media/pages/assets/music-jingles/f37e530b9e-1677590399/kenney_music-jingles.zip"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "b729ba57959bd58793d2c5cafa348aaf2655d354f3da35ec4729e03ec77197b8"
+
+[source.fs-707784]
+title = "Hockey_ball_hit_with_hockey_stick_1"
+author = "TheGreenEyedGhost (freesound.org)"
+page = "https://freesound.org/people/TheGreenEyedGhost/sounds/707784/"
+url = "https://cdn.freesound.org/previews/707/707784_14713637-hq.ogg"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "a57a6b67e538508ec60fe743967c8bc0fabb90c2673c04220be1ea910bef5942"
+about = "A field-hockey ball struck with a hockey stick at different intensities; mono, Zoom H6 + Rode NTG5."
+
+[source.fs-655873]
+title = "Hockey ball.wav"
+author = "KALeigh0218 (freesound.org)"
+page = "https://freesound.org/people/KALeigh0218/sounds/655873/"
+url = "https://cdn.freesound.org/previews/655/655873_13723562-hq.ogg"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "ec701849f6da4136e9080b46226025c6ea04d30fe64c71c4b50b25fb1b3f00b0"
+about = "Taps with a hockey stick, hitting the ball."
+
+[source.fs-450719]
+title = "hockey outdoor puck hit board clean cu.flac"
+author = "kyles (freesound.org)"
+page = "https://freesound.org/people/kyles/sounds/450719/"
+url = "https://cdn.freesound.org/previews/450/450719_612689-hq.ogg"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "d2d04759f189996f869f4b43ade3c8b0b44827b7c31a23cfe88f5a2ee2d1e138"
+about = "Close-up of an ice-hockey puck hitting the boards of an outdoor rink, four clean hits."
+
+[source.fs-568995]
+title = "metal whistle.wav"
+author = "strongbot (freesound.org)"
+page = "https://freesound.org/people/strongbot/sounds/568995/"
+url = "https://cdn.freesound.org/previews/568/568995_313970-hq.ogg"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "fb85406d4295bdba4bee14489dba62048f2d25efa16189960e0f20c5b9b9a5ef"
+about = "A metal whistle blown hard with a tongued attack, several durations; Zoom H5."
+
+[source.fs-131930]
+title = "Industrial Air Horn"
+author = "mcpable (freesound.org)"
+page = "https://freesound.org/people/mcpable/sounds/131930/"
+url = "https://cdn.freesound.org/previews/131/131930_1542102-hq.ogg"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "0d4e23f1b5370d9342b91e9856acc5c4078952d0b657ae1da6c7c03c05e1dcfb"
+about = "An air horn on an oil rig in Alberta, one ~1.7 s blast."
+
+[source.fs-365132]
+title = "Crowd Cheering"
+author = "SoundsExciting (freesound.org)"
+page = "https://freesound.org/people/SoundsExciting/sounds/365132/"
+url = "https://cdn.freesound.org/previews/365/365132_3279490-hq.ogg"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "76e353f9e7f206655740bc1cfbe6372edad13a5765284c3681374c99abfee24b"
+about = "An excited medium-size crowd cheering, clapping and woo-ing; stereo."
+
+[source.fs-430046]
+title = "Crowd cheer.wav"
+author = "BeeProductive (freesound.org)"
+page = "https://freesound.org/people/BeeProductive/sounds/430046/"
+url = "https://cdn.freesound.org/previews/430/430046_4298084-hq.ogg"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "ee16a19687a8d17dfb004609bf5d5024d198a19517ef1262281adc099fb1fba9"
+about = "A medium-size crowd cheering and clapping; stereo."
+
+[source.fs-763880]
+title = "CRWDReac_Crowd Sigh In Disappointment_ShaneVincent_GSC24_XY-AKG214-96k.wav"
+author = "ShangusBurger (freesound.org); recorded by Shane Vincent, GameSoundCon 2024 walla session"
+page = "https://freesound.org/people/ShangusBurger/sounds/763880/"
+url = "https://cdn.freesound.org/previews/763/763880_11744683-hq.ogg"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "c68776c67d1957d0271b03821912f7af17d5d50c82a526d58853aea9c9eef940"
+about = "A medium-size crowd sighing and groaning in disappointment (XY pair, the cleanest of the five mic takes)."
+
+[source.fs-423799]
+title = "Little Whoosh 2"
+author = "ch_ase (freesound.org)"
+page = "https://freesound.org/people/ch_ase/sounds/423799/"
+url = "https://cdn.freesound.org/previews/423/423799_3982955-hq.ogg"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "d492109b72cc366a59b4239396b6bb6a076f1b2130a44ac6feadbdae73002467"
+about = "A soft whoosh made from pitch-shifted wind, ~2 s swell."
+
+[source.fs-449996]
+title = "whoosh_short_mid.wav"
+author = "DJT4NN3R (freesound.org)"
+page = "https://freesound.org/people/DJT4NN3R/sounds/449996/"
+url = "https://cdn.freesound.org/previews/449/449996_3217484-hq.ogg"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "1a157187378438c132eadebe61c14d00db8eeed6d3be88e3de6e7cc0b25ef90d"
+about = "A short, middle-pitched whoosh."
+
+[source.fs-458398]
+title = "Balloon Pop / Christmas cracker / Confetti Cannon"
+author = "Breviceps (freesound.org)"
+page = "https://freesound.org/people/Breviceps/sounds/458398/"
+url = "https://cdn.freesound.org/previews/458/458398_9159316-hq.ogg"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "2f94dbc5ae7ea50afab5181b678c2568a2bf683c5e85e8e83acb26fcccf416f2"
+about = "A popping balloon, recorded with a Zoom H2n; offered for crackers and confetti cannons."
+
+[source.fs-261244]
+title = "Split Flap Display"
+author = "ngruber (freesound.org)"
+page = "https://freesound.org/people/ngruber/sounds/261244/"
+url = "https://cdn.freesound.org/previews/261/261244_2736862-hq.ogg"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "6cdcedbd45268f182bedda5f806802774c6c94da75c42b429dd0b203429a1da4"
+about = "A split-flap display (station board / flip clock) turning; a low hum under it."
+
+# ------------------------------------------------------------------------------------ match: field
+
+[[clip]]
+out = "match/shot-hard-field-1"
+parts = [["fs-707784", 18.120, 18.520]]
+class = "impact"
+fade = 0.12
+note = "hardest hits of the take, 1 of 4"
+[[clip]]
+out = "match/shot-hard-field-2"
+parts = [["fs-707784", 18.670, 19.070]]
+class = "impact"
+fade = 0.12
+note = "hardest hits of the take, 2 of 4"
+[[clip]]
+out = "match/shot-hard-field-3"
+parts = [["fs-707784", 19.165, 19.565]]
+class = "impact"
+fade = 0.12
+note = "hardest hits of the take, 3 of 4"
+[[clip]]
+out = "match/shot-hard-field-4"
+parts = [["fs-707784", 19.690, 20.090]]
+class = "impact"
+fade = 0.12
+note = "hardest hits of the take, 4 of 4"
+
+[[clip]]
+out = "match/shot-medium-field-1"
+parts = [["fs-707784", 12.013, 12.363]]
+class = "impact"
+fade = 0.12
+note = "mid-strength hit"
+[[clip]]
+out = "match/shot-medium-field-2"
+parts = [["fs-707784", 12.721, 13.071]]
+class = "impact"
+fade = 0.12
+note = "mid-strength hit"
+[[clip]]
+out = "match/shot-medium-field-3"
+parts = [["fs-707784", 13.424, 13.774]]
+class = "impact"
+fade = 0.12
+note = "mid-strength hit"
+[[clip]]
+out = "match/shot-medium-field-4"
+parts = [["fs-707784", 14.866, 15.216]]
+class = "impact"
+fade = 0.12
+note = "mid-strength hit"
+
+[[clip]]
+out = "match/shot-soft-field-1"
+parts = [["fs-707784", 8.401, 8.701]]
+class = "impact"
+fade = 0.10
+note = "soft hit"
+[[clip]]
+out = "match/shot-soft-field-2"
+parts = [["fs-707784", 9.014, 9.314]]
+class = "impact"
+fade = 0.10
+note = "soft hit"
+[[clip]]
+out = "match/shot-soft-field-3"
+parts = [["fs-707784", 9.858, 10.158]]
+class = "impact"
+fade = 0.10
+note = "soft hit"
+
+[[clip]]
+out = "match/pass-field-1"
+parts = [["fs-655873", 1.995, 2.265]]
+class = "impact"
+fade = 0.08
+note = "stick tap on the ball"
+[[clip]]
+out = "match/pass-field-2"
+parts = [["fs-655873", 4.006, 4.296]]
+class = "impact"
+fade = 0.08
+note = "stick tap on the ball"
+[[clip]]
+out = "match/pass-field-3"
+parts = [["fs-655873", 9.119, 9.389]]
+class = "impact"
+fade = 0.08
+note = "stick tap on the ball"
+[[clip]]
+out = "match/pass-field-4"
+parts = [["fs-655873", 10.157, 10.427]]
+class = "impact"
+fade = 0.08
+note = "stick tap on the ball"
+
+[[clip]]
+out = "match/receive-field-1"
+parts = [["fs-655873", 1.033, 1.313]]
+class = "impact"
+fade = 0.10
+note = "one of the softer taps"
+[[clip]]
+out = "match/receive-field-2"
+parts = [["fs-655873", 4.310, 4.590]]
+class = "impact"
+fade = 0.10
+note = "one of the softer taps"
+[[clip]]
+out = "match/receive-field-3"
+parts = [["fs-655873", 7.293, 7.573]]
+class = "impact"
+fade = 0.10
+note = "one of the softer taps"
+
+[[clip]]
+out = "match/board-field-1"
+parts = [["kenney-impact", "Audio/impactWood_heavy_000.ogg"]]
+class = "impact"
+note = "heavy wood impact: the ball into a wooden backboard"
+[[clip]]
+out = "match/board-field-2"
+parts = [["kenney-impact", "Audio/impactWood_heavy_002.ogg"]]
+class = "impact"
+note = "heavy wood impact"
+[[clip]]
+out = "match/board-field-3"
+parts = [["kenney-impact", "Audio/impactWood_heavy_003.ogg"]]
+class = "impact"
+note = "heavy wood impact"
+
+[[clip]]
+out = "match/drop-field"
+parts = [["kenney-impact", "Audio/impactSoft_medium_001.ogg"]]
+class = "impact"
+note = "soft short thud: the ball set down on turf"
+
+# -------------------------------------------------------------------------------------- match: ice
+
+[[clip]]
+out = "match/board-ice-1"
+parts = [["fs-450719", 0.334, 0.784]]
+class = "impact"
+fade = 0.15
+note = "puck into the boards, with the boards' rattle"
+[[clip]]
+out = "match/board-ice-2"
+parts = [["fs-450719", 3.936, 4.386]]
+class = "impact"
+fade = 0.15
+note = "puck into the boards"
+[[clip]]
+out = "match/board-ice-3"
+parts = [["fs-450719", 8.002, 8.452]]
+class = "impact"
+fade = 0.15
+note = "puck into the boards"
+[[clip]]
+out = "match/board-ice-4"
+parts = [["fs-450719", 12.796, 13.246]]
+class = "impact"
+fade = 0.15
+note = "puck into the boards"
+
+# Stand-ins: no CC0 close recording of a stick on a puck exists that we could find (freesound, OpenGameArt,
+# Kenney). These are sharper, drier wooden clacks than the field's ball knock — replace when a real
+# puck recording turns up (see the todo in shared/data/sounds.toml). They are fuller than the field's
+# needle-thin cracks, so they sit 6–7 dB under the class to match them.
+[[clip]]
+out = "match/shot-hard-ice-1"
+parts = [["kenney-impact", "Audio/impactPlank_medium_001.ogg"]]
+class = "impact"
+offset_db = -6.0
+note = "stand-in: wooden plank clack"
+[[clip]]
+out = "match/shot-hard-ice-2"
+parts = [["kenney-impact", "Audio/impactPlank_medium_002.ogg"]]
+class = "impact"
+offset_db = -6.0
+note = "stand-in: wooden plank clack"
+[[clip]]
+out = "match/shot-hard-ice-3"
+parts = [["kenney-impact", "Audio/impactPlank_medium_003.ogg"]]
+class = "impact"
+offset_db = -6.0
+note = "stand-in: wooden plank clack"
+[[clip]]
+out = "match/shot-medium-ice-1"
+parts = [["kenney-impact", "Audio/impactWood_medium_000.ogg"]]
+class = "impact"
+offset_db = -7.0
+note = "stand-in: medium wood clack"
+[[clip]]
+out = "match/shot-medium-ice-2"
+parts = [["kenney-impact", "Audio/impactWood_medium_002.ogg"]]
+class = "impact"
+offset_db = -7.0
+note = "stand-in: medium wood clack"
+[[clip]]
+out = "match/shot-medium-ice-3"
+parts = [["kenney-impact", "Audio/impactWood_medium_004.ogg"]]
+class = "impact"
+offset_db = -7.0
+note = "stand-in: medium wood clack"
+[[clip]]
+out = "match/shot-soft-ice-1"
+parts = [["kenney-impact", "Audio/impactWood_medium_001.ogg"]]
+class = "impact"
+offset_db = -7.0
+note = "stand-in: medium wood clack, played quieter"
+[[clip]]
+out = "match/shot-soft-ice-2"
+parts = [["kenney-impact", "Audio/impactWood_medium_003.ogg"]]
+class = "impact"
+offset_db = -7.0
+note = "stand-in: medium wood clack, played quieter"
+[[clip]]
+out = "match/pass-ice-1"
+parts = [["kenney-impact", "Audio/impactWood_light_000.ogg"]]
+class = "impact"
+note = "stand-in: light wood clack"
+[[clip]]
+out = "match/pass-ice-2"
+parts = [["kenney-impact", "Audio/impactWood_light_002.ogg"]]
+class = "impact"
+note = "stand-in: light wood clack"
+[[clip]]
+out = "match/pass-ice-3"
+parts = [["kenney-impact", "Audio/impactWood_light_004.ogg"]]
+class = "impact"
+note = "stand-in: light wood clack"
+[[clip]]
+out = "match/receive-ice-1"
+parts = [["kenney-impact", "Audio/impactSoft_medium_000.ogg"]]
+class = "impact"
+note = "stand-in: soft short thud"
+[[clip]]
+out = "match/receive-ice-2"
+parts = [["kenney-impact", "Audio/impactSoft_medium_002.ogg"]]
+class = "impact"
+note = "stand-in: soft short thud"
+[[clip]]
+out = "match/drop-ice"
+parts = [["kenney-impact", "Audio/impactGeneric_light_001.ogg"]]
+class = "impact"
+note = "light hard tock: the puck dropped on the ice"
+
+# ----------------------------------------------------------------------------------- match: shared
+
+[[clip]]
+out = "match/steal-1"
+parts = [["kenney-impact", "Audio/impactWood_light_001.ogg"]]
+class = "impact"
+note = "light wood clack: stick on stick"
+[[clip]]
+out = "match/steal-2"
+parts = [["kenney-impact", "Audio/impactWood_light_003.ogg"]]
+class = "impact"
+note = "light wood clack: stick on stick"
+
+[[clip]]
+out = "match/block-1"
+parts = [["kenney-impact", "Audio/impactPunch_medium_000.ogg"]]
+class = "impact"
+note = "padded punch: the ball into a training dummy"
+[[clip]]
+out = "match/block-2"
+parts = [["kenney-impact", "Audio/impactPunch_medium_001.ogg"]]
+class = "impact"
+note = "padded punch"
+[[clip]]
+out = "match/block-3"
+parts = [["kenney-impact", "Audio/impactPunch_medium_003.ogg"]]
+class = "impact"
+note = "padded punch"
+
+[[clip]]
+out = "match/save-1"
+parts = [["kenney-impact", "Audio/impactSoft_heavy_000.ogg"]]
+class = "impact"
+note = "heavy soft thud: the keeper's pads"
+[[clip]]
+out = "match/save-2"
+parts = [["kenney-impact", "Audio/impactSoft_heavy_002.ogg"]]
+class = "impact"
+note = "heavy soft thud"
+[[clip]]
+out = "match/save-3"
+parts = [["kenney-impact", "Audio/impactSoft_heavy_003.ogg"]]
+class = "impact"
+note = "heavy soft thud"
+
+[[clip]]
+out = "match/post-1"
+parts = [["kenney-impact", "Audio/impactBell_heavy_002.ogg"]]
+class = "impact"
+fade = 0.15
+note = "struck bell-metal, short ring: off the post"
+[[clip]]
+out = "match/post-2"
+parts = [["kenney-impact", "Audio/impactBell_heavy_003.ogg"]]
+class = "impact"
+fade = 0.15
+note = "struck bell-metal, short ring"
+
+[[clip]]
+out = "match/whistle-short-1"
+parts = [["fs-568995", 9.460, 10.000]]
+class = "whistle"
+fade = 0.06
+note = "one 0.5 s blast"
+[[clip]]
+out = "match/whistle-short-2"
+parts = [["fs-568995", 0.750, 1.330]]
+class = "whistle"
+fade = 0.06
+note = "one 0.55 s blast"
+[[clip]]
+out = "match/whistle-end"
+parts = [["fs-568995", 15.585, 15.800], ["fs-568995", 9.460, 10.000, 0.12], ["fs-568995", 12.700, 13.620, 0.15]]
+class = "whistle"
+fade = 0.08
+note = "three of the take's blasts joined: a pip, a blast and a long blast"
+
+[[clip]]
+out = "match/goal-horn"
+parts = [["fs-131930", 0.280, 2.250]]
+class = "crowd"
+fade = 0.25
+note = "the whole blast"
+[[clip]]
+out = "match/goal-cheer-1"
+parts = [["fs-365132", 0.150, 5.200]]
+class = "crowd"
+fade = 1.6
+stereo = true
+note = "the swell to the peak and a long fade"
+[[clip]]
+out = "match/goal-cheer-2"
+parts = [["fs-430046", 0.000, 4.600]]
+class = "crowd"
+fade = 1.6
+stereo = true
+note = "the swell to the peak and a long fade"
+[[clip]]
+out = "match/goal-against"
+parts = [["fs-763880", 0.600, 3.000]]
+class = "crowd"
+fade = 0.8
+stereo = true
+note = "the first, biggest sigh"
+
+[[clip]]
+out = "match/countdown-tick"
+parts = [["kenney-interface", "Audio/tick_001.ogg"]]
+class = "ui"
+note = "a short bright tick"
+
+[[clip]]
+out = "match/result-win-1"
+parts = [["kenney-jingles", "Audio/Steel jingles/jingles_STEEL02.ogg"]]
+class = "sting"
+fade = 0.1
+note = "steel-drum run up (rising, 1.4 s)"
+[[clip]]
+out = "match/result-win-2"
+parts = [["kenney-jingles", "Audio/Steel jingles/jingles_STEEL10.ogg"]]
+class = "sting"
+fade = 0.1
+note = "steel-drum run up (rising, 0.9 s)"
+[[clip]]
+out = "match/result-lose-1"
+parts = [["kenney-jingles", "Audio/Steel jingles/jingles_STEEL01.ogg"]]
+class = "sting"
+fade = 0.1
+note = "steel-drum run down (falling, 1.4 s)"
+[[clip]]
+out = "match/result-lose-2"
+parts = [["kenney-jingles", "Audio/Steel jingles/jingles_STEEL14.ogg"]]
+class = "sting"
+fade = 0.1
+note = "steel-drum run down (falling, 1.4 s)"
+
+# ---------------------------------------------------------------------------------------------- UI
+
+[[clip]]
+out = "ui/button-press-1"
+parts = [["kenney-ui", "Audio/switch2.ogg"]]
+class = "ui"
+note = "recorded plastic switch click"
+[[clip]]
+out = "ui/button-press-2"
+parts = [["kenney-ui", "Audio/switch6.ogg"]]
+class = "ui"
+note = "recorded plastic switch click"
+[[clip]]
+out = "ui/button-press-3"
+parts = [["kenney-ui", "Audio/switch7.ogg"]]
+class = "ui"
+note = "recorded plastic switch click"
+
+[[clip]]
+out = "ui/digit-flip-1"
+parts = [["fs-261244", 9.620, 9.712]]
+class = "ui"
+fade = 0.02
+highpass = 250
+note = "one flap; high-passed to lose the display's hum"
+[[clip]]
+out = "ui/digit-flip-2"
+parts = [["fs-261244", 10.104, 10.200]]
+class = "ui"
+fade = 0.02
+highpass = 250
+note = "one flap; high-passed"
+[[clip]]
+out = "ui/digit-flip-3"
+parts = [["fs-261244", 10.403, 10.495]]
+class = "ui"
+fade = 0.02
+highpass = 250
+note = "one flap; high-passed"
+
+[[clip]]
+out = "ui/panel-pop-1"
+parts = [["kenney-interface", "Audio/drop_002.ogg"]]
+class = "ui"
+note = "round bubbly pop"
+[[clip]]
+out = "ui/panel-pop-2"
+parts = [["kenney-interface", "Audio/drop_003.ogg"]]
+class = "ui"
+note = "round bubbly pop"
+
+[[clip]]
+out = "ui/whoosh-long"
+parts = [["fs-423799", 0.350, 2.700]]
+class = "whoosh"
+fade = 0.5
+note = "the swell and its tail"
+[[clip]]
+out = "ui/whoosh-short"
+parts = [["fs-449996", 0.050, 0.900]]
+class = "whoosh"
+fade = 0.3
+note = "the whoosh without its trailing air"
+
+[[clip]]
+out = "ui/error-1"
+parts = [["kenney-interface", "Audio/error_006.ogg"]]
+class = "ui"
+note = "low two-note boop"
+[[clip]]
+out = "ui/error-2"
+parts = [["kenney-interface", "Audio/error_005.ogg"]]
+class = "ui"
+note = "low two-note boop"
+
+[[clip]]
+out = "ui/slider-tick"
+parts = [["kenney-interface", "Audio/tick_004.ogg"]]
+class = "ui"
+note = "a soft, low tick"
+
+[[clip]]
+out = "ui/confetti-pop"
+parts = [["fs-458398", 0.000, 0.354]]
+class = "ui"
+fade = 0.05
+note = "the whole pop"

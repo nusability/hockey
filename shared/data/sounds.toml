@@ -1,0 +1,297 @@
+# The game's sound events: which files each one plays and how. Declared once for both apps.
+#
+# Files live in shared/assets/sounds/, named here by path without extension: iOS bundles `<name>.m4a`
+# (AAC-LC), Android `<name>.ogg` (Vorbis). All are 44.1 kHz, mono unless noted, and already levelled by
+# their loudness class (shared/assets/sounds/sources.toml [class]) — impacts loudest, the crowd, the
+# whistle and the stings a few dB under, the UI well under the match. Where each file comes from and
+# its licence: shared/assets/sounds/LICENSES.md (all CC0). tools/prepare-sounds.py makes the files and
+# `--check` proves every name below exists in both formats.
+#
+# Per event:
+#   category         mixing bus: match | ui | ambience (a volume setting per bus is the apps' call)
+#   when             when it plays — the web prototype's trigger (web/js/main.js) where it had one
+#   files            variants for both sports; or `field` and `ice` when the two sound different
+#   gain_db          playback gain on top of the file's level (0.0 = as levelled)
+#   pitch_semitones  each play picks a pitch uniformly in ±this (0.0 = never varied), so repeats don't grate
+#   max_voices       how many of this event may sound at once; a new play past it steals the oldest
+#   priority         0–100: when the whole voice pool is full, a play steals from a lower priority
+#   todo             present when a slot is deliberately left empty or holds a stand-in
+# Variants are picked at random, never the same one twice in a row when there are two or more.
+
+version = 1
+
+[category.match]
+[category.ui]
+[category.ambience]
+
+# ------------------------------------------------------------------------------------------ match
+
+[event."match.shot.soft"]
+category = "match"
+when = "a shot is struck, slowest third of shot speeds (prototype shot(speed): speed 12–30 scales the crack)"
+field = ["match/shot-soft-field-1", "match/shot-soft-field-2", "match/shot-soft-field-3"]
+ice = ["match/shot-soft-ice-1", "match/shot-soft-ice-2"]
+gain_db = -3.0
+pitch_semitones = 0.8
+max_voices = 2
+priority = 70
+todo = "ice: stand-in wooden clacks until a CC0 close recording of a stick on a puck is found"
+
+[event."match.shot.medium"]
+category = "match"
+when = "a shot is struck, middle third of shot speeds"
+field = ["match/shot-medium-field-1", "match/shot-medium-field-2", "match/shot-medium-field-3", "match/shot-medium-field-4"]
+ice = ["match/shot-medium-ice-1", "match/shot-medium-ice-2", "match/shot-medium-ice-3"]
+gain_db = -1.5
+pitch_semitones = 0.8
+max_voices = 2
+priority = 75
+todo = "ice: stand-in wooden clacks until a CC0 close recording of a stick on a puck is found"
+
+[event."match.shot.hard"]
+category = "match"
+when = "a shot is struck, fastest third of shot speeds"
+field = ["match/shot-hard-field-1", "match/shot-hard-field-2", "match/shot-hard-field-3", "match/shot-hard-field-4"]
+ice = ["match/shot-hard-ice-1", "match/shot-hard-ice-2", "match/shot-hard-ice-3"]
+gain_db = 0.0
+pitch_semitones = 0.6
+max_voices = 2
+priority = 80
+todo = "ice: stand-in wooden clacks until a CC0 close recording of a stick on a puck is found"
+
+[event."match.pass"]
+category = "match"
+when = "a pass is played (either team): lighter and drier than a shot"
+field = ["match/pass-field-1", "match/pass-field-2", "match/pass-field-3", "match/pass-field-4"]
+ice = ["match/pass-ice-1", "match/pass-ice-2", "match/pass-ice-3"]
+gain_db = -7.0
+pitch_semitones = 1.0
+max_voices = 3
+priority = 60
+todo = "ice: stand-in light wooden clacks until a CC0 puck-on-stick recording is found"
+
+[event."match.receive"]
+category = "match"
+when = "a player of the player's own team takes possession (prototype: possess, team 0 only)"
+field = ["match/receive-field-1", "match/receive-field-2", "match/receive-field-3"]
+ice = ["match/receive-ice-1", "match/receive-ice-2"]
+gain_db = -10.0
+pitch_semitones = 1.0
+max_voices = 2
+priority = 40
+todo = "ice: stand-in soft thuds until a CC0 puck-on-stick recording is found"
+
+[event."match.board"]
+category = "match"
+when = "the ball or puck hits the boards / backboard"
+field = ["match/board-field-1", "match/board-field-2", "match/board-field-3"]
+ice = ["match/board-ice-1", "match/board-ice-2", "match/board-ice-3", "match/board-ice-4"]
+gain_db = -3.0
+pitch_semitones = 1.0
+max_voices = 3
+priority = 55
+
+[event."match.block"]
+category = "match"
+when = "the ball hits a drill dummy (prototype: block)"
+files = ["match/block-1", "match/block-2", "match/block-3"]
+gain_db = -4.0
+pitch_semitones = 1.0
+max_voices = 2
+priority = 55
+
+[event."match.post"]
+category = "match"
+when = "the ball rings off the post (with the camera shake)"
+files = ["match/post-1", "match/post-2"]
+gain_db = -1.0
+pitch_semitones = 0.5
+max_voices = 1
+priority = 85
+
+[event."match.save"]
+category = "match"
+when = "the keeper saves"
+files = ["match/save-1", "match/save-2", "match/save-3"]
+gain_db = -2.0
+pitch_semitones = 0.8
+max_voices = 1
+priority = 85
+
+[event."match.steal"]
+category = "match"
+when = "the ball is lost to a tackle (either team)"
+files = ["match/steal-1", "match/steal-2"]
+gain_db = -5.0
+pitch_semitones = 1.5
+max_voices = 2
+priority = 60
+
+[event."match.whistle.short"]
+category = "match"
+when = "play is whistled dead: a goal, a loose-ball stoppage, a drill lost"
+files = ["match/whistle-short-1", "match/whistle-short-2"]
+gain_db = 0.0
+pitch_semitones = 0.2
+max_voices = 1
+priority = 90
+
+[event."match.whistle.end"]
+category = "match"
+when = "a period ends, and full time (a pip, a blast and a long blast)"
+files = ["match/whistle-end"]
+gain_db = 0.0
+pitch_semitones = 0.0
+max_voices = 1
+priority = 95
+
+[event."match.faceoff.drop"]
+category = "match"
+when = "the ball is put down / the puck is dropped at a face-off; a drill starts (prototype: drop, go)"
+field = ["match/drop-field"]
+ice = ["match/drop-ice"]
+gain_db = -6.0
+pitch_semitones = 0.5
+max_voices = 1
+priority = 50
+
+[event."match.goal.horn"]
+category = "match"
+when = "the player's team scores — with match.goal.cheer at the same moment"
+files = ["match/goal-horn"]
+gain_db = -2.0
+pitch_semitones = 0.0
+max_voices = 1
+priority = 100
+
+[event."match.goal.cheer"]
+category = "match"
+when = "the player's team scores — the crowd's swell under the horn (stereo)"
+files = ["match/goal-cheer-1", "match/goal-cheer-2"]
+gain_db = 0.0
+pitch_semitones = 0.0
+max_voices = 1
+priority = 100
+
+[event."match.goal.against"]
+category = "match"
+when = "the other team scores — the crowd's disappointed sigh (stereo)"
+files = ["match/goal-against"]
+gain_db = -1.0
+pitch_semitones = 0.0
+max_voices = 1
+priority = 100
+
+[event."match.countdown.tick"]
+category = "match"
+when = "each of the last 5 seconds of a period (5, 4, 3, 2, 1)"
+files = ["match/countdown-tick"]
+gain_db = 0.0
+pitch_semitones = 0.0
+max_voices = 1
+priority = 90
+
+[event."match.result.win"]
+category = "match"
+when = "a match is won or a drill completed, 1.3 s after the final whistle"
+files = ["match/result-win-1", "match/result-win-2"]
+gain_db = 0.0
+pitch_semitones = 0.0
+max_voices = 1
+priority = 100
+
+[event."match.result.lose"]
+category = "match"
+when = "a match is lost or a drill runs out of time, 1.3 s after the final whistle"
+files = ["match/result-lose-1", "match/result-lose-2"]
+gain_db = 0.0
+pitch_semitones = 0.0
+max_voices = 1
+priority = 100
+
+# --------------------------------------------------------------------------------------------- UI
+
+[event."ui.button.press"]
+category = "ui"
+when = "a 3D menu button is pressed"
+files = ["ui/button-press-1", "ui/button-press-2", "ui/button-press-3"]
+gain_db = 0.0
+pitch_semitones = 0.5
+max_voices = 2
+priority = 70
+
+[event."ui.digit.flip"]
+category = "ui"
+when = "a flip digit (score, clock, coins) turns one step"
+files = ["ui/digit-flip-1", "ui/digit-flip-2", "ui/digit-flip-3"]
+gain_db = -3.0
+pitch_semitones = 0.7
+max_voices = 4
+priority = 40
+
+[event."ui.panel.pop"]
+category = "ui"
+when = "a panel or card pops into the scene"
+files = ["ui/panel-pop-1", "ui/panel-pop-2"]
+gain_db = 0.0
+pitch_semitones = 0.5
+max_voices = 2
+priority = 60
+
+[event."ui.camera.whoosh.long"]
+category = "ui"
+when = "the camera swoops between screens (a move of about a second or more)"
+files = ["ui/whoosh-long"]
+gain_db = 0.0
+pitch_semitones = 0.7
+max_voices = 1
+priority = 50
+
+[event."ui.camera.whoosh.short"]
+category = "ui"
+when = "a quick camera move or a panel sweeping past (under half a second)"
+files = ["ui/whoosh-short"]
+gain_db = 0.0
+pitch_semitones = 0.7
+max_voices = 1
+priority = 50
+
+[event."ui.error"]
+category = "ui"
+when = "a tap that cannot be done: locked, not enough coins, invalid (the 'nope')"
+files = ["ui/error-1", "ui/error-2"]
+gain_db = 0.0
+pitch_semitones = 0.0
+max_voices = 1
+priority = 80
+
+[event."ui.slider.tick"]
+category = "ui"
+when = "a slider or dial passes a detent"
+files = ["ui/slider-tick"]
+gain_db = -2.0
+pitch_semitones = 0.3
+max_voices = 3
+priority = 30
+
+[event."ui.confetti.pop"]
+category = "ui"
+when = "confetti bursts (goal, win, unlock)"
+files = ["ui/confetti-pop"]
+gain_db = 0.0
+pitch_semitones = 1.0
+max_voices = 2
+priority = 60
+
+# --------------------------------------------------------------------------------------- ambience
+
+[event."ambience.crowd"]
+category = "ambience"
+when = "a quiet crowd bed looped under a match, one per sport"
+field = []
+ice = []
+gain_db = 0.0
+pitch_semitones = 0.0
+max_voices = 1
+priority = 20
+todo = "optional for now: no CC0 crowd bed found that loops cleanly without PA music or intelligible words"

@@ -13,23 +13,121 @@
 # and §12). Engine banners got proper keys (event.*).
 
 [copy]
-# The spike's keys (SMASH-2), kept.
 "app.name" = { en = "Smash Hockey 3D", de = "Smash Hockey 3D" }
-"play.button" = { en = "PLAY", de = "SPIELEN" }
-"umlaut.probe" = { en = "Übung · Größe", de = "Übung · Größe", comment = "Spike probe (SMASH-2): glyphs with holes and umlauts, rendered as 3D text." }
 
-# Menu
-"menu.training" = { en = "Training", de = "Training" }
-"menu.continue" = { en = "Continue season", de = "Saison fortsetzen" }
-"menu.newSeason" = { en = "Start season", de = "Saison starten" }
-"menu.newSeason2" = { en = "Start a new season", de = "Neue Saison starten" }
-"menu.quick" = { en = "Quick match", de = "Schnelles Spiel" }
-"menu.coach" = { en = "Coach & settings", de = "Trainer & Einstellungen" }
-"menu.help" = { en = "How to play", de = "Spielanleitung" }
-"menu.tagline" = { en = "One finger. Six players. One goal.", de = "Ein Finger. Sechs Spieler. Ein Tor." }
-"menu.trophies" = { en = "League titles: {league} · Cups: {cup}", de = "Meistertitel: {league} · Pokale: {cup}" }
-"menu.back" = { en = "Back", de = "Zurück" }
-"menu.menu" = { en = "Menu", de = "Menü" }
+# Everywhere (spec §16). Buttons and headings are capitals: the 3D lettering is Lilita One.
+"common.back" = { en = "BACK", de = "ZURÜCK" }
+
+# The title (§16.2)
+"title.logo.top" = { en = "SMASH", de = "SMASH" }
+"title.logo.bottom" = { en = "HOCKEY", de = "HOCKEY" }
+"title.tagline" = { en = "One finger. Six players. One goal.", de = "Ein Finger. Sechs Spieler. Ein Tor." }
+"title.continue" = { en = "CONTINUE SEASON", de = "SAISON WEITER" }
+"title.nextSeason" = { en = "NEXT SEASON", de = "NÄCHSTE SAISON" }
+"title.training" = { en = "TRAINING", de = "TRAINING" }
+"title.quick" = { en = "QUICK MATCH", de = "SCHNELLES SPIEL" }
+"title.coach" = { en = "COACH", de = "TAKTIK" }
+"title.help" = { en = "HOW TO PLAY", de = "SO GEHT'S" }
+"title.trophies" = { en = "{league} TITLES · {cups} CUPS", de = "{league} TITEL · {cups} POKALE" }
+
+# First launch: choosing the team (§16.1, §2.2)
+"team.title" = { en = "YOUR TEAM", de = "DEIN TEAM" }
+"team.pick" = { en = "PICK A CLUB", de = "VEREIN WÄHLEN" }
+"team.create" = { en = "CREATE A TEAM", de = "TEAM GRÜNDEN" }
+"team.confirm" = { en = "PLAY FOR {team}", de = "SPIELE FÜR {team}" }
+"team.choose" = { en = "TAP A CLUB", de = "TIPP EINEN VEREIN AN" }
+"team.name" = { en = "NAME", de = "NAME" }
+"team.nameEmpty" = { en = "TAP TO TYPE", de = "ZUM TIPPEN" }
+"team.code" = { en = "CODE", de = "KÜRZEL" }
+"team.shirt" = { en = "SHIRT", de = "TRIKOT" }
+"team.trim" = { en = "TRIM", de = "BESATZ" }
+"team.home" = { en = "HOME", de = "HEIMAT" }
+"team.strength" = { en = "Strength {rating}", de = "Stärke {rating}", comment = "Accessibility: a club card's strength bar." }
+"team.preview" = { en = "Your kit", de = "Dein Trikot", comment = "Accessibility: the preview disk wearing the kit." }
+"team.issue.nameTooShort" = { en = "NAME: 2 LETTERS AT LEAST", de = "NAME: MINDESTENS 2 ZEICHEN" }
+"team.issue.nameTooLong" = { en = "NAME: 16 AT MOST", de = "NAME: HÖCHSTENS 16 ZEICHEN" }
+"team.issue.shortCodeNotThreeLetters" = { en = "CODE: THREE LETTERS A–Z", de = "KÜRZEL: DREI BUCHSTABEN A–Z" }
+"team.issue.shortCodeIsAClubs" = { en = "CODE: A CLUB HAS IT", de = "KÜRZEL: SCHON VERGEBEN" }
+"team.issue.primaryNotInPalette" = { en = "PICK A SHIRT", de = "WÄHLE EIN TRIKOT" }
+"team.issue.secondaryNotInPalette" = { en = "PICK A TRIM", de = "WÄHLE EINEN BESATZ" }
+
+# The season hub (§16.3)
+"hub.header" = { en = "MATCHDAY {m} OF {total}", de = "SPIELTAG {m} VON {total}" }
+"hub.league" = { en = "LEAGUE · ROUND {n}", de = "LIGA · RUNDE {n}" }
+"hub.cup" = { en = "CUP · {round}", de = "POKAL · {round}" }
+"hub.quarterFinal" = { en = "QUARTER-FINAL", de = "VIERTELFINALE" }
+"hub.semiFinal" = { en = "SEMI-FINAL", de = "HALBFINALE" }
+"hub.final" = { en = "FINAL", de = "FINALE" }
+"hub.vs" = { en = "VS", de = "GEGEN" }
+"hub.play" = { en = "PLAY MATCH", de = "ANPFIFF" }
+"hub.table" = { en = "TABLE", de = "TABELLE" }
+"hub.cupTab" = { en = "CUP", de = "POKAL" }
+"hub.over" = { en = "THE SEASON IS OVER", de = "DIE SAISON IST VORBEI" }
+"hub.champion" = { en = "CHAMPION", de = "MEISTER" }
+"hub.cupWinner" = { en = "CUP WINNER", de = "POKALSIEGER" }
+"hub.place" = { en = "YOU FINISHED {pos}", de = "DU WURDEST {pos}" }
+"hub.nextSeason" = { en = "START NEXT SEASON", de = "NÄCHSTE SAISON STARTEN" }
+"table.team" = { en = "TEAM", de = "TEAM" }
+"table.played" = { en = "P", de = "SP" }
+"table.gd" = { en = "GD", de = "TD" }
+"table.points" = { en = "PTS", de = "PKT" }
+"ord.1" = { en = "1ST", de = "ERSTER" }
+"ord.2" = { en = "2ND", de = "ZWEITER" }
+"ord.3" = { en = "3RD", de = "DRITTER" }
+"ord.n" = { en = "{n}TH", de = "{n}." }
+
+# The match (§16.4)
+"hud.ot" = { en = "OT", de = "VL" }
+"hud.period" = { en = "Period {n}", de = "Drittel {n}", comment = "Accessibility: the HUD's period pips." }
+"hud.pause" = { en = "Pause", de = "Pause", comment = "Accessibility: the HUD's pause button." }
+"hud.goals" = { en = "Goals", de = "Tore", comment = "Accessibility: a drill's goals of its target." }
+"match.score.home" = { en = "Your score", de = "Deine Tore" }
+"match.score.away" = { en = "Their score", de = "Gegentore" }
+"match.clock" = { en = "Clock", de = "Uhr" }
+"pause.title" = { en = "PAUSED", de = "PAUSE" }
+"pause.resume" = { en = "RESUME", de = "WEITER" }
+"pause.quit" = { en = "QUIT", de = "AUFHÖREN" }
+"pause.forfeit" = { en = "QUITTING LOSES IT 0–3", de = "AUFHÖREN ZÄHLT 0:3" }
+
+# The result (§16.5)
+"result.win" = { en = "VICTORY!", de = "SIEG!" }
+"result.loss" = { en = "DEFEAT", de = "NIEDERLAGE" }
+"result.draw" = { en = "DRAW", de = "UNENTSCHIEDEN" }
+"result.drillWon" = { en = "DRILL DONE!", de = "GESCHAFFT!" }
+"result.timeUp" = { en = "TIME'S UP", de = "ZEIT UM" }
+"result.fulltime" = { en = "FULL TIME", de = "ABPFIFF" }
+"result.ot" = { en = "IN OVERTIME", de = "IN DER VERLÄNGERUNG" }
+"result.score" = { en = "Final score", de = "Endstand" }
+"result.hub" = { en = "TO THE SEASON", de = "ZUR SAISON" }
+"result.title" = { en = "MENU", de = "MENÜ" }
+"result.again" = { en = "AGAIN", de = "NOCHMAL" }
+"result.nextDrill" = { en = "NEXT DRILL", de = "NÄCHSTE ÜBUNG" }
+"result.drills" = { en = "ALL DRILLS", de = "ALLE ÜBUNGEN" }
+
+# Training (§16.6)
+"training.title" = { en = "TRAINING", de = "TRAINING" }
+"training.progress" = { en = "{done} OF {total} DONE", de = "{done} VON {total} GESCHAFFT" }
+"training.drill" = { en = "DRILL {n}", de = "ÜBUNG {n}" }
+"training.goalsIn" = { en = "{goals} GOALS · {time} S", de = "{goals} TORE · {time} S" }
+"training.none" = { en = "NO OPPONENTS", de = "KEINE GEGNER" }
+"training.goalie" = { en = "GOALIE", de = "TORWART" }
+"training.dummies" = { en = "DUMMIES", de = "DUMMYS" }
+"training.defenders" = { en = "DEFENDERS", de = "VERTEIDIGER" }
+"training.won" = { en = "WON", de = "GESCHAFFT" }
+"training.locked" = { en = "LOCKED", de = "GESPERRT" }
+"training.start" = { en = "START", de = "LOS" }
+
+# The coach's board (§16.7, §12)
+"coach.title" = { en = "COACH'S BOARD", de = "TRAINERTAFEL" }
+"coach.pressing" = { en = "PRESSING", de = "PRESSING" }
+"coach.covering" = { en = "COVERING", de = "DECKUNG" }
+"coach.pushUp" = { en = "PUSH UP", de = "AUFRÜCKEN" }
+"coach.discipline" = { en = "DISCIPLINE", de = "DISZIPLIN" }
+"coach.formation" = { en = "FORMATION", de = "AUFSTELLUNG" }
+"coach.period" = { en = "PERIOD", de = "DRITTEL" }
+"coach.spin" = { en = "BALL SPIN", de = "BALLDREHUNG" }
+"coach.seconds" = { en = "{s} S", de = "{s} S" }
+"coach.reset" = { en = "RESET", de = "ZURÜCKSETZEN" }
 
 # How to play
 "help.title" = { en = "How to play", de = "Spielanleitung" }
@@ -39,101 +137,13 @@
 "help.4" = { en = "Defenders who reach your carrier steal the ball. Keep it moving: pass, pass, shoot.", de = "Verteidiger, die deinen Ballführer erreichen, stehlen den Ball. Halte ihn in Bewegung: passen, passen, schießen." }
 "help.5" = { en = "Start with Training: the first drills have no opponents, then dummies, then defenders that get faster each level.", de = "Beginne mit dem Training: Die ersten Übungen haben keine Gegner, dann Dummys, dann Verteidiger, die mit jedem Level schneller werden." }
 "help.6" = { en = "The season has a league and a cup, played in five worlds. Your team's automatic play follows the tactics on the coach's board.", de = "Die Saison hat eine Liga und einen Pokal, gespielt in fünf Welten. Das automatische Spiel deines Teams folgt der Taktik auf der Trainertafel." }
+"help.next" = { en = "NEXT", de = "WEITER" }
+"help.done" = { en = "GOT IT", de = "ALLES KLAR" }
 
-# Training
-"training.title" = { en = "Training", de = "Training" }
-"training.progress" = { en = "{done} of {total} drills done", de = "{done} von {total} Übungen geschafft" }
-"training.drill" = { en = "Drill {n}", de = "Übung {n}" }
-"training.goalsIn" = { en = "Score {goals} goals in {time} seconds.", de = "Erziele {goals} Tore in {time} Sekunden." }
-"training.start" = { en = "Start", de = "Los" }
-"training.next" = { en = "Next drill", de = "Nächste Übung" }
-"training.again" = { en = "Play again", de = "Nochmal spielen" }
-"training.retry" = { en = "Try again", de = "Nochmal versuchen" }
-"training.all" = { en = "All drills", de = "Alle Übungen" }
-"training.done" = { en = "DRILL DONE!", de = "ÜBUNG GESCHAFFT!" }
-"training.timeUp" = { en = "TIME'S UP", de = "ZEIT ABGELAUFEN" }
-"training.nice" = { en = "Nice work.", de = "Gut gemacht." }
-"training.scored" = { en = "You scored {n} of {goals}.", de = "Du hast {n} von {goals} Toren erzielt." }
-"training.none" = { en = "No opponents", de = "Keine Gegner" }
-"training.defenders" = { en = "Defenders", de = "Verteidiger" }
-"training.dummies" = { en = "Dummies", de = "Dummys" }
-"training.goalie" = { en = "Goalie", de = "Torwart" }
-"training.world" = { en = "World: {world}", de = "Welt: {world}" }
-
-# The coach's board
-"coach.title" = { en = "Coach's board", de = "Trainertafel" }
-"coach.intro" = { en = "Tactics shape how your automatic players behave.", de = "Die Taktik bestimmt, wie sich deine automatischen Spieler verhalten." }
-"coach.pressing" = { en = "Pressing", de = "Pressing" }
-"coach.pressingHint" = { en = "chase the ball carrier", de = "den Ballführer jagen" }
-"coach.covering" = { en = "Covering", de = "Deckung" }
-"coach.coveringHint" = { en = "mark opponents tightly", de = "Gegner eng markieren" }
-"coach.pushUp" = { en = "Push up", de = "Aufrücken" }
-"coach.pushUpHint" = { en = "how high the team plays", de = "wie hoch das Team steht" }
-"coach.settings" = { en = "Settings", de = "Einstellungen" }
-"coach.period" = { en = "Period length", de = "Drittellänge" }
-"coach.formation" = { en = "Formation", de = "Aufstellung" }
-"coach.formationHint" = { en = "where your players line up", de = "wo deine Spieler stehen" }
-"coach.discipline" = { en = "Discipline", de = "Disziplin" }
-"coach.disciplineHint" = { en = "how strictly they hold that shape", de = "wie strikt sie die Form halten" }
-"coach.free" = { en = "free", de = "frei" }
-"coach.strict" = { en = "strict", de = "strikt" }
-"coach.tactics" = { en = "Tactics", de = "Taktik" }
-"coach.spin" = { en = "Ball spin", de = "Balldrehung" }
-"coach.spinHint" = { en = "slower is easier · {s} s per turn", de = "langsamer ist leichter · {s} s pro Umdrehung" }
-"coach.reset" = { en = "Reset", de = "Zurücksetzen" }
-"coach.save" = { en = "Save", de = "Speichern" }
-
-# The season
-"season.next" = { en = "Next match", de = "Nächstes Spiel" }
-"season.league" = { en = "League", de = "Liga" }
-"season.cup" = { en = "Cup", de = "Pokal" }
-"season.season" = { en = "Season {n}", de = "Saison {n}" }
-"season.round" = { en = "League · Round {n}", de = "Liga · Spieltag {n}" }
-"season.cupRound" = { en = "Cup · {round}", de = "Pokal · {round}" }
-"season.home" = { en = "Home", de = "Heim" }
-"season.away" = { en = "Away", de = "Auswärts" }
-"season.play" = { en = "Play match", de = "Spiel starten" }
-"season.recent" = { en = "Recent results", de = "Letzte Ergebnisse" }
-"season.matchday" = { en = "Season {n} · Matchday {m} of {total}", de = "Saison {n} · Spieltag {m} von {total}" }
-"season.tbd" = { en = "To be decided", de = "Noch offen" }
-"season.over" = { en = "Season {n} is over", de = "Saison {n} ist vorbei" }
-"season.champion" = { en = "League champion:", de = "Meister:" }
-"season.cupWinner" = { en = "Cup winner:", de = "Pokalsieger:" }
-"season.you" = { en = " — that's you!", de = " — das bist du!" }
-"season.finished" = { en = "You finished {pos} in the league.", de = "Du hast die Liga als {pos} beendet." }
-"season.nextSeason" = { en = "Start next season", de = "Nächste Saison starten" }
-"season.qf" = { en = "Quarter-final", de = "Viertelfinale" }
-"season.sf" = { en = "Semi-final", de = "Halbfinale" }
-"season.f" = { en = "Final", de = "Finale" }
-"season.friendly" = { en = "Friendly", de = "Freundschaftsspiel" }
-"season.friendlyVs" = { en = "Friendly vs {team}", de = "Freundschaftsspiel gegen {team}" }
-"table.team" = { en = "Team", de = "Team" }
-"table.p" = { en = "P", de = "Sp" }
-"table.w" = { en = "W", de = "S" }
-"table.d" = { en = "D", de = "U" }
-"table.l" = { en = "L", de = "N" }
-"table.gd" = { en = "GD", de = "TD" }
-"table.pts" = { en = "Pts", de = "Pkt" }
-"ord.1" = { en = "1st", de = "1." }
-"ord.2" = { en = "2nd", de = "2." }
-"ord.3" = { en = "3rd", de = "3." }
-"ord.n" = { en = "{n}th", de = "{n}." }
-
-# The match
-"result.draw" = { en = "DRAW", de = "UNENTSCHIEDEN" }
-"result.win" = { en = "VICTORY!", de = "SIEG!" }
-"result.loss" = { en = "DEFEAT", de = "NIEDERLAGE" }
-"result.ot" = { en = "Decided in overtime", de = "Entschieden in der Verlängerung" }
-"result.shots" = { en = "Shots", de = "Schüsse" }
-"result.passes" = { en = "Passes", de = "Pässe" }
-"result.steals" = { en = "Steals", de = "Ballgewinne" }
-"result.continue" = { en = "Continue", de = "Weiter" }
-"pause.title" = { en = "Paused", de = "Pause" }
-"pause.resume" = { en = "Resume", de = "Weiterspielen" }
-"pause.quit" = { en = "Quit match", de = "Spiel beenden" }
-"hud.goals" = { en = "GOALS", de = "TORE" }
-"hud.of" = { en = "of {n}", de = "von {n}" }
-"hud.vs" = { en = "{a} vs {b}", de = "{a} gegen {b}" }
+# A save that cannot be read (§15)
+"refused.title" = { en = "SAVE UNREADABLE", de = "SPIELSTAND DEFEKT" }
+"refused.body" = { en = "Your saved game could not be read. It stays on this phone, untouched. Start over with a new one.", de = "Dein Spielstand ließ sich nicht lesen. Er bleibt unverändert auf diesem Handy. Fang mit einem neuen an." }
+"refused.startOver" = { en = "START OVER", de = "NEU ANFANGEN" }
 
 # Banners the match and the drills raise
 "event.goal" = { en = "GOAL!", de = "TOR!" }
@@ -153,24 +163,3 @@
 "event.passFirst" = { en = "PASS FIRST!", de = "ERST PASSEN!" }
 "event.wrongNet" = { en = "WRONG GOAL!", de = "FALSCHES TOR!" }
 "event.reset" = { en = "RESET", de = "NEUSTART" }
-
-# The 3D UI kit's motion sketch (SMASH-5) — screens not yet specified; keys move into their
-# screens' sections when those screens are built for real.
-"title.logo.top" = { en = "SMASH", de = "SMASH" }
-"title.logo.bottom" = { en = "HOCKEY", de = "HOCKEY" }
-"title.training" = { en = "TRAINING", de = "TRAINING" }
-"title.coach" = { en = "COACH", de = "TAKTIK" }
-"hub.header" = { en = "SEASON 1 · MATCHDAY 5", de = "SAISON 1 · SPIELTAG 5" }
-"hub.vs" = { en = "VS", de = "GEGEN" }
-"hub.fixture" = { en = "LEAGUE · DESERT OASIS", de = "LIGA · WÜSTENOASE" }
-"hub.play" = { en = "PLAY MATCH", de = "ANPFIFF" }
-"hub.back" = { en = "BACK", de = "ZURÜCK" }
-"table.played" = { en = "P", de = "SP" }
-"table.points" = { en = "PTS", de = "PKT" }
-"match.score.home" = { en = "Home score", de = "Tore Heim" }
-"match.score.away" = { en = "Away score", de = "Tore Gast" }
-"match.clock" = { en = "Clock", de = "Uhr" }
-"match.goal" = { en = "GOAL!", de = "TOR!" }
-"match.fulltime" = { en = "FULL TIME", de = "ABPFIFF" }
-"result.score" = { en = "Final score", de = "Endstand" }
-"coach.pushup" = { en = "PUSH UP", de = "AUFRÜCKEN" }

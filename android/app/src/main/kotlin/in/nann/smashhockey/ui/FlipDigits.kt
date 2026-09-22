@@ -86,7 +86,7 @@ class FlipDigits(
 ) : Semantic, Presentable {
     override val node = kit.node(null)
     val body = kit.node(node)
-    val rest = Xform()
+    override val rest = Xform()
     val presence = Presence(entrance, kit.motion)
     override val semantics = Semantics(id, label, initial, Semantics.Trait.STATIC_TEXT)
     private val cards = arrayOfNulls<FlipCard>(initial.length)
@@ -161,6 +161,6 @@ class FlipDigits(
     }
 
     private companion object {
-        fun isSeparator(c: Char) = c == ':' || c == '-' || c == ' ' || c == '.'
+        fun isSeparator(c: Char) = c == ':' || c == '-' || c == ' ' || c == '.' || c == '/'
     }
 }

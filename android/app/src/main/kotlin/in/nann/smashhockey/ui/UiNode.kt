@@ -12,11 +12,14 @@ import com.google.android.filament.EntityManager
  */
 class UiNode internal constructor(
     private val kit: Kit,
-    private var parent: UiNode?,
+    parent: UiNode?,
     parentEntity: Int?,
     mesh: SharedMesh?,
     rgb: Int,
 ) {
+    /** The node above, if it hangs from one (not from a raw entity such as the camera). */
+    var parentNode: UiNode? = parent
+        private set
     val entity: Int = EntityManager.get().create()
     internal val instance: Int
     /** The local pose. Mutate it, then call [changed]. */
@@ -34,6 +37,9 @@ class UiNode internal constructor(
 
     private var effectiveVisible: Boolean = parent?.effectiveVisible ?: true
     private var effectiveAlpha: Float = parent?.effectiveAlpha ?: 1f
+
+    /** The nodes hanging from this one. */
+    internal val childNodes: List<UiNode> get() = children
 
     init {
         val tm = kit.engine.transformManager
@@ -102,8 +108,8 @@ class UiNode internal constructor(
         }
 
     private fun refresh() {
-        val pv = parent?.effectiveVisible ?: true
-        val pa = parent?.effectiveAlpha ?: 1f
+        val pv = parentNode?.effectiveVisible ?: true
+        val pa = parentNode?.effectiveAlpha ?: 1f
         val v = pv && enabled
         val a = pa * opacity
         if (v == effectiveVisible && a == effectiveAlpha) return
@@ -151,12 +157,18 @@ class UiNode internal constructor(
 
     /** Hangs this node (and its subtree) under [p], taking on its visibility and opacity. */
     fun reparent(p: UiNode) {
-        parent?.children?.remove(this)
-        parent = p
+        parentNode?.children?.remove(this)
+        parentNode = p
         p.children.add(this)
         val tm = kit.engine.transformManager
         tm.setParent(instance, tm.getInstance(p.entity))
         refresh()
+    }
+
+    /** Unhooks this node from its parent's children (it is being destroyed). */
+    internal fun detach() {
+        parentNode?.children?.remove(this)
+        parentNode = null
     }
 
     internal fun destroy() {

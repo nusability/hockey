@@ -45,6 +45,8 @@ public enum GameError: Error, Sendable, Equatable {
     case overtimeOutsideCup
     /// Sudden death ends on the next goal (§8.4).
     case overtimeNotByOneGoal
+    /// A coach's board value outside §12's ranges and steps.
+    case notABoardValue
 }
 
 /// The created team's rules (spec §2.2).

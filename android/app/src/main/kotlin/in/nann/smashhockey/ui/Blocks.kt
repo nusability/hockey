@@ -158,6 +158,9 @@ class Kit(val engine: Engine, val scene: Scene, assets: Assets, private val type
 
     fun width(node: UiNode): Float = node.mesh?.width ?: 0f
 
+    /** How wide [s] would be as lettering of [height] — measured on the (cached) mesh itself. */
+    fun measure(s: String, height: Float): Float = textMesh(s, height).width
+
     private fun centre(node: UiNode) {
         val m = node.mesh ?: return
         node.setPosition(-(m.minX + m.maxX) / 2, -(m.minY + m.maxY) / 2, -m.minZ)
@@ -194,6 +197,18 @@ class Kit(val engine: Engine, val scene: Scene, assets: Assets, private val type
     }
 
     internal fun markDirty(node: UiNode) { dirty += node }
+
+    /** Destroys [node] and everything under it: a screen taken apart. Shared meshes stay. */
+    fun destroy(node: UiNode) {
+        val doomed = ArrayList<UiNode>()
+        fun collect(n: UiNode) { doomed += n; for (c in n.childNodes.toList()) collect(c) }
+        collect(node)
+        node.detach()
+        val set = doomed.toHashSet()
+        nodes.removeAll { it in set }
+        dirty.removeAll { it in set }
+        for (i in doomed.indices.reversed()) doomed[i].destroy()
+    }
 
     /** Writes every changed transform to Filament — once per frame, after all motion ran. */
     fun flush() {

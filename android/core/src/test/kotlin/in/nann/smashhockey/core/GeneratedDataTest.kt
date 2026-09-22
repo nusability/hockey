@@ -53,9 +53,9 @@ class GeneratedDataTest {
 
     @Test fun everyCopyKeyIsDeclaredOnce() {
         assertEquals(CopyKey.entries.size, CopyKey.entries.map { it.key }.toSet().size)
-        assertEquals(listOf("league", "cup"), CopyKey.MENU_TROPHIES.arguments)
-        assertEquals(CopyKey.PLAY_BUTTON, CopyKey.of("play.button"))
-        assertEquals("play_button", CopyKey.PLAY_BUTTON.resourceName)
+        assertEquals(listOf("league", "cups"), CopyKey.TITLE_TROPHIES.arguments)
+        assertEquals(CopyKey.HUB_PLAY, CopyKey.of("hub.play"))
+        assertEquals("hub_play", CopyKey.HUB_PLAY.resourceName)
         assertEquals(CopyKey.CLUB_NEBULA_NAME, Club.NEBULA.nameKey)
     }
 

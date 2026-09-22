@@ -18,6 +18,8 @@ protocol UIElement: AnyObject {
 /// An element that arrives and leaves on its own motion (see `Presence`).
 @MainActor
 protocol Presentable: UIElement {
+    /// Where it stands once it has arrived, in its parent's space.
+    var rest: Transform { get set }
     func show(after delay: Double)
     func hide(after delay: Double)
 }
@@ -32,6 +34,8 @@ struct Semantics: Equatable {
     var value: String?
     let trait: Trait
     var isEnabled = true
+    /// A chosen option among several (a club, a swatch, a formation).
+    var isSelected = false
 }
 
 /// An element VoiceOver can find: it declares semantics and the box (in `boundsEntity`'s own

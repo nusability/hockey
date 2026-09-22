@@ -125,6 +125,43 @@ object Presentation {
         const val buttonLabel: Int = 0x1E1B4B
         const val buttonSize: Double = 0.22
     }
+    object Screens {
+        const val demoRest: Double = 4.0
+        const val resultDelay: Double = 1.8
+        const val leaveSeconds: Double = 1.2
+        object Title {
+            val eye: List<Double> = listOf(0.0, 4.2, -22.0)
+            val target: List<Double> = listOf(0.0, 6.2, 20.0)
+        }
+        object Team {
+            val eye: List<Double> = listOf(-17.0, 7.0, 16.0)
+            val target: List<Double> = listOf(4.0, 2.0, -6.0)
+        }
+        object Hub {
+            val eye: List<Double> = listOf(-19.0, 10.0, -14.0)
+            val target: List<Double> = listOf(2.0, 3.0, 8.0)
+        }
+        object Training {
+            val eye: List<Double> = listOf(18.0, 7.0, 14.0)
+            val target: List<Double> = listOf(-4.0, 2.0, -4.0)
+        }
+        object Coach {
+            val eye: List<Double> = listOf(19.0, 8.0, -8.0)
+            val target: List<Double> = listOf(-3.0, 2.0, 12.0)
+        }
+        object Help {
+            val eye: List<Double> = listOf(-14.0, 5.0, 2.0)
+            val target: List<Double> = listOf(6.0, 3.0, 16.0)
+        }
+        object Result {
+            val eye: List<Double> = listOf(5.0, 3.2, 12.0)
+            val target: List<Double> = listOf(0.0, 2.2, 30.0)
+        }
+        object Refused {
+            val eye: List<Double> = listOf(0.0, 12.0, -40.0)
+            val target: List<Double> = listOf(0.0, 4.0, 0.0)
+        }
+    }
 }
 
 /** A world's light (spec §13, ADR 0006). Colours are sRGB 0xRRGGBB. */

@@ -21,6 +21,8 @@ class BlockButton(
     height: Float = Size.BUTTON_HEIGHT,
     textHeight: Float = Size.TEXT_BUTTON,
     entrance: Entrance = Entrance.Drop,
+    /** What TalkBack reads, when the caption alone does not say it ("II" is Pause). */
+    label: String? = null,
     var action: () -> Unit,
 ) : Interactive, Presentable {
     class Style(val cap: Int, val base: Int, val ink: Int) {
@@ -40,8 +42,10 @@ class BlockButton(
     private val label: UiNode
     val w = width
     val h = height
-    override val semantics = Semantics(id, title, trait = Semantics.Trait.BUTTON)
-    val rest = Xform()
+    override val semantics = Semantics(id, label ?: title, trait = Semantics.Trait.BUTTON)
+    private val labelNode: UiNode
+    private val textHeight = textHeight
+    override val rest = Xform()
     val presence = Presence(entrance, kit.motion)
     /** A gentle idle bob — for the one button a screen wants the thumb on. */
     var bobs = false
@@ -58,13 +62,25 @@ class BlockButton(
         base = kit.slab(width - 2 * inset, height - 2 * inset, d * 0.5f, style.base, node)
         base.setPosition(0f, 0f, -d * 0.3f)
         cap = kit.slab(width, height, d, style.cap, body)
-        val labelNode = kit.node(body)
+        labelNode = kit.node(body)
         labelNode.setPosition(0f, 0f, d / 2)
-        label = kit.text(title, textHeight, style.ink, labelNode)
-        val room = width - 2 * textHeight * 0.6f       // keep a margin of lettering either side
-        val natural = kit.width(label)
-        if (natural > room) labelNode.setScale(room / natural)
+        this.label = kit.text(title, textHeight, style.ink, labelNode)
+        fitLabel()
         node.enabled = false
+    }
+
+    /** Keeps a margin of lettering either side; a long word shrinks to fit. */
+    private fun fitLabel() {
+        val room = w - 2 * textHeight * 0.6f
+        val natural = kit.width(label)
+        labelNode.setScale(if (natural > room) room / natural else 1f)
+    }
+
+    /** A new caption (and TalkBack label). */
+    fun retitle(title: String) {
+        kit.retext(label, title, textHeight)
+        fitLabel()
+        semantics.label = title
     }
 
     var isEnabled: Boolean

@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
@@ -47,6 +48,7 @@ fun SemanticsOverlay(stage: UIStage) {
                         when (n.trait) {
                             Semantics.Trait.BUTTON -> {
                                 role = Role.Button
+                                selected = n.isSelected
                                 if (!n.isEnabled) disabled()
                                 onClick { stage.activate(n.id); true }
                             }

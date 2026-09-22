@@ -21,6 +21,8 @@ final class BlockButton: Interactive, Presentable {
     private let cap: ModelEntity
     private let base: ModelEntity
     private let label: ModelEntity
+    private let labelNode = Entity()
+    private let textHeight: Float
     let size: SIMD2<Float>
     private(set) var semantics: Semantics
     var rest = Transform()
@@ -34,7 +36,7 @@ final class BlockButton: Interactive, Presentable {
     private var nope: Jiggle
     private var held = false
 
-    init(_ title: String, id: String, style: Style = .primary, size: SIMD2<Float>? = nil,
+    init(_ title: String, id: String, label: String? = nil, style: Style = .primary, size: SIMD2<Float>? = nil,
          textHeight: Float = DesignTokens.Size.textButton, entrance: Entrance = .drop,
          motion: MotionTokens, action: @escaping () -> Void) {
         let s = size ?? SIMD2(DesignTokens.Size.buttonWidth, DesignTokens.Size.buttonHeight)
@@ -42,7 +44,7 @@ final class BlockButton: Interactive, Presentable {
         self.style = style
         self.motion = motion
         self.action = action
-        semantics = Semantics(id: id, label: title, trait: .button)
+        semantics = Semantics(id: id, label: label ?? title, trait: .button)
         presence = Presence(entrance, motion: motion)
         press = Spring(motion.bouncy)
         nope = Jiggle(motion.spring(.wobbly))
@@ -51,18 +53,30 @@ final class BlockButton: Interactive, Presentable {
         base = Blocks.slab([s.x - 2 * inset, s.y - 2 * inset, d * 0.5], style.base)
         base.position.z = -d * 0.3
         cap = Blocks.slab([s.x, s.y, d], style.cap)
-        label = Blocks.text(title, height: textHeight, style.ink)
-        let labelNode = Entity()
+        self.label = Blocks.text(title, height: textHeight, style.ink)
+        self.textHeight = textHeight
         labelNode.position.z = d / 2
-        labelNode.addChild(label)
-        let room = s.x - 2 * textHeight * 0.6       // keep a margin of lettering either side
-        let natural = Blocks.width(of: label)
-        if natural > room { labelNode.scale = SIMD3(repeating: room / natural) }
+        labelNode.addChild(self.label)
+        fitLabel()
         entity.addChild(base)
         entity.addChild(body)
         body.addChild(cap)
         body.addChild(labelNode)
         entity.isEnabled = false
+    }
+
+    /// Keeps a margin of lettering either side; a long word shrinks to fit.
+    private func fitLabel() {
+        let room = size.x - 2 * textHeight * 0.6
+        let natural = Blocks.width(of: label)
+        labelNode.scale = SIMD3(repeating: natural > room ? room / natural : 1)
+    }
+
+    /// A new caption (and VoiceOver label).
+    func retitle(_ title: String) {
+        Blocks.retext(label, title, height: textHeight)
+        fitLabel()
+        semantics.label = title
     }
 
     var isEnabled: Bool {

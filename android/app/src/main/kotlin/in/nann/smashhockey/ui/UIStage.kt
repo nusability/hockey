@@ -15,6 +15,7 @@ data class A11yNode(
     val value: String?,
     val trait: Semantics.Trait,
     val isEnabled: Boolean,
+    val isSelected: Boolean,
     val left: Int, val top: Int, val right: Int, val bottom: Int,
 )
 
@@ -55,14 +56,14 @@ class UIStage(
     val semanticsNodes: State<List<A11yNode>> get() = nodes
 
     init {
-        hud = ScreenFrame(kit.node(null, parentEntity = cameraEntity), rig.fovDegrees, viewW, viewH, insetTop, insetBottom)
+        hud = ScreenFrame(kit.node(null, parentEntity = cameraEntity), CameraRig.MENU_FOV, viewW, viewH, insetTop, insetBottom)
     }
 
     fun resize(w: Int, h: Int) { viewW = w; viewH = h }
 
     /** A world-standing frame for a screen seen from [pose]. */
     fun frame(pose: CameraPose): ScreenFrame {
-        val f = ScreenFrame(kit.node(root), rig.fovDegrees, viewW, viewH, insetTop, insetBottom)
+        val f = ScreenFrame(kit.node(root), CameraRig.MENU_FOV, viewW, viewH, insetTop, insetBottom)
         f.stand(rig.transform(pose))
         return f
     }
@@ -93,6 +94,7 @@ class UIStage(
             }
         }
         rig.update(dt, reduceMotion)
+        hud.zoom(rig.fovDegrees)
         ctx.reduceMotion = reduceMotion
         for (i in 0 until elements.size) elements[i].update(dt, ctx)
         kit.flush()
@@ -101,11 +103,30 @@ class UIStage(
 
     // ------------------------------------------------------------------ touches (pixels)
 
-    fun touchDown(px: Float, py: Float) {
+    /** A finger went down at (px, py): true when a present interactive element took it. */
+    fun touchDown(px: Float, py: Float): Boolean {
         val ray = ray(px, py)
         val a = pick(ray)
         active = a
         a?.touchDown(ray.local(a.boundsNode))
+        return a != null
+    }
+
+    /**
+     * Forgets every element under [root] (a screen leaving for good) and destroys [root] with its
+     * subtree. A finger on one of them is let go without firing.
+     */
+    fun remove(root: UiNode) {
+        fun inside(n: UiNode): Boolean {
+            var p: UiNode? = n
+            while (p != null) { if (p === root) return true; p = p.parentNode }
+            return false
+        }
+        elements.removeAll { inside(it.node) }
+        semantic.removeAll { inside(it.node) }
+        interactive.removeAll { inside(it.node) }
+        active?.let { if (inside(it.node)) active = null }
+        kit.destroy(root)
     }
 
     fun touchMoved(px: Float, py: Float) {
@@ -209,7 +230,7 @@ class UIStage(
         if (same(count)) return
         nodes.value = List(count) { i ->
             val sem = found[i]!!.semantics
-            A11yNode(sem.id, sem.label, sem.value, sem.trait, sem.isEnabled, rects[i * 4], rects[i * 4 + 1], rects[i * 4 + 2], rects[i * 4 + 3])
+            A11yNode(sem.id, sem.label, sem.value, sem.trait, sem.isEnabled, sem.isSelected, rects[i * 4], rects[i * 4 + 1], rects[i * 4 + 2], rects[i * 4 + 3])
         }
     }
 
@@ -218,7 +239,7 @@ class UIStage(
         if (old.size != count) return false
         for (i in 0 until count) {
             val o = old[i]; val s = found[i]!!.semantics
-            if (o.id != s.id || o.label != s.label || o.value != s.value || o.isEnabled != s.isEnabled ||
+            if (o.id != s.id || o.label != s.label || o.value != s.value || o.isEnabled != s.isEnabled || o.isSelected != s.isSelected ||
                 o.left != rects[i * 4] || o.top != rects[i * 4 + 1] || o.right != rects[i * 4 + 2] || o.bottom != rects[i * 4 + 3]) return false
         }
         return true

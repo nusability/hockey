@@ -42,6 +42,8 @@ sealed interface GameError {
     data object OvertimeOutsideCup : GameError
     /** Sudden death ends on the next goal (§8.4). */
     data object OvertimeNotByOneGoal : GameError
+    /** A coach's board value outside §12's ranges and steps. */
+    data object NotABoardValue : GameError
 }
 
 class GameException(val error: GameError) : Exception(error.toString())

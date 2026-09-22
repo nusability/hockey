@@ -12,15 +12,14 @@ struct SmashHockeyApp: App {
     }
 }
 
-/// Until the menus exist: `-scene match` (with `-quick home,away,world`, `-drill N` or `-demo`,
-/// see MatchPlan) plays a match; otherwise the SMASH-5 motion sketch opens for the owner to judge.
+/// The game, opened where the developer shortcuts ask (`Launch`, `-scene match …`) — a player's
+/// launch has none and opens on the save. A malformed shortcut fails loud.
 private struct AppRoot: View {
-    private let plan = Result { try MatchPlan.fromLaunch() }
+    private let launch = Result { try Launch.plan() }
 
     var body: some View {
-        switch plan {
-        case .success(let p?): MatchScreen(plan: p)
-        case .success(nil): SketchView()
+        switch launch {
+        case .success(let plan): GameView(launch: plan)
         case .failure(let e): Text("\(e)").foregroundStyle(.white).padding()
         }
     }

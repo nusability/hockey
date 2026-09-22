@@ -124,6 +124,43 @@ enum Presentation {
         static let buttonLabel: UInt32 = 0x1E1B4B
         static let buttonSize: Double = 0.22
     }
+    enum Screens {
+        static let demoRest: Double = 4.0
+        static let resultDelay: Double = 1.8
+        static let leaveSeconds: Double = 1.2
+        enum Title {
+            static let eye: [Double] = [0.0, 4.2, -22.0]
+            static let target: [Double] = [0.0, 6.2, 20.0]
+        }
+        enum Team {
+            static let eye: [Double] = [-17.0, 7.0, 16.0]
+            static let target: [Double] = [4.0, 2.0, -6.0]
+        }
+        enum Hub {
+            static let eye: [Double] = [-19.0, 10.0, -14.0]
+            static let target: [Double] = [2.0, 3.0, 8.0]
+        }
+        enum Training {
+            static let eye: [Double] = [18.0, 7.0, 14.0]
+            static let target: [Double] = [-4.0, 2.0, -4.0]
+        }
+        enum Coach {
+            static let eye: [Double] = [19.0, 8.0, -8.0]
+            static let target: [Double] = [-3.0, 2.0, 12.0]
+        }
+        enum Help {
+            static let eye: [Double] = [-14.0, 5.0, 2.0]
+            static let target: [Double] = [6.0, 3.0, 16.0]
+        }
+        enum Result {
+            static let eye: [Double] = [5.0, 3.2, 12.0]
+            static let target: [Double] = [0.0, 2.2, 30.0]
+        }
+        enum Refused {
+            static let eye: [Double] = [0.0, 12.0, -40.0]
+            static let target: [Double] = [0.0, 4.0, 0.0]
+        }
+    }
 }
 
 /// A world's light (spec §13, ADR 0006). Colours are sRGB 0xRRGGBB.

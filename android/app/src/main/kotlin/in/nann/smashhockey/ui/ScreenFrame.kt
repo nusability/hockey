@@ -17,6 +17,9 @@ class ScreenFrame(val node: UiNode, fovDegrees: Double, viewW: Int, viewH: Int, 
     /** The highest y clear of the status bar / cutout, and the lowest clear of the gesture bar, in design metres. */
     val top: Float
     val bottom: Float
+    /** The scale that fits the design width at the layout's field of view. */
+    private val fit: Float
+    private val layoutFov = fovDegrees
 
     init {
         val depth = DesignTokens.Size.FRAME_DEPTH
@@ -29,8 +32,19 @@ class ScreenFrame(val node: UiNode, fovDegrees: Double, viewW: Int, viewH: Int, 
         val perPixel = 2 * halfHeight / maxOf(viewH, 1)
         top = halfHeight - insetTop * perPixel
         bottom = -halfHeight + insetBottom * perPixel
+        fit = k
         node.setScale(k)
         node.setPosition(0f, 0f, -depth)
+    }
+
+    /**
+     * For the HUD rig: keeps the layout the same size on screen while the camera's field of view
+     * breathes (the match camera, §8.6) — the visible plane grows with tan(fov / 2).
+     */
+    fun zoom(fovDegrees: Double) {
+        val z = (tan(Math.toRadians(fovDegrees / 2)) / tan(Math.toRadians(layoutFov / 2))).toFloat()
+        val s = fit * z
+        if (node.transform.sx != s) node.setScale(s)
     }
 
     /** Stands this frame in the world in front of [camera] (a world transform), facing it. */

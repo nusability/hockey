@@ -4,6 +4,8 @@ import RealityKit
 /// A puck on a rail, for the coach's board values 0–1. Grab it anywhere on the row and drag; the
 /// puck chases the finger on the `bouncy` spring, leans into the direction it travels and
 /// squashes while held. The fill behind it shows the value. VoiceOver adjusts it in steps.
+/// With `stops`, the value clicks between that many evenly spaced positions (the board's period
+/// length and ball spin, §12), and `format` writes the readout.
 @MainActor
 final class Slider3D: Interactive, Presentable {
     let entity = Entity()
@@ -19,19 +21,23 @@ final class Slider3D: Interactive, Presentable {
     var onChange: ((Double) -> Void)?
     let length: Float
     private let step: Double
+    private let stops: Int?
+    private let format: (Double) -> String
     private var knob: Spring
     private var grab: Spring
     private var held = false
     private let motion: MotionTokens
     private let rowHeight: Float = 0.34
 
-    init(_ title: String, id: String, value: Double, length: Float = 1.4, step: Double = 0.05,
-         entrance: Entrance = .slide(fromLeft: true), motion: MotionTokens) {
+    init(_ title: String, id: String, value: Double, length: Float = 1.4, step: Double = 0.05, stops: Int? = nil,
+         format: ((Double) -> String)? = nil, entrance: Entrance = .slide(fromLeft: true), motion: MotionTokens) {
         self.value = value
         self.length = length
-        self.step = step
+        self.stops = stops
+        self.step = stops.map { 1 / Double($0 - 1) } ?? step
+        self.format = format ?? Self.percent
         self.motion = motion
-        semantics = Semantics(id: id, label: title, value: Self.percent(value), trait: .adjustable)
+        semantics = Semantics(id: id, label: title, value: self.format(value), trait: .adjustable)
         presence = Presence(entrance, motion: motion)
         knob = Spring(motion.bouncy, initial: value)
         grab = Spring(motion.bouncy)
@@ -50,7 +56,7 @@ final class Slider3D: Interactive, Presentable {
         puck.position.z = railH
 
         self.title = Blocks.text(title, height: DesignTokens.Size.textBody, DesignTokens.Colour.cream)
-        readout = Blocks.text(Self.percent(value), height: DesignTokens.Size.textBody, DesignTokens.Colour.sun)
+        readout = Blocks.text(self.format(value), height: DesignTokens.Size.textBody, DesignTokens.Colour.sun)
         let titleNode = Entity(), readoutNode = Entity()
         titleNode.addChild(self.title)
         readoutNode.addChild(readout)
@@ -78,12 +84,13 @@ final class Slider3D: Interactive, Presentable {
     func hide(after delay: Double) { held = false; presence.hide(after: delay) }
 
     func set(_ v: Double, notify: Bool = true) {
-        let q = min(1, max(0, (v / 0.01).rounded() * 0.01))
+        let c = min(1, max(0, v))
+        let q = stops.map { n in (c * Double(n - 1)).rounded() / Double(n - 1) } ?? (c / 0.01).rounded() * 0.01
         guard q != value else { return }
         value = q
         knob.target = q
-        semantics.value = Self.percent(q)
-        Blocks.retext(readout, Self.percent(q), height: DesignTokens.Size.textBody)
+        semantics.value = format(q)
+        Blocks.retext(readout, format(q), height: DesignTokens.Size.textBody)
         if notify { onChange?(q) }
     }
 
@@ -107,6 +114,9 @@ final class Slider3D: Interactive, Presentable {
     }
 
     func activate() { grab.kick(motion.kick(.grab)) }
+
+    /// The stop the value sits on, with `stops`.
+    var stopIndex: Int { Int((value * Double((stops ?? 101) - 1)).rounded()) }
 
     func adjust(by steps: Int) {
         set(((value + Double(steps) * step) / step).rounded() * step)

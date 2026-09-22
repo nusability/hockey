@@ -16,6 +16,8 @@ interface UiElement {
 
 /** An element that arrives and leaves on its own motion (see [Presence]). */
 interface Presentable : UiElement {
+    /** Where it stands once it has arrived, in its parent's space. */
+    val rest: Xform
     fun show(after: Double = 0.0)
     fun hide(after: Double = 0.0)
 }
@@ -31,6 +33,8 @@ class Semantics(
     var value: String? = null,
     val trait: Trait,
     var isEnabled: Boolean = true,
+    /** A chosen option among several (a club, a swatch, a formation). */
+    var isSelected: Boolean = false,
 ) {
     enum class Trait { BUTTON, ADJUSTABLE, STATIC_TEXT, HEADER }
 }

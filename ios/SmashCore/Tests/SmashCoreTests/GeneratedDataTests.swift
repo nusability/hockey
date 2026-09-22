@@ -32,8 +32,8 @@ import Testing
 
     @Test func everyCopyKeyIsDeclaredOnce() {
         #expect(Set(CopyKey.allCases.map(\.rawValue)).count == CopyKey.allCases.count)
-        #expect(CopyKey.menuTrophies.arguments == ["league", "cup"])
-        #expect(CopyKey(rawValue: "play.button") == .playButton)
+        #expect(CopyKey.titleTrophies.arguments == ["league", "cups"])
+        #expect(CopyKey(rawValue: "hub.play") == .hubPlay)
         #expect(Club.nebula.nameKey == .clubNebulaName)
     }
 }

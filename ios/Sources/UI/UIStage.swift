@@ -9,6 +9,7 @@ struct A11yNode: Identifiable, Equatable {
     let value: String?
     let trait: Semantics.Trait
     let isEnabled: Bool
+    let isSelected: Bool
     let frame: CGRect
 }
 
@@ -43,7 +44,7 @@ final class UIStage {
         self.viewSize = viewSize
         self.insets = insets
         rig = CameraRig(pose, motion: motion)
-        hud = ScreenFrame(fovDegrees: rig.fovDegrees, viewSize: viewSize, insets: insets)
+        hud = ScreenFrame(fovDegrees: CameraRig.menuFov, viewSize: viewSize, insets: insets)
         root.addChild(rig.camera)
         rig.camera.addChild(hud.entity)
     }
@@ -52,7 +53,7 @@ final class UIStage {
 
     /// A world-standing frame for a screen seen from `pose`.
     func frame(at pose: CameraPose) -> ScreenFrame {
-        let f = ScreenFrame(fovDegrees: rig.fovDegrees, viewSize: viewSize, insets: insets)
+        let f = ScreenFrame(fovDegrees: CameraRig.menuFov, viewSize: viewSize, insets: insets)
         f.stand(before: rig.transform(at: pose), in: root)
         return f
     }
@@ -82,6 +83,7 @@ final class UIStage {
             for t in due { t.run() }
         }
         rig.update(dt, reduceMotion: reduceMotion)
+        hud.zoom(fovDegrees: rig.fovDegrees)
         let ctx = UIContext(motion: motion, reduceMotion: reduceMotion, time: time)
         for e in elements { e.update(dt, ctx) }
         project()
@@ -89,10 +91,31 @@ final class UIStage {
 
     // MARK: touches
 
-    func touchDown(at point: CGPoint) {
+    /// A finger went down at `point`: true when a present interactive element took it.
+    @discardableResult
+    func touchDown(at point: CGPoint) -> Bool {
         let ray = self.ray(point)
         active = pick(ray)
         active?.touchDown(ray.local(to: active!.boundsEntity))
+        return active != nil
+    }
+
+    /// Whether a finger at `point` would land on a present interactive element.
+    func wouldTake(_ point: CGPoint) -> Bool { pick(ray(point)) != nil }
+
+    /// Forgets every element under `root` (a screen leaving for good) and takes `root` out of the
+    /// scene. A finger on one of them is let go without firing.
+    func remove(under root: Entity) {
+        func inside(_ e: Entity) -> Bool {
+            var node: Entity? = e
+            while let n = node { if n === root { return true }; node = n.parent }
+            return false
+        }
+        elements.removeAll { inside($0.entity) }
+        semantic.removeAll { inside($0.entity) }
+        interactive.removeAll { inside($0.entity) }
+        if let a = active, inside(a.entity) { active = nil }
+        root.removeFromParent()
     }
 
     func touchMoved(to point: CGPoint) {
@@ -166,7 +189,7 @@ final class UIStage {
             guard rect.intersects(CGRect(origin: .zero, size: viewSize)) else { continue }
             let sem = s.semantics
             nodes.append(A11yNode(id: sem.id, label: sem.label, value: sem.value, trait: sem.trait,
-                                  isEnabled: sem.isEnabled, frame: rect))
+                                  isEnabled: sem.isEnabled, isSelected: sem.isSelected, frame: rect))
         }
         if nodes != semanticsModel.nodes { semanticsModel.nodes = nodes }
     }

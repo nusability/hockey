@@ -92,7 +92,7 @@ max_lean = 0.18            # … up to this
 hop = 0.45                 # the scorers' team hops during a goal celebration (m)
 hop_rate = 9.0             # radians per second of real time
 kit_clash = 90.0           # sRGB distance under which the away side wears its secondary as primary
-# Drills have no clubs (§10): the player's side wears the demo club's kit, the opponents this one.
+# Drills have no clubs (§10): the player's side wears their own team's kit (the demo club's before a career), the opponents this one.
 sparring_primary = "#94a3b8"
 sparring_secondary = "#f8fafc"
 
@@ -146,3 +146,45 @@ clock = "#ffe8a3"
 button = "#ffc83d"
 button_label = "#1e1b4b"
 button_size = 0.22
+
+# The screens (spec §16): where the camera stands for each menu — `eye` and `target` in the world's
+# coordinates (the pitch centred on the origin, §1) — so the demo match (§9) plays behind every one
+# of them. Getting from one to the next is a camera swoop (the `swoop` spring, motion.json); the
+# match itself is the play camera above. Each menu is laid out on a plane 4 m in front of its eye
+# (the UI kit's design frame), the same numbers on both platforms.
+[screens]
+demo_rest = 4.0            # seconds the finished demo stands before the next world's kicks off (§9)
+result_delay = 1.8         # seconds from the final whistle to the result screen, the banner up
+leave_seconds = 1.2        # a screen's parts are gone this long after it starts leaving
+
+[screens.title]
+eye = [0.0, 4.2, -22.0]
+target = [0.0, 6.2, 20.0]
+
+[screens.team]
+eye = [-17.0, 7.0, 16.0]
+target = [4.0, 2.0, -6.0]
+
+[screens.hub]
+eye = [-19.0, 10.0, -14.0]
+target = [2.0, 3.0, 8.0]
+
+[screens.training]
+eye = [18.0, 7.0, 14.0]
+target = [-4.0, 2.0, -4.0]
+
+[screens.coach]
+eye = [19.0, 8.0, -8.0]
+target = [-3.0, 2.0, 12.0]
+
+[screens.help]
+eye = [-14.0, 5.0, 2.0]
+target = [6.0, 3.0, 16.0]
+
+[screens.result]
+eye = [5.0, 3.2, 12.0]
+target = [0.0, 2.2, 30.0]
+
+[screens.refused]
+eye = [0.0, 12.0, -40.0]
+target = [0.0, 4.0, 0.0]

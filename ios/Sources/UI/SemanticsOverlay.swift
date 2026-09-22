@@ -27,7 +27,7 @@ struct SemanticsOverlay: View {
             .accessibilityIdentifier(node.id)
         switch node.trait {
         case .button:
-            base.accessibilityAddTraits(.isButton)
+            base.accessibilityAddTraits(node.isSelected ? [.isButton, .isSelected] : .isButton)
                 .disabled(!node.isEnabled)
                 .accessibilityAction { stage.activate(node.id) }
         case .adjustable:

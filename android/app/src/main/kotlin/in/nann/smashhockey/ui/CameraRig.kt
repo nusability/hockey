@@ -22,9 +22,14 @@ class CameraPose(val ex: Float, val ey: Float, val ez: Float, val tx: Float, val
  * it cuts.
  */
 class CameraRig(private val camera: Camera, start: CameraPose, motion: Motion) {
-    val fovDegrees = 50.0
+    /** The current vertical field of view: the menus' own, or the match camera's while tracking it. */
+    var fovDegrees = MENU_FOV
+        private set
     private var from = start
     private var to = start
+    private var fromFov = MENU_FOV
+    private var toFov = MENU_FOV
+    private var follow: (() -> Pair<CameraPose, Double>)? = null
     private val progress = Spring(motion.spring(SpringName.SWOOP), 1.0)
     private var arc = 0f
     private var roll = 0f
@@ -43,7 +48,21 @@ class CameraRig(private val camera: Camera, start: CameraPose, motion: Motion) {
 
     /** Screens further apart swoop higher; [roll] tilts the horizon into the turn (radians). */
     fun swoop(pose: CameraPose, arc: Float? = null, roll: Float = 0.1f) {
+        follow = null
+        begin(pose, MENU_FOV, arc, roll)
+    }
+
+    /** Swoops onto a moving pose and then follows it exactly — the match camera (§8.6). */
+    fun track(roll: Float = 0.1f, source: () -> Pair<CameraPose, Double>) {
+        val (pose, fov) = source()
+        follow = source
+        begin(pose, fov, null, roll)
+    }
+
+    private fun begin(pose: CameraPose, fov: Double, arc: Float?, roll: Float) {
         from = CameraPose(ex, ey, ez, gx, gy, gz)
+        fromFov = fovDegrees
+        toFov = fov
         to = pose
         val dx = to.ex - from.ex; val dy = to.ey - from.ey; val dz = to.ez - from.ez
         this.arc = arc ?: min(8f, sqrt(dx * dx + dy * dy + dz * dz) * 0.25f)
@@ -59,6 +78,7 @@ class CameraRig(private val camera: Camera, start: CameraPose, motion: Motion) {
     val isMoving get() = !progress.isSettled
 
     fun update(dt: Double, reduceMotion: Boolean) {
+        follow?.let { val (p, f) = it(); to = p; toFov = f }
         if (reduceMotion) progress.snap(1.0) else progress.advance(dt)
         val p = progress.value.toFloat()
         val bump = 4 * p * (1 - p)
@@ -68,6 +88,7 @@ class CameraRig(private val camera: Camera, start: CameraPose, motion: Motion) {
         gx = from.tx + (to.tx - from.tx) * p
         gy = from.ty + (to.ty - from.ty) * p
         gz = from.tz + (to.tz - from.tz) * p
+        fovDegrees = fromFov + (toFov - fromFov) * p.coerceIn(0f, 1f)
         place(roll * bump)
     }
 
@@ -96,9 +117,12 @@ class CameraRig(private val camera: Camera, start: CameraPose, motion: Motion) {
         }
     }
 
-    private companion object {
+    companion object {
+        /** The field of view every menu is laid out for. */
+        const val MENU_FOV = 50.0
+
         /** RealityKit's `look(at:from:)`: −Z toward the target, +Y as up as it can be. */
-        fun basis(ex: Float, ey: Float, ez: Float, tx: Float, ty: Float, tz: Float, m: FloatArray) {
+        private fun basis(ex: Float, ey: Float, ez: Float, tx: Float, ty: Float, tz: Float, m: FloatArray) {
             var zx = ex - tx; var zy = ey - ty; var zz = ez - tz
             val zl = sqrt(zx * zx + zy * zy + zz * zz); zx /= zl; zy /= zl; zz /= zl
             // x = up × z, up = (0, 1, 0)

@@ -16,7 +16,7 @@ class Panel(
     /** The panel's own wobble lives here; children move with it. */
     val body = kit.node(node)
     val content = kit.node(body)
-    val rest = Xform()
+    override val rest = Xform()
     val presence = Presence(entrance, kit.motion)
     private val jiggle = Jiggle(kit.motion.spring(SpringName.WOBBLY))
     private val motion = kit.motion

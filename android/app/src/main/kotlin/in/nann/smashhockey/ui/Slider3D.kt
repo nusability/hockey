@@ -18,16 +18,21 @@ class Slider3D(
     id: String,
     value: Double,
     val length: Float = 1.4f,
-    private val step: Double = 0.05,
+    step: Double = 0.05,
+    /** With stops, the value clicks between that many evenly spaced positions (§12's steps). */
+    private val stops: Int? = null,
+    /** Writes the readout (and TalkBack's value); a percentage by default. */
+    private val format: (Double) -> String = ::percent,
     entrance: Entrance = Entrance.Slide(fromLeft = true),
 ) : Interactive, Presentable {
+    private val step = if (stops != null) 1.0 / (stops - 1) else step
     override val node = kit.node(null)
     private val body = kit.node(node)
     private val fill: UiNode
     private val puck = kit.node(body)
     private val readout: UiNode
-    override val semantics = Semantics(id, title, percent(value), Semantics.Trait.ADJUSTABLE)
-    val rest = Xform()
+    override val semantics = Semantics(id, title, format(value), Semantics.Trait.ADJUSTABLE)
+    override val rest = Xform()
     val presence = Presence(entrance, kit.motion)
     var value = value
         private set
@@ -53,7 +58,7 @@ class Slider3D(
         val titleNode = kit.node(body)
         val readoutNode = kit.node(body)
         val titleText = kit.text(title, Size.TEXT_BODY, Colour.CREAM, titleNode)
-        readout = kit.text(percent(value), Size.TEXT_BODY, Colour.SUN, readoutNode)
+        readout = kit.text(format(value), Size.TEXT_BODY, Colour.SUN, readoutNode)
         titleNode.setPosition(-length / 2 + kit.width(titleText) / 2, 0.12f, 0f)
         readoutNode.setPosition(length / 2 - 0.12f, 0.12f, 0f)
         node.enabled = false
@@ -67,12 +72,13 @@ class Slider3D(
     override fun hide(after: Double) { held = false; presence.hide(after) }
 
     fun set(v: Double, notify: Boolean = true) {
-        val q = min(1.0, max(0.0, (v / 0.01).roundHalfAway() * 0.01))
+        val c = min(1.0, max(0.0, v))
+        val q = if (stops != null) (c * (stops - 1)).roundHalfAway() / (stops - 1) else (c / 0.01).roundHalfAway() * 0.01
         if (q == value) return
         value = q
         knob.target = q
-        semantics.value = percent(q)
-        kit.retext(readout, percent(q), Size.TEXT_BODY)
+        semantics.value = format(q)
+        kit.retext(readout, format(q), Size.TEXT_BODY)
         if (notify) onChange?.invoke(q)
     }
 
@@ -128,8 +134,13 @@ class Slider3D(
     }
 
     private companion object {
-        fun percent(v: Double) = "${(v * 100).roundHalfAway().toInt()}%"
         /** Swift's `rounded()`: half away from zero (Kotlin's `round` is half-even). */
         fun Double.roundHalfAway(): Double = if (this >= 0) kotlin.math.floor(this + 0.5) else -kotlin.math.floor(-this + 0.5)
     }
+}
+
+/** 0…1 as a whole percentage. */
+fun percent(v: Double): String {
+    val p = v * 100
+    return "${(if (p >= 0) kotlin.math.floor(p + 0.5) else -kotlin.math.floor(-p + 0.5)).toInt()}%"
 }

@@ -36,7 +36,7 @@ class TableRow(
     private val slab: UiNode
     private val cells = ArrayList<UiNode>()
     private val cellNodes = ArrayList<UiNode>()
-    val rest = Xform()
+    override val rest = Xform()
     val presence = Presence(entrance, kit.motion)
     override val semantics = Semantics(id, texts.joinToString(", "), trait = Semantics.Trait.STATIC_TEXT)
     private val slot = Spring(kit.motion.spring(SpringName.POP), y.toDouble())

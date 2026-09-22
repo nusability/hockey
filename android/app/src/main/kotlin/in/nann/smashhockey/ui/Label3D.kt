@@ -23,7 +23,7 @@ class Label3D(
     private val model = kit.text(text, height, colour, body)
     var text = text
         private set
-    val rest = Xform()
+    override val rest = Xform()
     val presence = Presence(entrance, kit.motion)
 
     init {
@@ -84,7 +84,7 @@ class WaveText(
     private class Letter(val node: UiNode, val presence: Presence, val x: Float) { val pose = Xform() }
 
     override val node = kit.node(null)
-    val rest = Xform()
+    override val rest = Xform()
     override val semantics = Semantics(id, text, trait = Semantics.Trait.HEADER)
     private val letters = ArrayList<Letter>()
     private var shown = false

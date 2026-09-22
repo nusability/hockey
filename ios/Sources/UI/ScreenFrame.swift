@@ -17,6 +17,9 @@ struct ScreenFrame {
     /// indicator, in design metres.
     let top: Float
     let bottom: Float
+    /// The scale that fits the design width at the layout's field of view.
+    private let fit: Float
+    private let layoutFov: Float
 
     init(fovDegrees: Float, viewSize: CGSize, insets: UIEdgeInsets) {
         let depth = DesignTokens.Size.frameDepth
@@ -29,8 +32,18 @@ struct ScreenFrame {
         let perPoint = 2 * halfHeight / Float(max(viewSize.height, 1))
         top = halfHeight - Float(insets.top) * perPoint
         bottom = -halfHeight + Float(insets.bottom) * perPoint
+        fit = k
+        layoutFov = fovDegrees
         entity.scale = SIMD3(repeating: k)
         entity.position.z = -depth
+    }
+
+    /// For the HUD rig: keeps the layout the same size on screen while the camera's field of view
+    /// breathes (the match camera, §8.6) — the visible plane grows with tan(fov / 2).
+    func zoom(fovDegrees: Float) {
+        let z = tan(fovDegrees / 2 * .pi / 180) / tan(layoutFov / 2 * .pi / 180)
+        let s = SIMD3<Float>(repeating: fit * z)
+        if entity.scale != s { entity.scale = s }
     }
 
     /// Stands this frame in the world in front of `camera` (a world transform), facing it.

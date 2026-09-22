@@ -123,7 +123,7 @@ final class FlipDigits: Semantic, Presentable {
         entity.isEnabled = false
     }
 
-    private static func isSeparator(_ c: Character) -> Bool { c == ":" || c == "-" || c == " " || c == "." }
+    private static func isSeparator(_ c: Character) -> Bool { c == ":" || c == "-" || c == " " || c == "." || c == "/" }
 
     var boundsEntity: Entity { entity }
     var bounds: BoundingBox { bounds_ }

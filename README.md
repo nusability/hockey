@@ -1,4 +1,4 @@
-# Slapshot League 🏑
+# Smash Hockey 3D 🏑
 
 A stylised, colourful 3D field-hockey game for phones — one ice world among five — played with
 **one touch**: your players run on their own, you decide only when to let go of the ball.
@@ -7,10 +7,10 @@ A stylised, colourful 3D field-hockey game for phones — one ice world among fi
 
 | | |
 |---|---|
-| **`ios/`** | The product on iOS — Swift, SwiftUI. XcodeGen: `cd ios && xcodegen generate`. |
-| **`android/`** | The product on Android — Kotlin, Compose. A second native codebase, not a build target (ADR 0001): `cd android && ./gradlew assembleDebug`. |
-| **`shared/`** | What the platforms share, none of it code either links: `data/` (generated tunables, teams, drills, copy, worlds) and `vectors/` (golden vectors recorded from `web/`, replayed by both). |
-| **`web/`** | The original web build — the prototype stage, the parity reference, and the playable demo at **https://nusability.github.io/hockey/** (ADR 0002). |
+| **`ios/`** | The product on iOS — Swift. XcodeGen: `cd ios && xcodegen generate`. |
+| **`android/`** | The product on Android — Kotlin. A stand-alone implementation, not a port of iOS (ADR 0001): `cd android && ./gradlew assembleDebug`. |
+| **`shared/`** | What the platforms share, none of it code: `data/` (generated config — tunables, teams, drills, copy), `assets/`, and `vectors/` (simulation golden vectors both replay). |
+| **`web/`** | The original web build — a **gameplay prototype and nothing else**, playable at **https://nusability.github.io/hockey/** (ADR 0002). |
 
 Both apps are empty shells today; the porting plan lives in Stori project **`SLAP`**.
 

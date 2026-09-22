@@ -1,4 +1,4 @@
-package `in`.nann.slapshot
+package `in`.nann.smashhockey
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity

@@ -1,5 +1,7 @@
 # 0004 — Worlds are baked from the web build, not ported
-Date: 2026-09-22 · Status: **proposed** — rides on ADR 0003's spike
+Date: 2026-09-22 · Status: **withdrawn** (2026-09-22) — the web build is a gameplay prototype
+and not a source of assets or construction (ADR 0002). Kept for the record of why a bake was
+considered; the worlds are designed natively, and may share assets as `shared/assets/` allows.
 
 ## Context
 

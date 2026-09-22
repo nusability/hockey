@@ -1,13 +1,13 @@
 # The iOS half of a two-platform product. ADR 0001: a native codebase sharing no executable code
 # of ours with android/. The .xcodeproj is generated from this file and never committed.
-name: SlapshotLeague
+name: SmashHockey
 options:
-  # One-way door at registration (conventions.md): the bundle id is decided before the first
-  # App Store Connect registration and never changed after it. Placeholder until then.
+  # One-way door at registration (conventions.md): decided 2026-09-22 as in.nann.smashhockey,
+  # never changed after the first App Store Connect registration.
   bundleIdPrefix: in.nann
   deploymentTarget:
-    # ADR 0003 (proposed): iOS 17.
-    iOS: "17.0"
+    # ADR 0005 (proposed): iOS 18.
+    iOS: "18.0"
   createIntermediateGroups: true
 
 settings:
@@ -23,32 +23,32 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
 
 targets:
-  SlapshotLeague:
+  SmashHockey:
     type: application
     platform: iOS
     sources:
       - path: Sources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: in.nann.slapshot
-        INFOPLIST_KEY_CFBundleDisplayName: Slapshot League
+        PRODUCT_BUNDLE_IDENTIFIER: in.nann.smashhockey
+        INFOPLIST_KEY_CFBundleDisplayName: Smash Hockey 3D
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UIRequiresFullScreen: "YES"
         TARGETED_DEVICE_FAMILY: "1"
-  SlapshotLeagueTests:
+  SmashHockeyTests:
     type: bundle.unit-test
     platform: iOS
     sources:
       - path: Tests
     dependencies:
-      - target: SlapshotLeague
+      - target: SmashHockey
 
 schemes:
-  SlapshotLeague:
+  SmashHockey:
     build:
       targets:
-        SlapshotLeague: all
+        SmashHockey: all
     test:
       targets:
-        - SlapshotLeagueTests
+        - SmashHockeyTests

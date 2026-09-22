@@ -4,17 +4,17 @@ plugins {
 }
 
 android {
-    namespace = "in.nann.slapshot"
+    namespace = "in.nann.smashhockey"
     // COMPILE against the newest SDK the AndroidX libraries require; TARGET what Play asks of a
     // new submission. Confirm the live target figure in the Play Console before the first upload.
     compileSdk = 37
     compileSdkMinor = 2
 
     defaultConfig {
-        // One-way door at registration (conventions.md): decided before the first Play Console
-        // upload and never changed after it. Placeholder until then.
-        applicationId = "in.nann.slapshot"
-        // ADR 0003 (proposed): API 26.
+        // One-way door at registration (conventions.md): decided 2026-09-22, never changed after
+        // the first Play Console upload.
+        applicationId = "in.nann.smashhockey"
+        // ADR 0005 (proposed): API 26.
         minSdk = 26
         targetSdk = 36
         // A store field, not an engineering contract; the release lane will pass versionCode.

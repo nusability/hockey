@@ -4,45 +4,50 @@ Operating rules for agents and humans. Terse by design. Values & rationale: `pri
 Stack-specific standards: `conventions.md`.
 
 ## What this repo is
-**Slapshot League** — a stylised 3D field-hockey game (and one ice world) with one-touch
+**Smash Hockey 3D** — a stylised 3D field-hockey game (and one ice world) with one-touch
 control — on its way to the **App Store and Google Play**, free-to-play with IAP. Five surfaces
 live here:
 
-- **iOS app** (`ios/`) — the product on iOS. Swift + SwiftUI. Built to `spec/`, prod-grade,
-  no prototype mindset.
-- **Android app** (`android/`) — the same product on Android, held to the same bar. Kotlin +
-  Compose. A **second native codebase**, not a build target: it shares no executable code of
-  ours with `ios/` (ADR `0001`). Both are built **in parallel** from the first commit — there
-  is no "iOS first, Android later".
-- **`shared/`** — the only things the platforms share, and neither is code either links:
-  `data/` (declarations generated into both builds — tunables, teams, drills, copy) and
-  `vectors/` (seeded golden vectors **both suites replay**, recorded from the web reference).
-- **`web/`** — the original web build (vanilla JS + Three.js, no build step), served on GitHub
-  Pages. It is the **prototype stage** — where feel, AI tuning and balance are tried cheaply
-  before they earn a spec entry — and **the parity reference** the ports are measured against
-  (ADR `0002`). Not a shipping target for the stores.
+- **iOS app** (`ios/`) — the product on iOS. Swift. Built to `spec/`, prod-grade, no
+  prototype mindset.
+- **Android app** (`android/`) — the same product on Android, held to the same bar. Kotlin.
+  A **stand-alone implementation**, not a port of iOS and not a build target: it shares no
+  executable code of ours with `ios/` (ADR `0001`). Both are built **in parallel** from the
+  first commit — there is no "iOS first, Android later".
+- **`shared/`** — the only things the platforms share, and none of it is code: `data/`
+  (**config** generated into both builds — tunables, teams, drills, copy, tokens), `assets/`
+  (models, textures, sounds both load), and `vectors/` (seeded golden vectors of the simulation
+  **both suites replay**).
+- **`web/`** — the original web build (vanilla JS + Three.js), served on GitHub Pages. It is a
+  **gameplay prototype and nothing else** (ADR `0002`): it explored the rules, the feel and the
+  tuning. What crosses into the apps is the *behaviour and the numbers*, through the spec —
+  never its code, its structure, its assets or its look. Not a store target.
 - **`spec/`, `decisions/`** — the as-is spec and the ADRs.
 
-`web/` is a **sandbox and a reference**, never a store target. Nothing in it is bound by the
+`web/` is a **sandbox**, never a store target and never a technical foundation. Nothing in it is bound by the
 spec; nothing in either app is exempt from it.
 
 ## The port — both platforms move together
-There is no product on either store yet. The standing goal is **port the game to both
-platforms at once, to the spec, at parity with `web/`**, and then keep them in step. The plan
+There is no product on either store yet. The standing goal is **build the game on both
+platforms at once, to the spec** — whose gameplay was proven in `web/` — and then keep them in
+step. The plan
 lives on Stori (`SLAP`); the what lives in `spec/`.
 
 - **Every change is a two-codebase change.** A change that lands on one platform and not the
   other needs a dated delta row in the spec on the day, naming the item that closes it.
 - **A thing that is hard to change twice is the wrong thing.** The cost is paid on every
   future change, not once.
-- **Identical visuals.** A costume that is nearly right on one platform is a bug, not a
-  platform characteristic. Exceptions are written rows in the delta table.
+- **The same game to a player's eye.** Same rules, same numbers, same look and the same
+  whimsy — two stand-alone implementations will not be pixel-identical, but a difference a
+  player would notice is a bug unless it is a written row in the delta table.
 - **Each platform gets its own best answer** to how it is built, never a transliteration of the
   other. `/architecture` decides where that calcifies.
 - **Payments stay each store's own** — Play Billing on Android, StoreKit on iOS, never a
   translation layer over the other's shape.
 - **The vectors are what make this survivable.** The simulation is deterministic and seeded;
-  `web/` records the corpus, both apps replay it, a drift turns a suite red.
+  both apps replay one corpus, a drift turns a suite red.
+- **The UI is 3D too.** Menus, scoreboards and HUD are objects in the scene — goofy, animated,
+  whimsical — not a native widget layer over it (conventions: UI).
 
 ## Sources of truth
 - **Current state** → `spec/` (as-is spec). Read first, always.
@@ -66,9 +71,7 @@ and still passes its own tests.
 > code. The goal for temporary rows stays zero.
 
 **`web/` is exempt** — commits there need no spec diff. The moment a prototyped mechanic is
-adopted for the apps, it goes through the loop below like anything else. *Exception:* a change
-to `web/`'s simulation that moves a recorded vector is a spec change (the vectors are the
-contract, ADR `0002`).
+adopted for the apps, it goes through the loop below like anything else.
 
 ## The loop — branchless, trunk-based
 As-is = the last commit (HEAD). To-be = your uncommitted edits to the spec.
@@ -91,7 +94,9 @@ Skills lifted in spirit from GitHub Spec Kit (`/clarify` · `/specify` · `/plan
   difficulty and economy pacing are cheaper to judge in the web build than to argue about in
   prose. Play it, then spec what survived. *(Mechanics & economy — not a licence to prototype in
   the apps.)*
-- **Click-dummy new UI first.** Approve a throwaway prototype before it touches the apps. *(UI only.)*
+- **Click-dummy new UI first.** Approve a throwaway prototype before it touches the apps — for
+  the 3D UI that means a motion sketch of the screen and its transitions, on one platform, played
+  on a phone. *(UI only.)*
 - **Press on when told.** Ship the next item; no recaps, no "good place to stop."
 - **Rollback is a real option.** Offer discarding the work *when the work is in doubt* — not as
   a routine menu at the end of something that worked.
@@ -109,7 +114,7 @@ Skills lifted in spirit from GitHub Spec Kit (`/clarify` · `/specify` · `/plan
 - **Verify each app on a device or its emulator** — iOS on a device or simulator, Android on a
   device or emulator. A gameplay change is verified by **playing it, on both**.
 - **The vectors and the hands are both required.** Golden vectors prove the numbers agree
-  across `web/`, iOS and Android; only a person holding the phone proves it feels right.
+  across iOS and Android; only a person holding the phone proves it feels right.
   Neither alone verifies a gameplay change.
 - **Performance is verified on the low end.** A rendering change is measured on the weakest
   supported Android device we have, not only on a flagship.
@@ -153,8 +158,8 @@ Skills lifted in spirit from GitHub Spec Kit (`/clarify` · `/specify` · `/plan
 - **The spec covers both apps and, once it exists, the release toolchain.** It is written once
   for both platforms with a **dated platform-delta table** for every place they are allowed to
   disagree.
-- **The spec does not cover `web/`.** It names it only as the parity reference, and names the
-  vectors recorded from it.
+- **The spec does not cover `web/`.** It names it only as the gameplay prototype the rules and
+  numbers were proven in.
 
 ## Stori usage
 - Idea / intent / priority / discussion / ephemeral plan → work item. NOT the authoritative "what to build".

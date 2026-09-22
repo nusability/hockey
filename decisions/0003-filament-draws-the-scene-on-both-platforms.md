@@ -1,6 +1,8 @@
 # 0003 — Filament draws the scene on both platforms
-Date: 2026-09-22 · Status: **proposed** — accepted when the renderer spike (Stori `SLAP`) passes
-its criteria below; if it fails, the fallback named under *What would change it* applies.
+Date: 2026-09-22 · Status: **superseded** (2026-09-22) by ADR 0005 — the owner set two constraints
+this proposal did not have: the implementations are stand-alone (no shared material sources),
+and the UI is 3D, so the renderer also draws menus and scoreboards. The scene counts below
+remain valid input.
 
 ## Context
 

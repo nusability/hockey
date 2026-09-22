@@ -3,7 +3,7 @@ import SwiftUI
 /// The empty shell (spec: platform-delta row "Neither app implements §1–§9 yet"). It launches and
 /// shows the title; the scene surface arrives with ADR 0003's spike.
 @main
-struct SlapshotLeagueApp: App {
+struct SmashHockeyApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {

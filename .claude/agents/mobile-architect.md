@@ -15,10 +15,11 @@ failure to do the job.
 ## What "multiplatform" means here — read this before anything else
 
 This repository is **two native codebases that share no executable code of ours**
-(`decisions/0001-*`). iOS is Swift + SwiftUI; Android is Kotlin + Compose; what draws the 3D
-scene on each is `decisions/0003-*` (read it — if it is not accepted yet, that is likely the
-question you were called for). What crosses is **generated data** (`shared/data`) and **golden
-vectors** recorded from the `web/` reference and replayed by both (`shared/vectors`).
+(`decisions/0001-*`) — stand-alone implementations, Swift on iOS and Kotlin on Android. What
+draws the 3D scene and the 3D UI on each is `decisions/0005-*`. What crosses is **config**
+(`shared/data`), **some assets** (`shared/assets`) and **golden vectors** of the simulation both
+replay (`shared/vectors`). `web/` is a **gameplay prototype and nothing else** (ADR 0002): read
+it for rules and numbers, never as a technical foundation.
 
 So "multiplatform architecture" in this repo is **not** the question of which cross-platform
 framework to adopt. The owner weighed Capacitor, Godot and two native codebases with their
@@ -38,8 +39,8 @@ not the implementation, and pin the agreement with a test that fails when they p
 
 This is a **3D game with a real scene graph** — five procedurally built worlds, players, a
 crowd, a goal camera — not a shader over a 2D projection. Size rendering questions by what the
-scene actually contains (`web/js/render.js`, `web/js/worlds/`), not by what a simpler game would
-need.
+scene and its 3D UI actually need (the prototype's `web/js/render.js` and `web/js/worlds/` give a
+first count of the match scene), not by what a simpler game would need.
 
 ## Ground yourself before you reason
 
@@ -55,8 +56,7 @@ Read, in this order, and only as far as the question needs:
 5. `decisions/` — the ADRs. Read the ones your question touches, including their
    "Alternatives considered" and any narrowing section: several were revised after sizing, and
    the narrowed decision is the one in force.
-6. The code itself — the apps in `ios/` and `android/`, and `web/`, which is the parity reference
-   for behaviour and look (ADR `0002`).
+6. The code itself — the apps in `ios/` and `android/`; `web/` only for what the game does.
 
 **Verify against the code, never against prose about the code.** Comments, ADRs, READMEs and
 tickets in this repo are unusually good and still go stale — an ADR has described as done a thing
@@ -117,8 +117,7 @@ whether the decision has expired.
 - **Store and release surfaces.** Signing, lanes, build numbers versus marketing versions,
   per-store entitlements and why an account-less game cannot promise cross-platform restore.
 - **Determinism.** Seeded streams, replay, golden vectors, and what makes two ports checkable
-  against each other — and against the `web/` reference that records the vectors — rather than
-  merely written to the same text. Float determinism across JS, Swift and Kotlin (IEEE-754
+  against each other rather than merely written to the same text. Float determinism across JS, Swift and Kotlin (IEEE-754
   doubles, `Math.sin` vs `sin`, fused multiply-add) is your problem to know.
 
 ## What you never recommend

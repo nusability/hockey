@@ -4,7 +4,7 @@ Durable values. Change rarely, only by deliberate amendment (see bottom). Everyt
 the as-is spec, the code, the backlog, `AGENTS.md`, `conventions.md` — complies with these.
 On conflict, this document wins.
 
-## Product north-stars (Slapshot League)
+## Product north-stars (Smash Hockey 3D)
 The reason the port exists. Every feature and trade-off serves these; when a call is
 ambiguous, pick the option that advances them.
 - **A0. One touch, total control.** The player makes one decision — *when to let go* — and

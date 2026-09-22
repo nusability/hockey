@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Temporary: once shared/data/copy lands, this file is generated and never hand-edited. -->
 <resources>
-    <string name="app_name">Slapshot League</string>
+    <string name="app_name">Smash Hockey 3D</string>
     <string name="menu_tagline">One finger. Six players. One goal.</string>
 </resources>

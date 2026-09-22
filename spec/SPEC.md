@@ -9,46 +9,47 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.1.0
+Spec-Version: 0.2.0
 Status: as-is — **the harness and the shape of the product, not yet a product.** Neither app
-exists beyond an empty shell; the only implementation of the game is the web build in `web/`,
-which this spec names as the parity reference (ADR 0002). The sections below state the game at
+exists beyond an empty shell; the only playable version is the web **gameplay prototype** in
+`web/` (ADR 0002), where the rules and numbers below were proven. The sections below state the game at
 the level of its **capabilities** — what the player can do and what the game promises — and are
 deepened section by section as each one is ported: a section is fleshed out to its full
 contract (numbers, edge cases, invariants) in the same commit that ports it, and its delta row
 is deleted in that commit.
 
-# Slapshot League (iOS · Android) — Specification
+# Smash Hockey 3D (iOS · Android) — Specification
 
 ## Overview
-Slapshot League is a stylised, colourful 3D field-hockey game for phones — with one ice-hockey
+Smash Hockey 3D is a stylised, colourful 3D field-hockey game for phones — with one ice-hockey
 world — played with **one touch**. Your players run on their own; you decide only **when to let
 go of the ball**. A season of league and cup matches, eight training drills that teach the
 control, and five worlds to play them in.
 
-## Fidelity to the web build
-`web/` is the **reference for feel and look** (ADR 0002). Binding rules:
+## What the web prototype contributes
+`web/` explored **gameplay** and nothing else (ADR 0002). Binding rules:
 
-- **The match is numeric parity.** Physics constants, the orbit, pass and shot assistance,
-  possession and stealing, AI behaviour and the tactics' effect match `web/` exactly once seeded
-  (§4). A change to any of them is a spec change, not a tuning session — and it moves a vector.
-- **The look matches.** Each world's scenery, palette, light and fog reproduce `web/`'s. It
-  should be hard to tell a screenshot apart.
-- **Chrome may diverge toward native.** `web/`'s menus are DOM; the apps' menus are expected to
-  be better — safe areas, pressed states, system text sizing — not identical.
-- **Where the apps deliberately move past `web/`, this spec says so and the spec wins.**
+- **The rules and the numbers carry over.** Physics constants, the orbit, pass and shot
+  assistance, possession and stealing, AI behaviour, the tactics' effect, the drills and the
+  season format are taken from the prototype **into this spec**, section by section, and from
+  then on this spec is their only authority. A change to any of them is a spec change, not a
+  tuning session.
+- **Nothing else carries over.** The apps' worlds, look, UI, camera choreography and sound are
+  designed for the apps and may depart from the prototype freely.
+- **The UI is part of the 3D world** — menus, scoreboards and the HUD are animated objects in
+  the scene, playful rather than standard. Specified per screen as each is designed.
 
 ## Platforms & scope
 The game ships on **two platforms**, and **everything below binds both unless the
 platform-delta table says otherwise**. There is one specification, not two; a platform is not
 free to be different, only to be *late*, and lateness has to be written down.
 
-- **iPhone**, portrait. **Android phone**, portrait. Minimum OS versions are set by ADR 0003's
-  renderer decision and recorded here when it is accepted.
+- **iPhone**, portrait. **Android phone**, portrait. Minimum OS: **iOS 18**, **Android API 26**
+  (proposed by the renderer decision, ADR 0005; confirmed when it is accepted).
 - **iPad, tablets and landscape are out of scope.**
 - **Two languages**, German and English, chosen by the device, never by a menu (§9).
-- The two builds share **no executable code of ours**: two native codebases, kept honest by
-  generated shared data and golden vectors both replay (ADR 0001).
+- The two builds are **stand-alone implementations** sharing no executable code of ours — only
+  config, some assets, and golden vectors both replay (ADR 0001).
 - **Free-to-play with in-app purchases**, bound by the monetization ethics in `principles.md`.
   What is sold is not yet specified; nothing may be sold until it is.
 
@@ -60,12 +61,12 @@ deletes it — the goal for these is zero).
 
 | Since | Kind | Delta |
 |---|---|---|
-| 2026-09-22 | **temporary** | **Neither app implements §1–§9 yet.** Both are empty shells that launch; the game exists only in `web/`. Each section's port deletes its part of this row, on both platforms in the same commit, or splits it into a per-platform row naming the one that is behind. Closed by the porting items in Stori `SLAP`. |
+| 2026-09-22 | **temporary** | **Neither app implements §1–§9 yet.** Both are empty shells that launch; the game is playable only in the `web/` prototype. Each section's port deletes its part of this row, on both platforms in the same commit, or splits it into a per-platform row naming the one that is behind. Closed by the porting items in Stori `SLAP`. |
 | 2026-09-22 | **permanent** | **Purchases are per-store and per-device.** There is no account, so an entitlement bought on one store does not follow the player to the other. The game never implies otherwise: no affordance offers a cross-platform restore (ADR 0001). |
 
-**The golden vectors** (`shared/vectors/`) are the one place the platforms are checked against
-each other and against `web/`, rather than merely written to the same text. None exist yet;
-they require §4.
+**The golden vectors** (`shared/vectors/`) are the one place the two simulations are checked
+against each other, rather than merely written to the same text. None exist yet; they require
+§4.
 
 ---
 
@@ -104,7 +105,7 @@ heading for stays in view.
 
 **Determinism** *(to be specified in full with the first port task)*: a match is a pure function
 of its seed, its teams and tactics, and the player's input tape, stepped at a fixed 1/120 s. Same
-inputs ⇒ same match, on `web/`, iOS and Android.
+inputs ⇒ same match, on iOS and Android.
 
 ### 5. Training
 Eight drills, unlocked one after another, each with its own world, a goal target and a time

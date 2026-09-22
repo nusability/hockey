@@ -4,8 +4,8 @@
     "app.name" : {
       "comment" : "Temporary: once shared/data/copy lands, this file is generated and never hand-edited.",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Slapshot League" } },
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Slapshot League" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Smash Hockey 3D" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Smash Hockey 3D" } }
       }
     },
     "menu.tagline" : {

@@ -3,7 +3,7 @@ Date: 2026-09-22 · Status: **accepted**
 
 ## Context
 
-Slapshot League exists as a web build: ~11k lines of vanilla JavaScript over Three.js, no build
+Smash Hockey 3D exists as a web build: ~11k lines of vanilla JavaScript over Three.js, no build
 step, served on GitHub Pages. It plays well; the goal is the App Store and Google Play, both, in
 parallel, free-to-play with IAP.
 
@@ -22,21 +22,25 @@ the test pipeline — accretes on this answer.
 
 **Two native codebases, sharing no executable code of ours.**
 
-- **`ios/`** — Swift, SwiftUI, StoreKit 2.
-- **`android/`** — Kotlin, Jetpack Compose, Play Billing.
-- What draws the 3D scene on each platform is **ADR 0003**.
-- Both are built **in parallel from the first commit**; neither is the port of the other. Both
-  are ports of the spec, with `web/` as the reference for feel and look (ADR 0002).
+- **`ios/`** — Swift, StoreKit 2.
+- **`android/`** — Kotlin, Play Billing.
+- What draws the 3D scene — and the 3D UI — on each platform is **ADR 0005**.
+- Both are built **in parallel from the first commit** as **stand-alone implementations**;
+  neither is the port of the other, and neither is a port of `web/` (ADR 0002). Both implement
+  the spec. They may share **config and some assets** — not much else.
 
 Drift is fought by two mechanisms that are data rather than code, as in flashybird:
 
-1. **`shared/data/`** — teams, drills, formations, tactics defaults, physics and AI constants,
-   world declarations, design tokens and the copy live in one platform-neutral table and are
+1. **`shared/data/`** — config: teams, drills, formations, tactics defaults, physics and AI
+   constants, design tokens and the copy live in one platform-neutral table and are
    **generated** into Swift and Kotlin. A hand-edited constant on either side is the bug the
    generator exists to make impossible.
-2. **`shared/vectors/`** — seeded golden vectors: *(seed, input stream, sampled expected
-   state)*, **recorded from the `web/` reference** and replayed by both platforms' suites. A
-   mismatch is a red build on whichever platform moved.
+2. **`shared/vectors/`** — seeded golden vectors of the simulation: *(seed, input stream,
+   sampled expected state)*, recorded by the first platform to land a rule (checked against the
+   spec, and by playing it) and replayed by both suites. A mismatch is a red build on whichever
+   platform moved.
+
+`shared/assets/` may hold assets both load (models, textures, sounds) — data, not code.
 
 ## Alternatives considered
 
@@ -61,13 +65,10 @@ measured number rather than a guessed one.
 
 - **Every behaviour change is a two-codebase change**, forever. The spec's platform-delta table
   is the disclosure mechanism; the vectors are the enforcement.
-- **The simulation must become deterministic before porting starts.** Today `ai.js`, `match.js`
-  and `season.js` draw from `Math.random()`; vectors are impossible until the web reference draws
-  from a seeded generator whose algorithm both apps reproduce bit-for-bit. This is the port's
-  first task.
-- **The rendering layer is written twice** — the dominant cost of this decision, and the reason
-  ADR 0003 is the next one-way door.
+- **The simulation is deterministic by construction on both platforms**: one seeded generator
+  whose algorithm is specified, so both reproduce it bit-for-bit and the vectors can exist.
+- **The rendering layer — and with it the 3D UI — is written twice**: the dominant cost of this
+  decision, and the reason ADR 0005 is the next one-way door.
 - **Purchases are per-store and per-device.** No account, so an entitlement bought on one store
   does not follow a player to the other; the UI never implies otherwise.
-- The web build is not wasted: it stays the prototype stage, the parity reference and the vector
-  recorder (ADR 0002).
+- The web build is not wasted: it proved the gameplay, and stays the prototype stage (ADR 0002).

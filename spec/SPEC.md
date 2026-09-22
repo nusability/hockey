@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.6.0
+Spec-Version: 0.6.1
 Status: as-is — **the whole game's rules, running on both platforms, bit for bit; neither app
 lets anyone play them yet.** The match, the drills, the season, the career and the save (§1–§12,
 §15) run in each platform's core and agree to the last bit, pinned by golden vectors; what is
@@ -66,7 +66,7 @@ deletes it — the goal for these is zero).
 | Since | Kind | Delta |
 |---|---|---|
 | 2026-09-22 | **temporary** | **Neither app offers a screen yet.** Both apps play a match in any of the five worlds (§13) — drawn with its camera and slow motion (§8.6), the aim line (§5.2) and the finger (§5.3) — but only from a debug launch (a quick match, a drill, the demo); a minimal HUD shows score, clock and period. Still missing on **both**: the menus and the styled HUD, the demo behind the menus (§9), quitting from the pause (§8.7), saving to the device (§15). Each lands on both platforms in one commit and trims this row. Closed by Stori `SMASH` (SMASH-11, SMASH-12). |
-| 2026-09-22 | **permanent** | **The two look the same to a player's eye, not to the pixel.** Geometry, textures, text, layout and motion are identical by construction; lighting, shadow softness and tone mapping come from two engines (RealityKit, Filament) and differ slightly (ADR 0005). A difference a player would notice is still a bug. |
+| 2026-09-22 | **permanent** | **The two look the same to a player's eye, not to the pixel.** Geometry, textures, text, layout, motion and — since ADR 0006 — the shading itself are identical by construction: both platforms compute the same flat Lambert/toon formula in their own unlit materials, with no engine lighting or tone mapping. What remains different is how two engines rasterise and anti-alias. A difference a player would notice is still a bug. |
 | 2026-09-22 | **permanent** | **iOS renders at 60 Hz on ProMotion iPhones, Android at the display's rate up to what it holds.** RealityKit's view offers no frame-rate control (ADR 0005). The simulation is unaffected — it runs in fixed steps (§4). |
 | 2026-09-22 | **permanent** | **Purchases are per-store and per-device.** There is no account, so an entitlement bought on one store does not follow the player to the other. The game never implies otherwise: no affordance offers a cross-platform restore (ADR 0001). |
 

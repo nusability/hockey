@@ -96,23 +96,24 @@ extension Interactive {
 }
 
 /// The UI's building blocks: rounded slabs and lettering, their meshes and materials made once.
-/// UI materials are plain lit PBR — no fog (the fog shader is the world's) — and nothing in the
-/// UI casts a shadow (ADR 0005).
+/// UI blocks are toon-shaded like the players (ADR 0006), lit by the look of the world they sit
+/// in, and nothing in the UI casts a shadow.
 @MainActor
 enum Blocks {
     private struct BoxKey: Hashable { let w: Float; let h: Float; let d: Float; let r: Float }
     private static var boxes: [BoxKey: MeshResource] = [:]
-    private static var materials: [Int: PhysicallyBasedMaterial] = [:]
+    private static var shading: (materials: Materials, look: WorldLook)?
 
-    static func material(_ rgb: Int) -> PhysicallyBasedMaterial {
-        if let m = materials[rgb] { return m }
-        var m = PhysicallyBasedMaterial()
-        m.baseColor = .init(tint: colour(rgb))
-        m.roughness = 0.5
-        m.metallic = 0.0
-        m.clearcoat = .init(floatLiteral: 0.4)    // toy plastic
-        materials[rgb] = m
-        return m
+    /// Must be called once the world's materials are loaded, before any block is built.
+    static func light(with materials: Materials, look: WorldLook) { shading = (materials, look) }
+
+    static func material(_ rgb: Int) -> RealityKit.Material {
+        guard let (materials, look) = shading else {
+            preconditionFailure("Blocks.light(with:look:) was not called — the UI has no shading")
+        }
+        do { return try materials.toon(UInt32(rgb), look: look) } catch {
+            preconditionFailure("the toon material failed to build: \(error)")
+        }
     }
 
     static func colour(_ rgb: Int) -> UIColor {

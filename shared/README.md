@@ -62,7 +62,12 @@ result, table and bracket, 486 simulated results, the created-team rules, quick-
 save files byte for byte — including 21 malformed saves and the typed error each must raise.
 
 Replayed by `ios/SmashCore` (`swift test`, and in the app scheme's `xcodebuild test`) and by
-`android/core` (`./gradlew :core:test`). Match vectors (§4.7) arrive with the simulation.
+`android/core` (`./gradlew :core:test`).
+
+Live too — `vectors/match/` (§4–§8, §10), recorded by iOS (`swift run RecordMatchVectors`):
+drills 1, 2, 5 and 8, a demo match on grass and one on ice, a full match on a player tape that
+exercises all four lift outcomes (snap, late grace, pending, unassisted), and a cup match into
+sudden-death overtime — every sampled tick's full state, the stream position and every event.
 
 ## The deterministic math
 

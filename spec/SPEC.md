@@ -9,9 +9,12 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.3.3
-Status: as-is — **the whole game's rules, written down; neither app plays them yet.** Both apps
-are empty shells (see the platform-delta table). What this file now holds is the complete
+Spec-Version: 0.4.0
+Status: as-is — **the whole game's rules, running on both platforms, bit for bit; neither app
+lets anyone play them yet.** The match, the drills, the season, the career and the save (§1–§12,
+§15) run in each platform's core and agree to the last bit, pinned by golden vectors; what is
+missing is everything a player touches — the match on screen, the finger, the menus (see the
+platform-delta table). What this file holds is the complete
 gameplay contract taken from the web prototype — the pitch, the one-touch control, the ball, the
 automatic play, the match, the drills, the season and the coach's board, with every number the
 prototype was tuned to — plus the one thing the prototype never had: **a career**, in which the
@@ -60,14 +63,16 @@ deletes it — the goal for these is zero).
 
 | Since | Kind | Delta |
 |---|---|---|
-| 2026-09-22 | **temporary** | **Neither app implements §1–§15 yet.** Both are empty shells that launch. Each section's implementation deletes its part of this row, on both platforms in the same commit, or splits it into a per-platform row naming the one that is behind. Closed by the items in Stori `SMASH` (SMASH-2, SMASH-7 onward). |
+| 2026-09-22 | **temporary** | **Neither app lets the player play yet.** The rules (§1–§12, §15) run in both platforms' core and agree bit for bit, and all five worlds (§13) exist as shared assets, but no app shows a match, reads the finger, or offers a screen: the match scene and slow motion (§8.6), one-touch input (§5.3), the demo (§9), the menus and HUD, saving to the device (§15) and German/English copy on screen (§14) are still missing on **both**. Each lands on both platforms in one commit and trims this row. Closed by Stori `SMASH` (SMASH-8, SMASH-9, SMASH-11, SMASH-12). |
 | 2026-09-22 | **permanent** | **The two look the same to a player's eye, not to the pixel.** Geometry, textures, text, layout and motion are identical by construction; lighting, shadow softness and tone mapping come from two engines (RealityKit, Filament) and differ slightly (ADR 0005). A difference a player would notice is still a bug. |
 | 2026-09-22 | **permanent** | **iOS renders at 60 Hz on ProMotion iPhones, Android at the display's rate up to what it holds.** RealityKit's view offers no frame-rate control (ADR 0005). The simulation is unaffected — it runs in fixed steps (§4). |
 | 2026-09-22 | **permanent** | **Purchases are per-store and per-device.** There is no account, so an entitlement bought on one store does not follow the player to the other. The game never implies otherwise: no affordance offers a cross-platform restore (ADR 0001). |
 
 **The golden vectors** (`shared/vectors/`) are the one place the two simulations are checked
-against each other rather than merely written to the same text (§4.7). None exist yet; the first
-platform to implement the simulation records them.
+against each other rather than merely written to the same text (§4.7). Live: the math (§4.3–§4.4), the
+match — drills, full matches on both sports, a scripted player tape, a cup match into sudden-death
+(§4–§8, §10) — and the season, career and save (§2.2, §11, §15). iOS recorded all of them; Android
+replays every one exactly.
 
 ---
 

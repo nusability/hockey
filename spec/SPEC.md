@@ -730,6 +730,32 @@ for the apps: **Magic Wood**, **Deep Space**, **Desert Oasis**, **Himalaya** (ic
 **Ocean World**. The other four play field hockey. Nothing in a world intrudes inside the
 boundary.
 
+**The worlds are alive** (ADR 0007), as the prototype's were — ambient life that never touches
+play: nothing that moves ever crosses inside the boundary (only falling snow drifts over the
+rink), nothing takes randomness from the match, and it runs on real time, unaffected by pause or
+slow motion. What lives, the same on both platforms:
+
+- **Magic Wood** — the lantern mushrooms' caps breathe, all together, and so do the warm pools
+  of light beneath them and two broad warm spills beside the pitch; the violet crystals glow up
+  and down; the altar gem floats, bobs, turns and pulses over its cyan halo; glints run down the
+  stream; fireflies drift and blink round the clearing and in the canopies; lavender mist drifts
+  and breathes over the forest floor.
+- **Deep Space** — stars twinkle; nebula clouds breathe; the neon strips, pod rings and
+  floodlights pulse; a wave of light chases round the rim's studs; the thruster flames, exhaust
+  glows and floodlight glows flicker; the holographic boards bob and flicker; the two dashed halo
+  rings turn (the outer one backwards); the comet laps the low sky; two satellites orbit the arena.
+- **Desert Oasis** — palm crowns, grass, reeds and bunting sway in one breeze; the pools glitter;
+  the campfire's flame licks and its glow flickers; dust blows along the dunes.
+- **Himalaya** — the prayer flags flutter, a wave running down each string; soft cloud drifts over
+  the sea of cloud, round the far peaks and over the lake; snow falls, over the rink too.
+- **Ocean World** — kelp, sea grass, anemones and sea fans sway in the current; four schools of
+  fish circle the reef, each at its own pace and some the other way, bobbing as they go; two manta
+  rays glide round it high up; the jellyfish drift, bob and pulse; bubble streams rise wobbling
+  from the reef; motes drift up; shafts of sunlight shimmer.
+
+With the system's Reduce Motion (iOS) or removed animations (Android) on, the same life is calmer
+— smaller movements, slower rhythms — never gone. Read when a world loads.
+
 ### 14. Language
 German on devices set to German, English otherwise. Every user-facing string, club name, world
 name and drill text exists in both.

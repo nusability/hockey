@@ -10,9 +10,12 @@ staghorn, elkhorn, brain, tube clusters, tall pillar sponges, sea fans — with 
 kelp and sea grass; a shipwreck at the far left, a sunken temple at the far right, stray columns, a
 sunken stone head and a treasure chest; schools of fish circling the arena, two manta rays,
 glowing jellyfish. The sky: the page gradient, the bright surface far overhead fading to the deep
-blue at the horizon. No fog, no light shafts or bubbles (ADR 0006: no fog; nothing here moves).
+blue at the horizon. No fog (ADR 0006).
 
-The jellyfish glow, as their emissive translucent bells did: they are in the unlit `sky` mesh.
+What lives is in the effects (ADR 0007, shared/data/effects.toml): kelp, sea grass, anemones and
+sea fans sway in the current; four schools of fish and two manta rays circle the reef; the
+jellyfish (glowing, unlit) drift, bob and pulse; bubble streams rise from the reef; motes drift up;
+shafts of sunlight shimmer.
 Coordinates are the game's (worldkit): X across, Y up, Z along, the far goal at +Z.
 Run: tools/build-worlds.sh (Blender 5, headless); `-- --preview` also renders preview.png.
 """
@@ -134,7 +137,15 @@ def coral_branches(m, x, z, sc, sy, yaw, col, kids, spread, flat, trunk):
     grow((0, 0, 0), (0, 1, 0), trunk, 0.13, 0)
 
 
-def reef(m, sky_m):
+def swaying(fx, y0, h, amp, scale):
+    """A piece of the current's sway: weight grows with the square of the height up it (the
+    prototype's hh²), scaled to its own amplitude against the effect's."""
+    k = 0.4 * amp * scale
+    return fx['sway'].piece(lambda pt: (wk.clamp(k * wk.clamp((pt[1] - y0) / h, 0.0, 1.0) ** 2, 0.0, 1.0),
+                                        ((pt[0] * 0.7 + pt[2] * 0.9) / (2 * math.pi)) % 1.0))
+
+
+def reef(m, fx):
     for x, z in scatter(46, lo=1.2, hi=60, falloff=22):         # boulders
         sc = R(0.9, 3.2)
         c = rng.choice(['#7484b3', '#8286b5', '#6a8aa6', '#8c7cac'])
@@ -177,7 +188,8 @@ def reef(m, sky_m):
             rr = sc * (0.46 if k % 2 else 0.4)
             px, py = math.sin(a) * rr, 0.08 * sc + math.cos(a) * rr
             pts.append((x + px * ca, y0 + py, z + px * sa))
-        m.face(pts, c, facing=(-sa, 0.3, ca))
+        with swaying(fx, y0, 0.55 * sc, 0.06, sc) as fm:
+            fm.face(pts, c, facing=(-sa, 0.3, ca))
     for x, z in scatter(48, lo=1.2, hi=28, falloff=9):          # anemones
         sc = R(0.9, 1.9)
         c = rng.choice(['#ff7ab8', '#b388ff', '#7dffc4', '#ffb27a', '#8ad4ff'])
@@ -186,7 +198,8 @@ def reef(m, sky_m):
         for k in range(6):
             a = k / 6 * 2 * math.pi + R(-0.3, 0.3)
             tip = (x + math.cos(a) * 0.45 * sc, y0 + R(0.55, 0.9) * sc, z + math.sin(a) * 0.45 * sc)
-            m.frustum((x + math.cos(a) * 0.1 * sc, y0 + 0.1 * sc, z + math.sin(a) * 0.1 * sc), tip, 0.06 * sc, 0.0, 3, c)
+            with swaying(fx, y0, 0.9 * sc, 0.12, sc) as fm:
+                fm.frustum((x + math.cos(a) * 0.1 * sc, y0 + 0.1 * sc, z + math.sin(a) * 0.1 * sc), tip, 0.06 * sc, 0.0, 3, c)
     for x, z in scatter(30, lo=1.0, hi=28, falloff=9):          # starfish
         sc, rot = R(0.35, 0.7), R(0, 6.3)
         c = rng.choice(['#ff6a3d', '#ff3d6e', '#a855f7', '#ffb02e'])
@@ -204,21 +217,25 @@ def reef(m, sky_m):
         ca, sa = math.cos(yaw), math.sin(yaw)
         prev = None
         sway = R(-0.6, 0.6)
+        piece = swaying(fx, y0, h, 0.35, h)
+        km = piece.__enter__()
         for k in range(5):
             t = k / 4
             half = w * 0.2 * ((0.5 + 0.5 * math.sin(t * math.pi)) * (1 - t * 0.5) + 0.15) if k < 4 else 0.02
             cx, cz = x + sway * t * t * sa, z - sway * t * t * ca
             pair = ((cx - half * ca, y0 + h * t, cz - half * sa), (cx + half * ca, y0 + h * t, cz + half * sa))
             if prev:
-                m.face([prev[0], prev[1], pair[1], pair[0]], c if k % 2 else wk.scale(c, 0.8), facing=(-sa, 0, ca))
+                km.face([prev[0], prev[1], pair[1], pair[0]], c if k % 2 else wk.scale(c, 0.8), facing=(-sa, 0, ca))
             prev = pair
+        piece.__exit__()
     for x, z in scatter(360, lo=0.6, hi=22, falloff=6):         # sea grass
         c = rng.choice(['#4fc36a', '#8fd35a', '#35b08a', '#b9d64a'])
         y0 = seabed_y(x, z) - 0.05
         h = R(0.6, 1.5)
         for k in range(2):
             a = R(0, 6.28)
-            m.face([(x - math.sin(a) * 0.08, y0, z + math.cos(a) * 0.08), (x + math.sin(a) * 0.08, y0, z - math.cos(a) * 0.08),
+            with swaying(fx, y0, h, 0.2, h) as fm:
+                fm.face([(x - math.sin(a) * 0.08, y0, z + math.cos(a) * 0.08), (x + math.sin(a) * 0.08, y0, z - math.cos(a) * 0.08),
                     (x + math.cos(a) * 0.3, y0 + h, z + math.sin(a) * 0.3)], c, facing=(math.cos(a), 0.2, math.sin(a)))
 
 
@@ -332,10 +349,19 @@ def chest(m):
 
 
 # ---------------------------------------------------------------- fish, mantas, jellyfish
-def fish(m):
-    schools = [(80, 24, 46, 4.5, ['#ffc63d', '#ffb020'], 1), (60, 30, 50, 7.5, ['#3d8bff', '#5aa6ff', '#8fd3ff'], -1),
-               (50, 22, 52, 3.2, ['#ff7a1a', '#ffffff'], 1), (30, 36, 62, 12, ['#dfe9f2', '#c0d0e0'], -1)]
-    for n, rx, rz, y, cols, d in schools:
+FISH_ELLIPSE = 1.818                                            # effects.toml fish.ellipse (z : x)
+
+
+def fish(fx):
+    """The four schools on the prototype's ellipses (their z radii; x radii from the one shared
+    ellipse the orbit turns them on), each school at its own speed — the prototype's 0.22, −0.16,
+    0.3, −0.11 rad/s against the effect's 0.3, baked as w = (k + 1) / 2 — each fish bobbing on its
+    own phase."""
+    m = fx['fish']
+    schools = [(80, 24, 46, 4.5, ['#ffc63d', '#ffb020'], 1, 0.22), (60, 30, 50, 7.5, ['#3d8bff', '#5aa6ff', '#8fd3ff'], -1, -0.16),
+               (50, 22, 52, 3.2, ['#ff7a1a', '#ffffff'], 1, 0.3), (30, 36, 62, 12, ['#dfe9f2', '#c0d0e0'], -1, -0.11)]
+    for n, rx, rz, y, cols, d, spd in schools:
+        rx = rz / FISH_ELLIPSE
         a0 = R(0, 6.28)
         for i in range(n // 2):
             a = a0 + R(-0.6, 0.6)
@@ -347,14 +373,19 @@ def fish(m):
             tx, tz = -math.sin(a) * rx * d, math.cos(a) * rz * d
             heading = math.atan2(tz, tx)
             s = R(0.75, 1.25)
+            m.datafn = lambda pt, k=spd / 0.3, ph=m.rng.uniform(0, 1): ((k + 1) / 2, ph)
             mm = m.xf(T(x, yy, z) @ Rot(-heading, 'Y') @ S(s))
             c = rng.choice(cols)
             mm.octa((0, 0, 0), 0.14, 0.275, c, roll=math.pi / 2, lower=0.275, top_col=wk.scale(c, 0.85))
             mm.face([(-0.25, 0, 0), (-0.55, 0.2, 0), (-0.55, -0.2, 0)], c, facing=(0, 0, 1))
 
 
-def mantas(m):
-    for a, rx, rz, y, sc, d in ((0.4, 34, 56, 9.5, 9, 1), (3.6, 44, 66, 12, 6, -1)):
+def mantas(fx):
+    """Two mantas gliding round on circles (a manta is too big to stretch round an ellipse), the
+    second backwards at 0.06 rad/s against the effect's 0.075."""
+    m = fx['mantas']
+    for a, rx, rz, y, sc, d in ((0.4, 50, 50, 9.5, 9, 1), (3.6, 58, 58, 12, 6, -1)):
+        m.datafn = lambda pt, k=(1.0 if d > 0 else -0.06 / 0.075), ph=m.rng.uniform(0, 1): ((k + 1) / 2, ph)
         x, z = math.cos(a) * rx, math.sin(a) * rz
         dx, dz = -math.sin(a) * rx * d, math.cos(a) * rz * d
         mm = m.xf(T(x, y, z) @ Rot(math.atan2(-dx, -dz), 'Y') @ Rot(0.22 * d, 'Z') @ S(sc))
@@ -372,8 +403,10 @@ def mantas(m):
             mm.face([(s * 0.16, 0, -0.3), (s * 0.08, 0, -0.3), (s * 0.12, 0, -0.55)], '#3b4d70', facing=(0, 1, 0))
 
 
-def jellyfish(sky_m):
+def jellyfish(fx):
+    sky_m = fx['jellies']
     for x, z in scatter(22, lo=4, hi=40, falloff=18, tall=True):
+        sky_m.datafn = lambda pt, ph=sky_m.rng.uniform(0, 1): (1.0, ph)
         y, sc = seabed_y(x, z) + R(3, 10), R(0.6, 1.5)
         c = rng.choice(['#ff9ad5', '#b9a6ff', '#9de8ff', '#ffc4a8'])
         prof = [(0.0, 1.0), (0.55, 0.85), (0.9, 0.45), (1.0, 0.0)]
@@ -385,18 +418,58 @@ def jellyfish(sky_m):
 
 
 # ---------------------------------------------------------------- the world
-def build(turf, scen, sky_m):
+def bubbles(fx):
+    """Bubble streams from vents in the reef (and the wreck's, the chest's, the temple's), motes
+    drifting up everywhere, shafts of sunlight — each on the effect's own seed."""
+    b = fx['bubbles']
+    R_ = b.rng.uniform
+    sites = [(-14.0, 40.5), (-19.5, 36.0), (25.5, 40.0)]
+    while len(sites) < 19:
+        x, z = R_(-SLAB_HW - 34, SLAB_HW + 34), R_(-SLAB_HL - 34, SLAB_HL + 34)
+        if 2 <= sd_slab(x, z) <= 34 and not (z < -wk.HL - 1 and abs(x) < 19):
+            sites.append((x, z))
+    for cx, cz in sites:
+        for _ in range(12):
+            x, z = cx + R_(-0.35, 0.35), cz + R_(-0.35, 0.35)
+            b.particle((x, seabed_y(x, z) + R_(0.0, 0.3), z), b.rng.choice(('#e8fbff', '#d4f6ff')))
+    m = fx['motes']
+    n = 0
+    while n < 120:
+        x, z = m.rng.uniform(-SLAB_HW - 60, SLAB_HW + 60), m.rng.uniform(-SLAB_HL - 60, SLAB_HL + 60)
+        if 1 <= sd_slab(x, z) <= 60:
+            m.particle((x, seabed_y(x, z) + m.rng.uniform(0.5, 2.0), z), '#dffaff')
+            n += 1
+    sh = fx['shafts']
+    R_ = sh.rng.uniform
+    for _ in range(9):
+        x, z = R_(-58, 58), R_(-40, 70)
+        if abs(x) < 20 and z < wk.HL + 8:
+            continue
+        w, h = R_(1.5, 4), R_(34, 60)
+        for ry in (0.3, 1.87):
+            a = ry + R_(-0.2, 0.2)
+            ux, uz = math.cos(a) * w / 2, math.sin(a) * w / 2
+            rows = [(0.0, 0.0), (0.55, 1.0), (1.0, 0.35)]           # (height fraction, light): bright below the middle
+            for (f0, l0), (f1, l1) in zip(rows, rows[1:]):
+                y0, y1 = f0 * h, f1 * h
+                with sh.piece(lambda pt, y0=y0, y1=y1, l0=l0, l1=l1: (l0 + (l1 - l0) * wk.clamp((pt[1] - y0) / (y1 - y0), 0.0, 1.0), 0.0)):
+                    sh.face([(x - ux, y0, z - uz), (x + ux, y0, z + uz), (x + ux, y1, z + uz), (x - ux, y1, z - uz)], '#9fe8ff',
+                            facing=(-math.sin(a), 0, math.cos(a)))
+
+
+def build(turf, scen, sky_m, fx):
     wk.rink(turf, scen, SPORT, SURFACE, BORDER, GOAL, decorate=decorate, skirt=-1.0)
     seabed(scen)
-    reef(scen, sky_m)
+    reef(scen, fx)
     pearls(scen)
     shipwreck(scen)
     temple(scen)
     stone_head(scen)
     chest(scen)
-    fish(scen)
-    mantas(scen)
-    jellyfish(sky_m)
+    fish(fx)
+    mantas(fx)
+    jellyfish(fx)
+    bubbles(fx)
 
 
 wk.run(WORLD, HERE, wk.Palette(wk.css_sky(SKY)), SPORT, build, LIGHT)

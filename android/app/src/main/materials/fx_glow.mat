@@ -1,0 +1,41 @@
+// An effect that glows (ADR 0007): its palette colour, unlit, times the pulse, moved by its motion.
+// What the prototype lit by emission. The twin of iOS's FxGlow graph.
+material {
+    name : fx_glow,
+    shadingModel : unlit,
+    parameters : [
+        { type : sampler2d, name : palette },
+        { type : float3, name : pulseAmp },
+        { type : float3, name : pulseRate },
+        { type : float3, name : swayAmp },
+        { type : float, name : swayRate },
+        { type : float, name : orbit },
+        { type : float, name : spin },
+        { type : float3, name : pivot },
+        { type : float, name : ellipse }
+    ],
+    requires : [ uv0 ],
+    blending : opaque,
+    culling : none
+}
+
+vertex {
+    #include "fx_common.glsl"
+    void materialVertex(inout MaterialVertexInputs material) {
+        vec3 offset = fxMotion(getPosition().xyz, fxData(mesh_uv0), getUserTime().x, materialParams.swayAmp, materialParams.swayRate,
+                               materialParams.orbit, materialParams.spin, materialParams.pivot, materialParams.ellipse);
+        material.worldPosition.xyz += mat3(getWorldFromModelMatrix()) * offset;
+    }
+}
+
+fragment {
+    #include "fx_common.glsl"
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        vec2 uv = getUV0();
+        vec2 d = fxData(uv);
+        vec3 albedo = texture(materialParams_palette, vec2(uv.x, 1.0 - uv.y)).rgb;
+        float b = fxPulse(getUserTime().x, d.y, materialParams.pulseAmp, materialParams.pulseRate);
+        material.baseColor = vec4(albedo * b, 1.0);
+    }
+}

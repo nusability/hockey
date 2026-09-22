@@ -10,7 +10,11 @@ hugging the far +X corner — with wet shores, reeds and glints; palms round the
 and the sides; a sandstone ruin with an arched gateway, broken columns and an old bath flanking the
 big pool; a tent camp with striped canvas, awnings, rugs, bunting and a campfire; cacti, rocks,
 desert grass; a camel caravan on the dunes; the huge low sun. The sky: the page gradient, violet
-over a glowing orange horizon, the sun's glow painted into the sky map. No fog, no dust (ADR 0006).
+over a glowing orange horizon, the sun's glow painted into the sky map. No fog (ADR 0006).
+
+What lives is in the effects (ADR 0007, shared/data/effects.toml): palm crowns, grass, reeds and
+bunting sway in one breeze; the pools glitter; the campfire's flame licks and its glow flickers;
+dust blows along the dunes.
 
 Coordinates are the game's (worldkit): X across, Y up, Z along, the far goal at +Z.
 Run: tools/build-worlds.sh (Blender 5, headless); `-- --preview` also renders preview.png.
@@ -168,7 +172,7 @@ def clamp_slab(x, z, lim):
     return x, z
 
 
-def pools(m, sky_m):
+def pools(m, fx):
     c_in, c_out = '#0d8085', '#73e0d1'
     segs = 36
     for p in POOLS:
@@ -184,11 +188,23 @@ def pools(m, sky_m):
             th = R(0, 2 * math.pi)
             rr = pool_r(p, th) * math.sqrt(R(0.05, 0.85))
             x, z = clamp_slab(p[0] + math.cos(th) * rr, p[1] + math.sin(th) * rr, 19)
-            sky_m.octa((x, 0.16, z), 0.12, 0.05, '#fff6d8', yaw=R(0, 3))
+            R(0, 3)                                            # (the draw the old glint's yaw took)
+            fx['sparkles'].particle((x, 0.16, z), '#fff6d8')
+        sp = fx['sparkles']
+        for _ in range(38):                                    # and more, on the effect's own seed
+            th = sp.rng.uniform(0, 2 * math.pi)
+            rr = pool_r(p, th) * math.sqrt(sp.rng.uniform(0.05, 0.9))
+            x, z = clamp_slab(p[0] + math.cos(th) * rr, p[1] + math.sin(th) * rr, 19)
+            sp.particle((x, 0.16, z), sp.rng.choice(['#fff6d8', '#ffffff', '#fff0b8']))
 
 
 # ---------------------------------------------------------------- palms
-def palm(m, x, z, h):
+def sway_phase(x, z):
+    """The prototype's per-instance phase of the breeze (x·0.31 + z·0.17), as a fraction of a turn."""
+    return ((x * 0.31 + z * 0.17) / (2 * math.pi)) % 1.0
+
+
+def palm(m, fx, x, z, h):
     y = height(x, z) - 0.15
     yaw, s = R(0, 2 * math.pi), R(0.85, 1.25)
     bend = (math.cos(yaw), -math.sin(yaw))
@@ -200,6 +216,8 @@ def palm(m, x, z, h):
     for k in range(5):
         m.frustum(pts[k], pts[k + 1], 0.36 * s * (1 - 0.44 * k / 5), 0.36 * s * (1 - 0.44 * (k + 1) / 5), 6, bands[k % 2])
     top = pts[-1]
+    crown = fx['sway'].piece(lambda pt: (wk.clamp(math.hypot(pt[0] - top[0], pt[2] - top[2]) / 4.0, 0.0, 1.0), sway_phase(x, z)))
+    m = crown.__enter__()                                     # the crown sways: its weight grows outward
     cs = R(0.85, 1.15) * (0.75 + h / 20)
     tint = R(0.9, 1.05)
     greens = [wk.scale('#2f6b2a', tint), wk.scale('#4f9a3c', tint), wk.scale('#8cc45a', tint)]
@@ -226,9 +244,10 @@ def palm(m, x, z, h):
     m.blob((top[0], top[1] + 0.05, top[2]), 0.42 * cs, '#6b4a2a', level=0)
     for i in range(2):
         m.blob((top[0] + math.cos(i * 2.4) * 0.35 * cs, top[1] - 0.2 * cs, top[2] + math.sin(i * 2.4) * 0.35 * cs), 0.24 * cs, '#5a3d22', level=0)
+    crown.__exit__()
 
 
-def palms(m):
+def palms(m, fx):
     spots = []
 
     def add(x, z, h):
@@ -256,7 +275,7 @@ def palms(m):
         s = 1 if i % 2 else -1
         add(s * R(23, 34), R(-52, -34), R(5, 8))
     for x, z, h in spots:
-        palm(m, x, z, h)
+        palm(m, fx, x, z, h)
 
 
 # ---------------------------------------------------------------- rocks, cacti, grass
@@ -308,18 +327,19 @@ def cacti(m):
         n += 1
 
 
-def tuft(m, x, z, s, col, col2):
+def tuft(fx, x, z, s, col, col2):
     y = height(x, z) - 0.05
-    for k in range(3):
-        a = R(0, 6.28)
-        lean = R(0.2, 0.6) * s
-        tip = (x + math.cos(a) * lean, y + s * R(0.8, 1.1), z + math.sin(a) * lean)
-        w = 0.12 * s
-        m.face([(x - math.sin(a) * w, y, z + math.cos(a) * w), (x + math.sin(a) * w, y, z - math.cos(a) * w), tip],
-               col if k % 2 else col2, facing=(math.cos(a), 0.3, math.sin(a)))
+    with fx['sway'].piece(lambda pt: (wk.clamp((pt[1] - y) / 2.4, 0.0, 1.0), sway_phase(x, z))) as m:
+        for k in range(3):
+            a = R(0, 6.28)
+            lean = R(0.2, 0.6) * s
+            tip = (x + math.cos(a) * lean, y + s * R(0.8, 1.1), z + math.sin(a) * lean)
+            w = 0.12 * s
+            m.face([(x - math.sin(a) * w, y, z + math.cos(a) * w), (x + math.sin(a) * w, y, z - math.cos(a) * w), tip],
+                   col if k % 2 else col2, facing=(math.cos(a), 0.3, math.sin(a)))
 
 
-def grass(m):
+def grass(fx):
     for i in range(150):                                       # reeds and lush grass round the pools
         p = POOLS[i % 2]
         th, f = R(0, 6.28), R(1.06, 2.0)
@@ -328,13 +348,13 @@ def grass(m):
         if in_slab(x, z):
             continue
         near = f < 1.3
-        tuft(m, x, z, R(1.4, 2.4) if near else R(0.8, 1.5), '#4f8a3a' if near else '#8aa04e', '#5f9a40' if near else '#9fb35a')
+        tuft(fx, x, z, R(1.4, 2.4) if near else R(0.8, 1.5), '#4f8a3a' if near else '#8aa04e', '#5f9a40' if near else '#9fb35a')
     n = 0
     while n < 190:                                             # dry tufts everywhere else
         x, z = R(-80, 80), R(-60, 95)
         if in_slab(x, z) or wk.sd_round_rect(x, z, 19, 34, 6) < 0 or pool_dist(x, z) < 1.9:
             continue
-        tuft(m, x, z, R(0.6, 1.4), '#d9c070', '#b8a052')
+        tuft(fx, x, z, R(0.6, 1.4), '#d9c070', '#b8a052')
         n += 1
 
 
@@ -372,7 +392,7 @@ def ruins(m):
         m.box(x, height(x, z) - 0.1, z, w, h, d, BRICK, top=BRICK_D, yaw=yaw)
 
 
-def camp(m, sky_m):
+def camp(m, eff):
     stripes = ('#c8412f', '#f7e8c9')
     for x, z, r, h, ry, tint in ((-33, 30, 2.6, 3.4, 0.3, (1, 1, 1)), (-40, 20, 2.3, 3.0, 1.2, (0.78, 0.9, 1.0)), (-35, 38, 2.4, 3.2, 2.2, (1, 0.88, 0.7))):
         y = height(x, z) - 0.1
@@ -401,7 +421,8 @@ def camp(m, sky_m):
             sag = 0.45 * math.sin(math.pi * t)
             x, z, y = x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, y0 - sag
             dx, dz = (x1 - x0) / n * 0.42, (z1 - z0) / n * 0.42
-            m.face([(x - dx, y, z - dz), (x + dx, y, z + dz), (x, y - 0.7, z)], colours[i % len(colours)], facing=(-(z1 - z0), 0.2, x1 - x0))
+            with eff['sway'].piece(lambda pt: (0.35 / 1.2, ((pt[0] * 0.9 + pt[2] * 0.4) / (2 * math.pi)) % 1.0)) as flag:
+                flag.face([(x - dx, y, z - dz), (x + dx, y, z + dz), (x, y - 0.7, z)], colours[i % len(colours)], facing=(-(z1 - z0), 0.2, x1 - x0))
         for i in range(n * 2):
             t0, t1 = i / (n * 2), (i + 1) / (n * 2)
             P = lambda t: (x0 + (x1 - x0) * t, y0 - 0.45 * math.sin(math.pi * t), z0 + (z1 - z0) * t)
@@ -412,12 +433,26 @@ def camp(m, sky_m):
     string(-29, 33, -38, 35.5, height(-29, 34) + 3.2, 9)
     string(20, 14, 20, 23, height(20, 18) + 3.0, 9)
     string(-21, -6, -21, 4, height(-21, -1) + 3.0, 9)
-    fx, fz = -33.0, 24.0                                       # the campfire and its glow (unlit)
+    fx, fz = -33.0, 24.0                                       # the campfire, its lit ground and its glow
     fy = height(fx, fz)
     ground = wk.lit(wk.hexs(TRAMPLED), LIGHT)
     for k, (rr, amt) in enumerate(((2.0, 0.25), (1.2, 0.45))):
-        sky_m.disc(fx, fy + 0.04 + 0.02 * k, fz, rr, 10, wk.add(ground, '#ff8a3a', amt))
-    sky_m.frustum((fx, fy, fz), (fx, fy + 1.0, fz), 0.35, 0.0, 6, '#ffa726', col_fn=lambda i: '#ffa726' if i % 2 else '#ffd166')
+        eff.sky.disc(fx, fy + 0.04 + 0.02 * k, fz, rr, 10, wk.add(ground, '#ff8a3a', amt))
+    with eff['flame'].piece(lambda pt: (wk.clamp((pt[1] - fy) / 1.0, 0.0, 1.0), 0.0)) as flame:
+        flame.frustum((fx, fy, fz), (fx, fy + 1.0, fz), 0.35, 0.0, 6, '#ffa726', col_fn=lambda i: '#ffa726' if i % 2 else '#ffd166')
+    eff['fireglow'].particle((fx, fy + 1.0, fz), '#ffb35a')
+
+
+def dust(fx):
+    """Dust blowing along the dunes (+Z), beside the pitch and behind the far goal."""
+    m = fx['dust']
+    R_ = m.rng.uniform
+    for i in range(300):
+        if i % 3 == 2:
+            x, z = R_(-30, 30), R_(34, 50)
+        else:
+            x, z = (1 if i % 2 else -1) * R_(17, 55), R_(-45, 15)
+        m.particle((x, height(x, z) + R_(0.3, 5), z), m.rng.choice(['#f7c98c', '#f1d2a0', '#e8b87a']))
 
 
 CAMEL = [(0, 0.9), (0.2, 1.15), (0.5, 1.3), (0.8, 1.45), (0.95, 1.52), (1.0, 1.9), (1.1, 2.12), (1.22, 1.92), (1.28, 1.52), (1.45, 1.42),
@@ -441,18 +476,20 @@ def sun(sky_m):
 
 
 # ---------------------------------------------------------------- the world
-def build(turf, scen, sky_m):
+def build(turf, scen, sky_m, fx):
+    fx.sky = sky_m
     wk.rink(turf, scen, SPORT, SURFACE, BORDER, GOAL, decorate=decorate, skirt=-0.6)
     dunes(scen)
-    pools(scen, sky_m)
-    palms(scen)
+    pools(scen, fx)
+    palms(scen, fx)
     rocks(scen)
     cacti(scen)
-    grass(scen)
+    grass(fx)
     ruins(scen)
-    camp(scen, sky_m)
+    camp(scen, fx)
     caravan(sky_m)
     sun(sky_m)
+    dust(fx)
 
 
 wk.run(WORLD, HERE, wk.Palette(sky), SPORT, build, LIGHT)

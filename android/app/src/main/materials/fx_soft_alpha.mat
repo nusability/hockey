@@ -1,0 +1,45 @@
+// A soft effect (ADR 0007) — glow pools, halos, mist, cloud wisps, light shafts: its palette colour
+// × w² (w: 1 at a disc's centre, 0 at its rim) × opacity × pulse, blended over what is behind it, moved by its motion
+// with weight 1. Premultiplied. The twin of iOS's FxSoft graph.
+material {
+    name : fx_soft_alpha,
+    shadingModel : unlit,
+    parameters : [
+        { type : sampler2d, name : palette },
+        { type : float3, name : pulseAmp },
+        { type : float3, name : pulseRate },
+        { type : float3, name : swayAmp },
+        { type : float, name : swayRate },
+        { type : float, name : orbit },
+        { type : float, name : spin },
+        { type : float3, name : pivot },
+        { type : float, name : ellipse },
+        { type : float, name : opacity }
+    ],
+    requires : [ uv0 ],
+    blending : transparent,
+    depthWrite : false,
+    culling : none
+}
+
+vertex {
+    #include "fx_common.glsl"
+    void materialVertex(inout MaterialVertexInputs material) {
+        vec3 offset = fxMotion(getPosition().xyz, vec2(1.0, fxData(mesh_uv0).y), getUserTime().x, materialParams.swayAmp, materialParams.swayRate,
+                               materialParams.orbit, materialParams.spin, materialParams.pivot, materialParams.ellipse);
+        material.worldPosition.xyz += mat3(getWorldFromModelMatrix()) * offset;
+    }
+}
+
+fragment {
+    #include "fx_common.glsl"
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        vec2 uv = getUV0();
+        vec2 d = fxData(uv);
+        vec3 albedo = texture(materialParams_palette, vec2(uv.x, 1.0 - uv.y)).rgb;
+        float b = fxPulse(getUserTime().x, d.y, materialParams.pulseAmp, materialParams.pulseRate);
+        float a = clamp(d.x, 0.0, 1.0) * clamp(d.x, 0.0, 1.0) * materialParams.opacity * max(b, 0.0);
+        material.baseColor = vec4(albedo * a, a);
+    }
+}

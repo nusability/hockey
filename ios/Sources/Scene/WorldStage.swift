@@ -20,6 +20,7 @@ final class WorldStage {
         let stage = WorldStage(world: world)
         let asset = try await Entity(named: world.rawValue, in: .main)
         try stage.bind(asset, materials: materials)
+        try await WorldEffects.attach(to: asset, world: world, look: stage.look)   // what is alive (ADR 0007)
         stage.root.addChild(asset)
         return stage
     }

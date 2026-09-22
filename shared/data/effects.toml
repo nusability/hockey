@@ -1,0 +1,352 @@
+# What is alive in each world (spec §13, ADR 0007): declared once here, baked into the world assets by
+# tools/build-worlds.sh (each effect is the mesh `fx_<id>` in its world's .glb/.usdz) and generated
+# into both apps by tools/generate-data.py, which drive every effect with the same formulas on the GPU.
+# Presentation only: effects run on the renderer's clock, never on the match's, and draw no randomness
+# at run time — every layout is baked into the asset (a fixed seed per effect in its build script).
+#
+# Units: metres, seconds, radians per second. Colour comes from the world's palette, as everywhere.
+#
+#   shading   lit        the world shader (ADR 0006), moved by `motion`
+#             glow       unlit palette colour × pulse, moved by `motion` (what the prototype lit by emission)
+#             soft       palette colour × a soft falloff × pulse × opacity, blended by `blend`, moved by
+#                        `motion` — glow pools, halos, mist, cloud wisps, light shafts (no fog: these are meshes)
+#             particles  camera-facing sprites: palette colour × a soft disc × opacity, blended by `blend`
+#   blend     add | alpha                                 (soft and particles only)
+#   motion    none | sway | orbit                         (not particles)
+#     sway    = [x, y, z] amplitude at weight 1, sway_rate — each vertex's weight and phase are baked:
+#               offset = sway ⊙ (0.77·sin(ωt+φ) + 0.23·s2, same, 0.77·cos(0.82ωt+1.3φ) + 0.23·s2),
+#               s2 = sin(2.45ωt+1.9φ) — the prototype's vertex sway
+#     orbit   = spin (rad/s) about the vertical through `pivot`, on ellipses `ellipse` (z : x) — each
+#               vertex's speed factor in [−1, 1] is baked; `sway` then bobs the whole piece
+#   pulse     = [base, a1, ω1, a2, ω2]: brightness base + a1·sin(ω1t+φ) + a2·sin(ω2t+1.7φ), φ baked per
+#               piece (particles: per sprite). Absent: a steady 1. For particles it scales the sprite's size.
+#   particles size (half-width, m), size_spread (± fraction), opacity, travel (m/s, the sprites wrap every
+#             `wrap` metres, 0: they stay), wobble (m) at wobble_rate, over_pitch (may cross the pitch:
+#             only falling snow does).
+
+# Reduce Motion: every amplitude and every rate is multiplied by these — calmer, never still.
+[calm]
+amplitude = 0.4
+speed = 0.6
+
+# ---------------------------------------------------------------- Magic Wood
+[[effect]]
+world = "magicwood"
+id = "caps"                 # the lantern mushrooms' caps breathe, all together
+shading = "glow"
+motion = "none"
+pulse = [1.0, 0.29, 1.4, 0.13, 3.7]
+
+[[effect]]
+world = "magicwood"
+id = "pools"                # the warm pools of light under the lanterns breathe with them
+shading = "soft"
+blend = "add"
+motion = "none"
+opacity = 0.6
+pulse = [1.0, 0.13, 1.4, 0.06, 3.7]
+
+[[effect]]
+world = "magicwood"
+id = "crystals"             # the violet crystals glow up and down, slowly
+shading = "glow"
+motion = "none"
+pulse = [1.0, 0.43, 0.9, 0.0, 0.0]
+
+[[effect]]
+world = "magicwood"
+id = "gem"                  # the altar gem floats, turns and pulses
+shading = "glow"
+motion = "orbit"
+spin = 0.7
+pivot = [0.0, 2.06, 46.0]
+ellipse = 1.0
+sway = [0.0, 0.35, 0.0]
+sway_rate = 1.3
+pulse = [1.0, 0.4, 2.1, 0.0, 0.0]
+
+[[effect]]
+world = "magicwood"
+id = "altar"                # the gem's cyan halo on the ground
+shading = "soft"
+blend = "add"
+motion = "none"
+opacity = 0.8
+pulse = [1.0, 0.35, 1.3, 0.0, 0.0]
+
+[[effect]]
+world = "magicwood"
+id = "stream"               # glints run down the stream
+shading = "glow"
+motion = "none"
+pulse = [0.9, 0.35, 0.75, 0.0, 0.0]
+
+[[effect]]
+world = "magicwood"
+id = "fireflies"            # fireflies drift and blink round the clearing and in the canopies
+shading = "particles"
+blend = "add"
+size = 0.32
+size_spread = 0.5
+opacity = 1.0
+travel = [0.0, 0.0, 0.0]
+wrap = 0.0
+wobble = [1.6, 0.5, 1.6]
+wobble_rate = 0.58
+pulse = [0.9, 0.55, 1.3, 0.0, 0.0]
+
+[[effect]]
+world = "magicwood"
+id = "mist"                 # lavender mist drifts over the forest floor
+shading = "soft"
+blend = "alpha"
+motion = "sway"
+sway = [3.0, 0.0, 2.5]
+sway_rate = 0.06
+opacity = 0.45
+pulse = [1.0, 0.17, 0.3, 0.0, 0.0]
+
+# ---------------------------------------------------------------- Deep Space
+[[effect]]
+world = "space"
+id = "stars"                # stars twinkle
+shading = "particles"
+blend = "add"
+size = 1.1
+size_spread = 0.8
+opacity = 1.0
+travel = [0.0, 0.0, 0.0]
+wrap = 0.0
+wobble = [0.0, 0.0, 0.0]
+wobble_rate = 0.0
+pulse = [0.7, 0.3, 1.2, 0.0, 0.0]
+
+[[effect]]
+world = "space"
+id = "nebula"               # nebula clouds breathe
+shading = "soft"
+blend = "add"
+motion = "none"
+opacity = 0.35
+pulse = [1.0, 0.12, 0.25, 0.0, 0.0]
+
+[[effect]]
+world = "space"
+id = "neon"                 # neon strips, pod rings and floodlights pulse
+shading = "glow"
+motion = "none"
+pulse = [0.95, 0.18, 2.1, 0.1, 4.0]
+
+[[effect]]
+world = "space"
+id = "studs"                # a wave of light chases round the rim's studs
+shading = "glow"
+motion = "none"
+pulse = [0.7, 0.35, 3.0, 0.0, 0.0]
+
+[[effect]]
+world = "space"
+id = "exhaust"              # thruster flames and exhaust and floodlight glows flicker
+shading = "soft"
+blend = "add"
+motion = "none"
+opacity = 0.8
+pulse = [1.0, 0.25, 6.3, 0.15, 17.0]
+
+[[effect]]
+world = "space"
+id = "holo"                 # the holographic boards bob and flicker
+shading = "glow"
+motion = "sway"
+sway = [0.0, 0.25, 0.0]
+sway_rate = 0.9
+pulse = [1.0, 0.08, 11.0, 0.0, 0.0]
+
+[[effect]]
+world = "space"
+id = "orbits"               # the dashed halo rings turn (the outer one backwards), the comet laps the sky
+shading = "glow"
+motion = "orbit"
+spin = 0.12
+pivot = [0.0, 0.0, 0.0]
+ellipse = 1.0
+sway = [0.0, 0.0, 0.0]
+sway_rate = 0.0
+
+[[effect]]
+world = "space"
+id = "satellites"           # two satellites orbit the arena
+shading = "lit"
+motion = "orbit"
+spin = 0.05
+pivot = [0.0, 0.0, 0.0]
+ellipse = 1.0
+sway = [0.0, 0.0, 0.0]
+sway_rate = 0.0
+
+# ---------------------------------------------------------------- Desert Oasis
+[[effect]]
+world = "oasis"
+id = "sway"                 # palm crowns, grass, reeds and bunting sway in the breeze
+shading = "lit"
+motion = "sway"
+sway = [0.16, 0.036, 0.13]
+sway_rate = 1.1
+
+[[effect]]
+world = "oasis"
+id = "sparkles"             # the pools glitter
+shading = "particles"
+blend = "add"
+size = 0.16
+size_spread = 0.5
+opacity = 1.0
+travel = [0.0, 0.0, 0.0]
+wrap = 0.0
+wobble = [0.0, 0.0, 0.0]
+wobble_rate = 0.0
+pulse = [0.55, 0.5, 3.5, 0.0, 0.0]
+
+[[effect]]
+world = "oasis"
+id = "flame"                # the campfire's flame licks
+shading = "glow"
+motion = "sway"
+sway = [0.03, 0.08, 0.03]
+sway_rate = 9.0
+
+[[effect]]
+world = "oasis"
+id = "fireglow"             # and its glow flickers
+shading = "particles"
+blend = "add"
+size = 2.0
+size_spread = 0.0
+opacity = 0.75
+travel = [0.0, 0.0, 0.0]
+wrap = 0.0
+wobble = [0.0, 0.0, 0.0]
+wobble_rate = 0.0
+pulse = [1.0, 0.12, 9.0, 0.08, 23.7]
+
+[[effect]]
+world = "oasis"
+id = "dust"                 # dust blows along the dunes
+shading = "particles"
+blend = "alpha"
+size = 0.45
+size_spread = 0.5
+opacity = 0.45
+travel = [0.0, 0.0, 1.2]
+wrap = 60.0
+wobble = [0.85, 0.28, 0.0]
+wobble_rate = 0.8
+
+# ---------------------------------------------------------------- Himalaya
+[[effect]]
+world = "himalaya"
+id = "flags"                # the prayer flags flutter, a wave running along each string
+shading = "lit"
+motion = "sway"
+sway = [0.16, 0.04, 0.16]
+sway_rate = 3.6
+
+[[effect]]
+world = "himalaya"
+id = "clouds"               # the sea of cloud and the wisps round the peaks drift
+shading = "soft"
+blend = "alpha"
+motion = "sway"
+sway = [2.5, 0.0, 2.0]
+sway_rate = 0.05
+opacity = 0.9
+
+[[effect]]
+world = "himalaya"
+id = "snow"                 # snow falls, over the rink too
+shading = "particles"
+blend = "alpha"
+size = 0.14
+size_spread = 0.6
+opacity = 0.9
+travel = [0.0, -1.9, 0.0]
+wrap = 36.0
+wobble = [1.4, 0.0, 1.2]
+wobble_rate = 0.65
+pulse = [0.85, 0.15, 3.0, 0.0, 0.0]
+over_pitch = true
+
+# ---------------------------------------------------------------- Ocean World
+[[effect]]
+world = "ocean"
+id = "sway"                 # kelp, sea grass, anemones and sea fans sway in the current
+shading = "lit"
+motion = "sway"
+sway = [2.0, 0.0, 1.25]
+sway_rate = 1.1
+
+[[effect]]
+world = "ocean"
+id = "fish"                 # four schools of fish circle the reef
+shading = "lit"
+motion = "orbit"
+spin = 0.3
+pivot = [0.0, 0.0, 0.0]
+ellipse = 1.818
+sway = [0.0, 0.55, 0.0]
+sway_rate = 0.9
+
+[[effect]]
+world = "ocean"
+id = "mantas"               # two manta rays glide round it, high up
+shading = "lit"
+motion = "orbit"
+spin = 0.075
+pivot = [0.0, 0.0, 0.0]
+ellipse = 1.0
+sway = [0.0, 1.5, 0.0]
+sway_rate = 0.35
+
+[[effect]]
+world = "ocean"
+id = "jellies"              # jellyfish drift, bob and pulse
+shading = "glow"
+motion = "sway"
+sway = [1.5, 1.2, 1.5]
+sway_rate = 0.4
+pulse = [1.0, 0.15, 1.6, 0.0, 0.0]
+
+[[effect]]
+world = "ocean"
+id = "bubbles"              # bubble streams rise from the reef, wobbling
+shading = "particles"
+blend = "alpha"
+size = 0.2
+size_spread = 0.6
+opacity = 0.75
+travel = [0.0, 1.9, 0.0]
+wrap = 13.0
+wobble = [0.45, 0.0, 0.45]
+wobble_rate = 1.5
+
+[[effect]]
+world = "ocean"
+id = "motes"                # motes drift up through the water
+shading = "particles"
+blend = "alpha"
+size = 0.14
+size_spread = 0.5
+opacity = 0.6
+travel = [0.0, 0.28, 0.0]
+wrap = 14.0
+wobble = [0.9, 0.2, 0.9]
+wobble_rate = 0.5
+
+[[effect]]
+world = "ocean"
+id = "shafts"               # shafts of sunlight shimmer down through the water
+shading = "soft"
+blend = "add"
+motion = "none"
+opacity = 0.1
+pulse = [1.0, 0.3, 0.7, 0.16, 1.9]

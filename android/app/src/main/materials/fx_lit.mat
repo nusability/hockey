@@ -1,0 +1,52 @@
+// An effect lit as the world is (ADR 0006's formula, world.mat) and moved by its motion (ADR 0007):
+// the sway or orbit of fx_common.glsl, on the renderer's clock. The twin of iOS's FxLit graph.
+material {
+    name : fx_lit,
+    shadingModel : unlit,
+    parameters : [
+        { type : sampler2d, name : palette },
+        { type : float3, name : pulseAmp },
+        { type : float3, name : pulseRate },
+        { type : float3, name : swayAmp },
+        { type : float, name : swayRate },
+        { type : float, name : orbit },
+        { type : float, name : spin },
+        { type : float3, name : pivot },
+        { type : float, name : ellipse },
+        { type : float3, name : sky },
+        { type : float3, name : ground },
+        { type : float3, name : sun },
+        { type : float3, name : sunDirection }
+    ],
+    variables : [ shadingNormal ],
+    requires : [ uv0, tangents ],
+    blending : opaque,
+    culling : none
+}
+
+vertex {
+    #include "fx_common.glsl"
+    void materialVertex(inout MaterialVertexInputs material) {
+        highp vec3 n;
+        toTangentFrame(mesh_tangents, n);
+        material.shadingNormal = vec4(getWorldFromModelNormalMatrix() * n, 0.0);
+        vec3 offset = fxMotion(getPosition().xyz, fxData(mesh_uv0), getUserTime().x, materialParams.swayAmp, materialParams.swayRate,
+                               materialParams.orbit, materialParams.spin, materialParams.pivot, materialParams.ellipse);
+        material.worldPosition.xyz += mat3(getWorldFromModelMatrix()) * offset;
+    }
+}
+
+fragment {
+    #include "fx_common.glsl"
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        vec2 uv = getUV0();
+        vec2 d = fxData(uv);
+        vec3 albedo = texture(materialParams_palette, vec2(uv.x, 1.0 - uv.y)).rgb;
+        float3 n = normalize(variable_shadingNormal.xyz);
+        float3 hemi = mix(materialParams.ground, materialParams.sky, 0.5 + 0.5 * n.y);
+        float band = max(0.0, dot(n, materialParams.sunDirection));
+        float b = fxPulse(getUserTime().x, d.y, materialParams.pulseAmp, materialParams.pulseRate);
+        material.baseColor = vec4(albedo * (hemi + materialParams.sun * band) * b, 1.0);
+    }
+}

@@ -8,12 +8,14 @@ seven giant gnarled hero trees (green, teal, violet canopies, hanging vines) fla
 ring of far trees; lantern mushrooms glowing in clusters at the tree feet and along the boards,
 each with a warm pool of light on the ground; moss stones and violet crystals; a glowing stream
 with a crooked plank bridge on the east side; a ring of standing stones round a floating altar
-crystal behind the far goal; hedges hugging the boards, ferns, fireflies. The sky: the page
-gradient, night blue over a violet-rose horizon. No fog, no mist (ADR 0006).
+crystal behind the far goal; hedges hugging the boards, ferns, fireflies, lavender mist. The sky:
+the page gradient, night blue over a violet-rose horizon. No fog (ADR 0006).
 
-What glows (caps, crystals, the altar gem, fireflies, the stream, the light pools) is in the unlit
-`sky` mesh: under ADR 0006 there is no emissive term, and unlit is what those did in the
-prototype. Coordinates are the game's (worldkit): X across, Y up, Z along, the far goal at +Z.
+What glows and stands still (the stream's water) is in the unlit `sky` mesh; what lives is in the
+effects (ADR 0007, shared/data/effects.toml): the caps breathing, their warm pools of light and the
+two big warm spills, the crystals, the floating turning gem and its halo, glints running down the
+stream, fireflies, drifting mist. Coordinates are the game's (worldkit): X across, Y up, Z along,
+the far goal at +Z.
 
 Run: tools/build-worlds.sh (Blender 5, headless); `-- --preview` also renders preview.png.
 """
@@ -227,37 +229,34 @@ def far_trees(m):
 
 
 # ---------------------------------------------------------------- lantern mushrooms
-def light_pool(sky, x, z, radius, colour, idx):
-    """The prototype's additive glow disc under a lantern: three rings of lit floor + glow,
+def light_pool(fx, x, z, radius, colour, idx):
+    """The prototype's additive glow disc under a lantern (an effect: it breathes with the caps),
     kept outside the boards."""
     y0 = ground_y(x, z)
-    ground = wk.lit(FLOOR[1] if y0 < 0 else BORDER['base'], LIGHT)
     lim = wk.sd_round_rect(x, z, r=2.0) - wk.WALL_T - 0.05
-    for k, (f, amt) in enumerate(((1.0, 0.12), (0.62, 0.28), (0.3, 0.5))):
-        rr = min(radius * f, lim)
-        if rr < 0.15:
-            continue
-        sky.disc(x, y0 + 0.02 + 0.004 * (idx % 7) + 0.03 * k, z, rr, 9, wk.add(ground, colour, amt), phase=idx)
+    rr = min(radius, lim)
+    if rr >= 0.15:
+        fx['pools'].halo((x, y0 + 0.03 + 0.003 * (idx % 7), z), rr, colour, n=10, yaw=idx)
 
 
-def mushroom(m, sky, x, z, r, h, cap, idx):
+def mushroom(m, fx, x, z, r, h, cap, idx):
     y = ground_y(x, z)
     tilt = R(-0.12, 0.12)
     top = (x + math.sin(tilt) * h * 0.92, y + h * 0.92, z)
     m.frustum((x, y, z), top, 0.135 * r, 0.09 * r, 6, '#d9cbb0', col_fn=lambda i: '#e9dcc4' if i % 3 else '#cdbd9c')
     prof = [(0.0, 1.0), (0.42, 0.95), (0.78, 0.78), (0.98, 0.5), (0.9, 0.36), (0.6, 0.34)]
     hi = wk.mix(cap, '#ffffff', 0.25)
-    sky.lathe(top, [(pr * r, (ph - 0.34) * 0.75 * r) for pr, ph in prof], 7,
-              [hi, hi, cap, cap, wk.scale(cap, 0.62)], phase=R(0, 6.28))
-    light_pool(sky, x, z, (r * 6 + h * 1.5) / 2, cap, idx)
+    fx['caps'].lathe(top, [(pr * r, (ph - 0.34) * 0.75 * r) for pr, ph in prof], 7,
+                     [hi, hi, cap, cap, wk.scale(cap, 0.62)], phase=R(0, 6.28))
+    light_pool(fx, x, z, (r * 6 + h * 1.5) / 2, cap, idx)
 
 
-def mushrooms(m, sky, feet):
+def mushrooms(m, fx, feet):
     spots = []
-    for fx, fz, fr in feet:
+    for tx, tz, tr in feet:
         for i in range(5 + int(R(0, 3))):
-            a, d = R(0, 2 * math.pi), fr + R(0.4, 4.2)
-            x, z = fx + math.cos(a) * d, fz + math.sin(a) * d
+            a, d = R(0, 2 * math.pi), tr + R(0.4, 4.2)
+            x, z = tx + math.cos(a) * d, tz + math.sin(a) * d
             if inside_clear(x, z, 0.8):
                 continue
             big = i == 0
@@ -269,11 +268,13 @@ def mushrooms(m, sky, feet):
             x, z = R(-13, 13), (-1 if rng.random() < 0.5 else 1) * R(31.6, 35.5)
         spots.append((x, z, R(0.35, 0.75), R(0.7, 1.7), rng.choice(CAPS)))
     for i, (x, z, r, h, cap) in enumerate(spots):
-        mushroom(m, sky, x, z, r, h, cap, i)
+        mushroom(m, fx, x, z, r, h, cap, i)
+    for i, (x, z) in enumerate(((-19.5, 6.0), (19.5, 24.0))):  # the prototype's two warm point lights
+        light_pool(fx, x, z, 9.0, '#ffa554', 7 + i)
 
 
 # ---------------------------------------------------------------- stones, crystals, standing stones
-def stones(m, sky, feet):
+def stones(m, fx, feet):
     spots = []
 
     def cluster(cx, cz, n, rad, sc):
@@ -282,8 +283,8 @@ def stones(m, sky, feet):
             x, z = cx + math.cos(a) * d, cz + math.sin(a) * d
             if not inside_clear(x, z, 1.2):
                 spots.append((x, z, R(0.5, 1.3) * sc))
-    for fx, fz, fr in feet:
-        cluster(fx, fz, 4, fr + 4, 1.0)
+    for tx, tz, tr in feet:
+        cluster(tx, tz, 4, tr + 4, 1.0)
     cluster(0, 46, 10, 11, 0.9)
     cluster(-19, 26, 4, 3, 0.7)
     cluster(19, -20, 4, 3, 0.7)
@@ -304,11 +305,12 @@ def stones(m, sky, feet):
             if inside_clear(x, z, 0.8):
                 continue
             s = R(0.5, 1.4)
-            sky.octa((x, ground_y(x, z) - 0.1 + 0.5 * s, z), 0.225 * s, 0.65 * s, '#b48cff', yaw=R(0, 6.28),
-                     tilt=R(-0.35, 0.35), roll=R(-0.35, 0.35), top_col='#e3d4ff')
+            with fx['crystals'].piece((1.0, 1.0 / (2 * math.pi))):     # the prototype's phase of 1 rad
+                fx['crystals'].octa((x, ground_y(x, z) - 0.1 + 0.5 * s, z), 0.225 * s, 0.65 * s, '#b48cff', yaw=R(0, 6.28),
+                                    tilt=R(-0.35, 0.35), roll=R(-0.35, 0.35), top_col='#e3d4ff')
 
 
-def standing_stones(m, sky):
+def standing_stones(m, fx):
     cx, cz, n, rad = 0.0, 46.0, 9, 7.5
     grey, grey_l, moss = '#777f7b', '#9aa39e', '#4f8a3a'
     for i in range(n):
@@ -328,15 +330,13 @@ def standing_stones(m, sky):
         top = [xf(p) for p in rings[-1]]
         m.face(top, grey_l, facing=(0, 1, 0))
     m.blob((cx, GROUND + 0.35, cz), 1.9, [grey, grey_l, grey_l], scale=(1, 0.35, 1), level=1, jitter=0.15, rng=rng)
-    # the floating altar gem and its cyan pool of light (unlit)
-    sky.octa((cx, GROUND + 2.7, cz), 0.54, 1.26, '#4fd8ff', yaw=0.4, top_col='#cffaff')
-    ground = wk.lit(FLOOR[1], LIGHT)
-    for k, (f, amt) in enumerate(((7.0, 0.12), (4.6, 0.25), (2.6, 0.4))):
-        sky.disc(cx, GROUND + 0.02 + 0.02 * k, cz, f, 14, wk.add(ground, '#78e6ff', amt))
+    # the floating altar gem (it bobs and turns about the pivot effects.toml gives it) and its halo
+    fx['gem'].octa((cx, GROUND + 2.7, cz), 0.54, 1.26, '#4fd8ff', yaw=0.4, top_col='#cffaff')
+    fx['altar'].halo((cx, GROUND + 0.05, cz), 7.0, '#78e6ff', n=16)
 
 
 # ---------------------------------------------------------------- the stream and its bridge
-def stream(m, sky):
+def stream(m, sky, fx):
     edge, mid = '#0c2c45', '#15668a'
     z = -50.0
     rows = []
@@ -348,10 +348,12 @@ def stream(m, sky):
     for (xa, wa, za), (xb, wb, zb) in zip(rows, rows[1:]):
         for f0, f1, c in ((-1, -0.55, edge), (-0.55, 0.55, mid), (0.55, 1, edge)):
             sky.up([(xa + f0 * wa, y, za), (xb + f0 * wb, y, zb), (xb + f1 * wb, y, zb), (xa + f1 * wa, y, za)], c)
-    for _ in range(34):                                         # ripples
-        z0 = R(-48, 66)
-        x0 = stream_x(z0) + R(-0.6, 0.6)
-        sky.strip([(x0, z0), (x0 + R(-0.2, 0.2), z0 + 1.2), (x0 + R(-0.3, 0.3), z0 + 2.6)], 0.09, y + 0.01, '#6cc4dc')
+    # ripples, glinting in a wave that runs downstream (+Z): the phase falls along the stream
+    with fx['stream'].piece(lambda pt: (1.0, (-pt[2] / 4.0) % 1.0)):
+        for _ in range(34):
+            z0 = R(-48, 66)
+            x0 = stream_x(z0) + R(-0.6, 0.6)
+            fx['stream'].strip([(x0, z0), (x0 + R(-0.2, 0.2), z0 + 1.2), (x0 + R(-0.3, 0.3), z0 + 2.6)], 0.09, y + 0.01, '#6cc4dc')
     # the crooked plank bridge
     bz = 14.0
     xa, xb, planks = stream_x(bz) - 4.8, stream_x(bz) + 4.8, 13
@@ -424,8 +426,8 @@ def hedges(m):
             m.blob((x + R(-0.3, 0.3), ground_y(x, z) + 0.4 * s + 0.75 * 0.8 * sy * 0.8, z + R(-0.3, 0.3)), 0.14, '#d98cff', level=0)
 
 
-def fireflies(sky, anchors):
-    for i in range(150):
+def fireflies(fx, anchors):
+    for i in range(200):
         if i < 85:
             if rng.random() < 0.6:
                 x, z = (-1 if rng.random() < 0.5 else 1) * R(16.5, 34), R(-34, 40)
@@ -438,11 +440,19 @@ def fireflies(sky, anchors):
             if inside_clear(x, z, 1.2):
                 x = math.copysign(CLEAR_X + 1.5 + R(0, 3), x or 1)
         col = '#e8ff6a' if rng.random() < 0.7 else ('#7af5ff' if rng.random() < 0.6 else '#ff9be0')
-        sky.octa((x, max(y, ground_y(x, z) + 0.4), z), 0.16, 0.2, col, yaw=R(0, 6.28))
+        fx['fireflies'].particle((x, max(y, ground_y(x, z) + 0.4), z), col)
+
+
+def mist(fx):
+    """Lavender mist lying on the forest floor round the clearing (drifting: an effect)."""
+    m = fx['mist']
+    for x, z in ((-44, -20), (44, -26), (-46, 24), (46, 20), (0, 62), (-30, 62), (32, 64), (-52, 2), (50, 46)):
+        r = 20 * m.rng.uniform(0.75, 1.1)
+        m.halo((x, GROUND + 0.9, z), r, '#d6c6ff', p=m.rng.uniform(0, 1), n=16, r2=r * m.rng.uniform(0.7, 1.0), yaw=m.rng.uniform(0, 6.28))
 
 
 # ---------------------------------------------------------------- the world
-def build(turf, scen, sky):
+def build(turf, scen, sky, fx):
     wk.rink(turf, scen, SPORT, SURFACE, BORDER, GOAL, decorate=decorate, skirt=GROUND - 0.1)
     floor(scen)
     feet, anchors = [], []
@@ -455,13 +465,14 @@ def build(turf, scen, sky):
     for s in heroes:
         hero_tree(scen, sky, s, feet, anchors)
     far_trees(scen)
-    mushrooms(scen, sky, feet)
-    stones(scen, sky, feet)
-    standing_stones(scen, sky)
-    stream(scen, sky)
+    mushrooms(scen, fx, feet)
+    stones(scen, fx, feet)
+    standing_stones(scen, fx)
+    stream(scen, sky, fx)
     ferns(scen, feet)
     hedges(scen)
-    fireflies(sky, anchors)
+    fireflies(fx, anchors)
+    mist(fx)
 
 
 wk.run(WORLD, HERE, wk.Palette(wk.css_sky(SKY)), SPORT, build, LIGHT)

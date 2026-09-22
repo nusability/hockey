@@ -13,8 +13,11 @@ satellites, a comet. The sky: the prototype's painted sky sphere (its gradient, 
 the milky way, nebula clouds and the planets' halos painted into the palette's sky map) with a
 starfield. No fog (ADR 0006).
 
-Everything that was a MeshBasic/additive glow in the prototype — stars, neon, flames, holo
-boards, the halo rings, the planet's ring, the comet — is in the unlit `sky` mesh.
+What glows and stands still — the stars, the planet's ring — is in the unlit `sky` mesh; what lives
+is in the effects (ADR 0007, shared/data/effects.toml): twinkling stars, breathing nebula puffs,
+pulsing neon (edge strips, pod rings, floodlights), the chase round the light studs, flickering
+flames and exhaust and floodlight glows, the bobbing holo boards, the turning halo rings, the comet's
+lap and the satellites' orbits.
 Coordinates are the game's (worldkit): X across, Y up, Z along, the far goal at +Z.
 Run: tools/build-worlds.sh (Blender 5, headless); `-- --preview` also renders preview.png.
 """
@@ -180,7 +183,7 @@ HULL, HULL_D, ARM, POLE = '#1b2542', '#141b33', '#4b5b8c', '#64748b'
 NEON = ['#22d3ee', '#e879f9', '#38bdf8']
 
 
-def hull(m, sky_m):
+def hull(m, fx):
     ring = lambda off, y: [(x, y, z) for x, z, _, _ in wk._rr_ring(off, CORNER, 6)]
     levels = [(wk.SLAB_W, -0.7, HULL), (wk.SLAB_W + 1.2, -1.6, HULL), (wk.SLAB_W + 1.2, -3.8, HULL_D), (wk.SLAB_W, -4.7, HULL_D)]
     rings = [ring(off, y) for off, y, _ in levels]
@@ -194,14 +197,16 @@ def hull(m, sky_m):
     m.frustum((0, -6.6, -HL * 1.15), (0, -6.6, HL * 1.15), 1.6, 1.6, 12, HULL, cap=HULL_D, bottom=HULL_D)
     m.frustum((-HW * 1.3, -6.6, 0), (HW * 1.3, -6.6, 0), 1.2, 1.2, 12, HULL, cap=HULL_D, bottom=HULL_D)
     # neon edge strips: on the rim, at its edge, and round the hull's widest point
-    sky_m.ring_band(0.55, 0.85, 0.001, 0.081, CORNER, NEON[0], per=6, inner=True, outer=True)
-    sky_m.ring_band(1.85, 2.2, 0.001, 0.081, CORNER, NEON[1], per=6, inner=True, outer=True)
-    sky_m.ring_band(3.35, 3.65, -2.3, -2.0, CORNER, NEON[2], per=6, inner=True, outer=True)
-    studs = wk.rr_points(1.4, CORNER, 72)                      # the 72 light studs, mid-cycle colours
+    neon = fx['neon']
+    neon.ring_band(0.55, 0.85, 0.001, 0.081, CORNER, NEON[0], per=6, inner=True, outer=True)
+    neon.ring_band(1.85, 2.2, 0.001, 0.081, CORNER, NEON[1], per=6, inner=True, outer=True)
+    neon.ring_band(3.35, 3.65, -2.3, -2.0, CORNER, NEON[2], per=6, inner=True, outer=True)
+    studs = wk.rr_points(1.4, CORNER, 72)                      # the 72 light studs: a wave chases round
     for i, (x, z) in enumerate(studs):
         w = 0.5 + 0.5 * math.sin(-i * 0.35)
         col = wk.hexs(_hsl(0.5 + 0.35 * w, 1.0, 0.3 + 0.55 * w))
-        sky_m.octa((x, 0.12, z), 0.2, 0.2, col)
+        with fx['studs'].piece((1.0, (-i * 0.35 / TAU) % 1.0)):
+            fx['studs'].octa((x, 0.12, z), 0.2, 0.2, col)
 
 
 def _hsl(h, s, l):
@@ -209,7 +214,7 @@ def _hsl(h, s, l):
     return colorsys.hls_to_rgb(h % 1.0, l, s)
 
 
-def pods(m, sky_m):
+def pods(m, fx):
     spots = [(HW + 9.5, -1.5, -12, 0), (HW + 9.5, -1.5, 12, 0), (-HW - 9.5, -1.5, -12, 0), (-HW - 9.5, -1.5, 12, 0),
              (9, -1.5, HL + 13, 1), (-9, -1.5, HL + 13, 1), (9, -1.5, -HL - 13, 1), (-9, -1.5, -HL - 13, 1)]
     for x, y, z, axis in spots:
@@ -219,10 +224,13 @@ def pods(m, sky_m):
             m.box(x, y - 0.5, math.copysign(HL + 6.5, z), 2.6, 1.0, 12, ARM)
         m.frustum((x, y - 1.5, z), (x, y + 1.5, z), 1.7, 1.5, 14, ARM, cap=HULL, bottom=HULL)
         m.frustum((x, y + 1.5, z), (x, y + 3.2, z), 0.09, 0.09, 5, POLE)
-        _torus(sky_m, (x, y + 0.2, z), 1.62, 0.13, 20, NEON[0])
-        sky_m.frustum((x, y + 1.47, z), (x, y + 1.63, z), 1.1, 1.1, 14, NEON[0], cap='#b8fcff')
-        sky_m.blob((x, y + 3.3, z), 0.3, CYAN, level=0)
-        sky_m.frustum((x, y - 1.5, z), (x, y - 6.5, z), 1.1, 0.0, 12, '#60c8ff', col_fn=lambda i: '#60c8ff' if i % 2 else '#8fdcff')
+        _torus(fx['neon'], (x, y + 0.2, z), 1.62, 0.13, 20, NEON[0])
+        fx['neon'].frustum((x, y + 1.47, z), (x, y + 1.63, z), 1.1, 1.1, 14, NEON[0], cap='#b8fcff')
+        fx['neon'].blob((x, y + 3.3, z), 0.3, CYAN, level=0)
+        ex = fx['exhaust']                                     # the flame: bright at the nozzle, fading to its tip
+        with ex.piece(lambda pt, y=y: (wk.clamp((pt[1] - (y - 6.5)) / 5.0, 0.0, 1.0), 0.0)):
+            ex.frustum((x, y - 1.5, z), (x, y - 6.5, z), 1.1, 0.0, 12, '#60c8ff', col_fn=lambda i: '#60c8ff' if i % 2 else '#8fdcff')
+        ex.halo((x, y - 1.7, z), 3.25, '#7dd3fc', n=14)       # the exhaust glow disc under the pod
 
 
 def _torus(m, c, R_, r, n, col, normal=(0, 1, 0)):
@@ -235,17 +243,20 @@ def _torus(m, c, R_, r, n, col, normal=(0, 1, 0)):
         m.bar(P(TAU * i / n), P(TAU * (i + 1) / n), r * 2, col)
 
 
-def masts(m, sky_m):
+def masts(m, fx):
     for x, z in ((HW + 4.2, -22), (HW + 4.2, 0), (HW + 4.2, 22), (-HW - 4.2, -22), (-HW - 4.2, 0), (-HW - 4.2, 22)):
         s = math.copysign(1, x)
         m.frustum((x, 0, z), (x, 8.5, z), 0.22, 0.14, 7, POLE)
         m.box(x - s * 0.6, 8.35, z, 2.4, 0.5, 0.7, POLE, roll=-s * 0.35)
-        sky_m.box(x - s * 0.6, 8.05, z, 2.1, 0.12, 0.5, '#9ffcff', roll=-s * 0.35)
+        fx['neon'].box(x - s * 0.6, 8.05, z, 2.1, 0.12, 0.5, '#9ffcff', roll=-s * 0.35)
+        for normal in ((1, 0, 0), (0, 0, 1)):                  # the floodlight's two crossed glows
+            fx['exhaust'].halo((x - s * 1.2, 8.4, z), 2.0, '#7dd3fc', n=12, normal=normal)
 
 
-def holo_boards(sky_m):
+def holo_boards(fx):
     """The four holographic boards beside the pitch: a navy panel framed in cyan, a pink planet
     with a cyan ring, a bar graph, yellow chevrons (the prototype's canvas, as geometry)."""
+    sky_m = fx['holo']
     for bx, bz in ((HW + 6.5, -11), (HW + 6.5, 11), (-HW - 6.5, -11), (-HW - 6.5, 11)):
         s = math.copysign(1, bx)
         facing = (-s, 0, 0)
@@ -276,8 +287,12 @@ def holo_boards(sky_m):
                 sky_m.face([P(ua, va - 0.06, 0.03), P(ub, vb - 0.06, 0.03), P(ub, vb + 0.06, 0.03), P(ua, va + 0.06, 0.03)], '#faf08a', facing=facing)
 
 
-def halo_rings(sky_m):
-    for R_, y, r, reps, col, spin in ((46, -10, 0.32, 28, '#7df9ff', 0.0), (53, -14, 0.2, 10, '#f0abfc', 0.7)):
+def halo_rings(fx):
+    """The two dashed rings; the outer turns backwards at 0.07 rad/s against the effect's 0.12:
+    each ring's speed factor k rides in w = (k + 1) / 2."""
+    for R_, y, r, reps, col, spin, k in ((46, -10, 0.32, 28, '#7df9ff', 0.0, 1.0), (53, -14, 0.2, 10, '#f0abfc', 0.7, -0.07 / 0.12)):
+        sky_m = fx['orbits']
+        sky_m.datafn = lambda pt, k=k: ((k + 1) / 2, 0.0)
         n = 240
         for i in range(n):
             f = (i + 0.5) / n * reps % 1.0 * 256
@@ -380,16 +395,19 @@ def station(m):
         mm.box(0, -1.2, s * 21, 2.4, 2.4, 3, col)
 
 
-def satellites(m):
+def satellites(fx):
     for x, z, ry in ((60, 0, 0.3), (-40, 52, 1.9)):
-        mm = m.xf(T(x, -5.5, z) @ Rot(ry, 'Y'))
+        mm = fx['satellites'].xf(T(x, -5.5, z) @ Rot(ry, 'Y'))
         mm.box(0, -0.7, 0, 1.4, 1.4, 2.0, '#d9dee8')
         for s in (-1, 1):
             mm.box(s * 2.6, -0.04, 0, 3.6, 0.08, 1.4, '#2b4f9e', top='#3b6fd8')
         mm.frustum((0, 0.75, 0), (0, 1.25, 0), 0.0, 0.8, 12, '#d9dee8')
 
 
-def comet(sky_m):
+def comet(fx):
+    """The comet laps the low sky at 0.045 rad/s: its speed factor against the orbits' 0.12."""
+    sky_m = fx['orbits']
+    sky_m.datafn = lambda pt: ((0.045 / 0.12 + 1) / 2, 0.0)
     a = 2.2
     c = (math.cos(a) * 300, -30 + 40 * math.sin(a * 2), math.sin(a) * 300)
     d = wk._norm((-math.sin(a), 0.15, math.cos(a)))
@@ -401,20 +419,55 @@ def comet(sky_m):
 
 
 # ---------------------------------------------------------------- the world
-def build(turf, scen, sky_m):
+def twinkling_stars(fx):
+    """Stars that twinkle (effect particles), spread like the static field, denser along the band."""
+    m = fx['stars']
+    R_ = m.rng.uniform
+    tints = ['#ffffff', '#ffffff', '#ccdfff', '#ffebc7', '#ffcc99', '#bfd9ff']
+    n = 0
+    while n < 220:
+        y, t = R_(-0.35, 1), R_(0, TAU)
+        rr = math.sqrt(1 - y * y)
+        d = (rr * math.cos(t), y, rr * math.sin(t))
+        u, v = _tex_uv(d)
+        band = 0.5 + 0.21 * math.sin(u * TAU + 0.9)
+        if m.rng.random() > 0.45 + math.exp(-((v - band) / 0.16) ** 2):
+            continue
+        m.particle(tuple(c * wk.SKY_R * 0.93 for c in d), wk.scale(m.rng.choice(tints), m.rng.choice((0.8, 1.0))))
+        n += 1
+
+
+def nebula(fx):
+    """The prototype's additive nebula puffs over the painted clouds (they breathe, each on its own beat)."""
+    m = fx['nebula']
+    R_ = m.rng.uniform
+    for cd, spread, cols, bright in NEBULAE:
+        d = wk._norm(cd)
+        for _ in range(12):
+            p = wk._norm((d[0] + R_(-spread, spread), d[1] + R_(-spread, spread) * 0.6, d[2] + R_(-spread, spread)))
+            r = R_(55, 110)
+            col = m.rng.choice(cols)
+            k = R_(bright * 0.6, bright) * 2.2
+            m.halo(tuple(c * wk.SKY_R * 0.88 for c in p), r, wk.hexs(tuple(min(1.0, v / 255 * k) for v in col)),
+                   p=R_(0, 1), n=10, normal=wk._neg(p), r2=r * R_(0.6, 1.0), yaw=R_(0, TAU))
+
+
+def build(turf, scen, sky_m, fx):
     surface = dict(base=BASE, stripe=STRIPE, lines=CYAN, paint=(paint, 0.5))
     wk.rink(turf, scen, SPORT, surface, BORDER, GOAL, decorate=decorate, skirt=-0.7)
-    hull(scen, sky_m)
-    pods(scen, sky_m)
-    masts(scen, sky_m)
-    holo_boards(sky_m)
-    halo_rings(sky_m)
+    hull(scen, fx)
+    pods(scen, fx)
+    masts(scen, fx)
+    holo_boards(fx)
+    halo_rings(fx)
     planets(scen, sky_m)
     belt(scen)
     station(scen)
-    satellites(scen)
+    satellites(fx)
     stars(sky_m)
-    comet(sky_m)
+    comet(fx)
+    twinkling_stars(fx)
+    nebula(fx)
 
 
 wk.run(WORLD, HERE, wk.Palette(sky), SPORT, build, LIGHT)

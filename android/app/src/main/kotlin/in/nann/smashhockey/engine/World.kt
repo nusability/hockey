@@ -11,6 +11,7 @@ import com.google.android.filament.gltfio.FilamentAsset
 import com.google.android.filament.gltfio.ResourceLoader
 import com.google.android.filament.gltfio.UbershaderProvider
 import `in`.nann.smashhockey.core.generated.World as WorldId
+import `in`.nann.smashhockey.effects.WorldEffects
 import `in`.nann.smashhockey.generated.WorldLook
 import `in`.nann.smashhockey.generated.look
 
@@ -31,6 +32,7 @@ class World(private val engine: Engine, private val scene: Scene, assets: Assets
     private val skyInstance: MaterialInstance
     private val worldInstance: MaterialInstance
     private val palette: Texture
+    private val effects: WorldEffects
 
     /** The asset's root entity — parent it to move the whole world (the camera shake). */
     val root: Int get() = asset.root
@@ -61,12 +63,14 @@ class World(private val engine: Engine, private val scene: Scene, assets: Assets
             val instance = if (e == sky) skyInstance else worldInstance
             for (i in 0 until rm.getPrimitiveCount(r)) rm.setMaterialInstanceAt(r, i, instance)
         }
+        effects = WorldEffects(engine, assets, asset, id, look, palette)   // what is alive (ADR 0007)
         scene.addEntities(asset.entities)
     }
 
     fun destroy() {
         scene.removeEntities(asset.entities)
         loader.destroyAsset(asset)
+        effects.destroy()
         engine.destroyMaterialInstance(skyInstance)
         engine.destroyMaterialInstance(worldInstance)
         engine.destroyMaterial(skyMaterial)

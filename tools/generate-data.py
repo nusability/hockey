@@ -14,14 +14,16 @@ write the same bytes. Writes:
 
 including the save records (shared/data/save.toml → SaveRecords.swift / SaveRecords.kt), and the
 apps' presentation (shared/data/presentation.toml and each world's look → ios/Sources/Scene/Generated/
-Presentation.swift, android/app/…/smashhockey/generated/Presentation.kt — app targets, never the core).
+Presentation.swift, android/app/…/smashhockey/generated/Presentation.kt — app targets, never the core),
+and what is alive in each world (shared/data/effects.toml → ios/Sources/Effects/Generated/Effects.swift,
+android/app/…/smashhockey/effects/generated/Effects.kt).
 """
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from datagen import copyout, kotlin, presentation, save, swift  # noqa: E402
+from datagen import copyout, effects, kotlin, presentation, save, swift  # noqa: E402
 from datagen.common import Bits  # noqa: E402
 from datagen.model import DataError, camel, load, upper_snake  # noqa: E402
 
@@ -44,12 +46,13 @@ def render():
     files.update(save.emit(save.load(ROOT)))
     files.update(copyout.emit(model))
     files.update(presentation.emit(ROOT, model))
+    files.update(effects.emit(ROOT))
     return files
 
 
 def generated_dirs():
     return [ROOT / swift.SRC, ROOT / swift.TEST, ROOT / kotlin.SRC, ROOT / kotlin.TEST,
-            ROOT / presentation.SWIFT, ROOT / presentation.KOTLIN]
+            ROOT / presentation.SWIFT, ROOT / presentation.KOTLIN, ROOT / effects.SWIFT, ROOT / effects.KOTLIN]
 
 
 def main(argv):

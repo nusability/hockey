@@ -1,0 +1,45 @@
+// Particles (ADR 0007): each sprite a quad baked flat round its spawn point, turned to face the camera,
+// travelling, wobbling and pulsing in size (fx_common.glsl: fxParticle); its palette colour × a soft
+// disc × opacity, blended over what is behind it. Premultiplied. The twin of iOS's FxParticle graph.
+material {
+    name : fx_particle_alpha,
+    shadingModel : unlit,
+    parameters : [
+        { type : sampler2d, name : palette },
+        { type : float3, name : pulseAmp },
+        { type : float3, name : pulseRate },
+        { type : float, name : opacity },
+        { type : float, name : size },
+        { type : float, name : sizeSpread },
+        { type : float3, name : travel },
+        { type : float, name : wrap },
+        { type : float3, name : wobble },
+        { type : float, name : wobbleRate }
+    ],
+    requires : [ uv0 ],
+    blending : transparent,
+    depthWrite : false,
+    culling : none
+}
+
+vertex {
+    #include "fx_common.glsl"
+    void materialVertex(inout MaterialVertexInputs material) {
+        vec3 cam = (inverse(getWorldFromModelMatrix()) * vec4(getWorldCameraPosition(), 1.0)).xyz;
+        vec3 offset = fxParticle(getPosition().xyz, fxData(mesh_uv0), getUserTime().x, cam, materialParams.size,
+                                 materialParams.sizeSpread, materialParams.travel, materialParams.wrap, materialParams.wobble,
+                                 materialParams.wobbleRate, materialParams.pulseAmp, materialParams.pulseRate);
+        material.worldPosition.xyz += mat3(getWorldFromModelMatrix()) * offset;
+    }
+}
+
+fragment {
+    #include "fx_common.glsl"
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        vec2 uv = getUV0();
+        vec3 albedo = texture(materialParams_palette, vec2(uv.x, 1.0 - uv.y)).rgb;
+        float a = fxDisc(fxData(uv)) * materialParams.opacity;
+        material.baseColor = vec4(albedo * a, a);
+    }
+}

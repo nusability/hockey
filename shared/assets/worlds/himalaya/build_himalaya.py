@@ -10,7 +10,9 @@ frozen lake basin to −X, foothills and ridges of snow-capped peaks all round (
 dome, their apparent size kept). On it: snow-dusted pines, boulders, stone cairns, glacier seracs
 and ice blocks, a monastery on a mesa, stupas with prayer flags radiating from their spires, and
 strings of prayer flags on poles round the rink. The sky: the page gradient, deep blue over a
-white horizon. No fog, no falling snow (ADR 0006: no fog; nothing here moves).
+white horizon. No fog (ADR 0006). What lives is in the effects (ADR 0007, shared/data/effects.toml):
+the prayer flags flutter, a wave running along each string; soft cloud wisps drift over the sea of
+cloud, round the far peaks and over the lake; snow falls, over the rink too.
 
 Coordinates are the game's (worldkit): X across, Y up, Z along, the far goal at +Z.
 Run: tools/build-worlds.sh (Blender 5, headless); `-- --preview` also renders preview.png.
@@ -373,7 +375,7 @@ def flag_poles(m, strings):
     strings.append((ends[3], pole(19.4, 25, 5.4), 1.0))
 
 
-def flag_strings(m, strings):
+def flag_strings(m, fx, strings):
     fi = 0
     for a, b, sc in strings:
         ln = math.dist(a, b)
@@ -397,12 +399,48 @@ def flag_strings(m, strings):
             lean = R(-0.12, 0.12)
             p0 = (c[0] - tx * fw / 2, c[1] - 0.04 - dy, c[2] - tz * fw / 2)
             p1 = (c[0] + tx * fw / 2, c[1] - 0.04 + dy, c[2] + tz * fw / 2)
-            q = lambda p: (p[0] - tz * lean * fh, p[1] - fh, p[2] + tx * lean * fh)
-            m.face([p0, p1, q(p1), q(p0)], col, facing=(-tz, 0.2, tx))
+            # the flag hangs from the string (weight 0) and flutters at its foot (weight 1); the phase
+            # runs along the string, so a wave travels down it (the prototype's (x + z)·1.7)
+            q = lambda p, v: (p[0] - tz * lean * fh * v, p[1] - fh * v, p[2] + tx * lean * fh * v)
+            top = c[1] - 0.04
+            with fx['flags'].piece(lambda pt, top=top, fh=fh: (wk.clamp((top - pt[1]) / fh, 0.0, 1.0),
+                                                               ((pt[0] + pt[2]) * 1.7 / (2 * PI)) % 1.0)) as fm:
+                for v0, v1 in ((0.0, 0.5), (0.5, 1.0)):
+                    fm.face([q(p0, v0), q(p1, v0), q(p1, v1), q(p0, v1)], col, facing=(-tz, 0.2, tx))
+
+
+def wisps(fx):
+    """Soft cloud: puffs over the abyss's sea of cloud, wisps round the far peaks and over the
+    lake basin (the prototype's cloud quads), drifting together."""
+    m = fx['clouds']
+    R_ = m.rng.uniform
+    warm, cool = '#fdfaf4', '#e6eefa'
+    for _ in range(26):
+        x, z = R_(48, 160), R_(-110, 110)
+        if math.hypot(x, z) > REACH - 25:
+            continue
+        w = R_(14, 30)
+        m.halo((x, R_(0, 5), z), w, m.rng.choice((warm, cool)), p=R_(0, 1), n=14, r2=w * R_(0.45, 0.8), yaw=R_(0, 6.28))
+    for _ in range(18):
+        phi, r = R_(-PI, PI), R_(200, 280)
+        w = R_(35, 60)
+        m.halo((math.sin(phi) * r, R_(40, 75), math.cos(phi) * r), w, cool, p=R_(0, 1), n=14, r2=w * R_(0.25, 0.4), yaw=-phi)
+    for _ in range(8):
+        phi, r = LAKE_C + R_(-0.5, 0.5), R_(95, 125)
+        w = R_(15, 25)
+        m.halo((math.sin(phi) * r, R_(14, 26), math.cos(phi) * r), w, cool, p=R_(0, 1), n=12, r2=w * R_(0.3, 0.5), yaw=R_(0, 6.28))
+
+
+def snow(fx):
+    """Flakes spawn 36 m up over the whole valley and fall through it (their start is spread by the
+    shader's per-flake offset along the fall)."""
+    m = fx['snow']
+    for _ in range(900):
+        m.particle((m.rng.uniform(-60, 60), 36.0, m.rng.uniform(-55, 75)), m.rng.choice(('#ffffff', '#ffffff', '#eef6ff')))
 
 
 # ---------------------------------------------------------------- the world
-def build(turf, scen, sky):
+def build(turf, scen, sky, fx):
     wk.rink(turf, scen, SPORT, SURFACE, BORDER, GOAL, rng=rng, skirt=-0.9)
     terrain(scen)
     lake(scen)
@@ -413,8 +451,10 @@ def build(turf, scen, sky):
     strings = []
     monastery(scen, strings)
     flag_poles(scen, strings)
-    flag_strings(scen, strings)
+    flag_strings(scen, fx, strings)
     clouds(scen)
+    wisps(fx)
+    snow(fx)
 
 
 wk.run(WORLD, HERE, wk.Palette(wk.css_sky(SKY)), SPORT, build, LIGHT)

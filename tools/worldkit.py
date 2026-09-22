@@ -10,16 +10,21 @@ the user's goal at −Z (spec §1) — the same frame the prototype's worlds (we
 described in. The builder converts every vertex to Blender's Z-up frame (x, −z, y); the exporters
 convert back to Y-up (glTF Y-up; USD forward −Z, up Y), so a world lands in the apps as authored.
 
-The asset contract both apps load (ADR 0005, conventions: Rendering):
-  - `<id>.glb` + `<id>.usdz` + `palette.png`, exactly three meshes with one material each, bound
-    by name: `turf` (the pitch surface and its markings), `scenery` (everything lit), `sky`
-    (everything unlit: the dome, and the few things that glow — stars, lanterns, neon);
+The asset contract both apps load (ADR 0005, ADR 0007, conventions: Rendering):
+  - `<id>.glb` + `<id>.usdz` + `palette.png`, with three core meshes, one material each, bound
+    by name: `turf` (the pitch surface and its markings), `scenery` (everything lit that stands
+    still), `sky` (everything unlit that stands still: the dome, stars, painted glows);
+  - plus one mesh `fx_<effect>` per effect shared/data/effects.toml declares for the world — and
+    no other: everything that moves, pulses or twinkles (ADR 0007). Each vertex carries its
+    motion data inside its palette swatch (`FxMesh`); particles are baked as flat quads;
   - colour comes only from the palette texture: swatches in its left half, the sky's lat-long
     map in its right half; no vertex colours; the V convention is Blender's (glTF flips it);
-  - deterministic: seeded RNGs, faces added in a fixed order — the GLB and the palette rebuild
-    byte-identical; the USDZ rebuilds with identical content (prims in name order, zip times
-    pinned), though USD's crate writer lays its tables out differently from run to run;
-  - ≤ 45k triangles; nothing inside the pitch boundary but the surface, its markings and the goals.
+  - deterministic: seeded RNGs (a seed of its own for each effect), faces added in a fixed order —
+    the GLB and the palette rebuild byte-identical; the USDZ rebuilds with identical content (prims
+    in name order, zip times pinned), though USD's crate writer lays its tables out differently;
+  - ≤ 45k triangles in the core meshes, ≤ 12k in the effects; nothing inside the pitch boundary
+    but the surface, its markings and the goals — for an effect, wherever its motion takes it
+    (only particles declared `over_pitch` may cross it).
 
 Shading is the apps' own (ADR 0006): Lambert under a hemisphere light and a sun, no shadow maps.
 So colour does the work: shade that the prototype got from shadows is painted into swatches.
@@ -44,7 +49,8 @@ CORNER = {'field': 2.0, 'ice': 8.5}
 WALL_T, SLAB_W = 0.4, 2.2                # the boards' thickness; the rim the pitch stands on
 DECOR_Y, LINE_Y = 0.006, 0.012           # paint on the pitch: decoration, then the markings
 SKY_R = 320.0
-BUDGET = 45000
+BUDGET = 45000                           # the three core meshes
+FX_BUDGET = 12000                        # every effect of a world together (ADR 0007)
 
 TEX, COLS, ROWS = 512, 16, 32            # palette: 16 x 32 swatches (16 px) left, the sky map right
 
@@ -307,6 +313,7 @@ class Mesh:
         self.pal = pal
         self.bm = bmesh.new()
         self.uvl = self.bm.loops.layers.uv.new('UVMap')
+        self.datafn = None                   # effects: point -> (w, p), encoded in the swatch (FxMesh)
 
     # ---------------------------------------------------------- faces
     def face(self, pts, col, out=None, facing=None, uvs=None):
@@ -325,7 +332,12 @@ class Mesh:
         f = self.bm.faces.new([self.bm.verts.new((p[0], -p[2], p[1])) for p in pts])
         u = None if uvs else self.pal.uv(col)
         for k, loop in enumerate(f.loops):
-            loop[self.uvl].uv = uvs[k] if uvs else u
+            if uvs:
+                loop[self.uvl].uv = uvs[k]
+            elif self.datafn:
+                loop[self.uvl].uv = encode(u, *self.datafn(pts[k]))
+            else:
+                loop[self.uvl].uv = u
         return f
 
     def up(self, pts, col):
@@ -923,6 +935,153 @@ def billboard(m, c, size, col, n=6, towards=(0, 20, 0), phase=0.0):
     m.face(pts, col, facing=d)
 
 
+# ================================================================ effects (ADR 0007)
+# What moves is declared in shared/data/effects.toml; a world script fills one FxMesh per declared
+# effect. A vertex's motion data — w (a weight, an orbit speed factor, a falloff, a sprite corner)
+# and p (a phase, a sprite corner) in [0, 1] — rides inside its palette swatch: the UV sits at
+# (0.05 + 0.9·w, 0.05 + 0.9·p) of the swatch's cell instead of its centre. Nearest sampling still
+# reads the swatch's colour; the apps' shaders read the data back as fract(u·32), fract((1 − v)·32).
+# Position, normal and one UV set are all a vertex needs, and both exporters keep those.
+_FX_DECL = None
+
+
+def effects_declared():
+    global _FX_DECL
+    if _FX_DECL is None:
+        from pathlib import Path
+        from datagen import effects as fxdecl
+        _FX_DECL = fxdecl.load(Path(__file__).resolve().parent.parent / 'shared' / 'data' / 'effects.toml')
+    return _FX_DECL
+
+
+def effects_of(world):
+    return [e for e in effects_declared()['effects'] if e['world'] == world]
+
+
+def encode(uv, w, p):
+    """A swatch's UV carrying (w, p) — see above."""
+    w, p = clamp(w, 0.0, 1.0), clamp(p, 0.0, 1.0)
+    cw, ch = 1.0 / (2 * COLS), 1.0 / ROWS
+    u0 = math.floor(uv[0] / cw) * cw
+    v1 = 1.0 - math.floor((1.0 - uv[1]) / ch) * ch
+    return (u0 + (0.05 + 0.9 * w) * cw, v1 - (0.05 + 0.9 * p) * ch)
+
+
+def decode(uv):
+    return ((math.modf(uv[0] * 2 * COLS)[0] - 0.05) / 0.9, (math.modf((1.0 - uv[1]) * ROWS)[0] - 0.05) / 0.9)
+
+
+class FxMesh(Mesh):
+    """One declared effect's mesh (`fx_<id>`). Geometry is added as usual, inside `piece(data)`:
+    data is (w, p) or a function of the vertex (game coordinates) returning it."""
+
+    def __init__(self, pal, spec, seed):
+        super().__init__(pal)
+        self.spec = spec
+        self.rng = random.Random(seed)       # the effect's own layout seed
+        self.datafn = lambda pt: (1.0, 0.0)
+
+    def piece(self, data):
+        mesh = self
+
+        class _Piece:
+            def __enter__(self):
+                self.prev = mesh.datafn
+                mesh.datafn = data if callable(data) else (lambda pt: data)
+                return mesh
+
+            def __exit__(self, *a):
+                mesh.datafn = self.prev
+        return _Piece()
+
+    def halo(self, c, r, col, p=0.0, n=12, normal=(0, 1, 0), r2=None, yaw=0.0):
+        """A soft disc (glow pool, halo, puff): a fan whose centre carries w = 1 and rim w = 0 —
+        the soft shading's falloff. `r2`: the other radius (an ellipse); `yaw` turns it about the normal."""
+        d = _norm(normal)
+        ref = (0, 1, 0) if abs(d[1]) < 0.9 else (1, 0, 0)
+        u = _norm(_cross(ref, d)) if abs(d[1]) < 0.9 else (1.0, 0.0, 0.0)
+        v = _cross(d, u)
+        r2 = r if r2 is None else r2
+        rim = [tuple(c[k] + r * math.cos(yaw + 2 * math.pi * i / n) * u[k] + r2 * math.sin(yaw + 2 * math.pi * i / n) * v[k]
+                     for k in range(3)) for i in range(n)]
+        centre = tuple(c)
+        with self.piece(lambda pt: (1.0 if pt == centre else 0.0, p)):
+            for i in range(n):
+                self.face([centre, rim[i], rim[(i + 1) % n]], col, facing=d)
+
+    def particle(self, c, col):
+        """One sprite, baked as a flat quad of the declared half-size round its spawn point; the
+        shader recovers the point from the corner (w, p) and turns the quad to the camera."""
+        h = self.spec['size']
+        x, y, z = c
+        with self.piece(lambda pt: (1.0 if pt[0] > x else 0.0, 1.0 if pt[2] > z else 0.0)):
+            self.face([(x - h, y, z - h), (x + h, y, z - h), (x + h, y, z + h), (x - h, y, z + h)], col, facing=(0, 1, 0))
+
+
+class Fx:
+    """The effects a world script fills: fx['caps'] is the FxMesh of the declared effect `caps`."""
+
+    def __init__(self, world, pal):
+        self.world, self.pal = world, pal
+        self.specs = {e['id']: e for e in effects_of(world)}
+        self.meshes = {}
+
+    def __getitem__(self, ident):
+        if ident not in self.specs:
+            raise RuntimeError(f'{self.world}: effect {ident!r} is not declared in shared/data/effects.toml')
+        if ident not in self.meshes:
+            seed = sum(ord(ch) * 131 ** k for k, ch in enumerate(f'{self.world}/{ident}')) & 0x7fffffff
+            self.meshes[ident] = FxMesh(self.pal, self.specs[ident], seed)
+        return self.meshes[ident]
+
+
+def _orbit(x, y, z, spec, theta):
+    px, _, pz = spec['pivot']
+    e = spec['ellipse']
+    dx, qz = x - px, (z - pz) / e
+    c, s = math.cos(theta), math.sin(theta)
+    return px + dx * c - qz * s, y, pz + (dx * s + qz * c) * e
+
+
+def check_effect(obj, spec, sport):
+    """The pitch contract for an effect, wherever its motion takes it (ADR 0007): an orbit is
+    checked all the way round, a sway at its full reach, particles along their travel."""
+    corner = CORNER[sport]
+    bad = []
+    reach = max(abs(spec['sway'][0]), abs(spec['sway'][2]))
+    uvl = obj.data.uv_layers[0].data if obj.data.uv_layers else None
+    pts = [(v.co.x, v.co.z, -v.co.y) for v in obj.data.vertices]
+    if spec['shading'] == 'particles':
+        if spec['over_pitch']:
+            return
+        h = spec['size']
+        centres = {}
+        for poly in obj.data.polygons:                    # a sprite's corners recover its spawn point
+            for li in poly.loop_indices:
+                x, y, z = pts[obj.data.loops[li].vertex_index]
+                w, p = decode(uvl[li].uv)
+                centres[(round(x - (2 * round(w) - 1) * h, 3), round(y, 3), round(z - (2 * round(p) - 1) * h, 3))] = 1
+        t = spec['travel']
+        ln = math.sqrt(_dot(t, t))
+        path = [(t[0] / ln * spec['wrap'] * f, t[1] / ln * spec['wrap'] * f, t[2] / ln * spec['wrap'] * f)
+                for f in (0.0, 0.25, 0.5, 0.75, 1.0)] if ln > 0 else [(0.0, 0.0, 0.0)]
+        samples = [(cx + o[0], cy + o[1], cz + o[2]) for cx, cy, cz in centres for o in path]
+        reach = 0.0
+    elif spec['motion'] == 'orbit':
+        samples = [_orbit(x, y, z, spec, 2 * math.pi * k / 32) for x, y, z in pts for k in range(32)]
+    else:
+        samples = pts
+    for x, y, z in samples:
+        if y < -0.05 or y > 40:
+            continue
+        if sd_round_rect(x, z, r=corner) < reach - 0.01:
+            in_goal = abs(x) <= GOAL_W / 2 + 0.2 and GOAL_Z - 0.2 <= abs(z) <= GOAL_Z + GOAL_D + 0.1 and y <= GOAL_H + 0.2
+            if not in_goal:
+                bad.append(f'({x:.2f}, {y:.2f}, {z:.2f})')
+    if bad:
+        raise RuntimeError(f'{obj.name}: {len(bad)} positions inside the pitch boundary: ' + ', '.join(bad[:6]))
+
+
 # ================================================================ materials, checks, export
 def make_material(name, img):
     m = bpy.data.materials.new(name)
@@ -965,29 +1124,44 @@ def check_contract(objs, sport):
 
 
 def run(world, here, pal, sport, build, light, preview_eye=((0, 36, -20), (0, 0, -4))):
-    """Builds a world: `build(turf, scenery, sky)` fills the three meshes (the dome is added
-    here); writes palette.png, <world>.glb and <world>.usdz next to the script; with
-    `-- --preview` renders preview.png from the play camera under ADR 0006's shading, lit by
-    `light` (the prototype's hemisphere and sun: hemi_sky, hemi_ground, hemi, sun, sun_i, sun_pos)."""
+    """Builds a world: `build(turf, scenery, sky, fx)` fills the three core meshes (the dome is
+    added here) and one FxMesh per effect declared for the world (fx['<id>']); writes palette.png,
+    <world>.glb and <world>.usdz next to the script; with `-- --preview` renders preview.png from
+    the play camera under ADR 0006's shading, lit by `light` (the prototype's hemisphere and sun:
+    hemi_sky, hemi_ground, hemi, sun, sun_i, sun_pos) — effects at rest, soft ones and particles left out."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     turf, scen, sky = Mesh(pal), Mesh(pal), Mesh(pal)
-    build(turf, scen, sky)
+    fx = Fx(world, pal)
+    build(turf, scen, sky, fx)
     sky_dome(sky)
+    missing = [i for i in fx.specs if i not in fx.meshes or not fx.meshes[i].bm.faces]
+    if missing:
+        raise RuntimeError(f'{world}: declared effects without geometry: {missing}')
     img = pal.save(os.path.join(here, 'palette.png'))
-    mats = {n: make_material(n, img) for n in ('turf', 'scenery', 'sky')}
+    names = ['turf', 'scenery', 'sky'] + [f'fx_{i}' for i in fx.specs]
+    mats = {n: make_material(n, img) for n in names}
     objs = [turf.to_object('turf', mats['turf']), scen.to_object('scenery', mats['scenery']), sky.to_object('sky', mats['sky'])]
+    fx_objs = [fx.meshes[i].to_object(f'fx_{i}', mats[f'fx_{i}']) for i in fx.specs]
     tris = sum(tri_count(o) for o in objs)
-    per = ', '.join(f'{o.name} {tri_count(o)}' for o in objs)
-    print(f'{world}: {tris} triangles in {len(objs)} meshes ({per}), {len(pal.names)} swatches')
+    fx_tris = sum(tri_count(o) for o in fx_objs)
+    per = ', '.join(f'{o.name} {tri_count(o)}' for o in objs + fx_objs)
+    print(f'{world}: {tris} + {fx_tris} effect triangles in {len(objs) + len(fx_objs)} meshes ({per}), {len(pal.names)} swatches')
     if tris > BUDGET:
         raise RuntimeError(f'{world}: {tris} triangles is over the budget of {BUDGET}')
+    if fx_tris > FX_BUDGET:
+        raise RuntimeError(f'{world}: {fx_tris} effect triangles is over the budget of {FX_BUDGET}')
     check_contract(objs, sport)
+    for o in fx_objs:
+        check_effect(o, fx.specs[o.name[3:]], sport)
     bpy.ops.export_scene.gltf(filepath=os.path.join(here, f'{world}.glb'), export_format='GLB',
                               export_apply=True, export_yup=True)
     export_usdz(os.path.join(here, f'{world}.usdz'))
     argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
     if '--preview' in argv or os.environ.get('WORLD_PREVIEW'):
-        preview(mats, light, os.path.join(here, 'preview.png'), *preview_eye)
+        unlit = {'sky'} | {f'fx_{i}' for i, e in fx.specs.items() if e['shading'] != 'lit'}
+        for o in fx_objs:
+            o.hide_render = fx.specs[o.name[3:]]['shading'] in ('soft', 'particles')
+        preview(mats, light, os.path.join(here, 'preview.png'), *preview_eye, unlit=unlit)
         if '--shot' in argv:                 # --shot PATH ex ey ez ax ay az fov (game coordinates)
             k = argv.index('--shot')
             v = [float(t) for t in argv[k + 2:k + 9]]
@@ -1053,7 +1227,7 @@ def _pin_zip_times(path):
 
 
 # ================================================================ preview (ADR 0006's shading)
-def preview(mats, light, path, eye, at):
+def preview(mats, light, path, eye, at, unlit=('sky',)):
     """Play camera, portrait 540 x 1200; the vertical field of view fitted so the pitch width
     (±16.5) fills the frame, clamped 45–78° (the prototype's fitCamera). Every lit material is
     replaced by ADR 0006's formula — albedo × (hemisphere(n) + sun · max(0, n·l)) — computed as
@@ -1089,8 +1263,9 @@ def preview(mats, light, path, eye, at):
         out = next(n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL')
         em = nt.nodes.new('ShaderNodeEmission')
         nt.links.new(em.outputs['Emission'], out.inputs['Surface'])
-        if name == 'sky':
-            tex.interpolation = 'Linear'
+        if name in unlit:
+            if name == 'sky':
+                tex.interpolation = 'Linear'
             nt.links.new(tex.outputs['Color'], em.inputs['Color'])
             continue
         geo = nt.nodes.new('ShaderNodeNewGeometry')
@@ -1158,15 +1333,19 @@ def shoot(path, eye, at, fov, w, h):
 
 # ================================================================ re-import check (build-worlds.sh)
 def verify(glb, sport):
-    """Re-imports a built GLB and checks the contract: exactly the three named meshes, each with
-    its one material and UVs and no vertex colours, the budget, nothing inside the boundary."""
+    """Re-imports a built GLB and checks the contract: the three core meshes and exactly the
+    declared effects' `fx_<id>` meshes, each with its one material and UVs and no vertex colours,
+    both budgets, nothing inside the boundary — effects wherever their motion takes them."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=glb)
+    world = os.path.basename(glb)[:-4]
+    specs = {f'fx_{e["id"]}': e for e in effects_of(world)}
     meshes = sorted((o for o in bpy.context.scene.objects if o.type == 'MESH'), key=lambda o: o.name)
     names = [o.name for o in meshes]
+    want = sorted(['scenery', 'sky', 'turf'] + list(specs))
     problems = []
-    if names != ['scenery', 'sky', 'turf']:
-        problems.append(f'meshes {names}')
+    if names != want:
+        problems.append(f'meshes {names}, declared {want}')
     for o in meshes:
         mats = [m.name for m in o.data.materials]
         if mats != [o.name]:
@@ -1175,20 +1354,28 @@ def verify(glb, sport):
             problems.append(f'{o.name}: no UVs')
         if len(o.data.color_attributes):
             problems.append(f'{o.name}: vertex colours')
-    tris = sum(tri_count(o) for o in meshes)
+    core = [o for o in meshes if o.name not in specs]
+    tris = sum(tri_count(o) for o in core)
+    fx_tris = sum(tri_count(o) for o in meshes if o.name in specs)
     if tris > BUDGET:
         problems.append(f'{tris} triangles')
+    if fx_tris > FX_BUDGET:
+        problems.append(f'{fx_tris} effect triangles')
     try:
-        check_contract(meshes, sport)
+        check_contract(core, sport)
+        for o in meshes:
+            if o.name in specs and o.data.uv_layers:
+                check_effect(o, specs[o.name], sport)
     except RuntimeError as e:
         problems.append(str(e))
-    problems += _verify_usdz(glb[:-4] + '.usdz')
-    print(f'verify {os.path.basename(glb)[:-4]}: {tris} triangles, meshes {names}, usdz twin: ' + ('ok' if not problems else '; '.join(problems)))
+    problems += _verify_usdz(glb[:-4] + '.usdz', want)
+    print(f'verify {world}: {tris} + {fx_tris} effect triangles, {len(meshes)} meshes ({len(specs)} effects), usdz twin: '
+          + ('ok' if not problems else '; '.join(problems)))
     return not problems
 
 
-def _verify_usdz(path):
-    """The USDZ twin: the same three meshes, each bound to its material, whose texture resolves
+def _verify_usdz(path, want):
+    """The USDZ twin: the same meshes, each bound to its material, whose texture resolves
     inside the package."""
     from pxr import Usd, UsdShade
     stage = Usd.Stage.Open(path)
@@ -1205,6 +1392,6 @@ def _verify_usdz(path):
             f = prim.GetAttribute('inputs:file')
             if f and f.Get() is not None and not f.Get().resolvedPath:
                 problems.append(f'usdz {prim.GetPath()}: texture does not resolve')
-    if sorted(seen) != ['scenery', 'sky', 'turf']:
+    if sorted(seen) != want:
         problems.append(f'usdz meshes {sorted(seen)}')
     return problems

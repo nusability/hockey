@@ -4,6 +4,7 @@ import `in`.nann.smashhockey.ui.DesignTokens.Colour
 import `in`.nann.smashhockey.ui.DesignTokens.Size
 import kotlin.math.max
 import kotlin.math.min
+import `in`.nann.smashhockey.engine.Spring
 
 /**
  * A puck on a rail, for the coach's board values 0–1 — the twin of iOS's `Slider3D`. Grab it

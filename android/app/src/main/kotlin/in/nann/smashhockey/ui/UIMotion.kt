@@ -2,6 +2,7 @@ package `in`.nann.smashhockey.ui
 
 import kotlin.math.max
 import kotlin.math.min
+import `in`.nann.smashhockey.engine.Spring
 
 /** How an element arrives. Leaving is always the same goofy exit: a hop, a spin, a fall. */
 sealed class Entrance {

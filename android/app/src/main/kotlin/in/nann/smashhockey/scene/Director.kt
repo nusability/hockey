@@ -2,7 +2,6 @@ package `in`.nann.smashhockey.scene
 
 import `in`.nann.smashhockey.core.generated.Tuning
 import `in`.nann.smashhockey.core.match.MatchState
-import `in`.nann.smashhockey.generated.Presentation
 import `in`.nann.smashhockey.generated.Presentation.Camera as P
 import `in`.nann.smashhockey.core.generated.Tuning.SlowMotion as S
 import kotlin.math.PI
@@ -12,6 +11,9 @@ import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.sqrt
+import kotlin.math.tan
+import kotlin.math.atan
 
 /** Where the camera is: eye, look-at target, vertical field of view (degrees). */
 data class CameraPose(val eye: DoubleArray, val target: DoubleArray, val fov: Double) {
@@ -41,15 +43,16 @@ data class DirectorInput(
  */
 class Director {
     var timeScale = 1.0; private set
-    var pose: CameraPose = playPose(0.0, 0.0); private set
+    var pose: CameraPose = playPose(0.0, 0.46); private set
     var reduceMotion = false
+    /** The view's width over its height: the play camera fits the pitch's width to it. */
+    var aspect = 0.46
 
     private var goalClock: Double? = null
     private var goalIsLong = false
     private var goalZ = 0.0; private var goalSide = 1.0; private var goalX = 0.0; private var hasGoal = false
 
-    private var focusX = 0.0; private var focusZ = 0.0
-    private var leadDirection = 1.0
+    private var focusZ = 0.0
     private var weight = 0.0
     private var drama = pose
     private var shake = 0.0
@@ -97,7 +100,7 @@ class Director {
 
         // The camera.
         followPlay(dt, m)
-        val play = playPose(focusX, focusZ)
+        val play = playPose(focusZ, aspect)
         var wanted = 0.0
         var blendRate = P.Buildup.rate
         when (val md = mode) {
@@ -127,24 +130,25 @@ class Director {
             return doubleArrayOf(sin(w) * shake, sin(w * 1.31 + 1.7) * shake, 0.0)
         }
 
+    /** The prototype's play camera: the focus eases toward a share of the ball's z. */
     private fun followPlay(dt: Double, m: DirectorInput) {
         val c = P.Play
-        val heading = when {
-            m.carrierTeam != null -> if (m.carrierTeam == 0) 1.0 else -1.0
-            abs(m.ballVz) > 4 -> if (m.ballVz > 0) 1.0 else -1.0
-            else -> if (leadDirection >= 0) 1.0 else -1.0
-        }
-        leadDirection += (heading - leadDirection) * (1 - exp(-dt * c.leadRate))
-        val wantX = (m.ballX * c.followX).coerceIn(-c.maxX, c.maxX)
-        val wantZ = (m.ballZ + c.lead * leadDirection).coerceIn(c.minZ, c.maxZ)
-        val k = 1 - exp(-dt * c.rate)
-        focusX += (wantX - focusX) * k
-        focusZ += (wantZ - focusZ) * k
+        val want = (m.ballZ * c.follow).coerceIn(c.minZ, c.maxZ)
+        focusZ += (want - focusZ) * (1 - exp(-dt * c.rate))
     }
 
-    private fun playPose(fx: Double, fz: Double): CameraPose {
-        val c = Presentation.Camera.Play
-        return CameraPose(doubleArrayOf(fx, c.height, fz - c.back), doubleArrayOf(fx, 0.0, fz + c.lookAhead), Presentation.Camera.fov)
+    /**
+     * High and steep behind the focus, looking up the pitch, the field of view fitted each frame so
+     * the pitch's width fills the screen.
+     */
+    private fun playPose(focusZ: Double, aspect: Double): CameraPose {
+        val c = P.Play
+        val eyeZ = focusZ - c.back
+        val nearZ = focusZ - c.fitNear
+        val d = sqrt(c.height * c.height + (eyeZ - nearZ) * (eyeZ - nearZ))
+        val hfov = 2 * atan(c.halfWidth / d)
+        val vfov = Math.toDegrees(2 * atan(tan(hfov / 2) / max(aspect, 0.01)))
+        return CameraPose(doubleArrayOf(0.0, c.height, eyeZ), doubleArrayOf(0.0, 0.0, focusZ + c.look), vfov.coerceIn(c.minFov, c.maxFov))
     }
 
     private fun buildupPose(m: DirectorInput): CameraPose {

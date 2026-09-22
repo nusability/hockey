@@ -8,8 +8,8 @@ import kotlin.math.sqrt
 
 /**
  * Flat-shaded low-poly geometry built from primitives — the twin of iOS's MeshKit.swift, same
- * shapes and facet counts, so a figure is the same figure on both platforms. Each triangle
- * carries its face normal. Parts are grouped by material slot: one mesh part per slot.
+ * shapes and facet counts, so a shape is the same shape on both platforms. Each triangle
+ * carries its face normal unless given smooth ones. Parts are grouped by material slot: one mesh part per slot.
  */
 class MeshKit {
     private class Part { val pos = ArrayList<Float>(); val nrm = ArrayList<Float>() }
@@ -34,10 +34,30 @@ class MeshKit {
 
     fun quad(a: Vec3, b: Vec3, c: Vec3, d: Vec3) { triangle(a, b, c); triangle(a, c, d) }
 
+    /** A triangle with its own vertex normals (a smooth surface), counter-clockwise from its front. */
+    fun triangle(a: Vec3, b: Vec3, c: Vec3, na: Vec3, nb: Vec3, nc: Vec3) {
+        val pa = point(a); val pb = point(b); val pc = point(c)
+        val n = (pb - pa).cross(pc - pa)
+        if (sqrt(n.dot(n)) < 1e-9f) return
+        val part = slots.getOrPut(slot) { Part() }
+        for ((p, v) in listOf(pa to na, pb to nb, pc to nc)) {
+            val d = direction(v)
+            part.pos += p.x; part.pos += p.y; part.pos += p.z
+            part.nrm += d.x; part.nrm += d.y; part.nrm += d.z
+        }
+    }
+
     private fun point(p: Vec3): Vec3 {
         val r = FloatArray(4)
         Matrix.multiplyMV(r, 0, transform, 0, floatArrayOf(p.x, p.y, p.z, 1f), 0)
         return Vec3(r[0], r[1], r[2])
+    }
+
+    private fun direction(n: Vec3): Vec3 {
+        val r = FloatArray(4)
+        Matrix.multiplyMV(r, 0, transform, 0, floatArrayOf(n.x, n.y, n.z, 0f), 0)
+        val len = sqrt(r[0] * r[0] + r[1] * r[1] + r[2] * r[2])
+        return Vec3(r[0] / len, r[1] / len, r[2] / len)
     }
 
     // ---------------------------------------------------------------- primitives
@@ -87,6 +107,44 @@ class MeshKit {
         }
         if (upper) for (j in 0 until segments) triangle(c, p(last, j + 1), p(last, j))
     }
+
+    /**
+     * A smooth-sided frustum along +y from [y0] (radius [r0]) to [y1] (radius [r1]): its side's
+     * normals run round it like the prototype's cylinders; [top] and [bottom] add flat caps.
+     */
+    fun cylinder(y0: Float, y1: Float, r0: Float, r1: Float, segments: Int, top: Boolean = true, bottom: Boolean = true) {
+        val slope = (r0 - r1) / (y1 - y0)
+        fun s(i: Int) = sin(i.toFloat() / segments * 2f * PI.toFloat())
+        fun c(i: Int) = cos(i.toFloat() / segments * 2f * PI.toFloat())
+        for (i in 0 until segments) {
+            val s0 = s(i); val c0 = c(i); val s1 = s(i + 1); val c1 = c(i + 1)
+            val a0 = Vec3(r0 * s0, y0, r0 * c0); val b0 = Vec3(r0 * s1, y0, r0 * c1)
+            val a1 = Vec3(r1 * s0, y1, r1 * c0); val b1 = Vec3(r1 * s1, y1, r1 * c1)
+            val n0 = Vec3(s0, slope, c0); val n1 = Vec3(s1, slope, c1)
+            triangle(a0, b0, b1, n0, n1, n1)
+            triangle(a0, b1, a1, n0, n1, n0)
+            if (top) triangle(Vec3(0f, y1, 0f), a1, b1)
+            if (bottom) triangle(Vec3(0f, y0, 0f), b0, a0)
+        }
+    }
+
+    /** A smooth sphere (the prototype's ball), [rings] from pole to pole. */
+    fun smoothSphere(c: Vec3, radius: Float, rings: Int, segments: Int) {
+        fun n(i: Int, j: Int): Vec3 {
+            val theta = i.toFloat() / rings * PI.toFloat()
+            val phi = j.toFloat() / segments * 2f * PI.toFloat()
+            return Vec3(sin(theta) * sin(phi), cos(theta), sin(theta) * cos(phi))
+        }
+        fun p(v: Vec3) = Vec3(c.x + radius * v.x, c.y + radius * v.y, c.z + radius * v.z)
+        for (i in 0 until rings) for (j in 0 until segments) {
+            val na = n(i, j); val nb = n(i + 1, j); val nc = n(i + 1, j + 1); val nd = n(i, j + 1)
+            if (i > 0) triangle(p(na), p(nb), p(nd), na, nb, nd)
+            if (i < rings - 1) triangle(p(nd), p(nb), p(nc), nd, nb, nc)
+        }
+    }
+
+    /** A flat disc on the ground plane, facing up. */
+    fun disc(radius: Float, y: Float, segments: Int) = annulus(0f, radius, y, segments)
 
     /** A flat ring on the ground plane, facing up. */
     fun annulus(inner: Float, outer: Float, y: Float, segments: Int) {

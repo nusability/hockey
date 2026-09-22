@@ -76,13 +76,16 @@ class MatchScene(
     var paused = false; private set
     private val onPitch = HashSet<Int>()
     private var lastRect: ScreenRect? = null
-    private var fov = Presentation.Camera.fov
+    private var fov = Presentation.Camera.Play.maxFov
 
     init {
         host.view.colorGrading = ColorGrading.Builder().toneMapper(ToneMapper.Linear()).build(engine)
         host.view.dynamicResolutionOptions = View.DynamicResolutionOptions().apply { enabled = true; minScale = 0.6f }
         host.camera.setExposure(16f, 1f / 125f, 100f)
-        host.onResize = { w, h -> width = w; height = h; aspect = w.toDouble() / h; projection(); hud?.resize(w, h, safeTop) }
+        host.onResize = { w, h ->
+            width = w; height = h; aspect = w.toDouble() / h; director.aspect = aspect
+            projection(); hud?.resize(w, h, safeTop)
+        }
         val (m, o) = plan.start(seed)
         match = m; orbitPeriod = o
         snapshot = match.snapshot
@@ -95,16 +98,16 @@ class MatchScene(
     private fun build() {
         val w = world?.takeIf { it.id == plan.world } ?: run {
             world?.destroy()
-            World(engine, host.scene, host.view, assets, plan.world).also {
+            World(engine, host.scene, assets, plan.world).also {
                 val tm = engine.transformManager
                 tm.setParent(tm.getInstance(it.root), tm.getInstance(worldRoot.entity))
             }
         }
         world = w
         actors?.destroy(); confetti?.destroy(); hud?.destroy()
-        actors = Actors(engine, host.scene, worldRoot.entity, snapshot, plan.colours(seed), plan.world.sport, orbitPeriod, materials)
-        confetti = Confetti(engine, host.scene, worldRoot.entity, materials)
-        hud = Hud(engine, host.scene, host.camera.entity, materials, typeface, motion, plan.codes(seed), plan.colours(seed)).also {
+        actors = Actors(engine, host.scene, worldRoot.entity, snapshot, plan.colours(seed), plan.world.sport, orbitPeriod, materials, w.look)
+        confetti = Confetti(engine, host.scene, worldRoot.entity, materials, w.look)
+        hud = Hud(engine, host.scene, host.camera.entity, materials, w.look, typeface, motion, plan.codes(seed), plan.colours(seed)).also {
             it.resize(width, height, safeTop)
             it.show(snapshot, drillGoals)
         }
@@ -146,7 +149,7 @@ class MatchScene(
         val shake = director.shakeOffset
         worldRoot.x = -shake[0].toFloat(); worldRoot.y = -shake[1].toFloat(); worldRoot.z = -shake[2].toFloat(); worldRoot.apply()
         // The HUD keeps its size on screen while the field of view breathes: across only, not in depth.
-        hud.zoom = (tan(Math.toRadians(fov / 2)) / tan(Math.toRadians(Presentation.Camera.fov / 2))).toFloat()
+        hud.zoom = (tan(Math.toRadians(fov / 2)) / tan(Math.toRadians(Presentation.Camera.hudFov / 2))).toFloat()
         hud.layout()
         project()
         afterTheEnd(real)
@@ -210,7 +213,7 @@ class MatchScene(
         val (m, o) = next.start(seed)
         match = m; orbitPeriod = o
         snapshot = match.snapshot
-        director = Director()
+        director = Director().also { it.aspect = aspect }
         phase = 0.0; endedFor = 0.0
         build()
     }

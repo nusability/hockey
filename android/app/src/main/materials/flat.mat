@@ -1,7 +1,8 @@
-// Marks on the pitch — the aim line, the orbit (the twin of iOS's overlaySurface in Fog.metal): an
-// unlit colour at an opacity, fogged with the world, never casting a shadow.
+// An unlit colour at an opacity — the players' dots and rings, the disc shadows, the aim line and
+// the orbit (ADR 0006; the twin of iOS's UnlitMaterial with tone mapping off). Both sides drawn;
+// see-through instances write no depth, solid ones do (Materials.flat).
 material {
-    name : overlay,
+    name : flat,
     shadingModel : unlit,
     parameters : [
         { type : float3, name : baseColor },

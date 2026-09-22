@@ -439,19 +439,28 @@ def colour(text, where):
     return int(text[1:], 16)
 
 
-LOOK_COLOURS = ("sun", "ambient", "fog", "sky")
-LOOK_NUMBERS = ("sun_strength", "ambient_strength", "fog_start", "fog_density", "fog_max")
+LOOK_COLOURS = ("hemi_sky", "hemi_ground", "sun")
+LOOK_NUMBERS = ("hemi_strength", "sun_strength")
 
 
 def world_look(look, where):
-    """A world's light, fog and sky tint (§13) — presentation only, generated into the apps."""
+    """A world's light (§13, ADR 0006): the hemisphere's sky and ground colours and its strength, the
+    sun's colour, strength and direction — presentation only, generated into the apps."""
     if not isinstance(look, dict):
         fail(where, "expected a [world.look] table")
-    expect_keys(look, set(LOOK_COLOURS + LOOK_NUMBERS), where)
+    expect_keys(look, set(LOOK_COLOURS + LOOK_NUMBERS + ("sun_direction",)), where)
     out = {k: colour(look[k], f"{where}.{k}") for k in LOOK_COLOURS}
     out.update({k: need_float(look[k], f"{where}.{k}") for k in LOOK_NUMBERS})
-    if not 0.0 <= out["fog_max"] <= 1.0:
-        fail(f"{where}.fog_max", "an opacity is within 0…1")
+    for k in LOOK_NUMBERS:
+        if out[k] < 0.0:
+            fail(f"{where}.{k}", "a light's strength is not negative")
+    d = look["sun_direction"]
+    if not isinstance(d, list) or len(d) != 3:
+        fail(f"{where}.sun_direction", "expected [x, y, z] toward the sun")
+    d = [need_float(v, f"{where}.sun_direction") for v in d]
+    if d[1] <= 0.0:
+        fail(f"{where}.sun_direction", "the sun is above the horizon (y > 0)")
+    out["sun_direction"] = d
     return out
 
 

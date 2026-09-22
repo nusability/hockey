@@ -2,30 +2,34 @@
 # once and generated into both apps by tools/generate-data.py — into the app targets, never into the
 # simulation core: nothing here can change what a tick does. The time-scale numbers of §8.6 are the
 # rules' own (rules.toml [slow_motion]); this file holds only what the camera and the scene do.
-# Each world's fog and light live next to the world, in teams.toml [world.look].
+# Each world's light lives next to the world, in teams.toml [world.look]; the shading that uses it
+# is the prototype's, computed by our own unlit materials on both platforms (ADR 0006).
 #
 # Units are metres, seconds, degrees for fields of view, radians for angles; colours are sRGB.
 # Rates are exponential: a value approaches its target by 1 − exp(−rate·dt) per frame of real time.
 
 [camera]
-fov = 50.0                 # vertical, degrees — portrait phones (ADR 0005 spike)
+hud_fov = 50.0             # vertical, degrees: the HUD is laid out for this and rescaled to the live one
 near = 0.1
 far = 600.0                # beyond the sky dome (r = 320)
 
-# The play camera: high behind the near goal, looking up the pitch. It frames a focus point that
-# follows the ball and leads toward the goal the play is heading for, so the far goal, a band of
-# scenery and the sky above it stay on screen (the top of the frame sits ~4° above the horizon).
+# The play camera, exactly the web prototype's: high and steep behind the play. It follows a focus on
+# the pitch's axis that eases toward a share of the ball's z; the eye sits at (0, height, focus − back)
+# and looks at (0, 0, focus + look). Each frame the field of view is fitted so the pitch's width
+# (half_width either side) fills the screen at the point (0, 0, focus − fit_near):
+# hfov = 2·atan(half_width / d), vfov = 2·atan(tan(hfov / 2) / aspect), clamped to min_fov…max_fov.
 [camera.play]
-height = 16.0
-back = 35.0                # horizontal distance behind the focus
-look_ahead = 6.5           # the look-at point is this far beyond the focus: pitch ≈ 21° down
-lead = 6.0                 # the focus leads the ball by this much toward the goal being attacked
-follow_x = 0.65            # the focus takes this share of the ball's x …
-max_x = 6.0                # … within ±6
-min_z = -21.0              # the focus's reach along the pitch (the goal lines are ±26)
-max_z = 15.0
-rate = 2.4                 # how fast the focus follows
-lead_rate = 1.1            # how fast the lead swings when possession changes
+height = 36.0
+back = 20.0
+look = -4.0
+follow = 0.85              # the focus eases toward clamp(ball z × follow, min_z, max_z) …
+min_z = -7.0
+max_z = 14.0
+rate = 2.2                 # … at this rate
+half_width = 16.5          # the pitch's half-width (15) and a margin of 1.5
+fit_near = 8.0
+min_fov = 45.0
+max_fov = 78.0
 
 # A shot about to score (§8.6): the camera drops and closes in behind the ball, toward the net.
 [camera.buildup]
@@ -61,18 +65,30 @@ board = 0.08               # … and when it smacks the boards hard (§6.2 board
 decay = 7.0                # per second
 frequency = 21.0           # Hz
 
-# The light rig. The worlds' palettes are painted for this sun direction; colour and strength are
-# per world (teams.toml [world.look]).
-[light]
-sun_direction = [0.35, -1.0, 0.55]
-
-# Toy-like players built from primitives, in each team's kit (teams.toml clubs).
-[figure]
-skin = "#f2c29b"
-eye = "#1e1b2e"           # the eyes and the stick's blade
-stick = "#f5e6c8"
-scale = 1.2                # toys read bigger than their bodies (radius 0.8) from the play camera
-goalie_scale = 1.18        # a goalie is bigger, padded and helmeted
+# The players, exactly the web prototype's disks (ADR 0006): a squat body of the player's radius
+# (spec §3) in the kit's primary, slightly narrower at the foot, toon-shaded; on top a dot in the
+# secondary — a ring for a goalie. A training dummy (§10 'O', radius 0.9) is a taller grey body with
+# an orange band. Under each a soft disc in its primary, darker under the carrier; under the receiver
+# of the pass a release would snap to (§5.2), a pulsing green ring. Measures are metres, or shares
+# of the player's radius where named so.
+[player]
+height = 0.45
+foot = 0.92                # the body's radius at the foot, of the radius
+segments = 28
+dot = 0.45                 # the outfield player's dot, of the radius
+ring_inner = 0.45          # the goalie's ring, of the radius
+ring_outer = 0.8
+shadow_margin = 0.2        # the disc under a player: radius + this
+shadow_opacity = 0.2
+carrier_shadow_opacity = 0.55
+target = "#4ade80"         # the receiver's ring: radius + target_inner … radius + target_outer
+target_inner = 0.25
+target_outer = 0.55
+target_opacity = 0.9
+target_pulse = 0.08        # its scale breathes by this share …
+target_pulse_rate = 10.0   # … at this rate (radians per second of real time)
+lean = 0.02                # a running player leans into its run: radians per m/s …
+max_lean = 0.18            # … up to this
 hop = 0.45                 # the scorers' team hops during a goal celebration (m)
 hop_rate = 9.0             # radians per second of real time
 kit_clash = 90.0           # sRGB distance under which the away side wears its secondary as primary
@@ -81,15 +97,22 @@ sparring_primary = "#94a3b8"
 sparring_secondary = "#f8fafc"
 
 [dummy]
-cone = "#ff8a1f"
-stripe = "#fff7ed"
-base = "#3f3f46"
-height = 1.5
+body = "#94a3b8"
+stripe = "#f97316"
+height = 0.7
+stripe_height = 0.18
+stripe_at = 0.6            # the band's centre, of the height
+stripe_grow = 1.01         # the band's radius, of the body's
 
+# The ball: a toon sphere (field) or a flat toon cylinder (ice puck) of the ball's radius, with a
+# small glowing disc under it, like the prototype's.
 [ball]
 field = "#fff3b0"
 ice = "#16161d"
 puck_height = 0.2
+disc = "#facc15"
+disc_radius = 0.8
+disc_opacity = 0.35
 
 # §5.2: the aim line shows the direction and what the release would snap to. The colours are the
 # help text's (copy help.3): green for a pass, pink for a shot.
@@ -103,7 +126,6 @@ opacity = 0.85
 orbit = "#ffffff"          # the ring the ball circles on (§5.1)
 orbit_opacity = 0.35
 orbit_width = 0.08
-target_ring = 1.25         # the ring under a pass's receiver
 
 [celebration]
 pieces = 70

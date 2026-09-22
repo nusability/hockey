@@ -1,5 +1,5 @@
 """Emits the apps' presentation constants: shared/data/presentation.toml and each world's look
-(teams.toml [world.look]) → the iOS app target and Android's :app module.
+(teams.toml [world.look], ADR 0006) → the iOS app target and Android's :app module.
 
 Presentation never reaches the simulation core (SmashCore, :core): nothing declared here can change
 what a tick does (spec §4.2), so these doubles are not in the bit-exactness table either.
@@ -64,15 +64,20 @@ def emit(root, model):
             KOTLIN + "Presentation.kt": kotlin(t, model.worlds)}
 
 
-LOOK_FIELDS = (("sun", "colour"), ("sun_strength", "double"), ("ambient", "colour"), ("ambient_strength", "double"),
-               ("fog", "colour"), ("fog_start", "double"), ("fog_density", "double"), ("fog_max", "double"),
-               ("sky", "colour"))
+LOOK_FIELDS = (("hemi_sky", "colour"), ("hemi_ground", "colour"), ("hemi_strength", "double"),
+               ("sun", "colour"), ("sun_strength", "double"), ("sun_direction", "vector"))
 LOOK_DOCS = {
-    "sun": "The sun's colour, sRGB 0xRRGGBB, and its strength relative to the engine's calibrated rig.",
-    "ambient": "The shade's colour (iOS: a fill light; Android: the irradiance) and its strength.",
-    "fog": "Distance fog, Filament's formula: opacity = fogMax · (1 − exp(−fogDensity · max(d − fogStart, 0))).",
-    "sky": "A tint multiplied into the sky dome.",
+    "hemi_sky": "The hemisphere light (ADR 0006): its colour from above and from below, sRGB 0xRRGGBB, and its strength.",
+    "sun": "The sun: its colour, sRGB 0xRRGGBB, its strength, and the direction toward it (not normalized).",
 }
+
+
+def look_value(value, k, swift):
+    if k == "colour":
+        return f"0x{value:06X}"
+    if k == "double":
+        return double_lit(value)
+    return ("[" if swift else "listOf(") + ", ".join(double_lit(v) for v in value) + ("]" if swift else ")")
 
 
 # --- Swift ---------------------------------------------------------------------------------------
@@ -107,15 +112,14 @@ def swift(t, worlds):
         out.append(f"{pad}}}\n")
 
     walk(t, 0)
-    out.append("\n/// A world's light, fog and sky tint (spec §13). Colours are sRGB 0xRRGGBB.\nstruct WorldLook: Sendable, Hashable {\n")
+    out.append("\n/// A world's light (spec §13, ADR 0006). Colours are sRGB 0xRRGGBB.\nstruct WorldLook: Sendable, Hashable {\n")
     for key, k in LOOK_FIELDS:
         if key in LOOK_DOCS:
             out.append(f"    /// {LOOK_DOCS[key]}\n")
-        out.append(f"    let {camel(key)}: {'UInt32' if k == 'colour' else 'Double'}\n")
+        out.append(f"    let {camel(key)}: {dict(colour='UInt32', double='Double', vector='[Double]')[k]}\n")
     out.append("}\n\nextension World {\n    var look: WorldLook {\n        switch self {\n")
     for w in worlds:
-        args = ", ".join(f"{camel(key)}: " + (f"0x{w['look'][key]:06X}" if k == "colour" else double_lit(w["look"][key]))
-                         for key, k in LOOK_FIELDS)
+        args = ", ".join(f"{camel(key)}: " + look_value(w["look"][key], k, True) for key, k in LOOK_FIELDS)
         out.append(f"        case .{w['id']}: WorldLook({args})\n")
     out.append("        }\n    }\n}\n")
     return "".join(out)
@@ -154,15 +158,14 @@ def kotlin(t, worlds):
         out.append(f"{pad}}}\n")
 
     walk(t, 0)
-    out.append("\n/** A world's light, fog and sky tint (spec §13). Colours are sRGB 0xRRGGBB. */\ndata class WorldLook(\n")
+    out.append("\n/** A world's light (spec §13, ADR 0006). Colours are sRGB 0xRRGGBB. */\ndata class WorldLook(\n")
     for key, k in LOOK_FIELDS:
         if key in LOOK_DOCS:
             out.append(f"    /** {LOOK_DOCS[key]} */\n")
-        out.append(f"    val {camel(key)}: {'Int' if k == 'colour' else 'Double'},\n")
+        out.append(f"    val {camel(key)}: {dict(colour='Int', double='Double', vector='List<Double>')[k]},\n")
     out.append(")\n\nval World.look: WorldLook\n    get() = when (this) {\n")
     for w in worlds:
-        args = ", ".join((f"0x{w['look'][key]:06X}" if k == "colour" else double_lit(w["look"][key]))
-                         for key, k in LOOK_FIELDS)
+        args = ", ".join(look_value(w["look"][key], k, False) for key, k in LOOK_FIELDS)
         out.append(f"        World.{upper_snake(w['id'])} -> WorldLook({args})\n")
     out.append("    }\n")
     return "".join(out)

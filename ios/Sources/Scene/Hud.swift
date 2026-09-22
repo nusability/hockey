@@ -5,7 +5,8 @@ import UIKit
 /// The match's minimal HUD (spec §8; the kit stream restyles it): score, clock and period at the
 /// top, a pause button in the corner, and a banner for goals and results — extruded text parented to
 /// the camera at a fixed depth (ADR 0005), laid out from the frustum and the
-/// safe area. The twin of Android's Hud.kt.
+/// safe area. Toon-shaded by the world's light like everything else (ADR 0006). The twin of
+/// Android's Hud.kt.
 @MainActor
 final class Hud {
     typealias H = Presentation.Hud
@@ -24,29 +25,36 @@ final class Hud {
     private var bannerTime = 0.0
     private var codes: [Entity] = []
     private var pips: [ModelEntity] = []
-    private let pipOn = Materials.ui(H.clock)
-    private let pipOff = Materials.ui(0x6B7280)
+    private let pipOn: RealityKit.Material
+    private let pipOff: RealityKit.Material
+    private let materials: Materials
+    private let look: WorldLook
     let pauseButton: ModelEntity
     private var scoreText = "", clockText = ""
     private var period = 0
 
-    init(motion: MotionTokens, codes teamCodes: [String]?, colours: [TeamColours]) {
-        halfHeight = Float(H.depth) * tan(Float(Presentation.Camera.fov) / 2 * .pi / 180)
+    init(motion: MotionTokens, codes teamCodes: [String]?, colours: [TeamColours], materials: Materials,
+         look: WorldLook) throws {
+        self.materials = materials
+        self.look = look
+        func ui(_ rgb: UInt32) throws -> RealityKit.Material { try materials.toon(rgb, look: look) }
+        pipOn = try ui(H.clock)
+        pipOff = try ui(0x6B7280)
+        halfHeight = Float(H.depth) * tan(Float(Presentation.Camera.hudFov) / 2 * .pi / 180)
         bannerSpring = Spring(motion.bouncy)
         let size = Float(H.buttonSize)
         pauseButton = ModelEntity(mesh: .generateBox(width: size, height: size, depth: size * 0.4),
-                                  materials: [Materials.ui(H.button)])
-        pauseButton.components.set(DynamicLightShadowComponent(castsShadow: false))
+                                  materials: [try ui(H.button)])
         for x in [-size * 0.14, size * 0.14] {
             let bar = ModelEntity(mesh: .generateBox(width: size * 0.12, height: size * 0.5, depth: size * 0.1),
-                                  materials: [Materials.ui(H.buttonLabel)])
+                                  materials: [try ui(H.buttonLabel)])
             bar.position = SIMD3(x, 0, size * 0.22)
             pauseButton.addChild(bar)
         }
         root.addChild(pauseButton)
         if let teamCodes {
-            codes = zip(teamCodes, colours).map { code, c in
-                TextMesh.entity(code, height: Float(H.clockHeight), depth: 0.03, material: Materials.ui(c.primary))
+            codes = try zip(teamCodes, colours).map { code, c in
+                TextMesh.entity(code, height: Float(H.clockHeight), depth: 0.03, material: try ui(c.primary))
             }
             codes.forEach { root.addChild($0) }
             for _ in 0..<Tuning.Match.periods {
@@ -64,6 +72,11 @@ final class Hud {
         safeTop = Float(top / max(height, 1))
         safeBottom = Float(bottom / max(height, 1))
         layout()
+    }
+
+    /// The HUD's colours: toon, lit by the world. A colour that fails to build falls back to flat.
+    private func ui(_ rgb: UInt32) -> RealityKit.Material {
+        (try? materials.toon(rgb, look: look)) ?? Materials.flat(rgb)
     }
 
     private var top: Float { halfHeight * (1 - 2 * safeTop) - halfHeight * Float(H.margin) }
@@ -90,7 +103,7 @@ final class Hud {
         if text != scoreText {
             scoreText = text
             score?.removeFromParent()
-            score = TextMesh.entity(text, height: Float(H.scoreHeight), depth: 0.05, material: Materials.ui(H.text))
+            score = TextMesh.entity(text, height: Float(H.scoreHeight), depth: 0.05, material: ui(H.text))
             root.addChild(score!)
         }
         let seconds = Int(s.clock.rounded(.up))
@@ -98,7 +111,7 @@ final class Hud {
         if c != clockText {
             clockText = c
             clock?.removeFromParent()
-            clock = TextMesh.entity(c, height: Float(H.clockHeight), depth: 0.03, material: Materials.ui(H.clock))
+            clock = TextMesh.entity(c, height: Float(H.clockHeight), depth: 0.03, material: ui(H.clock))
             root.addChild(clock!)
         }
         if s.period != period {
@@ -113,7 +126,7 @@ final class Hud {
         banner?.removeFromParent()
         banner = nil
         guard let text else { return }
-        let b = TextMesh.entity(text, height: Float(H.bannerHeight), depth: 0.1, material: Materials.ui(colour))
+        let b = TextMesh.entity(text, height: Float(H.bannerHeight), depth: 0.1, material: ui(colour))
         banner = b
         root.addChild(b)
         bannerTime = 0
@@ -127,7 +140,7 @@ final class Hud {
         paused = nil
         if on {
             let p = TextMesh.entity(String(localized: "pause.title"), height: Float(H.bannerHeight), depth: 0.1,
-                                    material: Materials.ui(H.text))
+                                    material: ui(H.text))
             paused = p
             root.addChild(p)
         }

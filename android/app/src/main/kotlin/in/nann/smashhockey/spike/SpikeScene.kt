@@ -15,6 +15,7 @@ import `in`.nann.smashhockey.engine.Assets
 import `in`.nann.smashhockey.engine.FilamentHost
 import `in`.nann.smashhockey.engine.FrameStats
 import `in`.nann.smashhockey.engine.GpuMesh
+import `in`.nann.smashhockey.engine.Materials
 import `in`.nann.smashhockey.engine.MeshBuilder
 import `in`.nann.smashhockey.engine.MotionTokens
 import `in`.nann.smashhockey.engine.Node
@@ -46,9 +47,9 @@ class SpikeScene(
     private val stats = FrameStats(context)
     private val typeface = Typeface.createFromAsset(context.assets, "fonts/LilitaOne-Regular.ttf")
     private val reduceMotion = !ValueAnimator.areAnimatorsEnabled()
-    private val uiMaterial = assets.material(engine, "ui_lit")
-    // The world and its light and fog as the match draws them (World): the spike's Oasis.
-    private val world = World(engine, host.scene, host.view, assets, WorldId.OASIS)
+    private val uiMaterial = assets.material(engine, "toon")
+    // The world as the match draws it (World): the spike's Oasis; its UI toon-shaded in its light.
+    private val world = World(engine, host.scene, assets, WorldId.OASIS)
     private val instances = mutableListOf<MaterialInstance>()
     private val meshes = mutableListOf<GpuMesh>()
     private val palette = mutableMapOf<Int, MaterialInstance>()
@@ -188,8 +189,10 @@ class SpikeScene(
     private fun colour(rgb: Int): MaterialInstance = palette.getOrPut(rgb) {
         uiMaterial.createInstance().also { mi ->
             val c = Colors.toLinear(Colors.RgbType.SRGB, ((rgb shr 16) and 0xFF) / 255f, ((rgb shr 8) and 0xFF) / 255f, (rgb and 0xFF) / 255f)
-            mi.setParameter("baseColor", Colors.RgbType.LINEAR, c[0], c[1], c[2])
+            mi.setParameter("albedo", Colors.RgbType.LINEAR, c[0], c[1], c[2])
+            Materials.light(mi, world.look)
             mi.setParameter("alpha", 1f)
+            mi.setDepthWrite(true)
             instances += mi
         }
     }

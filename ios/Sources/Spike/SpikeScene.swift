@@ -52,7 +52,7 @@ final class SpikeScene {
 
     func build() async throws {
         // The world and its light as the match draws them (WorldStage): the spike's Oasis.
-        let stage = try await WorldStage.load(.oasis, materials: try Materials())
+        let stage = try await WorldStage.load(.oasis, materials: try await Materials.load())
         root.addChild(stage.root)
 
         camera.camera.fieldOfViewInDegrees = fovDegrees

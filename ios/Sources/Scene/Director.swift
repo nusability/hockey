@@ -35,23 +35,23 @@ struct Director {
     private(set) var timeScale = 1.0
     private(set) var pose: DirectorPose
     var reduceMotion = false
+    /// The view's width over its height: the play camera fits the pitch's width to it.
+    var aspect = 0.46
 
     // §8.6 — the goal's slow motion runs on real seconds since the goal.
     private var goalClock: Double?
     private var goalIsLong = false
     private var goal: (z: Double, side: Double, x: Double)?
 
-    // The play camera's focus and lead, and the dramatic cameras' blend.
-    private var focus: SIMD2<Double>
-    private var leadDirection = 1.0
+    // The play camera's focus (a z on the pitch's axis), and the dramatic cameras' blend.
+    private var focusZ = 0.0
     private var weight = 0.0
     private var drama: DirectorPose
     private var shake = 0.0
     private var shakeClock = 0.0
 
     init() {
-        focus = SIMD2(0, 0)
-        let start = Director.playPose(focus: SIMD2(0, 0))
+        let start = Director.playPose(focusZ: 0, aspect: 0.46)
         pose = start
         drama = start
     }
@@ -99,7 +99,7 @@ struct Director {
 
         // The camera.
         followPlay(dt, m)
-        let play = Director.playPose(focus: focus)
+        let play = Director.playPose(focusZ: focusZ, aspect: aspect)
         var wanted = 0.0
         var blendRate = P.Buildup.rate
         switch mode {
@@ -133,25 +133,22 @@ struct Director {
 
     // MARK: the play camera
 
+    /// The prototype's play camera: the focus eases toward a share of the ball's z.
     private mutating func followPlay(_ dt: Double, _ m: DirectorInput) {
         typealias C = P.Play
-        let heading: Double
-        if let team = m.carrierTeam {
-            heading = team == 0 ? 1 : -1
-        } else if abs(m.ballVelocity.y) > 4 {
-            heading = m.ballVelocity.y > 0 ? 1 : -1
-        } else {
-            heading = leadDirection >= 0 ? 1 : -1
-        }
-        leadDirection += (heading - leadDirection) * (1 - exp(-dt * C.leadRate))
-        let want = SIMD2(min(max(m.ball.x * C.followX, -C.maxX), C.maxX),
-                         min(max(m.ball.y + C.lead * leadDirection, C.minZ), C.maxZ))
-        focus += (want - focus) * (1 - exp(-dt * C.rate))
+        let want = min(max(m.ball.y * C.follow, C.minZ), C.maxZ)
+        focusZ += (want - focusZ) * (1 - exp(-dt * C.rate))
     }
 
-    static func playPose(focus f: SIMD2<Double>) -> DirectorPose {
+    /// High and steep behind the focus, looking up the pitch, the field of view fitted each frame so
+    /// the pitch's width fills the screen.
+    static func playPose(focusZ f: Double, aspect: Double) -> DirectorPose {
         typealias C = P.Play
-        return DirectorPose(eye: SIMD3(f.x, C.height, f.y - C.back), target: SIMD3(f.x, 0, f.y + C.lookAhead), fov: P.fov)
+        let eye = SIMD3(0, C.height, f - C.back)
+        let d = simd_distance(eye, SIMD3(0, 0, f - C.fitNear))
+        let hfov = 2 * atan(C.halfWidth / d)
+        let vfov = 2 * atan(tan(hfov / 2) / max(aspect, 0.01)) * 180 / .pi
+        return DirectorPose(eye: eye, target: SIMD3(0, 0, f + C.look), fov: min(max(vfov, C.minFov), C.maxFov))
     }
 
     // MARK: the dramatic cameras

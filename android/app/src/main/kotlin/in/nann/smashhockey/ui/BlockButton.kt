@@ -4,6 +4,7 @@ import `in`.nann.smashhockey.ui.DesignTokens.Colour
 import `in`.nann.smashhockey.ui.DesignTokens.Size
 import kotlin.math.max
 import kotlin.math.sin
+import `in`.nann.smashhockey.engine.Spring
 
 /**
  * A chunky toy key: a rounded cap sitting in a darker base — the twin of iOS's `BlockButton`.

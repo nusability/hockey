@@ -5,6 +5,7 @@ import `in`.nann.smashhockey.ui.DesignTokens.Size
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import `in`.nann.smashhockey.engine.Spring
 
 /**
  * One row of a table — a league table line, a list entry — the twin of iOS's `TableRow`. A slab

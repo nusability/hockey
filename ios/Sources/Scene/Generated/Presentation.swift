@@ -6,20 +6,21 @@ import SmashCore
 
 enum Presentation {
     enum Camera {
-        static let fov: Double = 50.0
+        static let hudFov: Double = 50.0
         static let near: Double = 0.1
         static let far: Double = 600.0
         enum Play {
-            static let height: Double = 16.0
-            static let back: Double = 35.0
-            static let lookAhead: Double = 6.5
-            static let lead: Double = 6.0
-            static let followX: Double = 0.65
-            static let maxX: Double = 6.0
-            static let minZ: Double = -21.0
-            static let maxZ: Double = 15.0
-            static let rate: Double = 2.4
-            static let leadRate: Double = 1.1
+            static let height: Double = 36.0
+            static let back: Double = 20.0
+            static let look: Double = -4.0
+            static let follow: Double = 0.85
+            static let minZ: Double = -7.0
+            static let maxZ: Double = 14.0
+            static let rate: Double = 2.2
+            static let halfWidth: Double = 16.5
+            static let fitNear: Double = 8.0
+            static let minFov: Double = 45.0
+            static let maxFov: Double = 78.0
         }
         enum Buildup {
             static let height: Double = 8.0
@@ -52,15 +53,24 @@ enum Presentation {
             static let frequency: Double = 21.0
         }
     }
-    enum Light {
-        static let sunDirection: [Double] = [0.35, -1.0, 0.55]
-    }
-    enum Figure {
-        static let skin: UInt32 = 0xF2C29B
-        static let eye: UInt32 = 0x1E1B2E
-        static let stick: UInt32 = 0xF5E6C8
-        static let scale: Double = 1.2
-        static let goalieScale: Double = 1.18
+    enum Player {
+        static let height: Double = 0.45
+        static let foot: Double = 0.92
+        static let segments: Int = 28
+        static let dot: Double = 0.45
+        static let ringInner: Double = 0.45
+        static let ringOuter: Double = 0.8
+        static let shadowMargin: Double = 0.2
+        static let shadowOpacity: Double = 0.2
+        static let carrierShadowOpacity: Double = 0.55
+        static let target: UInt32 = 0x4ADE80
+        static let targetInner: Double = 0.25
+        static let targetOuter: Double = 0.55
+        static let targetOpacity: Double = 0.9
+        static let targetPulse: Double = 0.08
+        static let targetPulseRate: Double = 10.0
+        static let lean: Double = 0.02
+        static let maxLean: Double = 0.18
         static let hop: Double = 0.45
         static let hopRate: Double = 9.0
         static let kitClash: Double = 90.0
@@ -68,15 +78,20 @@ enum Presentation {
         static let sparringSecondary: UInt32 = 0xF8FAFC
     }
     enum Dummy {
-        static let cone: UInt32 = 0xFF8A1F
-        static let stripe: UInt32 = 0xFFF7ED
-        static let base: UInt32 = 0x3F3F46
-        static let height: Double = 1.5
+        static let body: UInt32 = 0x94A3B8
+        static let stripe: UInt32 = 0xF97316
+        static let height: Double = 0.7
+        static let stripeHeight: Double = 0.18
+        static let stripeAt: Double = 0.6
+        static let stripeGrow: Double = 1.01
     }
     enum Ball {
         static let field: UInt32 = 0xFFF3B0
         static let ice: UInt32 = 0x16161D
         static let puckHeight: Double = 0.2
+        static let disc: UInt32 = 0xFACC15
+        static let discRadius: Double = 0.8
+        static let discOpacity: Double = 0.35
     }
     enum Aim {
         static let pass: UInt32 = 0x34D399
@@ -88,7 +103,6 @@ enum Presentation {
         static let orbit: UInt32 = 0xFFFFFF
         static let orbitOpacity: Double = 0.35
         static let orbitWidth: Double = 0.08
-        static let targetRing: Double = 1.25
     }
     enum Celebration {
         static let pieces: Int = 70
@@ -112,31 +126,26 @@ enum Presentation {
     }
 }
 
-/// A world's light, fog and sky tint (spec §13). Colours are sRGB 0xRRGGBB.
+/// A world's light (spec §13, ADR 0006). Colours are sRGB 0xRRGGBB.
 struct WorldLook: Sendable, Hashable {
-    /// The sun's colour, sRGB 0xRRGGBB, and its strength relative to the engine's calibrated rig.
+    /// The hemisphere light (ADR 0006): its colour from above and from below, sRGB 0xRRGGBB, and its strength.
+    let hemiSky: UInt32
+    let hemiGround: UInt32
+    let hemiStrength: Double
+    /// The sun: its colour, sRGB 0xRRGGBB, its strength, and the direction toward it (not normalized).
     let sun: UInt32
     let sunStrength: Double
-    /// The shade's colour (iOS: a fill light; Android: the irradiance) and its strength.
-    let ambient: UInt32
-    let ambientStrength: Double
-    /// Distance fog, Filament's formula: opacity = fogMax · (1 − exp(−fogDensity · max(d − fogStart, 0))).
-    let fog: UInt32
-    let fogStart: Double
-    let fogDensity: Double
-    let fogMax: Double
-    /// A tint multiplied into the sky dome.
-    let sky: UInt32
+    let sunDirection: [Double]
 }
 
 extension World {
     var look: WorldLook {
         switch self {
-        case .magicwood: WorldLook(sun: 0xFFD2A8, sunStrength: 0.9, ambient: 0xB9A4FF, ambientStrength: 1.0, fog: 0xE8958A, fogStart: 42.0, fogDensity: 0.01, fogMax: 0.55, sky: 0xFFFFFF)
-        case .space: WorldLook(sun: 0xEEF2FF, sunStrength: 1.0, ambient: 0x9A8CFF, ambientStrength: 0.95, fog: 0x2D1458, fogStart: 90.0, fogDensity: 0.004, fogMax: 0.2, sky: 0xFFFFFF)
-        case .oasis: WorldLook(sun: 0xFFF2DB, sunStrength: 1.0, ambient: 0xFFEED9, ambientStrength: 1.0, fog: 0xFFF0CF, fogStart: 45.0, fogDensity: 0.012, fogMax: 0.8, sky: 0xFFFFFF)
-        case .himalaya: WorldLook(sun: 0xFFFFFF, sunStrength: 1.05, ambient: 0xDCECFF, ambientStrength: 1.05, fog: 0xF4F9FD, fogStart: 50.0, fogDensity: 0.01, fogMax: 0.7, sky: 0xFFFFFF)
-        case .ocean: WorldLook(sun: 0xE0FBFF, sunStrength: 0.85, ambient: 0x9FE8F0, ambientStrength: 1.1, fog: 0x5CC9DF, fogStart: 30.0, fogDensity: 0.018, fogMax: 0.85, sky: 0xFFFFFF)
+        case .magicwood: WorldLook(hemiSky: 0x9FB2FF, hemiGround: 0x2A3820, hemiStrength: 0.3501, sun: 0xFFD6A6, sunStrength: 0.6048, sunDirection: [26.0, 50.0, -30.0])
+        case .space: WorldLook(hemiSky: 0x9FD0FF, hemiGround: 0x1A1240, hemiStrength: 0.3342, sun: 0xFFF1D8, sunStrength: 0.6048, sunDirection: [18.0, 60.0, -20.0])
+        case .oasis: WorldLook(hemiSky: 0xFFD9A8, hemiGround: 0xB27A4C, hemiStrength: 0.2865, sun: 0xFFC98A, sunStrength: 0.7958, sunDirection: [-40.0, 30.0, 14.0])
+        case .himalaya: WorldLook(hemiSky: 0xD6E9FF, hemiGround: 0x9FB6CC, hemiStrength: 0.3024, sun: 0xFFE4BF, sunStrength: 0.6366, sunDirection: [-35.0, 46.0, -26.0])
+        case .ocean: WorldLook(hemiSky: 0xB8F1FA, hemiGround: 0x2A7A8A, hemiStrength: 0.4138, sun: 0xF2FEFF, sunStrength: 0.573, sunDirection: [14.0, 60.0, -10.0])
         }
     }
 }

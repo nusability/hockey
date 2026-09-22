@@ -19,6 +19,7 @@ import `in`.nann.smashhockey.engine.Assets
 import `in`.nann.smashhockey.engine.FilamentHost
 import `in`.nann.smashhockey.engine.FrameStats
 import `in`.nann.smashhockey.engine.World
+import `in`.nann.smashhockey.generated.look
 import `in`.nann.smashhockey.ui.BlockButton
 import `in`.nann.smashhockey.ui.CameraPose
 import `in`.nann.smashhockey.ui.Kit
@@ -46,8 +47,8 @@ class SketchScene(
     private val assets = Assets(context.assets)
     private val stats = FrameStats(context)
     private val kit = Kit(engine, host.scene, assets, Typeface.createFromAsset(context.assets, "fonts/LilitaOne-Regular.ttf"),
-        Motion.load(assets))
-    private val world = World(engine, host.scene, host.view, assets, WorldId.OASIS)
+        Motion.load(assets), WorldId.OASIS.look)
+    private val world = World(engine, host.scene, assets, WorldId.OASIS)
     private val copy = Copy { context.getString(it) }
     private val stageState = mutableStateOf<UIStage?>(null)
     /** The stage, once built — the semantics overlay reads it. */

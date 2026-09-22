@@ -6,6 +6,7 @@ import `in`.nann.smashhockey.engine.Geometry
 import `in`.nann.smashhockey.engine.Materials
 import `in`.nann.smashhockey.engine.Node
 import `in`.nann.smashhockey.generated.Presentation
+import `in`.nann.smashhockey.generated.WorldLook
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.exp
@@ -15,9 +16,9 @@ import kotlin.math.sin
  * A goal's confetti: cards thrown up from the net, tumbling down on real time — the twin of iOS's
  * Confetti.swift. Presentation only: its randomness is its own generator, never a match stream (§4.3).
  */
-class Confetti(private val engine: Engine, private val scene: Scene, parent: Int, materials: Materials) {
+class Confetti(private val engine: Engine, private val scene: Scene, parent: Int, materials: Materials, look: WorldLook) {
     private val c = Presentation.Celebration
-    private val geometry = Geometry(engine, Figures.card())
+    private val geometry = Geometry(engine, Shapes.card())
     private class Piece(val node: Node) { var vx = 0f; var vy = 0f; var vz = 0f; var sx = 0f; var sy = 0f; var sz = 0f }
     private val pieces: List<Piece>
     private var age = Double.POSITIVE_INFINITY
@@ -25,7 +26,7 @@ class Confetti(private val engine: Engine, private val scene: Scene, parent: Int
     private var visible = false
 
     init {
-        val colours = c.colours.map { materials.actor(it) }
+        val colours = c.colours.map { materials.toon(it, look) }
         pieces = (0 until c.pieces).map { i ->
             val e = geometry.renderable(listOf(colours[i % colours.size]), shadows = false)
             Piece(Node(engine, parent, existing = e))

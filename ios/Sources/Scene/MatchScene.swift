@@ -28,7 +28,8 @@ final class MatchScene {
     private var snapshot: MatchSnapshot
     private var orbitPeriod: Double
     private let motion: MotionTokens
-    private let materials: Materials
+    /// The four shaders (ADR 0006), loaded with the first world.
+    private var materials: Materials?
     private let stats = FrameStats()
     private let latency = InputLatency()
     private let log = Logger(subsystem: "in.nann.smashhockey", category: "match")
@@ -56,7 +57,6 @@ final class MatchScene {
         self.plan = plan
         self.seed = seed
         motion = try MotionTokens.load()
-        materials = try Materials()
         try TextMesh.registerFont()
         (match, orbitPeriod) = plan.start(seed: seed)
         snapshot = match.snapshot
@@ -73,11 +73,19 @@ final class MatchScene {
     func build() async throws {
         loading = true
         defer { loading = false }
+        let materials: Materials
+        if let loaded = self.materials {
+            materials = loaded
+        } else {
+            materials = try await Materials.load()
+            self.materials = materials
+        }
         let stage = try await WorldStage.load(plan.world, materials: materials)
         let actors = try Actors(first: snapshot, colours: plan.colours(seed: seed), sport: plan.world.sport,
                                 orbitPeriod: orbitPeriod, materials: materials, look: stage.look)
         let confetti = try Confetti(materials: materials, look: stage.look)
-        let hud = Hud(motion: motion, codes: plan.codes(seed: seed), colours: plan.colours(seed: seed))
+        let hud = try Hud(motion: motion, codes: plan.codes(seed: seed), colours: plan.colours(seed: seed),
+                          materials: materials, look: stage.look)
         [self.stage?.root, self.actors?.root, self.confetti?.root, self.hud?.root].forEach { $0?.removeFromParent() }
         world.addChild(stage.root)
         world.addChild(actors.root)
@@ -93,6 +101,7 @@ final class MatchScene {
 
     func resize(_ size: CGSize, safeTop top: Double, safeBottom bottom: Double) {
         viewSize = size
+        director.aspect = size.width / max(size.height, 1)
         safeTop = top
         safeBottom = bottom
         hud?.resize(width: size.width, height: size.height, safeTop: top, safeBottom: bottom)
@@ -130,7 +139,7 @@ final class MatchScene {
         camera.camera.fieldOfViewInDegrees = Float(pose.fov)
         world.position = -SIMD3<Float>(director.shakeOffset)
         // The HUD keeps its size on screen while the field of view breathes: across only, not in depth.
-        let base = tan(Presentation.Camera.fov / 2 * .pi / 180)
+        let base = tan(Presentation.Camera.hudFov / 2 * .pi / 180)
         let zoom = Float(tan(pose.fov / 2 * .pi / 180) / base)
         hud.root.scale = SIMD3(zoom, zoom, 1)
         project()
@@ -198,12 +207,13 @@ final class MatchScene {
         (match, orbitPeriod) = next.start(seed: seed)
         snapshot = match.snapshot
         director = Director()
+        director.aspect = viewSize.width / max(viewSize.height, 1)
         phase = 0
         endedFor = 0
         hud?.raise(nil, reduceMotion: reduceMotion)
         if worldChanges {
             Task { try? await build() }
-        } else if let stage {
+        } else if let stage, let materials {
             actors?.root.removeFromParent()
             actors = try? Actors(first: snapshot, colours: plan.colours(seed: seed), sport: plan.world.sport,
                                  orbitPeriod: orbitPeriod, materials: materials, look: stage.look)

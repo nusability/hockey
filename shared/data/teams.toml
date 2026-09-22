@@ -3,84 +3,70 @@
 # live next to what they name and are generated into the copy (§14).
 
 # §13 — the five worlds, in the demo match's order (§9). Each world's look is generated into the
-# apps' presentation (never the core): the sun and the shade — a colour, and a strength relative to
-# each engine's calibrated rig (ADR 0005: two lighting models, tuned twice) — the distance fog, by
-# Filament's formula on both platforms, opacity = max · (1 − exp(−density · max(d − start, 0))),
-# its colour the sky's horizon; and a tint on the sky dome.
+# apps' presentation (never the core) and lights every surface by our own shading formula on both
+# platforms (ADR 0006): colour = albedo × (mix(hemi_ground, hemi_sky, 0.5 + 0.5·n.y) · hemi_strength
+# + sun · sun_strength · max(0, n·l)), l the unit vector toward the sun. The values are the web
+# prototype's lights (a hemisphere light and a sun); its renderer's Lambert divides by π, so each
+# strength here is the prototype's intensity ÷ π. No fog (ADR 0006).
 [[world]]
 id = "magicwood"
 sport = "field"
 name = { en = "Magic Wood", de = "Zauberwald" }
-[world.look] # dusk in the wood: a peach sun low over violet shade, a rosy haze
-sun = "#ffd2a8"
-sun_strength = 0.9
-ambient = "#b9a4ff"
-ambient_strength = 1.0
-fog = "#e8958a"
-fog_start = 42.0
-fog_density = 0.01
-fog_max = 0.55
-sky = "#ffffff"
+[world.look] # dusk in the wood: violet sky light over dark moss, a peach sun
+hemi_sky = "#9fb2ff"
+hemi_ground = "#2a3820"
+hemi_strength = 0.3501   # 1.1 / π
+sun = "#ffd6a6"
+sun_strength = 0.6048    # 1.9 / π
+sun_direction = [26.0, 50.0, -30.0]
 
 [[world]]
 id = "space"
 sport = "field"
 name = { en = "Deep Space", de = "Tiefer Weltraum" }
-[world.look] # hard starlight, a violet bounce, almost no haze — space has no air
-sun = "#eef2ff"
-sun_strength = 1.0
-ambient = "#9a8cff"
-ambient_strength = 0.95
-fog = "#2d1458"
-fog_start = 90.0
-fog_density = 0.004
-fog_max = 0.2
-sky = "#ffffff"
+[world.look] # cool starlight from above, deep violet from below
+hemi_sky = "#9fd0ff"
+hemi_ground = "#1a1240"
+hemi_strength = 0.3342   # 1.05 / π
+sun = "#fff1d8"
+sun_strength = 0.6048    # 1.9 / π
+sun_direction = [18.0, 60.0, -20.0]
 
 [[world]]
 id = "oasis"
 sport = "field"
 name = { en = "Desert Oasis", de = "Wüstenoase" }
-[world.look] # golden hour over the dunes: the spike's light and its warm sand haze
-sun = "#fff2db"
-sun_strength = 1.0
-ambient = "#ffeed9"
-ambient_strength = 1.0
-fog = "#fff0cf"
-fog_start = 45.0
-fog_density = 0.012
-fog_max = 0.8
-sky = "#ffffff"
+[world.look] # golden hour: warm sky, sand bounce, a low orange sun
+hemi_sky = "#ffd9a8"
+hemi_ground = "#b27a4c"
+hemi_strength = 0.2865   # 0.9 / π
+sun = "#ffc98a"
+sun_strength = 0.7958    # 2.5 / π
+sun_direction = [-40.0, 30.0, 14.0]
 
 [[world]]
 id = "himalaya"
 sport = "ice"
 name = { en = "Himalaya", de = "Himalaya" }
-[world.look] # thin bright air: a white sun, sky-blue shade, a snow-white haze
-sun = "#ffffff"
-sun_strength = 1.05
-ambient = "#dcecff"
-ambient_strength = 1.05
-fog = "#f4f9fd"
-fog_start = 50.0
-fog_density = 0.01
-fog_max = 0.7
-sky = "#ffffff"
+[world.look] # thin bright air: pale blue sky light, cold grey-blue shade, a warm sun
+hemi_sky = "#d6e9ff"
+hemi_ground = "#9fb6cc"
+hemi_strength = 0.3024   # 0.95 / π
+sun = "#ffe4bf"
+sun_strength = 0.6366    # 2.0 / π
+sun_direction = [-35.0, 46.0, -26.0]
 
 [[world]]
 id = "ocean"
 sport = "field"
 name = { en = "Ocean World", de = "Ozeanwelt" }
-[world.look] # under the waves: filtered light and a deep turquoise haze close in
-sun = "#e0fbff"
-sun_strength = 0.85
-ambient = "#9fe8f0"
-ambient_strength = 1.1
-fog = "#5cc9df"
-fog_start = 30.0
-fog_density = 0.018
-fog_max = 0.85
-sky = "#ffffff"
+[world.look] # under the waves: aqua light from above, deep teal below, a white sun overhead
+hemi_sky = "#b8f1fa"
+hemi_ground = "#2a7a8a"
+hemi_strength = 0.4138   # 1.3 / π
+sun = "#f2feff"
+sun_strength = 0.5730    # 1.8 / π
+sun_direction = [14.0, 60.0, -10.0]
 
 # §3 — formations for a team attacking +Z; team 1's are mirrored in x and z. Players are listed in
 # roster order after the goalie. The first is the default.

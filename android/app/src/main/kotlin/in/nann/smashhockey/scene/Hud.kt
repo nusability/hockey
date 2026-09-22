@@ -14,6 +14,7 @@ import `in`.nann.smashhockey.engine.Node
 import `in`.nann.smashhockey.engine.Spring
 import `in`.nann.smashhockey.engine.TextMesh
 import `in`.nann.smashhockey.generated.Presentation
+import `in`.nann.smashhockey.generated.WorldLook
 import kotlin.math.ceil
 import kotlin.math.tan
 
@@ -21,13 +22,14 @@ import kotlin.math.tan
  * The match's minimal HUD (spec §8; the kit stream restyles it) — the twin of iOS's Hud.swift:
  * score, clock and period at the top, a pause button in the corner, and a banner for goals and
  * results — extruded text parented to the camera at a fixed depth (ADR 0005), laid out from the
- * frustum and the safe area.
+ * frustum and the safe area, toon-shaded by the world's light like everything else (ADR 0006).
  */
 class Hud(
     private val engine: Engine,
     private val scene: Scene,
     private val camera: Int,
     private val materials: Materials,
+    private val look: WorldLook,
     private val typeface: Typeface,
     motion: MotionTokens,
     codes: List<String>?,
@@ -35,7 +37,7 @@ class Hud(
 ) {
     private val h = Presentation.Hud
     private val depth = h.depth.toFloat()
-    private val halfHeight = (h.depth * tan(Math.toRadians(Presentation.Camera.fov / 2))).toFloat()
+    private val halfHeight = (h.depth * tan(Math.toRadians(Presentation.Camera.hudFov / 2))).toFloat()
     private var aspect = 0.46f
     private var safeTop = 0f
     /** Scales everything so the HUD keeps its size on screen while the field of view breathes. */
@@ -70,7 +72,7 @@ class Hud(
     }
 
     private fun add(data: MeshData, rgb: Int): GpuMesh =
-        GpuMesh(engine, data, materials.ui(rgb)).also { meshes += it; scene.addEntity(it.entity) }
+        GpuMesh(engine, data, materials.toon(rgb, look)).also { meshes += it; scene.addEntity(it.entity) }
 
     private fun node(data: MeshData, rgb: Int) = Node(engine, camera, add(data, rgb))
 
@@ -120,7 +122,7 @@ class Hud(
             period = s.period
             val rm = engine.renderableManager
             pips.forEachIndexed { i, p ->
-                rm.setMaterialInstanceAt(rm.getInstance(p.entity), 0, materials.ui(if (i < period) h.clock else PIP_OFF))
+                rm.setMaterialInstanceAt(rm.getInstance(p.entity), 0, materials.toon(if (i < period) h.clock else PIP_OFF, look))
             }
         }
         layout()

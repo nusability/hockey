@@ -1,77 +1,124 @@
-import Metal
+import CoreGraphics
+import Foundation
 import RealityKit
 import UIKit
 
-/// The scene's few native materials (ADR 0005: bound by name, written twice from one formula), all
-/// from Fog.metal: the world's palette, the toys, the marks on the pitch and the sky — the first
-/// three fogged with the world's look. The twin of Android's material set (actor, overlay, sky and
-/// gltfio's lit material under the view's fog).
+/// The scene's four shaders (ADR 0006) — the prototype's look computed by us, the twin of Android's
+/// world / toon / flat / sky materials:
+///
+/// - **world** — a world mesh: its palette texture, lit by the formula below;
+/// - **toon** — a flat colour (players, posts, the ball, the HUD), lit by the formula with the sun's
+///   term in two bands, as the prototype's toon material;
+/// - **flat** — an unlit colour at an opacity (the players' dots and rings, disc shadows, the aim line);
+/// - **sky** — the dome's palette gradient, unlit.
+///
+/// `colour = albedo × (mix(ground, sky, 0.5 + 0.5·n.y) · hemiStrength + sun · sunStrength · band(n·l))`,
+/// `band = max(0, n·l)` for the world and `n·l > 0.4 ? 1 : 0.7` for toon; n the world-space normal,
+/// l the unit vector toward the sun, every colour linear. No engine light and no tone mapping touch
+/// it: world and toon are RealityKit shader graphs ending in the **unlit** surface with
+/// `applyPostProcessToneMap` off, flat and sky are `UnlitMaterial(applyPostProcessToneMap: false)` —
+/// so the linear result is encoded to sRGB once, by the view, exactly like Filament's unlit
+/// materials under its linear tone mapper. (A `CustomMaterial` could compute the same colour but
+/// cannot opt out of RealityKit's tone mapper before iOS 27.)
 @MainActor
 final class Materials {
-    private let world: CustomMaterial.SurfaceShader
-    private let actor: CustomMaterial.SurfaceShader
-    private let overlay: CustomMaterial.SurfaceShader
-    private let sky: CustomMaterial.SurfaceShader
+    private let worldGraph: ShaderGraphMaterial
+    private let toonGraph: ShaderGraphMaterial
+    private var toons: [ToonKey: ShaderGraphMaterial] = [:]
 
-    init() throws {
-        guard let device = MTLCreateSystemDefaultDevice(), let library = device.makeDefaultLibrary() else {
-            throw AssetError.missing("the app's Metal library (Fog.metal)")
+    private init(world: ShaderGraphMaterial, toon: ShaderGraphMaterial) {
+        worldGraph = world
+        toonGraph = toon
+    }
+
+    /// Loads the two shader graphs (ShadingGraph.usda, written out at first use).
+    static func load() async throws -> Materials {
+        let url = try ShadingGraph.write()
+        do {
+            let world = try await ShaderGraphMaterial(named: "/Root/World", from: url)
+            let toon = try await ShaderGraphMaterial(named: "/Root/Toon", from: url)
+            return Materials(world: world, toon: toon)
+        } catch {
+            throw AssetError.missing("the shading graph (\(url.lastPathComponent)): \(error)")
         }
-        world = CustomMaterial.SurfaceShader(named: "fogSurface", in: library)
-        actor = CustomMaterial.SurfaceShader(named: "actorSurface", in: library)
-        overlay = CustomMaterial.SurfaceShader(named: "overlaySurface", in: library)
-        sky = CustomMaterial.SurfaceShader(named: "skySurface", in: library)
     }
 
-    /// The fog parameters every fogged material carries (Fog.metal's custom_parameter).
-    static func fog(_ look: WorldLook) -> SIMD4<Float> {
-        SIMD4(Float(look.fogStart), Float(look.fogDensity), Float(look.fogMax), Float(look.fog))
-    }
+    // MARK: the four shaders
 
-    /// A world mesh's material: its palette, lit and fogged; both sides drawn (the assets are
-    /// authored double-sided, and Android draws both sides too).
-    func world(from original: RealityKit.Material, look: WorldLook) throws -> CustomMaterial {
-        var m = try CustomMaterial(from: original, surfaceShader: world)
-        m.custom.value = Materials.fog(look)
+    /// A world mesh's material: its palette (the base colour texture the asset was authored with),
+    /// lit by the world's look; both sides drawn (the assets are double-sided, as on Android).
+    func world(from original: RealityKit.Material, look: WorldLook) throws -> ShaderGraphMaterial {
+        guard let palette = Materials.palette(of: original) else {
+            throw AssetError.missing("a world material without its palette texture")
+        }
+        var m = worldGraph
+        try Materials.light(&m, look)
+        try m.setParameter(name: "Palette", value: .textureResource(palette))
         m.faceCulling = .none
         return m
     }
 
-    /// The sky dome: its palette gradient, unlit and unfogged, times the world's sky tint.
-    func sky(from original: RealityKit.Material, look: WorldLook) throws -> CustomMaterial {
-        var m = try CustomMaterial(from: original, surfaceShader: sky)
-        m.custom.value = SIMD4(Materials.linear(look.sky), 1)
+    /// A toon-shaded flat colour, lit by the world's look.
+    func toon(_ rgb: UInt32, look: WorldLook) throws -> ShaderGraphMaterial {
+        let key = ToonKey(rgb: rgb, look: look)
+        if let m = toons[key] { return m }
+        var m = toonGraph
+        try Materials.light(&m, look)
+        try m.setParameter(name: "Albedo", value: .color(Materials.linearColour(Materials.linear(rgb))))
+        toons[key] = m
+        return m
+    }
+
+    /// An unlit colour at an opacity, both sides drawn; see-through ones write no depth.
+    static func flat(_ rgb: UInt32, opacity: Double = 1) -> UnlitMaterial {
+        var m = UnlitMaterial(applyPostProcessToneMap: false)
+        m.color = .init(tint: colour(rgb))
+        m.faceCulling = .none
+        if opacity < 1 {
+            m.blending = .transparent(opacity: .init(floatLiteral: Float(opacity)))
+            m.writesDepth = false
+        }
+        return m
+    }
+
+    /// The sky dome: its palette gradient, unlit.
+    static func sky(from original: RealityKit.Material) throws -> UnlitMaterial {
+        guard let palette = palette(of: original) else { throw AssetError.missing("the sky without its palette texture") }
+        var m = UnlitMaterial(applyPostProcessToneMap: false)
+        m.color = .init(tint: .white, texture: .init(palette))
         m.faceCulling = .none
         return m
     }
 
-    /// A toy's flat colour, lit and fogged.
-    func actor(_ rgb: UInt32, look: WorldLook) throws -> CustomMaterial {
-        var base = PhysicallyBasedMaterial()
-        base.baseColor = .init(tint: Materials.colour(rgb))
-        var m = try CustomMaterial(from: base, surfaceShader: actor)
-        m.custom.value = Materials.fog(look)
-        return m
+    // MARK: helpers
+
+    private struct ToonKey: Hashable { let rgb: UInt32; let look: WorldLook }
+
+    /// The hemisphere and the sun, premultiplied by their strengths, and the unit vector toward the sun.
+    private static func light(_ m: inout ShaderGraphMaterial, _ look: WorldLook) throws {
+        try m.setParameter(name: "Sky", value: .color(linearColour(linear(look.hemiSky) * Float(look.hemiStrength))))
+        try m.setParameter(name: "Ground", value: .color(linearColour(linear(look.hemiGround) * Float(look.hemiStrength))))
+        try m.setParameter(name: "Sun", value: .color(linearColour(linear(look.sun) * Float(look.sunStrength))))
+        try m.setParameter(name: "SunDirection", value: .simd3Float(sunDirection(look)))
     }
 
-    /// A mark on the pitch: unlit, see-through, fogged; never casts a shadow.
-    func overlay(_ rgb: UInt32, opacity: Double, look: WorldLook) throws -> CustomMaterial {
-        var base = PhysicallyBasedMaterial()
-        base.baseColor = .init(tint: Materials.colour(rgb))
-        var m = try CustomMaterial(from: base, surfaceShader: overlay)
-        m.custom.value = Materials.fog(look)
-        m.blending = .transparent(opacity: .init(floatLiteral: Float(opacity)))
-        m.faceCulling = .none
-        return m
+    static func sunDirection(_ look: WorldLook) -> SIMD3<Float> {
+        let d = look.sunDirection
+        return simd_normalize(SIMD3(Float(d[0]), Float(d[1]), Float(d[2])))
     }
 
-    /// The 3D UI's surface: lit so blocks and letters read as objects, never fogged (ADR 0005).
-    static func ui(_ rgb: UInt32) -> PhysicallyBasedMaterial {
-        var m = PhysicallyBasedMaterial()
-        m.baseColor = .init(tint: colour(rgb))
-        m.roughness = 0.6
-        m.metallic = 0.0
-        return m
+    private static func palette(of m: RealityKit.Material) -> TextureResource? {
+        if let p = m as? PhysicallyBasedMaterial { return p.baseColor.texture?.resource }
+        if let u = m as? UnlitMaterial { return u.color.texture?.resource }
+        if let s = m as? SimpleMaterial { return s.color.texture?.resource }
+        return nil
+    }
+
+    /// A linear-light colour as a CGColor in the extended linear sRGB space, so RealityKit hands the
+    /// graph these exact values.
+    private static func linearColour(_ c: SIMD3<Float>) -> CGColor {
+        CGColor(colorSpace: CGColorSpace(name: CGColorSpace.extendedLinearSRGB)!,
+                components: [CGFloat(c.x), CGFloat(c.y), CGFloat(c.z), 1])!
     }
 
     static func colour(_ rgb: UInt32) -> UIColor {
@@ -86,5 +133,194 @@ final class Materials {
             return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
         }
         return SIMD3(f(rgb >> 16), f(rgb >> 8), f(rgb))
+    }
+}
+
+/// The world and toon shaders as a RealityKit shader graph (MaterialX nodes in USD), written to the
+/// temporary directory and loaded from there. Both end in the unlit surface with tone mapping off.
+enum ShadingGraph {
+    static func write() throws -> URL {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("shading", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try whitePixel().write(to: dir.appendingPathComponent("white.png"))
+        let url = dir.appendingPathComponent("shading.usda")
+        try usda.write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
+    /// A 1×1 white PNG: the palette input's default until a world's palette is bound.
+    private static func whitePixel() throws -> Data {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1), format: format).image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
+        }
+        guard let data = image.pngData() else { throw AssetError.missing("a white pixel") }
+        return data
+    }
+
+    static var usda: String {
+        """
+        #usda 1.0
+        (
+            defaultPrim = "Root"
+            metersPerUnit = 1
+            upAxis = "Y"
+        )
+
+        def Xform "Root"
+        {
+        \(material("World", toon: false))
+        \(material("Toon", toon: true))
+        }
+
+        """
+    }
+
+    /// One material: `colour = albedo × (mix(Ground, Sky, 0.5 + 0.5·n.y) + Sun · band(n·SunDirection))`.
+    private static func material(_ name: String, toon: Bool) -> String {
+        let p = "/Root/\(name)"
+        let albedoInput = toon
+            ? "color3f inputs:Albedo = (1, 1, 1)"
+            : "asset inputs:Palette = @white.png@"
+        let albedo = toon ? "\(p).inputs:Albedo" : "\(p)/Palette.outputs:out"
+        let band = toon
+            ? """
+                def Shader "Band"
+                {
+                    uniform token info:id = "ND_ifgreater_float"
+                    float inputs:value1.connect = <\(p)/Facing.outputs:out>
+                    float inputs:value2 = 0.4
+                    float inputs:in1 = 1
+                    float inputs:in2 = 0.7
+                    float outputs:out
+                }
+            """
+            : """
+                def Shader "Band"
+                {
+                    uniform token info:id = "ND_max_float"
+                    float inputs:in1.connect = <\(p)/Facing.outputs:out>
+                    float inputs:in2 = 0
+                    float outputs:out
+                }
+            """
+        let texture = toon ? "" : """
+                def Shader "UV"
+                {
+                    uniform token info:id = "ND_texcoord_vector2"
+                    int inputs:index = 0
+                    float2 outputs:out
+                }
+
+                def Shader "Palette"
+                {
+                    uniform token info:id = "ND_image_color3"
+                    asset inputs:file.connect = <\(p).inputs:Palette>
+                    string inputs:filtertype = "closest"
+                    float2 inputs:texcoord.connect = <\(p)/UV.outputs:out>
+                    string inputs:uaddressmode = "clamp"
+                    string inputs:vaddressmode = "clamp"
+                    color3f outputs:out
+                }
+            """
+        return """
+            def Material "\(name)"
+            {
+                \(albedoInput)
+                color3f inputs:Sky = (1, 1, 1)
+                color3f inputs:Ground = (0, 0, 0)
+                color3f inputs:Sun = (0, 0, 0)
+                float3 inputs:SunDirection = (0, 1, 0)
+                token outputs:mtlx:surface.connect = <\(p)/Surface.outputs:out>
+                token outputs:realitykit:vertex
+
+                def Shader "Surface"
+                {
+                    uniform token info:id = "ND_realitykit_unlit_surfaceshader"
+                    bool inputs:applyPostProcessToneMap = 0
+                    color3f inputs:color.connect = <\(p)/Shaded.outputs:out>
+                    bool inputs:hasPremultipliedAlpha = 0
+                    float inputs:opacity = 1
+                    token outputs:out
+                }
+
+                def Shader "Normal"
+                {
+                    uniform token info:id = "ND_normal_vector3"
+                    string inputs:space = "world"
+                    float3 outputs:out
+                }
+
+                def Shader "Unit"
+                {
+                    uniform token info:id = "ND_normalize_vector3"
+                    float3 inputs:in.connect = <\(p)/Normal.outputs:out>
+                    float3 outputs:out
+                }
+
+                def Shader "Up"
+                {
+                    uniform token info:id = "ND_dotproduct_vector3"
+                    float3 inputs:in1.connect = <\(p)/Unit.outputs:out>
+                    float3 inputs:in2 = (0, 0.5, 0)
+                    float outputs:out
+                }
+
+                def Shader "Weight"
+                {
+                    uniform token info:id = "ND_add_float"
+                    float inputs:in1.connect = <\(p)/Up.outputs:out>
+                    float inputs:in2 = 0.5
+                    float outputs:out
+                }
+
+                def Shader "Hemi"
+                {
+                    uniform token info:id = "ND_mix_color3"
+                    color3f inputs:fg.connect = <\(p).inputs:Sky>
+                    color3f inputs:bg.connect = <\(p).inputs:Ground>
+                    float inputs:mix.connect = <\(p)/Weight.outputs:out>
+                    color3f outputs:out
+                }
+
+                def Shader "Facing"
+                {
+                    uniform token info:id = "ND_dotproduct_vector3"
+                    float3 inputs:in1.connect = <\(p)/Unit.outputs:out>
+                    float3 inputs:in2.connect = <\(p).inputs:SunDirection>
+                    float outputs:out
+                }
+
+            \(band)
+
+                def Shader "SunLight"
+                {
+                    uniform token info:id = "ND_multiply_color3FA"
+                    color3f inputs:in1.connect = <\(p).inputs:Sun>
+                    float inputs:in2.connect = <\(p)/Band.outputs:out>
+                    color3f outputs:out
+                }
+
+                def Shader "Light"
+                {
+                    uniform token info:id = "ND_add_color3"
+                    color3f inputs:in1.connect = <\(p)/Hemi.outputs:out>
+                    color3f inputs:in2.connect = <\(p)/SunLight.outputs:out>
+                    color3f outputs:out
+                }
+
+            \(texture)
+
+                def Shader "Shaded"
+                {
+                    uniform token info:id = "ND_multiply_color3"
+                    color3f inputs:in1.connect = <\(albedo)>
+                    color3f inputs:in2.connect = <\(p)/Light.outputs:out>
+                    color3f outputs:out
+                }
+            }
+        """
     }
 }

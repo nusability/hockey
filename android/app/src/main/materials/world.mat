@@ -1,0 +1,43 @@
+// A world mesh (ADR 0006; the twin of iOS's world shader graph in Materials.swift): the palette
+// texture, lit by our own formula as an unlit material, so no engine light and no tone mapping
+// touch it (the view's tone mapper is linear):
+//   colour = albedo × (mix(ground, sky, 0.5 + 0.5·n.y) + sun · max(0, n·l))
+// sky, ground and sun are linear and already carry their strengths (teams.toml [world.look]);
+// sunDirection is the unit vector toward the sun. Both sides drawn: the assets are double-sided.
+material {
+    name : world,
+    shadingModel : unlit,
+    parameters : [
+        { type : sampler2d, name : palette },
+        { type : float3, name : sky },
+        { type : float3, name : ground },
+        { type : float3, name : sun },
+        { type : float3, name : sunDirection }
+    ],
+    variables : [ shadingNormal ],
+    requires : [ uv0, tangents ],
+    culling : none
+}
+
+vertex {
+    void materialVertex(inout MaterialVertexInputs material) {
+        highp vec3 n;
+        toTangentFrame(mesh_tangents, n);
+        material.shadingNormal = vec4(getWorldFromModelNormalMatrix() * n, 0.0);
+    }
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        // glTF's V runs down the image; Filament samples with V up — the same flip every platform
+        // applies to the shared palette.
+        float2 uv = getUV0();
+        uv.y = 1.0 - uv.y;
+        float3 albedo = texture(materialParams_palette, uv).rgb;
+        float3 n = normalize(variable_shadingNormal.xyz);
+        float3 hemi = mix(materialParams.ground, materialParams.sky, 0.5 + 0.5 * n.y);
+        float band = max(0.0, dot(n, materialParams.sunDirection));
+        material.baseColor = vec4(albedo * (hemi + materialParams.sun * band), 1.0);
+    }
+}

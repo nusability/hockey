@@ -6,6 +6,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
+import `in`.nann.smashhockey.engine.Spring
 
 /** Where the camera stands for a screen, and what it looks at. */
 class CameraPose(val ex: Float, val ey: Float, val ez: Float, val tx: Float, val ty: Float, val tz: Float) {

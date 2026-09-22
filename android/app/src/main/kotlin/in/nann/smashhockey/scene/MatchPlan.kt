@@ -55,7 +55,7 @@ sealed interface MatchPlan {
         fun kit(c: Club) = TeamColours(c.primary, c.secondary)
         val sides = when (this) {
             is Quick -> listOf(kit(home), kit(away))
-            is Practice -> listOf(kit(Career.demoClub), TeamColours(Presentation.Figure.sparringPrimary, Presentation.Figure.sparringSecondary))
+            is Practice -> listOf(kit(Career.demoClub), TeamColours(Presentation.Player.sparringPrimary, Presentation.Player.sparringSecondary))
             is Demo -> listOf(kit(Career.demoClub), kit(demoOpponent(seed)))
         }
         val away = if (clash(sides[0].primary, sides[1].primary)) TeamColours(sides[1].secondary, sides[1].primary) else sides[1]
@@ -97,7 +97,7 @@ sealed interface MatchPlan {
         fun clash(a: Int, b: Int): Boolean {
             fun c(v: Int, s: Int) = ((v shr s) and 0xFF).toDouble()
             val d = listOf(16, 8, 0).map { c(a, it) - c(b, it) }
-            return sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) < Presentation.Figure.kitClash
+            return sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) < Presentation.Player.kitClash
         }
     }
 }

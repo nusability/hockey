@@ -2,6 +2,7 @@ package `in`.nann.smashhockey.ui
 
 import `in`.nann.smashhockey.ui.DesignTokens.Colour
 import kotlin.math.abs
+import `in`.nann.smashhockey.engine.Spring
 
 /**
  * One flip card: a dark tile with a character on each face. A change writes the new character on

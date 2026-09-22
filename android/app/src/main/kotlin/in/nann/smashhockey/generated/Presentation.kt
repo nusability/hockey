@@ -7,20 +7,21 @@ import `in`.nann.smashhockey.core.generated.World
 
 object Presentation {
     object Camera {
-        const val fov: Double = 50.0
+        const val hudFov: Double = 50.0
         const val near: Double = 0.1
         const val far: Double = 600.0
         object Play {
-            const val height: Double = 16.0
-            const val back: Double = 35.0
-            const val lookAhead: Double = 6.5
-            const val lead: Double = 6.0
-            const val followX: Double = 0.65
-            const val maxX: Double = 6.0
-            const val minZ: Double = -21.0
-            const val maxZ: Double = 15.0
-            const val rate: Double = 2.4
-            const val leadRate: Double = 1.1
+            const val height: Double = 36.0
+            const val back: Double = 20.0
+            const val look: Double = -4.0
+            const val follow: Double = 0.85
+            const val minZ: Double = -7.0
+            const val maxZ: Double = 14.0
+            const val rate: Double = 2.2
+            const val halfWidth: Double = 16.5
+            const val fitNear: Double = 8.0
+            const val minFov: Double = 45.0
+            const val maxFov: Double = 78.0
         }
         object Buildup {
             const val height: Double = 8.0
@@ -53,15 +54,24 @@ object Presentation {
             const val frequency: Double = 21.0
         }
     }
-    object Light {
-        val sunDirection: List<Double> = listOf(0.35, -1.0, 0.55)
-    }
-    object Figure {
-        const val skin: Int = 0xF2C29B
-        const val eye: Int = 0x1E1B2E
-        const val stick: Int = 0xF5E6C8
-        const val scale: Double = 1.2
-        const val goalieScale: Double = 1.18
+    object Player {
+        const val height: Double = 0.45
+        const val foot: Double = 0.92
+        const val segments: Int = 28
+        const val dot: Double = 0.45
+        const val ringInner: Double = 0.45
+        const val ringOuter: Double = 0.8
+        const val shadowMargin: Double = 0.2
+        const val shadowOpacity: Double = 0.2
+        const val carrierShadowOpacity: Double = 0.55
+        const val target: Int = 0x4ADE80
+        const val targetInner: Double = 0.25
+        const val targetOuter: Double = 0.55
+        const val targetOpacity: Double = 0.9
+        const val targetPulse: Double = 0.08
+        const val targetPulseRate: Double = 10.0
+        const val lean: Double = 0.02
+        const val maxLean: Double = 0.18
         const val hop: Double = 0.45
         const val hopRate: Double = 9.0
         const val kitClash: Double = 90.0
@@ -69,15 +79,20 @@ object Presentation {
         const val sparringSecondary: Int = 0xF8FAFC
     }
     object Dummy {
-        const val cone: Int = 0xFF8A1F
-        const val stripe: Int = 0xFFF7ED
-        const val base: Int = 0x3F3F46
-        const val height: Double = 1.5
+        const val body: Int = 0x94A3B8
+        const val stripe: Int = 0xF97316
+        const val height: Double = 0.7
+        const val stripeHeight: Double = 0.18
+        const val stripeAt: Double = 0.6
+        const val stripeGrow: Double = 1.01
     }
     object Ball {
         const val field: Int = 0xFFF3B0
         const val ice: Int = 0x16161D
         const val puckHeight: Double = 0.2
+        const val disc: Int = 0xFACC15
+        const val discRadius: Double = 0.8
+        const val discOpacity: Double = 0.35
     }
     object Aim {
         const val pass: Int = 0x34D399
@@ -89,7 +104,6 @@ object Presentation {
         const val orbit: Int = 0xFFFFFF
         const val orbitOpacity: Double = 0.35
         const val orbitWidth: Double = 0.08
-        const val targetRing: Double = 1.25
     }
     object Celebration {
         const val pieces: Int = 70
@@ -113,28 +127,23 @@ object Presentation {
     }
 }
 
-/** A world's light, fog and sky tint (spec §13). Colours are sRGB 0xRRGGBB. */
+/** A world's light (spec §13, ADR 0006). Colours are sRGB 0xRRGGBB. */
 data class WorldLook(
-    /** The sun's colour, sRGB 0xRRGGBB, and its strength relative to the engine's calibrated rig. */
+    /** The hemisphere light (ADR 0006): its colour from above and from below, sRGB 0xRRGGBB, and its strength. */
+    val hemiSky: Int,
+    val hemiGround: Int,
+    val hemiStrength: Double,
+    /** The sun: its colour, sRGB 0xRRGGBB, its strength, and the direction toward it (not normalized). */
     val sun: Int,
     val sunStrength: Double,
-    /** The shade's colour (iOS: a fill light; Android: the irradiance) and its strength. */
-    val ambient: Int,
-    val ambientStrength: Double,
-    /** Distance fog, Filament's formula: opacity = fogMax · (1 − exp(−fogDensity · max(d − fogStart, 0))). */
-    val fog: Int,
-    val fogStart: Double,
-    val fogDensity: Double,
-    val fogMax: Double,
-    /** A tint multiplied into the sky dome. */
-    val sky: Int,
+    val sunDirection: List<Double>,
 )
 
 val World.look: WorldLook
     get() = when (this) {
-        World.MAGICWOOD -> WorldLook(0xFFD2A8, 0.9, 0xB9A4FF, 1.0, 0xE8958A, 42.0, 0.01, 0.55, 0xFFFFFF)
-        World.SPACE -> WorldLook(0xEEF2FF, 1.0, 0x9A8CFF, 0.95, 0x2D1458, 90.0, 0.004, 0.2, 0xFFFFFF)
-        World.OASIS -> WorldLook(0xFFF2DB, 1.0, 0xFFEED9, 1.0, 0xFFF0CF, 45.0, 0.012, 0.8, 0xFFFFFF)
-        World.HIMALAYA -> WorldLook(0xFFFFFF, 1.05, 0xDCECFF, 1.05, 0xF4F9FD, 50.0, 0.01, 0.7, 0xFFFFFF)
-        World.OCEAN -> WorldLook(0xE0FBFF, 0.85, 0x9FE8F0, 1.1, 0x5CC9DF, 30.0, 0.018, 0.85, 0xFFFFFF)
+        World.MAGICWOOD -> WorldLook(0x9FB2FF, 0x2A3820, 0.3501, 0xFFD6A6, 0.6048, listOf(26.0, 50.0, -30.0))
+        World.SPACE -> WorldLook(0x9FD0FF, 0x1A1240, 0.3342, 0xFFF1D8, 0.6048, listOf(18.0, 60.0, -20.0))
+        World.OASIS -> WorldLook(0xFFD9A8, 0xB27A4C, 0.2865, 0xFFC98A, 0.7958, listOf(-40.0, 30.0, 14.0))
+        World.HIMALAYA -> WorldLook(0xD6E9FF, 0x9FB6CC, 0.3024, 0xFFE4BF, 0.6366, listOf(-35.0, 46.0, -26.0))
+        World.OCEAN -> WorldLook(0xB8F1FA, 0x2A7A8A, 0.4138, 0xF2FEFF, 0.573, listOf(14.0, 60.0, -10.0))
     }

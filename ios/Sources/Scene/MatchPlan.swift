@@ -79,8 +79,8 @@ enum MatchPlan: Equatable {
         let sides: [TeamColours]
         switch self {
         case .quick(let home, let away, _): sides = [kit(home), kit(away)]
-        case .drill: sides = [kit(Career.demoClub), TeamColours(primary: Presentation.Figure.sparringPrimary,
-                                                                secondary: Presentation.Figure.sparringSecondary)]
+        case .drill: sides = [kit(Career.demoClub), TeamColours(primary: Presentation.Player.sparringPrimary,
+                                                                secondary: Presentation.Player.sparringSecondary)]
         case .demo: sides = [kit(Career.demoClub), kit(MatchPlan.demoOpponent(seed))]
         }
         return [sides[0], MatchPlan.clash(sides[0].primary, sides[1].primary)
@@ -99,7 +99,7 @@ enum MatchPlan: Equatable {
     static func clash(_ a: UInt32, _ b: UInt32) -> Bool {
         func c(_ v: UInt32, _ s: UInt32) -> Double { Double((v >> s) & 0xFF) }
         let d = [16, 8, 0].map { s in c(a, UInt32(s)) - c(b, UInt32(s)) }
-        return (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).squareRoot() < Presentation.Figure.kitClash
+        return (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).squareRoot() < Presentation.Player.kitClash
     }
 }
 

@@ -2,8 +2,8 @@ import RealityKit
 import simd
 
 /// Flat-shaded low-poly geometry built from primitives — the twin of Android's MeshKit, same shapes
-/// and facet counts, so a figure is the same figure on both platforms. Each triangle carries its
-/// face normal (the worlds are faceted too). Parts are grouped by material slot: one mesh part per
+/// and facet counts, so a shape is the same shape on both platforms. Each triangle carries its
+/// face normal (the worlds are faceted too) unless given smooth ones. Parts are grouped by material slot: one mesh part per
 /// slot, drawn with the slot's material.
 struct MeshKit {
     private var slots: [Int: (positions: [SIMD3<Float>], normals: [SIMD3<Float>])] = [:]
@@ -29,9 +29,25 @@ struct MeshKit {
         triangle(a, c, d)
     }
 
+    /// A triangle with its own vertex normals (a smooth surface), counter-clockwise from its front.
+    mutating func triangle(_ a: SIMD3<Float>, _ b: SIMD3<Float>, _ c: SIMD3<Float>,
+                           normals na: SIMD3<Float>, _ nb: SIMD3<Float>, _ nc: SIMD3<Float>) {
+        let pa = point(a), pb = point(b), pc = point(c)
+        guard simd_length(simd_cross(pb - pa, pc - pa)) > 1e-9 else { return }
+        var entry = slots[slot] ?? ([], [])
+        entry.positions += [pa, pb, pc]
+        entry.normals += [direction(na), direction(nb), direction(nc)]
+        slots[slot] = entry
+    }
+
     private func point(_ p: SIMD3<Float>) -> SIMD3<Float> {
         let v = transform * SIMD4(p, 1)
         return SIMD3(v.x, v.y, v.z)
+    }
+
+    private func direction(_ n: SIMD3<Float>) -> SIMD3<Float> {
+        let v = transform * SIMD4(n, 0)
+        return simd_normalize(SIMD3(v.x, v.y, v.z))
     }
 
     // MARK: primitives (counter-clockwise seen from outside)
@@ -81,6 +97,47 @@ struct MeshKit {
         if upper {
             for j in 0..<segments { triangle(c, p(last, j + 1), p(last, j)) }
         }
+    }
+
+    /// A smooth-sided frustum along +y from `y0` (radius `r0`) to `y1` (radius `r1`): its side's
+    /// normals run round it like the prototype's cylinders; `top` and `bottom` add flat caps.
+    mutating func cylinder(y0: Float, y1: Float, r0: Float, r1: Float, segments: Int, top: Bool = true, bottom: Bool = true) {
+        let slope = (r0 - r1) / (y1 - y0)
+        func at(_ i: Int) -> (s: Float, c: Float) {
+            let a = Float(i) / Float(segments) * 2 * .pi
+            return (sin(a), cos(a))
+        }
+        for i in 0..<segments {
+            let (s0, c0) = at(i), (s1, c1) = at(i + 1)
+            let a0 = SIMD3(r0 * s0, y0, r0 * c0), b0 = SIMD3(r0 * s1, y0, r0 * c1)
+            let a1 = SIMD3(r1 * s0, y1, r1 * c0), b1 = SIMD3(r1 * s1, y1, r1 * c1)
+            let n0 = SIMD3(s0, slope, c0), n1 = SIMD3(s1, slope, c1)
+            triangle(a0, b0, b1, normals: n0, n1, n1)
+            triangle(a0, b1, a1, normals: n0, n1, n0)
+            if top { triangle(SIMD3(0, y1, 0), a1, b1) }
+            if bottom { triangle(SIMD3(0, y0, 0), b0, a0) }
+        }
+    }
+
+    /// A smooth sphere (the prototype's ball), `rings` from pole to pole.
+    mutating func sphere(smooth c: SIMD3<Float>, radius r: Float, rings: Int, segments: Int) {
+        func n(_ i: Int, _ j: Int) -> SIMD3<Float> {
+            let theta = Float(i) / Float(rings) * .pi
+            let phi = Float(j) / Float(segments) * 2 * .pi
+            return SIMD3(sin(theta) * sin(phi), cos(theta), sin(theta) * cos(phi))
+        }
+        for i in 0..<rings {
+            for j in 0..<segments {
+                let na = n(i, j), nb = n(i + 1, j), nc = n(i + 1, j + 1), nd = n(i, j + 1)
+                if i > 0 { triangle(c + r * na, c + r * nb, c + r * nd, normals: na, nb, nd) }
+                if i < rings - 1 { triangle(c + r * nd, c + r * nb, c + r * nc, normals: nd, nb, nc) }
+            }
+        }
+    }
+
+    /// A flat disc on the ground plane (y = `y`), facing up.
+    mutating func disc(radius: Float, y: Float, segments: Int) {
+        annulus(inner: 0, outer: radius, y: y, segments: segments)
     }
 
     /// A flat ring on the ground plane (y = `y`), facing up.

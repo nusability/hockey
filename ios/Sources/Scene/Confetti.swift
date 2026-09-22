@@ -12,11 +12,10 @@ final class Confetti {
     private var rng = SplitMixLite(seed: 0x5EED)
 
     init(materials: Materials, look: WorldLook) throws {
-        let mesh = try Figures.card().resource()
-        let colours = try C.colours.map { try materials.actor($0, look: look) }
+        let mesh = try Shapes.card().resource()
+        let colours = try C.colours.map { try materials.toon($0, look: look) }
         for i in 0..<C.pieces {
             let e = ModelEntity(mesh: mesh, materials: [colours[i % colours.count]])
-            e.components.set(DynamicLightShadowComponent(castsShadow: false))
             e.isEnabled = false
             root.addChild(e)
             pieces.append((e, .zero, .zero))

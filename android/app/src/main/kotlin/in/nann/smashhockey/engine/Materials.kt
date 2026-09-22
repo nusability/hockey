@@ -3,41 +3,73 @@ package `in`.nann.smashhockey.engine
 import com.google.android.filament.Colors
 import com.google.android.filament.Engine
 import com.google.android.filament.MaterialInstance
+import `in`.nann.smashhockey.generated.WorldLook
+import kotlin.math.sqrt
 
 /**
- * The scene's own materials (ADR 0005: bound by name, written twice from one formula) — the twin
- * of iOS's Materials.swift: the toys (`actor`: lit, under the view's fog), the marks on the pitch
- * (`overlay`: unlit, see-through, fogged) and the 3D UI (`ui_lit`: lit, never reached by fog — the
- * HUD sits well inside the fog's start). One instance per colour, reused.
+ * The scene's own shaders (ADR 0006) — the prototype's look computed by us, the twin of iOS's
+ * Materials.swift: `toon` (a flat colour, lit in two bands) and `flat` (an unlit colour at an
+ * opacity) here, `world` (a world mesh's palette, lit) and `sky` with the world ([World]). All are
+ * Filament **unlit** materials computing
+ * `colour = albedo × (mix(ground, sky, 0.5 + 0.5·n.y) · hemiStrength + sun · sunStrength · band(n·l))`
+ * themselves, so no engine light touches them; under the view's linear tone mapper the linear
+ * result is encoded to sRGB once, exactly as iOS's unlit graphs with tone mapping off. One instance
+ * per colour, reused.
  */
 class Materials(private val engine: Engine, assets: Assets) {
-    private val actor = assets.material(engine, "actor")
-    private val overlay = assets.material(engine, "overlay")
-    private val ui = assets.material(engine, "ui_lit")
+    private val toon = assets.material(engine, "toon")
+    private val flat = assets.material(engine, "flat")
     private val instances = HashMap<String, MaterialInstance>()
 
-    fun actor(rgb: Int): MaterialInstance = instances.getOrPut("a$rgb") {
-        actor.createInstance().also { mi -> linear(rgb).let { mi.setParameter("baseColor", Colors.RgbType.LINEAR, it[0], it[1], it[2]) } }
-    }
-
-    fun overlay(rgb: Int, alpha: Double): MaterialInstance = instances.getOrPut("o$rgb/$alpha") {
-        overlay.createInstance().also { mi ->
-            linear(rgb).let { mi.setParameter("baseColor", Colors.RgbType.LINEAR, it[0], it[1], it[2]) }
-            mi.setParameter("alpha", alpha.toFloat())
+    /** A toon-shaded flat colour, lit by [look]. */
+    fun toon(rgb: Int, look: WorldLook): MaterialInstance = instances.getOrPut("t$rgb/$look") {
+        toon.createInstance().also { mi ->
+            linear(rgb).let { mi.setParameter("albedo", Colors.RgbType.LINEAR, it[0], it[1], it[2]) }
+            light(mi, look)
+            mi.setParameter("alpha", 1f)
+            mi.setDepthWrite(true)
         }
     }
 
-    fun ui(rgb: Int): MaterialInstance = instances.getOrPut("u$rgb") {
-        ui.createInstance().also { mi ->
+    /** An unlit colour at an opacity; draw it after what it lies on (priority 5 and up). */
+    fun flat(rgb: Int, alpha: Double = 1.0): MaterialInstance = instances.getOrPut("f$rgb/$alpha") {
+        flat.createInstance().also { mi ->
             linear(rgb).let { mi.setParameter("baseColor", Colors.RgbType.LINEAR, it[0], it[1], it[2]) }
-            mi.setParameter("alpha", 1f)
+            mi.setParameter("alpha", alpha.toFloat())
+            mi.setDepthWrite(alpha >= 1.0)      // a solid dot or ring occludes; see-through marks don't
         }
     }
 
     fun destroy() {
         instances.values.forEach { engine.destroyMaterialInstance(it) }
-        listOf(actor, overlay, ui).forEach { engine.destroyMaterial(it) }
+        instances.clear()
+        listOf(toon, flat).forEach { engine.destroyMaterial(it) }
     }
 
-    private fun linear(rgb: Int) = World.linear(rgb)
+    companion object {
+        /** Sets a world or toon instance's light: the hemisphere and the sun, premultiplied by their
+         *  strengths, and the unit vector toward the sun. */
+        fun light(mi: MaterialInstance, look: WorldLook) {
+            fun set(name: String, rgb: Int, strength: Double) {
+                val c = linear(rgb); val s = strength.toFloat()
+                mi.setParameter(name, c[0] * s, c[1] * s, c[2] * s)
+            }
+            set("sky", look.hemiSky, look.hemiStrength)
+            set("ground", look.hemiGround, look.hemiStrength)
+            set("sun", look.sun, look.sunStrength)
+            val d = sunDirection(look)
+            mi.setParameter("sunDirection", d[0], d[1], d[2])
+        }
+
+        /** The unit vector toward [look]'s sun. */
+        fun sunDirection(look: WorldLook): FloatArray {
+            val d = look.sunDirection
+            val len = sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2])
+            return FloatArray(3) { (d[it] / len).toFloat() }
+        }
+
+        /** sRGB 0xRRGGBB to linear RGB — the same curve iOS's Materials.linear uses. */
+        fun linear(rgb: Int): FloatArray =
+            Colors.toLinear(Colors.RgbType.SRGB, ((rgb shr 16) and 0xFF) / 255f, ((rgb shr 8) and 0xFF) / 255f, (rgb and 0xFF) / 255f)
+    }
 }

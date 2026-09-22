@@ -13,21 +13,23 @@ import com.google.android.filament.Scene
 import com.google.android.filament.SurfaceOrientation
 import com.google.android.filament.VertexBuffer
 import `in`.nann.smashhockey.engine.Assets
+import `in`.nann.smashhockey.engine.Materials
 import `in`.nann.smashhockey.engine.MeshData
 import `in`.nann.smashhockey.engine.MeshKit
 import `in`.nann.smashhockey.engine.TextMesh
 import `in`.nann.smashhockey.engine.Vec3
+import `in`.nann.smashhockey.generated.WorldLook
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.sqrt
 
 /**
- * How the UI is painted: one material, one instance per (colour, opacity step), made once and
- * reused. This is the only place the kit touches a material — when the look stream replaces
- * `ui_lit`, [instance] is the function to change.
+ * How the UI is painted: the match's toon shader (ADR 0006), lit by [look] — the kit's blocks and
+ * letters shade exactly like the players — one instance per (colour, opacity step), made once and
+ * reused. This is the only place the kit touches a material.
  */
-class Palette(private val engine: Engine, assets: Assets) {
-    private val material: Material = assets.material(engine, "ui_lit")
+class Palette(private val engine: Engine, assets: Assets, private val look: WorldLook) {
+    private val material: Material = assets.material(engine, "toon")
     private val instances = SparseArray<MaterialInstance>()
 
     /** The instance painting [rgb] (sRGB 0xRRGGBB) at [alpha]; opaque ones write depth. */
@@ -36,9 +38,10 @@ class Palette(private val engine: Engine, assets: Assets) {
         val key = (level shl 24) or (rgb and 0xFFFFFF)
         instances[key]?.let { return it }
         val a = level.toFloat() / LEVELS
-        val c = Colors.toLinear(Colors.RgbType.SRGB, ((rgb shr 16) and 0xFF) / 255f, ((rgb shr 8) and 0xFF) / 255f, (rgb and 0xFF) / 255f)
+        val c = Materials.linear(rgb)
         val mi = material.createInstance().apply {
-            setParameter("baseColor", Colors.RgbType.LINEAR, c[0], c[1], c[2])
+            setParameter("albedo", Colors.RgbType.LINEAR, c[0], c[1], c[2])
+            Materials.light(this, look)
             setParameter("alpha", a)
             setDepthWrite(level == LEVELS)     // solid blocks occlude each other; fading ones don't
         }
@@ -105,8 +108,9 @@ class SharedMesh internal constructor(engine: Engine, data: MeshData) {
  * mesh made once per size (per string, for text) and shared by every node that draws it, and the
  * nodes themselves. UI renderables never cast or receive shadows (ADR 0005).
  */
-class Kit(val engine: Engine, val scene: Scene, assets: Assets, private val typeface: Typeface, val motion: Motion) {
-    val palette = Palette(engine, assets)
+class Kit(val engine: Engine, val scene: Scene, assets: Assets, private val typeface: Typeface, val motion: Motion,
+          look: WorldLook) {
+    val palette = Palette(engine, assets, look)
     private val boxes = HashMap<BoxKey, SharedMesh>()
     private val texts = HashMap<TextKey, SharedMesh>()
     private val shapes = HashMap<String, SharedMesh>()

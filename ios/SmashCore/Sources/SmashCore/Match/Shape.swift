@@ -1,10 +1,12 @@
-/// Support positions (spec §7.4) and the shape every non-chaser keeps (§7.5).
+/// Support positions (spec §7.4), the offer a team-mate makes near the goal, and the shape every
+/// non-chaser keeps (§7.5).
 extension Match {
     // MARK: §7.4 — support
 
     /// The six support slots around the ball (or its carrier), shared out greedily in roster order;
-    /// this player's slot, shifted away from a crowding opponent.
-    func supportTarget(_ i: Int) -> Vec {
+    /// this player's slot, shifted away from a crowding opponent. `offer` is true when this player
+    /// took the receiving slot (§7.4), whose spot keeps its shape.
+    func supportTarget(_ i: Int) -> (spot: Vec, offer: Bool) {
         typealias S = Tuning.AI.Support
         let team = players[i].team
         let dir = Pitch.direction(team)
@@ -12,8 +14,23 @@ extension Match {
         let reference = ball.carrier.map { players[$0].pos } ?? ball.pos
         let flip: Double = reference.x >= 0 ? -1 : 1
         let gz = Pitch.attackGoalZ(team)
+        // §7.4 — the offer: an own carrier inside `offerRange` of the goal turns the highest slot
+        // into a receiving position for one named team-mate, on their own side of the pitch in
+        // front of the goal, on the 8-15 band from the carrier.
+        var offerSlot: Int?
+        var offerTaker: Int?
+        if let c = ball.carrier, players[c].team == team,
+           Pitch.length(players[c].pos.x, gz - players[c].pos.z) < S.offerRange,
+           let o = offerTakerIndex(team, goalZ: gz) {
+            offerSlot = S.offerIndex
+            offerTaker = o
+        }
         var slots: [(spot: Vec, role: Role)] = []
-        for slot in S.slots {
+        for (k, slot) in S.slots.enumerated() {
+            if k == offerSlot {
+                slots.append((offerSpot(carrier: ball.carrier!, taker: offerTaker!, goalZ: gz, dir: dir), slot.role))
+                continue
+            }
             var x = slot.mirror ? slot.x * flip : reference.x + slot.x
             let depth = slot.z * (S.depthBase + S.depthPerPushUp * pushUp)
             var z = reference.z + dir * depth
@@ -25,7 +42,14 @@ extension Match {
         }
         var free = Array(repeating: true, count: slots.count)
         var mine: Vec?
+        var tookOffer = false
+        // The offer is filled first, by the team-mate it was drawn for, so someone always makes it.
+        if let k = offerSlot, let o = offerTaker {
+            free[k] = false
+            if o == i { mine = slots[k].spot; tookOffer = true }
+        }
         for m in outfield(team) where m != ball.carrier {
+            if tookOffer && m == i { continue }
             let role: Role = players[m].role == .defender ? .defender : .forward
             var best = -1
             var bestCost = Double.infinity
@@ -38,11 +62,46 @@ extension Match {
             if m == i { mine = slots[best].spot }
         }
         var f = mine ?? formationSpot(i, k: Tuning.AI.Shape.kSupporting)
+        if tookOffer { return (f, true) }
         if let o = nearest(to: f, among: rosters[1 - team]), o.distance < S.crowdedDistance {
             let n = Pitch.unit(f.x - players[o.index].pos.x, f.z - players[o.index].pos.z)
             f = Vec(x: f.x + n.x * S.crowdedShiftAcross, z: f.z + n.z * S.crowdedShiftAlong)
         }
-        return f
+        return (f, false)
+    }
+
+    /// Who makes the offer: the forward nearest the goal the team attacks — any other outfield
+    /// player when the team has no other forward — so the offer never changes side under them.
+    func offerTakerIndex(_ team: Int, goalZ: Double) -> Int? {
+        var candidates = outfield(team).filter { $0 != ball.carrier && players[$0].role == .forward }
+        if candidates.isEmpty { candidates = outfield(team).filter { $0 != ball.carrier } }
+        var best: Int?
+        var bestDistance = Double.infinity
+        for q in candidates {
+            let d = Pitch.length(players[q].pos.x, goalZ - players[q].pos.z)
+            if d < bestDistance { bestDistance = d; best = q }
+        }
+        return best
+    }
+
+    /// The receiving position (§7.4): `offerX` across on the taker's own side of the pitch and
+    /// `offerGoalInset` in front of the goal line they attack, brought onto the 8-15 band from the
+    /// carrier and kept inside the sidelines.
+    func offerSpot(carrier: Int, taker: Int, goalZ: Double, dir: Double) -> Vec {
+        typealias S = Tuning.AI.Support
+        let from = players[carrier].pos
+        let side: Double = players[taker].pos.x >= 0 ? 1 : -1
+        var x = S.offerX * side
+        var z = goalZ - dir * S.offerGoalInset
+        let d = Pitch.length(x - from.x, z - from.z)
+        let want = Pitch.clamp(d, S.offerMin, S.offerMax)
+        if want != d {
+            let n = d > Tuning.Sim.clearEpsilon ? Vec(x: (x - from.x) / d, z: (z - from.z) / d) : Vec(x: 1, z: 0)
+            x = from.x + n.x * want
+            z = from.z + n.z * want
+        }
+        let inset = Tuning.Pitch.halfWidth - S.sidelineInset
+        return Vec(x: Pitch.clamp(x, -inset, inset), z: z)
     }
 
     // MARK: §7.5 — shape, spacing and discipline

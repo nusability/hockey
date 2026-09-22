@@ -254,7 +254,8 @@ nothing); a target within 1e-3 of what it keeps clear of is pushed along +x.
 3. In play: the clock counts down; at zero the period, match or drill ends (§8.3, §8.4, §10) —
    the rest of this step still runs as in play, but a goal, a whistle or a drill's interruption
    only happens while the state is play, so none does in that step.
-4. In play: the loose-ball timer (§7.1), then team 0's automatic play, then team 1's (§7).
+4. In play: the alert window (§7.9), then the loose-ball timer (§7.1), then team 0's automatic
+   play, then team 1's (§7).
 5. Every player moves (§3), in roster order; pickup cooldowns count down here, in every state.
 6. Player–player contact (§3), then each player but a dummy is kept inside the boundary and out
    of the nets.
@@ -266,9 +267,9 @@ nothing); a target within 1e-3 of what it keeps clear of is pushed along +x.
 #### 4.6 What a restart resets
 Every face-off and drill reset clears: the ball's carrier, velocity, last touches, assist and
 pending release; and for every player, velocity, target, pickup cooldown, hold time, decision,
-mark, expected pass, steal contact, challenge commitment, and the loose-ball and dead-ball timers
-(§7.1, §6.5). Think timers (§7), the orbit angle and the time of the last release (§7.8) are not
-reset.
+mark, expected pass, steal contact, challenge commitment, the loose-ball, dead-ball and alert
+timers, and the crossing being watched (§7.1, §6.5, §7.9). Think timers (§7), the orbit angle and
+the time of the last release (§7.8) are not reset.
 
 #### 4.7 Golden vectors
 A **vector** is `(seed, sport, teams and ratings, tactics and formations, the player's input as
@@ -358,7 +359,11 @@ Every release leaves **from the orbit point**; the direction of an aimed release
 - **A shot** travels at **30** toward the far side of the goal from the goalie — `±(3.0 − 0.85)`
   in x: −x when the goalie's x > 0, else +x (a random side if there is no goalie: −x on a draw
   below 0.5) — pulled to 30 % of that on a 25 % draw, plus `noise(1.5 × (1.2 − accuracy))`, at
-  the goal line it attacks.
+  the goal line it attacks. **Against a defence on alert (§7.9) the corner goes away with
+  distance**: before the draws, the `±(3.0 − 0.85)` is multiplied by
+  `clamp((20 − d) / 10, 0, 1)`, `d` the carrier's distance to the goal centre — a shot from 20 out goes straight down the middle at the keeper, one from 10 in still
+  picks its side in full. Nothing else about the shot changes: not its speed, not its noise, and
+  not what the aim arrow (§5.2) showed — the arrow never promised a corner.
 - **An unassisted release** travels at **24** along the orbit direction.
 - The player's own releases have accuracy 1. The ball also inherits 20 % of the carrier's
   velocity.
@@ -484,6 +489,28 @@ the nearest free slot, a role mismatch counting as 8 extra metres. A player whos
 opponent within 3.4 shifts 3.5 across and 1.5 along, away from the nearest one (the unit vector
 from them, its x scaled by 3.5 and its z by 1.5).
 
+**The offer.** A team that carries the ball inside **26** of the goal it attacks (carrier to goal
+centre) has one team-mate stop holding shape and **stand to receive**, so the carrier is never
+alone in front of goal. The *highest player* slot becomes the **offer**, and it is given to one
+named player rather than shared out:
+
+- **Who.** The **forward nearest the goal the team attacks**, other than the carrier — its other
+  outfield players when it has no second forward. It is chosen before the greedy pass and takes
+  the offer whatever the greedy cost would have said; the other five slots are then shared out as
+  above among the rest.
+- **Where.** `x = 7.0` on **the offer-taker's own side** of the pitch (`+7.0` at `x ≥ 0`, else
+  `−7.0`) — their own side, never the carrier's, so the spot cannot change sides under them as the
+  carrier weaves — and **9 short of the goal line they attack**. That is 11.4 from the goal centre:
+  a shooting position, clearly wide of the goalie's cover (§7.8 keeps a goalie within ±3.4 in x),
+  and not on the goal line.
+- **The band.** The spot is then brought onto the **8–15** band from the carrier along the line
+  from the carrier to it (a vector shorter than the clear epsilon points along +x, §4.4): far
+  enough that the pass is a real one, near enough that the receiver can shoot after it. Finally it
+  is kept 2.5 inside the sidelines.
+- **It keeps its shape.** The offer is not moved sideways out of the goal zone, not pushed 7.5 from
+  the ball, and its taker's target does not go through §7.5 — like a chaser's, it is only clamped
+  to `|x| ≤ 13.8`, `|z| ≤ 28.8`. Standing to receive *is* the shape.
+
 #### 7.5 Shape, spacing and discipline
 For every player not chasing:
 - **Formation spot** (used when marking is skipped): home spot moved toward the ball by
@@ -547,6 +574,39 @@ It keeps out of its own crease and within the §7.5 clamp.
   regardless, passing at accuracy 0.9 — or, with nobody to pass to, clearing unassisted once the
   orbit points (within 0.35) straight up the pitch, or after 2.5 s regardless. Its target while it
   holds the ball is where it stands.
+
+#### 7.9 The alert window — crossing the line
+A ball carried over the centre line is an attack starting; for the next moments the defence is at
+its sharpest. The window exists to make the **long solo goal** — win it deep, run, shoot from 20 —
+cost something, without touching the close-range play or the build-up. **Both teams live under it
+identically**; it is not a tactic and nothing on the coach's board (§12) changes it.
+
+**The trigger.** While an outfield player carries the ball, the same player carried it at the
+previous step, `direction × z` was `≤ 0` then and is `> 0` now — the carrying player's z crossing
+the centre line toward the goal they attack — the **other** team goes on alert for **3.0 s** of
+match time. A fresh crossing restarts it. A loose ball crossing the line triggers nothing.
+
+**The window closes** early when the alerted team wins the ball (whoever carries clears their own
+team's alert), when the carrier comes within **14** of the goal they attack — from there the attack
+is in on goal and §7.8's ordinary keeper takes it — and at every restart (§4.6).
+
+While a team is alerted, three things change for it, all of them defence doing its job better:
+
+- **The goalie reads sooner and commits fully** (§7.8): its reading delay is **half** of
+  `0.16 + 0.2 × (1 − skill)`, it predicts the crossing x with a **full** lead of 1.0 rather than
+  `0.75 + 0.25 × skill`, and it goes to the **whole** predicted x rather than 0.9 of it. It is not
+  made faster — a keeper who is early is legible; one who teleports is not (A0).
+- **One player steps into the shooting lane.** Among the team's outfield players that are not
+  already challengers (§7.2), the one **nearest the spot** takes it instead of defending (§7.3),
+  and their mark is cleared: the point on the line from the carrier to the goal this team defends,
+  `min(4.5, 0.35 × d)` in front of the carrier, `d` being the carrier's distance to that goal.
+  Their target does not go through §7.5 — like a challenger's, it is only clamped to
+  `|x| ≤ 13.8`, `|z| ≤ 28.8`. An AI carrier reads that body in the lane as §7.6 already says it does
+  and looks for the pass instead.
+- **A shot from range loses its corner** (§5.4).
+
+Which side is defending on alert is state the core exposes for presentation to read; like everything
+in §8.8 it never changes a tick (§4.2).
 
 ### 8. The match
 

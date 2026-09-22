@@ -4,9 +4,9 @@ import `in`.nann.smashhockey.core.generated.Tuning
 import `in`.nann.smashhockey.core.math.DetMath
 import kotlin.math.abs
 
-// Automatic play, one team at a time (spec §7): who thinks when, the loose ball (§7.1), the
-// challengers (§7.2) and defending (§7.3). Support and shape are in Shape.kt, the carrier in
-// CarrierAi.kt, the goalie in GoalieAi.kt.
+// Automatic play, one team at a time (spec §7): who thinks when, the alert window (§7.9), the
+// loose ball (§7.1), the challengers (§7.2) and defending (§7.3). Support and shape are in
+// Shape.kt, the carrier in CarrierAi.kt, the goalie in GoalieAi.kt.
 
 internal enum class Possession { OWN, THEIRS, LOOSE }
 
@@ -19,6 +19,11 @@ internal fun Match.thinkTeam(team: Int, dt: Double) {
     }
     val ranking = rankedByBallDistance(team)
     val challengers = if (possession == Possession.THEIRS) pickChallengers(team, carrier!!) else emptyList()
+    val blocker = if (possession == Possession.THEIRS && alert[team] > 0) {
+        pickLaneBlocker(team, carrier!!, challengers)
+    } else {
+        null
+    }
     for (i in rosters[team]) {
         val p = players[i]
         if (p.isDummy) continue
@@ -34,12 +39,18 @@ internal fun Match.thinkTeam(team: Int, dt: Double) {
         }
         if (p.thinkTimer > 0) continue
         p.thinkTimer = Tuning.AI.thinkBase + Tuning.AI.thinkSpread * rng.uniform()
-        rethink(i, possession, ranking, challengers)
+        rethink(i, possession, ranking, challengers, blocker)
     }
 }
 
 /** A non-carrying outfield player's new target (§7.1–§7.5). */
-private fun Match.rethink(i: Int, possession: Possession, ranking: List<Match.Nearest>, challengers: List<Int>) {
+private fun Match.rethink(
+    i: Int,
+    possession: Possession,
+    ranking: List<Match.Nearest>,
+    challengers: List<Int>,
+    blocker: Int?,
+) {
     val l = Tuning.AI.Loose
     val p = players[i]
     if (p.expectPass > 0) p.expectPass -= Tuning.Release.passExpectationDecay
@@ -60,19 +71,26 @@ private fun Match.rethink(i: Int, possession: Possession, ranking: List<Match.Ne
                 target = routeAroundNet(i, chasePoint(i))
                 chasing = true
             } else {
-                target = supportTarget(i)
+                target = supportTarget(i).spot
             }
         }
         Possession.THEIRS -> {
             if (i in challengers) {
                 target = challengePoint()
                 chasing = true
+            } else if (i == blocker) {
+                target = laneBlockPoint(p.team, ball.carrier!!)
+                chasing = true
             } else {
                 target = defendTarget(i)
                 defending = true
             }
         }
-        Possession.OWN -> target = supportTarget(i)
+        Possession.OWN -> {
+            val support = supportTarget(i)
+            target = support.spot
+            chasing = chasing || support.offer
+        }
     }
     if (!defending) p.mark = null
     if (!chasing) target = shaped(i, target, possession)
@@ -181,6 +199,73 @@ private fun Match.challengePoint(): Vec {
         c.pos.x + r * DetMath.sin(a) + c.vel.x * ch.orbitLead,
         c.pos.z + r * DetMath.cos(a) + c.vel.z * ch.orbitLead,
     )
+}
+
+// §7.9 — the alert window
+
+/**
+ * Counts the alert down, ends it when the alerted team wins the ball or the carrier is in on goal,
+ * and opens a new one when an outfield carrier crosses the centre line toward the goal they attack.
+ */
+internal fun Match.updateAlert(dt: Double) {
+    for (t in 0 until 2) {
+        if (alert[t] > 0) {
+            alert[t] -= dt
+            if (alert[t] < 0) alert[t] = 0.0
+        }
+    }
+    val c = ball.carrier
+    if (c != null) alert[players[c].team] = 0.0
+    if (c == null || !players[c].isOutfield) {
+        crossingCarrier = null
+        return
+    }
+    // Inside closeRange the attack is in on goal: the window is over and §7.8's ordinary keeper
+    // takes it, so the alert never touches the finish it was not aimed at.
+    val gz = Pitch.attackGoalZ(players[c].team)
+    if (Pitch.length(0.0 - players[c].pos.x, gz - players[c].pos.z) < Tuning.AI.Alert.closeRange) {
+        alert[1 - players[c].team] = 0.0
+    }
+    val dir = Pitch.direction(players[c].team)
+    val z = players[c].pos.z
+    if (crossingCarrier == c && dir * crossingZ <= 0 && dir * z > 0) {
+        alert[1 - players[c].team] = Tuning.AI.Alert.seconds
+    }
+    crossingCarrier = c
+    crossingZ = z
+}
+
+/**
+ * Who steps into the shooting lane: the outfield player nearest that spot who is not already a
+ * challenger (roster order on a tie).
+ */
+private fun Match.pickLaneBlocker(team: Int, carrier: Int, challengers: List<Int>): Int? {
+    val spot = laneBlockPoint(team, carrier)
+    var best: Int? = null
+    var bestDistance = Double.POSITIVE_INFINITY
+    for (q in outfield(team)) {
+        if (q in challengers) continue
+        val d = Pitch.distance(players[q].pos, spot)
+        if (d < bestDistance) {
+            bestDistance = d
+            best = q
+        }
+    }
+    return best
+}
+
+/**
+ * On the line from the carrier to the goal this team defends, min(4.5, 0.35 × d) in front of the
+ * carrier.
+ */
+private fun Match.laneBlockPoint(team: Int, carrier: Int): Vec {
+    val a = Tuning.AI.Alert
+    val from = players[carrier].pos
+    val goal = Vec(0.0, Pitch.ownGoalZ(team))
+    val d = Pitch.distance(from, goal)
+    val n = Pitch.unit(goal.x - from.x, goal.z - from.z)
+    val ahead = Pitch.lesser(a.laneAheadMax, a.laneAheadFraction * d)
+    return Vec(from.x + n.x * ahead, from.z + n.z * ahead)
 }
 
 // §7.3 — defending

@@ -173,6 +173,10 @@ internal fun Match.clearForRestart() {
     }
     looseTimer = 0.0
     deadTimer = 0.0
+    alert[0] = 0.0
+    alert[1] = 0.0
+    crossingCarrier = null
+    crossingZ = 0.0
     netRoll = null
 }
 

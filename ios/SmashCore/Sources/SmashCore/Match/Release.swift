@@ -141,7 +141,15 @@ extension Match {
     mutating func shoot(_ c: Int, accuracy: Double, power: Double) {
         typealias R = Tuning.Release
         let team = players[c].team
-        let half = Tuning.Pitch.postX - R.shotPostInset
+        let gz = Pitch.attackGoalZ(team)
+        var half = Tuning.Pitch.postX - R.shotPostInset
+        // §7.9: against an alerted defence, distance takes the corner away — from 20 out the shot
+        // goes straight at the keeper, from 10 in it still picks its side.
+        if alert[1 - team] > 0 {
+            typealias A = Tuning.AI.Alert
+            let d = Pitch.length(0.0 - players[c].pos.x, gz - players[c].pos.z)
+            half = half * Pitch.clamp((A.placeFull - d) / A.placeSpan, 0, 1)
+        }
         var aimX: Double
         if let g = goalie(of: 1 - team) {
             aimX = players[g].pos.x > 0 ? -half : half
@@ -150,7 +158,6 @@ extension Match {
         }
         if rng.uniform() < R.shotPullChance { aimX *= R.shotPull }
         aimX += rng.noise(R.shotNoise * (R.shotNoiseOffset - accuracy))
-        let gz = Pitch.attackGoalZ(team)
         guard launch(c, aimX - players[c].pos.x, gz - players[c].pos.z, speed: power) else { return }
         noteShot(c, kind: .shot)
     }

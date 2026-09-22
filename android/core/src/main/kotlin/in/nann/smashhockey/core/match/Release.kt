@@ -167,7 +167,15 @@ internal fun Match.pass(c: Int, m: Int, accuracy: Double) {
 internal fun Match.shoot(c: Int, accuracy: Double, power: Double) {
     val r = Tuning.Release
     val team = players[c].team
-    val half = Tuning.Pitch.postX - r.shotPostInset
+    val gz = Pitch.attackGoalZ(team)
+    var half = Tuning.Pitch.postX - r.shotPostInset
+    // §7.9: against an alerted defence, distance takes the corner away — from 20 out the shot goes
+    // straight at the keeper, from 10 in it still picks its side.
+    if (alert[1 - team] > 0) {
+        val a = Tuning.AI.Alert
+        val d = Pitch.length(0.0 - players[c].pos.x, gz - players[c].pos.z)
+        half *= Pitch.clamp((a.placeFull - d) / a.placeSpan, 0.0, 1.0)
+    }
     val g = goalieOf(1 - team)
     var aimX = if (g != null) {
         if (players[g].pos.x > 0) -half else half
@@ -176,7 +184,6 @@ internal fun Match.shoot(c: Int, accuracy: Double, power: Double) {
     }
     if (rng.uniform() < r.shotPullChance) aimX *= r.shotPull
     aimX += rng.noise(r.shotNoise * (r.shotNoiseOffset - accuracy))
-    val gz = Pitch.attackGoalZ(team)
     if (!launch(c, aimX - players[c].pos.x, gz - players[c].pos.z, power)) return
     noteShot(c, ReleaseKind.SHOT)
 }

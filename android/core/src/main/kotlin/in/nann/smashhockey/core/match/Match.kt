@@ -75,8 +75,16 @@ class Match private constructor(
         internal set
     /** Seconds the ball has been loose in play (§7.1). */
     internal var looseTimer = 0.0
+
     /** Seconds the ball has been loose and slow in play (§6.5). */
     internal var deadTimer = 0.0
+
+    /** Seconds each team is still on alert as the defending side (§7.9). */
+    internal val alert = doubleArrayOf(0.0, 0.0)
+
+    /** The outfield carrier watched for a crossing of the centre line, and their z last step (§7.9). */
+    internal var crossingCarrier: Int? = null
+    internal var crossingZ = 0.0
     internal var restartSpot: Spot = Tuning.Pitch.faceoffCenter
     /** Set while a scored ball rolls on in the net: the net's goal line and its team's direction. */
     internal var netRoll: Pair<Double, Double>? = null
@@ -97,6 +105,12 @@ class Match private constructor(
 
     /** The score, team 0 first. */
     val scores: List<Int> get() = score.toList()
+
+    /**
+     * Which team is defending on alert (§7.9) — the sharpened defence a carried ball opens by
+     * crossing the centre line. Presentation may show it; it never changes a tick.
+     */
+    val alerted: List<Boolean> get() = listOf(alert[0] > 0, alert[1] > 0)
 
     /** The SplitMix64 stream's position — for the golden vectors (§4.7). */
     val streamState: Long get() = rng.state
@@ -157,6 +171,7 @@ class Match private constructor(
         val live = state == MatchState.PLAY
         if (live) runClock(dt)                                // 3
         if (live) {                                           // 4
+            updateAlert(dt)
             if (ball.carrier != null) looseTimer = 0.0 else looseTimer += dt
             thinkTeam(0, dt)
             thinkTeam(1, dt)

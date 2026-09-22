@@ -130,6 +130,15 @@ internal object GeneratedConstantBits {
         Triple("Tuning.AI.Challenge.pressRangePerPressing", Tuning.AI.Challenge.pressRangePerPressing, 4626885667169763328L), // 0x4036000000000000
         Triple("Tuning.AI.Challenge.pressRangeDiscipline", Tuning.AI.Challenge.pressRangeDiscipline, 4599976659396224614L), // 0x3FD6666666666666
         Triple("Tuning.AI.Challenge.orbitLead", Tuning.AI.Challenge.orbitLead, 4599075939470750515L), // 0x3FD3333333333333
+        Triple("Tuning.AI.Alert.seconds", Tuning.AI.Alert.seconds, 4613937818241073152L), // 0x4008000000000000
+        Triple("Tuning.AI.Alert.goalieReadScale", Tuning.AI.Alert.goalieReadScale, 4602678819172646912L), // 0x3FE0000000000000
+        Triple("Tuning.AI.Alert.goalieAimFactor", Tuning.AI.Alert.goalieAimFactor, 4607182418800017408L), // 0x3FF0000000000000
+        Triple("Tuning.AI.Alert.goalieLead", Tuning.AI.Alert.goalieLead, 4607182418800017408L), // 0x3FF0000000000000
+        Triple("Tuning.AI.Alert.placeFull", Tuning.AI.Alert.placeFull, 4626322717216342016L), // 0x4034000000000000
+        Triple("Tuning.AI.Alert.placeSpan", Tuning.AI.Alert.placeSpan, 4621819117588971520L), // 0x4024000000000000
+        Triple("Tuning.AI.Alert.closeRange", Tuning.AI.Alert.closeRange, 4624070917402656768L), // 0x402C000000000000
+        Triple("Tuning.AI.Alert.laneAheadMax", Tuning.AI.Alert.laneAheadMax, 4616752568008179712L), // 0x4012000000000000
+        Triple("Tuning.AI.Alert.laneAheadFraction", Tuning.AI.Alert.laneAheadFraction, 4599976659396224614L), // 0x3FD6666666666666
         Triple("Tuning.AI.Defend.dangerDepthWeight", Tuning.AI.Defend.dangerDepthWeight, 4603579539098121011L), // 0x3FE3333333333333
         Triple("Tuning.AI.Defend.markChanceBase", Tuning.AI.Defend.markChanceBase, 4599976659396224614L), // 0x3FD6666666666666
         Triple("Tuning.AI.Defend.markChancePerCovering", Tuning.AI.Defend.markChancePerCovering, 4603579539098121011L), // 0x3FE3333333333333
@@ -146,6 +155,11 @@ internal object GeneratedConstantBits {
         Triple("Tuning.AI.Support.goalZone", Tuning.AI.Support.goalZone, 4619567317775286272L), // 0x401C000000000000
         Triple("Tuning.AI.Support.ballDistance", Tuning.AI.Support.ballDistance, 4620130267728707584L), // 0x401E000000000000
         Triple("Tuning.AI.Support.roleMismatchCost", Tuning.AI.Support.roleMismatchCost, 4620693217682128896L), // 0x4020000000000000
+        Triple("Tuning.AI.Support.offerRange", Tuning.AI.Support.offerRange, 4628011567076605952L), // 0x403A000000000000
+        Triple("Tuning.AI.Support.offerX", Tuning.AI.Support.offerX, 4619567317775286272L), // 0x401C000000000000
+        Triple("Tuning.AI.Support.offerGoalInset", Tuning.AI.Support.offerGoalInset, 4621256167635550208L), // 0x4022000000000000
+        Triple("Tuning.AI.Support.offerMin", Tuning.AI.Support.offerMin, 4620693217682128896L), // 0x4020000000000000
+        Triple("Tuning.AI.Support.offerMax", Tuning.AI.Support.offerMax, 4624633867356078080L), // 0x402E000000000000
         Triple("Tuning.AI.Support.crowdedDistance", Tuning.AI.Support.crowdedDistance, 4614838538166547251L), // 0x400B333333333333
         Triple("Tuning.AI.Support.crowdedShiftAcross", Tuning.AI.Support.crowdedShiftAcross, 4615063718147915776L), // 0x400C000000000000
         Triple("Tuning.AI.Support.crowdedShiftAlong", Tuning.AI.Support.crowdedShiftAlong, 4609434218613702656L), // 0x3FF8000000000000

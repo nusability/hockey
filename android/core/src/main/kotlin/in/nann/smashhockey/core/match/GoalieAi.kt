@@ -5,7 +5,8 @@ import `in`.nann.smashhockey.core.generated.Tuning
 import kotlin.math.PI
 import kotlin.math.abs
 
-// Goalies (spec §7.8): positioning, reading a shot, smothering, and playing the ball out.
+// Goalies (spec §7.8): positioning, reading a shot, smothering, and playing the ball out. While
+// its team is on alert (§7.9) it reads sooner, leads fully and goes the whole way across.
 
 internal fun Match.thinkGoalie(g: Int, dt: Double) {
     if (ball.carrier == g) {
@@ -17,19 +18,24 @@ internal fun Match.thinkGoalie(g: Int, dt: Double) {
     val dir = Pitch.direction(team)
     val gz = Pitch.ownGoalZ(team)
     val s = skill[team]
+    val al = Tuning.AI.Alert
+    val alerted = alert[team] > 0
     var aimX = ball.pos.x
     val released = ball.lastReleaseTime
-    val reacted = released == null || time - released > gl.readBase + gl.readPerUnskill * (1 - s)
+    var delay = gl.readBase + gl.readPerUnskill * (1 - s)
+    if (alerted) delay *= al.goalieReadScale
+    val reacted = released == null || time - released > delay
     val towards = dir * ball.vel.z < -gl.readSpeed && reacted
     if (towards) {
         val t = (gz - ball.pos.z) / ball.vel.z
-        if (t > 0 && t < gl.readHorizon) aimX = ball.pos.x + ball.vel.x * t * (gl.readLeadBase + gl.readLeadPerSkill * s)
+        val lead = if (alerted) al.goalieLead else gl.readLeadBase + gl.readLeadPerSkill * s
+        if (t > 0 && t < gl.readHorizon) aimX = ball.pos.x + ball.vel.x * t * lead
     }
     val toBall = Pitch.unit(ball.pos.x, ball.pos.z - gz)
     val out = gl.outBase + gl.outPerSkill * s
     var x = toBall.x * out * gl.xScale
     var z = gz + toBall.z * out
-    if (towards) x = aimX * gl.readAimFactor
+    if (towards) x = aimX * (if (alerted) al.goalieAimFactor else gl.readAimFactor)
     val xLimit = Tuning.Pitch.postX + gl.xLimitExtra
     x = Pitch.clamp(x, -xLimit, xLimit)
     z = gz + dir * Pitch.clamp(dir * (z - gz), gl.frontMin, gl.frontMax)

@@ -151,6 +151,17 @@ press_range_per_pressing = 22.0
 press_range_discipline = 0.35
 orbit_lead = 0.3
 
+[ai.alert] # §7.9 — the alert window a carried ball crossing the centre line opens on the defence
+seconds = 3.0                   # how long the defending team stays sharp after the crossing
+goalie_read_scale = 0.5         # the goalie's reading delay while alerted, as a share of §7.8's
+goalie_aim_factor = 1.0         # it goes to the whole predicted crossing x, not 0.9 of it
+goalie_lead = 1.0               # and predicts with a full lead, whatever its skill
+place_full = 20.0               # a shot from this far out is placed straight at the goal centre …
+place_span = 10.0               # … and picks its corner in full from 10 in (§5.4)
+close_range = 14.0              # the alert ends once the carrier is this near the goal it attacks
+lane_ahead_max = 4.5            # the lane blocker stands this far in front of the carrier, at most …
+lane_ahead_fraction = 0.35      # … and at most this share of the way to the goal it defends
+
 [ai.defend] # §7.3
 danger_depth_weight = 0.6
 mark_chance_base = 0.35         # 0.35 + 0.6 × covering
@@ -178,6 +189,12 @@ opponent_goal_inset = 5.0
 goal_zone = 7.0
 ball_distance = 7.5
 role_mismatch_cost = 8.0
+offer_index = 2                 # the slot the offer replaces: the highest player, above (§7.4)
+offer_range = 26.0              # the carrier this near the goal they attack turns the highest slot into an offer
+offer_x = 7.0                   # this far across, on the offer-taker’s own side of the pitch
+offer_goal_inset = 9.0          # and this far in front of the goal line the team attacks
+offer_min = 8.0                 # kept between these two distances from the carrier: a real pass …
+offer_max = 15.0                # … that is still a shooting position
 crowded_distance = 3.4
 crowded_shift_across = 3.5
 crowded_shift_along = 1.5

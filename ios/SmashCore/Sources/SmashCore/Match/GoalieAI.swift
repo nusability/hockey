@@ -1,4 +1,5 @@
-/// Goalies (spec §7.8): positioning, reading a shot, smothering, and playing the ball out.
+/// Goalies (spec §7.8): positioning, reading a shot, smothering, and playing the ball out. While
+/// its team is on alert (§7.9) it reads sooner, leads fully and goes the whole way across.
 extension Match {
     mutating func thinkGoalie(_ g: Int, _ dt: Double) {
         if ball.carrier == g {
@@ -10,18 +11,23 @@ extension Match {
         let dir = Pitch.direction(team)
         let gz = Pitch.ownGoalZ(team)
         let s = skill[team]
+        typealias A = Tuning.AI.Alert
+        let alerted = alert[team] > 0
         var aimX = ball.pos.x
-        let reacted = ball.lastReleaseTime.map { time - $0 > G.readBase + G.readPerUnskill * (1 - s) } ?? true
+        var delay = G.readBase + G.readPerUnskill * (1 - s)
+        if alerted { delay = delay * A.goalieReadScale }
+        let reacted = ball.lastReleaseTime.map { time - $0 > delay } ?? true
         let towards = dir * ball.vel.z < -G.readSpeed && reacted
         if towards {
             let t = (gz - ball.pos.z) / ball.vel.z
-            if t > 0 && t < G.readHorizon { aimX = ball.pos.x + ball.vel.x * t * (G.readLeadBase + G.readLeadPerSkill * s) }
+            let lead = alerted ? A.goalieLead : G.readLeadBase + G.readLeadPerSkill * s
+            if t > 0 && t < G.readHorizon { aimX = ball.pos.x + ball.vel.x * t * lead }
         }
         let toBall = Pitch.unit(ball.pos.x, ball.pos.z - gz)
         let out = G.outBase + G.outPerSkill * s
         var x = toBall.x * out * G.xScale
         var z = gz + toBall.z * out
-        if towards { x = aimX * G.readAimFactor }
+        if towards { x = aimX * (alerted ? A.goalieAimFactor : G.readAimFactor) }
         let xLimit = Tuning.Pitch.postX + G.xLimitExtra
         x = Pitch.clamp(x, -xLimit, xLimit)
         z = gz + dir * Pitch.clamp(dir * (z - gz), G.frontMin, G.frontMax)

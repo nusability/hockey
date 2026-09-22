@@ -161,6 +161,17 @@ public enum Tuning {
             public static let pressRangeDiscipline: Double = 0.35
             public static let orbitLead: Double = 0.3
         }
+        public enum Alert {
+            public static let seconds: Double = 3.0
+            public static let goalieReadScale: Double = 0.5
+            public static let goalieAimFactor: Double = 1.0
+            public static let goalieLead: Double = 1.0
+            public static let placeFull: Double = 20.0
+            public static let placeSpan: Double = 10.0
+            public static let closeRange: Double = 14.0
+            public static let laneAheadMax: Double = 4.5
+            public static let laneAheadFraction: Double = 0.35
+        }
         public enum Defend {
             public static let dangerDepthWeight: Double = 0.6
             public static let markChanceBase: Double = 0.35
@@ -188,6 +199,12 @@ public enum Tuning {
             public static let goalZone: Double = 7.0
             public static let ballDistance: Double = 7.5
             public static let roleMismatchCost: Double = 8.0
+            public static let offerIndex: Int = 2
+            public static let offerRange: Double = 26.0
+            public static let offerX: Double = 7.0
+            public static let offerGoalInset: Double = 9.0
+            public static let offerMin: Double = 8.0
+            public static let offerMax: Double = 15.0
             public static let crowdedDistance: Double = 3.4
             public static let crowdedShiftAcross: Double = 3.5
             public static let crowdedShiftAlong: Double = 1.5

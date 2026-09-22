@@ -1,6 +1,6 @@
-/// Automatic play, one team at a time (spec §7): who thinks when, the loose ball (§7.1), the
-/// challengers (§7.2) and defending (§7.3). Support and shape are in `Shape.swift`, the carrier in
-/// `CarrierAI.swift`, the goalie in `GoalieAI.swift`.
+/// Automatic play, one team at a time (spec §7): who thinks when, the alert window (§7.9), the
+/// loose ball (§7.1), the challengers (§7.2) and defending (§7.3). Support and shape are in
+/// `Shape.swift`, the carrier in `CarrierAI.swift`, the goalie in `GoalieAI.swift`.
 extension Match {
     enum Possession { case own, theirs, loose }
 
@@ -9,6 +9,8 @@ extension Match {
         let possession: Possession = carrier == nil ? .loose : (players[carrier!].team == team ? .own : .theirs)
         let ranking = rankedByBallDistance(team)
         let challengers = possession == .theirs ? pickChallengers(team, carrier: carrier!) : []
+        let blocker = possession == .theirs && alert[team] > 0
+            ? pickLaneBlocker(team, carrier: carrier!, challengers: challengers) : nil
         for i in rosters[team] where !players[i].isDummy {
             players[i].thinkTimer -= dt
             if players[i].isGoalie {
@@ -22,12 +24,13 @@ extension Match {
             }
             if players[i].thinkTimer > 0 { continue }
             players[i].thinkTimer = Tuning.AI.thinkBase + Tuning.AI.thinkSpread * rng.uniform()
-            rethink(i, possession: possession, ranking: ranking, challengers: challengers)
+            rethink(i, possession: possession, ranking: ranking, challengers: challengers, blocker: blocker)
         }
     }
 
     /// A non-carrying outfield player's new target (§7.1–§7.5).
-    mutating func rethink(_ i: Int, possession: Possession, ranking: [(index: Int, distance: Double)], challengers: [Int]) {
+    mutating func rethink(_ i: Int, possession: Possession, ranking: [(index: Int, distance: Double)],
+                          challengers: [Int], blocker: Int?) {
         typealias L = Tuning.AI.Loose
         if players[i].expectPass > 0 { players[i].expectPass -= Tuning.Release.passExpectationDecay }
         var target: Vec
@@ -46,18 +49,23 @@ extension Match {
                 target = routeAroundNet(i, chasePoint(i))
                 chasing = true
             } else {
-                target = supportTarget(i)
+                target = supportTarget(i).spot
             }
         case .theirs:
             if challengers.contains(i) {
                 target = challengePoint()
+                chasing = true
+            } else if i == blocker {
+                target = laneBlockPoint(team: players[i].team, carrier: ball.carrier!)
                 chasing = true
             } else {
                 target = defendTarget(i)
                 defending = true
             }
         case .own:
-            target = supportTarget(i)
+            let s = supportTarget(i)
+            target = s.spot
+            chasing = chasing || s.offer
         }
         if !defending { players[i].mark = nil }
         if !chasing { target = shaped(i, target, possession: possession) }
@@ -158,6 +166,60 @@ extension Match {
         let r = Tuning.Orbit.radius
         return Vec(x: c.pos.x + r * DetMath.sin(a) + c.vel.x * C.orbitLead,
                    z: c.pos.z + r * DetMath.cos(a) + c.vel.z * C.orbitLead)
+    }
+
+    // MARK: §7.9 — the alert window
+
+    /// Counts the alert down, ends it when the alerted team wins the ball, and opens a new one when
+    /// an outfield carrier crosses the centre line toward the goal they attack.
+    mutating func updateAlert(_ dt: Double) {
+        for t in 0..<2 where alert[t] > 0 {
+            alert[t] -= dt
+            if alert[t] < 0 { alert[t] = 0 }
+        }
+        if let c = ball.carrier { alert[players[c].team] = 0 }
+        guard let c = ball.carrier, players[c].isOutfield else {
+            crossingCarrier = nil
+            return
+        }
+        // Inside `closeRange` the attack is in on goal: the window is over and §7.8's ordinary
+        // keeper takes it, so the alert never touches the finish it was not aimed at.
+        let gz = Pitch.attackGoalZ(players[c].team)
+        if Pitch.length(0.0 - players[c].pos.x, gz - players[c].pos.z) < Tuning.AI.Alert.closeRange {
+            alert[1 - players[c].team] = 0
+        }
+        let dir = Pitch.direction(players[c].team)
+        let z = players[c].pos.z
+        if crossingCarrier == c && dir * crossingZ <= 0 && dir * z > 0 {
+            alert[1 - players[c].team] = Tuning.AI.Alert.seconds
+        }
+        crossingCarrier = c
+        crossingZ = z
+    }
+
+    /// Who steps into the shooting lane: the outfield player nearest that spot who is not already a
+    /// challenger (roster order on a tie).
+    func pickLaneBlocker(_ team: Int, carrier: Int, challengers: [Int]) -> Int? {
+        let spot = laneBlockPoint(team: team, carrier: carrier)
+        var best: Int?
+        var bestDistance = Double.infinity
+        for q in outfield(team) where !challengers.contains(q) {
+            let d = Pitch.distance(players[q].pos, spot)
+            if d < bestDistance { bestDistance = d; best = q }
+        }
+        return best
+    }
+
+    /// On the line from the carrier to the goal this team defends, `min(4.5, 0.35 × d)` in front of
+    /// the carrier.
+    func laneBlockPoint(team: Int, carrier: Int) -> Vec {
+        typealias A = Tuning.AI.Alert
+        let from = players[carrier].pos
+        let goal = Vec(x: 0, z: Pitch.ownGoalZ(team))
+        let d = Pitch.distance(from, goal)
+        let n = Pitch.unit(goal.x - from.x, goal.z - from.z)
+        let ahead = Pitch.lesser(A.laneAheadMax, A.laneAheadFraction * d)
+        return Vec(x: from.x + n.x * ahead, z: from.z + n.z * ahead)
     }
 
     // MARK: §7.3 — defending

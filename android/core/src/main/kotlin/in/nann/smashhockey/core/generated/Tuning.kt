@@ -162,6 +162,17 @@ object Tuning {
             const val pressRangeDiscipline: Double = 0.35
             const val orbitLead: Double = 0.3
         }
+        object Alert {
+            const val seconds: Double = 3.0
+            const val goalieReadScale: Double = 0.5
+            const val goalieAimFactor: Double = 1.0
+            const val goalieLead: Double = 1.0
+            const val placeFull: Double = 20.0
+            const val placeSpan: Double = 10.0
+            const val closeRange: Double = 14.0
+            const val laneAheadMax: Double = 4.5
+            const val laneAheadFraction: Double = 0.35
+        }
         object Defend {
             const val dangerDepthWeight: Double = 0.6
             const val markChanceBase: Double = 0.35
@@ -189,6 +200,12 @@ object Tuning {
             const val goalZone: Double = 7.0
             const val ballDistance: Double = 7.5
             const val roleMismatchCost: Double = 8.0
+            const val offerIndex: Int = 2
+            const val offerRange: Double = 26.0
+            const val offerX: Double = 7.0
+            const val offerGoalInset: Double = 9.0
+            const val offerMin: Double = 8.0
+            const val offerMax: Double = 15.0
             const val crowdedDistance: Double = 3.4
             const val crowdedShiftAcross: Double = 3.5
             const val crowdedShiftAlong: Double = 1.5

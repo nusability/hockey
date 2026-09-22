@@ -39,6 +39,11 @@ public struct Match: Sendable {
     var looseTimer = 0.0
     /// Seconds the ball has been loose and slow in play (§6.5).
     var deadTimer = 0.0
+    /// Seconds each team is still on alert as the defending side (§7.9).
+    var alert = [0.0, 0.0]
+    /// The outfield carrier watched for a crossing of the centre line, and their z last step (§7.9).
+    var crossingCarrier: Int?
+    var crossingZ = 0.0
     var restartSpot = Tuning.Pitch.faceoffCenter
     /// Set while a scored ball rolls on in the net: the net's goal line and its team's direction.
     var netRoll: (goalZ: Double, direction: Double)?
@@ -168,6 +173,10 @@ public struct Match: Sendable {
         return events
     }
 
+    /// Which team is defending on alert (§7.9) — the sharpened defence a carried ball opens by
+    /// crossing the centre line. Presentation may show it; it never changes a tick.
+    public var alerted: [Bool] { [alert[0] > 0, alert[1] > 0] }
+
     /// The SplitMix64 stream's position — for the golden vectors (§4.7).
     public var streamState: UInt64 { rng.state }
 
@@ -180,6 +189,7 @@ public struct Match: Sendable {
         let live = state == .play
         if live { runClock(dt) }                             // 3
         if live {                                            // 4
+            updateAlert(dt)
             if ball.carrier != nil { looseTimer = 0 } else { looseTimer += dt }
             thinkTeam(0, dt)
             thinkTeam(1, dt)

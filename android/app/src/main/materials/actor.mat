@@ -1,0 +1,21 @@
+// The match's toys — players, ball, dummies, confetti (the twin of iOS's actorSurface in
+// Fog.metal): a flat colour, lit, casting and receiving the sun's shadow. The view's fog reaches
+// them like the world, with the world's look.
+material {
+    name : actor,
+    shadingModel : lit,
+    parameters : [
+        { type : float3, name : baseColor }
+    ],
+    requires : [ tangents ],
+    culling : back
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        material.baseColor = vec4(materialParams.baseColor, 1.0);
+        material.roughness = 0.6;
+        material.metallic = 0.0;
+    }
+}

@@ -1,4 +1,3 @@
-import Metal
 import Observation
 import RealityKit
 import SwiftUI
@@ -52,22 +51,9 @@ final class SpikeScene {
     // MARK: building
 
     func build() async throws {
-        let world = try await Entity(named: "oasis", in: .main)
-        try applyWorldMaterials(world)
-        root.addChild(world)
-
-        let sun = DirectionalLight()
-        sun.light.color = UIColor(red: 1.0, green: 0.95, blue: 0.86, alpha: 1)
-        sun.light.intensity = 4200
-        sun.shadow = DirectionalLightComponent.Shadow(maximumDistance: 160, depthBias: 1.5)
-        let direction = simd_normalize(SIMD3<Float>(0.35, -1.0, 0.55))
-        sun.look(at: .zero, from: -direction * 60, relativeTo: nil)
-        root.addChild(sun)
-        let fill = DirectionalLight()
-        fill.light.color = UIColor(red: 1.0, green: 0.93, blue: 0.85, alpha: 1)
-        fill.light.intensity = 1100
-        fill.look(at: .zero, from: SIMD3(-direction.x, 0.6, -direction.z) * 60, relativeTo: nil)
-        root.addChild(fill)
+        // The world and its light as the match draws them (WorldStage): the spike's Oasis.
+        let stage = try await WorldStage.load(.oasis, materials: try Materials())
+        root.addChild(stage.root)
 
         camera.camera.fieldOfViewInDegrees = fovDegrees
         camera.camera.fieldOfViewOrientation = .vertical
@@ -79,42 +65,6 @@ final class SpikeScene {
         buildTitle()
         score = replaceText(score, "0 : 0", height: 0.2, depth: 0.05, rgb: 0xFFFFFF, fromTop: 0.82)
         buildButton()
-    }
-
-    /// Materials bound by name (ADR 0005): the sky unlit; everything else lit, with fog.
-    private func applyWorldMaterials(_ world: Entity) throws {
-        guard let device = MTLCreateSystemDefaultDevice(), let library = device.makeDefaultLibrary() else {
-            throw AssetError.missing("the app's Metal library (Fog.metal)")
-        }
-        let fog = CustomMaterial.SurfaceShader(named: "fogSurface", in: library)
-        let skyShader = CustomMaterial.SurfaceShader(named: "skySurface", in: library)
-        var sawSky = false
-        try visit(world) { entity in
-            guard var model = entity.components[ModelComponent.self] else { return }
-            let isSky = entity.name == "sky" || entity.parent?.name == "sky"
-            sawSky = sawSky || isSky
-            model.materials = try model.materials.map { original -> RealityKit.Material in
-                if isSky {
-                    var sky = try CustomMaterial(from: original, surfaceShader: skyShader)
-                    sky.faceCulling = .none
-                    return sky
-                }
-                var lit = try CustomMaterial(from: original, surfaceShader: fog)
-                lit.custom.value = SIMD4(eye, 0)
-                // The world's glTF/USD twin is double-sided (Blender exports it so, and Filament
-                // honours it); cull nothing here too, or every quad wound the other way vanishes.
-                lit.faceCulling = .none
-                return lit
-            }
-            entity.components.set(model)
-            if isSky { entity.components.set(DynamicLightShadowComponent(castsShadow: false)) }
-        }
-        if !sawSky { throw AssetError.missing("oasis.usdz has no mesh named 'sky'") }
-    }
-
-    private func visit(_ e: Entity, _ body: (Entity) throws -> Void) rethrows {
-        try body(e)
-        for child in e.children { try visit(child, body) }
     }
 
     private func buildTitle() {

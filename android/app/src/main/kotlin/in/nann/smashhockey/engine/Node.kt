@@ -11,13 +11,13 @@ import kotlin.math.min
  * non-uniform scale, parented to another entity — the camera, for the HUD rig. It owns no
  * geometry; a [GpuMesh] may be attached as the node's own renderable.
  */
-class Node(private val engine: Engine, parent: Int? = null, val mesh: GpuMesh? = null) {
-    val entity: Int = mesh?.entity ?: EntityManager.get().create()
+class Node(private val engine: Engine, parent: Int? = null, val mesh: GpuMesh? = null, existing: Int? = null) {
+    val entity: Int = existing ?: mesh?.entity ?: EntityManager.get().create()
     private val tm = engine.transformManager
     private val instance: Int
 
     var x = 0f; var y = 0f; var z = 0f
-    var yaw = 0f; var pitch = 0f
+    var yaw = 0f; var pitch = 0f; var roll = 0f
     var sx = 1f; var sy = 1f; var sz = 1f
 
     init {
@@ -26,16 +26,21 @@ class Node(private val engine: Engine, parent: Int? = null, val mesh: GpuMesh? =
         parent?.let { tm.setParent(instance, tm.getInstance(it)) }
     }
 
-    /** Writes the local transform: translate · rotate(yaw about Y, then pitch about X) · scale. */
+    /** Writes the local transform: translate · rotate(yaw about Y, pitch about X, roll about Z) · scale. */
     fun apply() {
         val m = FloatArray(16)
         Matrix.setIdentityM(m, 0)
         Matrix.translateM(m, 0, x, y, z)
         Matrix.rotateM(m, 0, Math.toDegrees(yaw.toDouble()).toFloat(), 0f, 1f, 0f)
         Matrix.rotateM(m, 0, Math.toDegrees(pitch.toDouble()).toFloat(), 1f, 0f, 0f)
+        if (roll != 0f) Matrix.rotateM(m, 0, Math.toDegrees(roll.toDouble()).toFloat(), 0f, 0f, 1f)
         Matrix.scaleM(m, 0, sx, sy, sz)
         tm.setTransform(instance, m)
     }
+
+    fun scale(s: Float) { sx = s; sy = s; sz = s }
+
+    fun setParent(parent: Int) { tm.setParent(instance, tm.getInstance(parent)) }
 
     fun worldMatrix(): FloatArray = FloatArray(16).also { tm.getWorldTransform(instance, it) }
 

@@ -1,0 +1,126 @@
+# How a match looks on screen (spec §5.2 aim line, §8.6 camera choreography, §13 worlds), declared
+# once and generated into both apps by tools/generate-data.py — into the app targets, never into the
+# simulation core: nothing here can change what a tick does. The time-scale numbers of §8.6 are the
+# rules' own (rules.toml [slow_motion]); this file holds only what the camera and the scene do.
+# Each world's fog and light live next to the world, in teams.toml [world.look].
+#
+# Units are metres, seconds, degrees for fields of view, radians for angles; colours are sRGB.
+# Rates are exponential: a value approaches its target by 1 − exp(−rate·dt) per frame of real time.
+
+[camera]
+fov = 50.0                 # vertical, degrees — portrait phones (ADR 0005 spike)
+near = 0.1
+far = 600.0                # beyond the sky dome (r = 320)
+
+# The play camera: high behind the near goal, looking up the pitch. It frames a focus point that
+# follows the ball and leads toward the goal the play is heading for, so the far goal, a band of
+# scenery and the sky above it stay on screen (the top of the frame sits ~4° above the horizon).
+[camera.play]
+height = 16.0
+back = 35.0                # horizontal distance behind the focus
+look_ahead = 6.5           # the look-at point is this far beyond the focus: pitch ≈ 21° down
+lead = 6.0                 # the focus leads the ball by this much toward the goal being attacked
+follow_x = 0.65            # the focus takes this share of the ball's x …
+max_x = 6.0                # … within ±6
+min_z = -21.0              # the focus's reach along the pitch (the goal lines are ±26)
+max_z = 15.0
+rate = 2.4                 # how fast the focus follows
+lead_rate = 1.1            # how fast the lead swings when possession changes
+
+# A shot about to score (§8.6): the camera drops and closes in behind the ball, toward the net.
+[camera.buildup]
+height = 8.0
+back = 20.0
+fov = 44.0
+weight = 0.4               # blended this far toward the play camera, never a cut
+rate = 5.0
+
+# A goal: low beside the net on the side the ball came from, sweeping round behind it and rising.
+[camera.goal]
+radius = 13.0
+height = 4.5
+rise = 1.1                 # metres per second of real time, for at most `sweep_seconds`
+start_angle = 1.8          # from the outward axis
+sweep = 0.14               # radians per second of real time
+sweep_seconds = 4.5
+look_height = 0.4
+fov = 46.0
+weight = 1.0
+rate_in = 4.0
+rate_out = 1.6             # back to the play camera once the face-off comes
+
+# Reduce Motion keeps the slow motion (§8.6) and tames the camera: the goal camera blends in only
+# part of the way and does not sweep; there is no shake.
+[camera.reduce_motion]
+goal_weight = 0.35
+buildup_weight = 0.15
+
+[camera.shake]
+post = 0.28                # amplitude (m) when the ball rings a post
+board = 0.08               # … and when it smacks the boards hard (§6.2 board hit)
+decay = 7.0                # per second
+frequency = 21.0           # Hz
+
+# The light rig. The worlds' palettes are painted for this sun direction; colour and strength are
+# per world (teams.toml [world.look]).
+[light]
+sun_direction = [0.35, -1.0, 0.55]
+
+# Toy-like players built from primitives, in each team's kit (teams.toml clubs).
+[figure]
+skin = "#f2c29b"
+eye = "#1e1b2e"           # the eyes and the stick's blade
+stick = "#f5e6c8"
+scale = 1.2                # toys read bigger than their bodies (radius 0.8) from the play camera
+goalie_scale = 1.18        # a goalie is bigger, padded and helmeted
+hop = 0.45                 # the scorers' team hops during a goal celebration (m)
+hop_rate = 9.0             # radians per second of real time
+kit_clash = 90.0           # sRGB distance under which the away side wears its secondary as primary
+# Drills have no clubs (§10): the player's side wears the demo club's kit, the opponents this one.
+sparring_primary = "#94a3b8"
+sparring_secondary = "#f8fafc"
+
+[dummy]
+cone = "#ff8a1f"
+stripe = "#fff7ed"
+base = "#3f3f46"
+height = 1.5
+
+[ball]
+field = "#fff3b0"
+ice = "#16161d"
+puck_height = 0.2
+
+# §5.2: the aim line shows the direction and what the release would snap to. The colours are the
+# help text's (copy help.3): green for a pass, pink for a shot.
+[aim]
+pass = "#34d399"
+shot = "#ff4f9a"
+free = "#ffffff"
+width = 0.24
+free_length = 7.0          # an unassisted release's line (the ball goes on at 24, §5.4)
+opacity = 0.85
+orbit = "#ffffff"          # the ring the ball circles on (§5.1)
+orbit_opacity = 0.35
+orbit_width = 0.08
+target_ring = 1.25         # the ring under a pass's receiver
+
+[celebration]
+pieces = 70
+seconds = 2.8
+speed = 11.0               # launch speed (m/s), upward-biased
+gravity = 9.0
+size = 0.32
+colours = ["#ff4f9a", "#ffd23f", "#34d399", "#60a5fa", "#ffffff", "#c084fc"]
+
+[hud]
+depth = 4.0                # metres in front of the camera
+margin = 0.04              # of the half-height, inside the safe area
+score_height = 0.15
+clock_height = 0.085
+banner_height = 0.28
+text = "#ffffff"
+clock = "#ffe8a3"
+button = "#ffc83d"
+button_label = "#1e1b4b"
+button_size = 0.22

@@ -36,7 +36,15 @@ targets:
     sources:
       - path: Sources
       # Shared assets and data are referenced from shared/, never copied (ADR 0001, 0005).
+      - path: ../shared/assets/worlds/magicwood/magicwood.usdz
+        buildPhase: resources
+      - path: ../shared/assets/worlds/space/space.usdz
+        buildPhase: resources
       - path: ../shared/assets/worlds/oasis/oasis.usdz
+        buildPhase: resources
+      - path: ../shared/assets/worlds/himalaya/himalaya.usdz
+        buildPhase: resources
+      - path: ../shared/assets/worlds/ocean/ocean.usdz
         buildPhase: resources
       - path: ../shared/assets/fonts/LilitaOne-Regular.ttf
         buildPhase: resources

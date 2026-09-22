@@ -7,9 +7,6 @@ import android.view.SurfaceView
 import com.google.android.filament.Camera
 import com.google.android.filament.Colors
 import com.google.android.filament.ColorGrading
-import com.google.android.filament.EntityManager
-import com.google.android.filament.IndirectLight
-import com.google.android.filament.LightManager
 import com.google.android.filament.MaterialInstance
 import com.google.android.filament.ToneMapper
 import com.google.android.filament.View
@@ -24,6 +21,7 @@ import `in`.nann.smashhockey.engine.Node
 import `in`.nann.smashhockey.engine.Spring
 import `in`.nann.smashhockey.engine.TextMesh
 import `in`.nann.smashhockey.engine.World
+import `in`.nann.smashhockey.core.generated.World as WorldId
 import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.math.tan
@@ -49,9 +47,8 @@ class SpikeScene(
     private val typeface = Typeface.createFromAsset(context.assets, "fonts/LilitaOne-Regular.ttf")
     private val reduceMotion = !ValueAnimator.areAnimatorsEnabled()
     private val uiMaterial = assets.material(engine, "ui_lit")
-    private val world = World(engine, host.scene, assets, "oasis")
-    private val sun = EntityManager.get().create()
-    private val ibl: IndirectLight
+    // The world and its light and fog as the match draws them (World): the spike's Oasis.
+    private val world = World(engine, host.scene, host.view, assets, WorldId.OASIS)
     private val instances = mutableListOf<MaterialInstance>()
     private val meshes = mutableListOf<GpuMesh>()
     private val palette = mutableMapOf<Int, MaterialInstance>()
@@ -79,28 +76,7 @@ class SpikeScene(
     val buttonLabelText: String = context.getString(R.string.play_button)
 
     init {
-        LightManager.Builder(LightManager.Type.SUN)
-            .color(1.0f, 0.95f, 0.86f)
-            .intensity(80_000f)
-            .direction(0.35f, -1.0f, 0.55f)
-            .sunAngularRadius(1.6f)
-            .castShadows(true)
-            .shadowOptions(LightManager.ShadowOptions().apply { mapSize = 2048 })
-            .build(engine, sun)
-        host.scene.addEntity(sun)
-        ibl = IndirectLight.Builder().irradiance(1, floatArrayOf(1.0f, 0.93f, 0.85f)).intensity(22_000f).build(engine)
-        host.scene.indirectLight = ibl
-
         host.view.colorGrading = ColorGrading.Builder().toneMapper(ToneMapper.Linear()).build(engine)
-        host.view.fogOptions = View.FogOptions().apply {
-            enabled = true
-            distance = 45f
-            density = 0.012f
-            heightFalloff = 0.0f
-            maximumOpacity = 0.8f
-            color = floatArrayOf(1.0f, 0.86f, 0.62f)
-            cutOffDistance = 250f        // the sky dome (r = 320) stays out of the fog
-        }
         host.view.dynamicResolutionOptions = View.DynamicResolutionOptions().apply { enabled = true; minScale = 0.6f }
         host.camera.setExposure(16f, 1f / 125f, 100f)
         host.camera.lookAt(0.0, 24.0, -46.0, 0.0, 0.0, 2.0, 0.0, 1.0, 0.0)
@@ -269,8 +245,6 @@ class SpikeScene(
         instances.forEach { engine.destroyMaterialInstance(it) }
         engine.destroyMaterial(uiMaterial)
         world.destroy()
-        engine.destroyEntity(sun)
-        engine.destroyIndirectLight(ibl)
         host.destroy()
     }
 }

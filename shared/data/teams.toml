@@ -2,31 +2,85 @@
 # §2, §3, §12, §13), declared once and generated into both apps by tools/generate-data.py. Localized names
 # live next to what they name and are generated into the copy (§14).
 
-# §13 — the five worlds, in the demo match's order (§9).
+# §13 — the five worlds, in the demo match's order (§9). Each world's look is generated into the
+# apps' presentation (never the core): the sun and the shade — a colour, and a strength relative to
+# each engine's calibrated rig (ADR 0005: two lighting models, tuned twice) — the distance fog, by
+# Filament's formula on both platforms, opacity = max · (1 − exp(−density · max(d − start, 0))),
+# its colour the sky's horizon; and a tint on the sky dome.
 [[world]]
 id = "magicwood"
 sport = "field"
 name = { en = "Magic Wood", de = "Zauberwald" }
+[world.look] # dusk in the wood: a peach sun low over violet shade, a rosy haze
+sun = "#ffd2a8"
+sun_strength = 0.9
+ambient = "#b9a4ff"
+ambient_strength = 1.0
+fog = "#e8958a"
+fog_start = 42.0
+fog_density = 0.01
+fog_max = 0.55
+sky = "#ffffff"
 
 [[world]]
 id = "space"
 sport = "field"
 name = { en = "Deep Space", de = "Tiefer Weltraum" }
+[world.look] # hard starlight, a violet bounce, almost no haze — space has no air
+sun = "#eef2ff"
+sun_strength = 1.0
+ambient = "#9a8cff"
+ambient_strength = 0.95
+fog = "#2d1458"
+fog_start = 90.0
+fog_density = 0.004
+fog_max = 0.2
+sky = "#ffffff"
 
 [[world]]
 id = "oasis"
 sport = "field"
 name = { en = "Desert Oasis", de = "Wüstenoase" }
+[world.look] # golden hour over the dunes: the spike's light and its warm sand haze
+sun = "#fff2db"
+sun_strength = 1.0
+ambient = "#ffeed9"
+ambient_strength = 1.0
+fog = "#fff0cf"
+fog_start = 45.0
+fog_density = 0.012
+fog_max = 0.8
+sky = "#ffffff"
 
 [[world]]
 id = "himalaya"
 sport = "ice"
 name = { en = "Himalaya", de = "Himalaya" }
+[world.look] # thin bright air: a white sun, sky-blue shade, a snow-white haze
+sun = "#ffffff"
+sun_strength = 1.05
+ambient = "#dcecff"
+ambient_strength = 1.05
+fog = "#f4f9fd"
+fog_start = 50.0
+fog_density = 0.01
+fog_max = 0.7
+sky = "#ffffff"
 
 [[world]]
 id = "ocean"
 sport = "field"
 name = { en = "Ocean World", de = "Ozeanwelt" }
+[world.look] # under the waves: filtered light and a deep turquoise haze close in
+sun = "#e0fbff"
+sun_strength = 0.85
+ambient = "#9fe8f0"
+ambient_strength = 1.1
+fog = "#5cc9df"
+fog_start = 30.0
+fog_density = 0.018
+fog_max = 0.85
+sky = "#ffffff"
 
 # §3 — formations for a team attacking +Z; team 1's are mirrored in x and z. Players are listed in
 # roster order after the goalie. The first is the default.

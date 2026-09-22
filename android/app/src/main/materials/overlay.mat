@@ -1,0 +1,20 @@
+// Marks on the pitch — the aim line, the orbit (the twin of iOS's overlaySurface in Fog.metal): an
+// unlit colour at an opacity, fogged with the world, never casting a shadow.
+material {
+    name : overlay,
+    shadingModel : unlit,
+    parameters : [
+        { type : float3, name : baseColor },
+        { type : float, name : alpha }
+    ],
+    blending : transparent,
+    depthWrite : false,
+    culling : none
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        material.baseColor = vec4(materialParams.baseColor * materialParams.alpha, materialParams.alpha);
+    }
+}

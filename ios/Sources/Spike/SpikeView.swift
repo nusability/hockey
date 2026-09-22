@@ -1,10 +1,24 @@
 import RealityKit
 import SwiftUI
 
+/// The app's entry until the menus exist. `-scene match` (with `-quick`, `-drill` or `-demo`, see
+/// MatchPlan) shows the match; anything else shows the renderer spike (SMASH-2) as before.
+struct SpikeView: View {
+    private let plan = Result { try MatchPlan.fromLaunch() }
+
+    var body: some View {
+        switch plan {
+        case .success(let p?): MatchScreen(plan: p)
+        case .success(nil): SpikeSlice()
+        case .failure(let e): Text("\(e)").foregroundStyle(.white).padding()
+        }
+    }
+}
+
 /// One RealityView with everything drawn in it (ADR 0005), and above it a transparent semantics
 /// overlay: invisible accessibility elements projected from the 3D UI every frame. The overlay
 /// takes no touches — they reach the view and our own hit-test, on touch-down.
-struct SpikeView: View {
+private struct SpikeSlice: View {
     @State private var scene: SpikeScene?
     @State private var failure: String?
     @State private var updates: EventSubscription?

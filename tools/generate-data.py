@@ -12,14 +12,16 @@ write the same bytes. Writes:
   android/core/src/main/kotlin/in/nann/smashhockey/core/generated/*.kt    …/src/test/…/generated/
   ios/Sources/Localizable.xcstrings    android/app/src/main/res/values{,-de}/strings.xml
 
-including the save records (shared/data/save.toml → SaveRecords.swift / SaveRecords.kt).
+including the save records (shared/data/save.toml → SaveRecords.swift / SaveRecords.kt), and the
+apps' presentation (shared/data/presentation.toml and each world's look → ios/Sources/Scene/Generated/
+Presentation.swift, android/app/…/smashhockey/generated/Presentation.kt — app targets, never the core).
 """
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from datagen import copyout, kotlin, save, swift  # noqa: E402
+from datagen import copyout, kotlin, presentation, save, swift  # noqa: E402
 from datagen.common import Bits  # noqa: E402
 from datagen.model import DataError, camel, load, upper_snake  # noqa: E402
 
@@ -41,11 +43,13 @@ def render():
     files[kotlin.TEST + "GeneratedConstantBits.kt"] = kotlin.bits_test(kbits)
     files.update(save.emit(save.load(ROOT)))
     files.update(copyout.emit(model))
+    files.update(presentation.emit(ROOT, model))
     return files
 
 
 def generated_dirs():
-    return [ROOT / swift.SRC, ROOT / swift.TEST, ROOT / kotlin.SRC, ROOT / kotlin.TEST]
+    return [ROOT / swift.SRC, ROOT / swift.TEST, ROOT / kotlin.SRC, ROOT / kotlin.TEST,
+            ROOT / presentation.SWIFT, ROOT / presentation.KOTLIN]
 
 
 def main(argv):

@@ -1,11 +1,12 @@
-// The sky dome: the palette texture's gradient, unlit (ADR 0005 — the sky is part
-// of the scene, not a view background). It stays unfogged because the view's fog cuts off
-// before the dome's radius (World/SpikeScene fog options).
+// The sky dome: the palette texture's gradient, unlit (ADR 0005 — the sky is part of the scene,
+// not a view background), times the world's sky tint (teams.toml [world.look], linear). It stays
+// unfogged because the view's fog cuts off before the dome's radius (WorldStage's fog options).
 material {
     name : sky,
     shadingModel : unlit,
     parameters : [
-        { type : sampler2d, name : baseColorMap }
+        { type : sampler2d, name : baseColorMap },
+        { type : float3, name : tint }
     ],
     requires : [ uv0 ],
     culling : none
@@ -18,6 +19,6 @@ fragment {
         // platform applies to the shared palette (iOS: Fog.metal).
         float2 uv = getUV0();
         uv.y = 1.0 - uv.y;
-        material.baseColor = texture(materialParams_baseColorMap, uv);
+        material.baseColor = texture(materialParams_baseColorMap, uv) * vec4(materialParams.tint, 1.0);
     }
 }

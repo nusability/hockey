@@ -236,11 +236,12 @@ def load(root: Path) -> Model:
     worlds = []
     for i, wd in enumerate(need_list(teams, "world", "teams.toml")):
         w = f"teams.toml [[world]] #{i + 1}"
-        expect_keys(wd, {"id", "sport", "name"}, w)
+        expect_keys(wd, {"id", "sport", "name", "look"}, w)
         ident = need_str(wd["id"], w)
         if wd["sport"] not in sport_ids:
             fail(w, f"sport {wd['sport']!r} is not one of {sport_ids}")
-        worlds.append({"id": ident, "sport": wd["sport"], "name": localized(wd, "world", ident, "name", w, copy)})
+        worlds.append({"id": ident, "sport": wd["sport"], "name": localized(wd, "world", ident, "name", w, copy),
+                       "look": world_look(wd["look"], f"{w}.look")})
     world_ids = [x["id"] for x in worlds]
 
     # Formations.
@@ -436,6 +437,22 @@ def colour(text, where):
     if not isinstance(text, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", text):
         fail(where, f"colour {text!r} must be #rrggbb")
     return int(text[1:], 16)
+
+
+LOOK_COLOURS = ("sun", "ambient", "fog", "sky")
+LOOK_NUMBERS = ("sun_strength", "ambient_strength", "fog_start", "fog_density", "fog_max")
+
+
+def world_look(look, where):
+    """A world's light, fog and sky tint (§13) — presentation only, generated into the apps."""
+    if not isinstance(look, dict):
+        fail(where, "expected a [world.look] table")
+    expect_keys(look, set(LOOK_COLOURS + LOOK_NUMBERS), where)
+    out = {k: colour(look[k], f"{where}.{k}") for k in LOOK_COLOURS}
+    out.update({k: need_float(look[k], f"{where}.{k}") for k in LOOK_NUMBERS})
+    if not 0.0 <= out["fog_max"] <= 1.0:
+        fail(f"{where}.fog_max", "an opacity is within 0…1")
+    return out
 
 
 def lineup(p, where, roles):

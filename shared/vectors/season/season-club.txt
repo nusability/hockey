@@ -1,0 +1,343 @@
+# Season golden vector (spec §11, §2.2): a picked club, a whole season from a fixed seed through the save's API.
+# Inputs: seed, career, and one script line per player match (goals for, against, - | ot | forfeit).
+# Outputs: league (canonical order), every drawn fixture (matchday, label, home, away), the stream after
+# the start and after every player match, and per closed matchday its results (home away hg ag ot|- player|sim),
+# the next cup draw, and the table (pos short P W D L GF GA Pts); then champion, cup winner and trophies.
+# Recorded by ios/SmashCore RecordSeasonVectors (macOS, arm64). Replayed exactly by SmashCoreTests and android/core.
+seed 0x5EA5020020260922
+career club falcons
+script 2 1 -
+script 0 0 -
+script 1 3 -
+script 3 0 -
+script 3 2 ot
+script 0 3 forfeit
+script 4 2 -
+script 1 1 -
+script 2 0 -
+script 0 1 -
+script 2 1 -
+script 3 3 -
+script 1 0 -
+script 2 2 -
+script 5 1 -
+script 0 2 -
+script 1 0 ot
+league MOS GLO NEB ROC DUN MIR GLW COR
+fixture 0 L1 COR DUN
+fixture 0 L1 ROC GLO
+fixture 0 L1 MIR MOS
+fixture 0 L1 NEB GLW
+fixture 1 L2 GLO COR
+fixture 1 L2 MOS DUN
+fixture 1 L2 GLW ROC
+fixture 1 L2 NEB MIR
+fixture 2 L3 COR MOS
+fixture 2 L3 GLO GLW
+fixture 2 L3 DUN NEB
+fixture 2 L3 ROC MIR
+fixture 3 L4 GLW COR
+fixture 3 L4 NEB MOS
+fixture 3 L4 MIR GLO
+fixture 3 L4 ROC DUN
+fixture 4 quarterFinal MIR DUN
+fixture 4 quarterFinal COR ROC
+fixture 4 quarterFinal NEB GLW
+fixture 4 quarterFinal GLO MOS
+fixture 5 L5 COR NEB
+fixture 5 L5 GLW MIR
+fixture 5 L5 MOS ROC
+fixture 5 L5 GLO DUN
+fixture 6 L6 MIR COR
+fixture 6 L6 ROC NEB
+fixture 6 L6 DUN GLW
+fixture 6 L6 GLO MOS
+fixture 7 L7 COR ROC
+fixture 7 L7 MIR DUN
+fixture 7 L7 NEB GLO
+fixture 7 L7 GLW MOS
+fixture 8 L8 DUN COR
+fixture 8 L8 GLO ROC
+fixture 8 L8 MOS MIR
+fixture 8 L8 GLW NEB
+fixture 9 L9 COR GLO
+fixture 9 L9 DUN MOS
+fixture 9 L9 ROC GLW
+fixture 9 L9 MIR NEB
+fixture 11 L10 MOS COR
+fixture 11 L10 GLW GLO
+fixture 11 L10 NEB DUN
+fixture 11 L10 MIR ROC
+fixture 12 L11 COR GLW
+fixture 12 L11 MOS NEB
+fixture 12 L11 GLO MIR
+fixture 12 L11 DUN ROC
+fixture 13 L12 NEB COR
+fixture 13 L12 MIR GLW
+fixture 13 L12 ROC MOS
+fixture 13 L12 DUN GLO
+fixture 14 L13 COR MIR
+fixture 14 L13 NEB ROC
+fixture 14 L13 GLW DUN
+fixture 14 L13 MOS GLO
+fixture 15 L14 ROC COR
+fixture 15 L14 DUN MIR
+fixture 15 L14 GLO NEB
+fixture 15 L14 MOS GLW
+stream 0x05ADAA251638D248
+play 0 L1 MIR MOS
+day 0 L1
+result COR DUN 1 2 - sim
+result ROC GLO 0 1 - sim
+result MIR MOS 2 1 - player
+result NEB GLW 2 1 - sim
+table 1 DUN 1 1 0 0 2 1 3
+table 2 MIR 1 1 0 0 2 1 3
+table 3 NEB 1 1 0 0 2 1 3
+table 4 GLO 1 1 0 0 1 0 3
+table 5 COR 1 0 0 1 1 2 0
+table 6 GLW 1 0 0 1 1 2 0
+table 7 MOS 1 0 0 1 1 2 0
+table 8 ROC 1 0 0 1 0 1 0
+stream 0x0E7ED8908D011F59
+play 1 L2 NEB MIR
+day 1 L2
+result GLO COR 5 2 - sim
+result MOS DUN 3 1 - sim
+result GLW ROC 1 5 - sim
+result NEB MIR 0 0 - player
+table 1 GLO 2 2 0 0 6 2 6
+table 2 MIR 2 1 1 0 2 1 4
+table 3 NEB 2 1 1 0 2 1 4
+table 4 ROC 2 1 0 1 5 2 3
+table 5 MOS 2 1 0 1 4 3 3
+table 6 DUN 2 1 0 1 3 4 3
+table 7 COR 2 0 0 2 3 7 0
+table 8 GLW 2 0 0 2 2 7 0
+stream 0x457AC83AFCB2453C
+play 2 L3 ROC MIR
+day 2 L3
+result COR MOS 3 4 - sim
+result GLO GLW 3 3 - sim
+result DUN NEB 2 2 - sim
+result ROC MIR 3 1 - player
+table 1 GLO 3 2 1 0 9 5 7
+table 2 ROC 3 2 0 1 8 3 6
+table 3 MOS 3 2 0 1 8 6 6
+table 4 NEB 3 1 2 0 4 3 5
+table 5 DUN 3 1 1 1 5 6 4
+table 6 MIR 3 1 1 1 3 4 4
+table 7 GLW 3 0 1 2 5 10 1
+table 8 COR 3 0 0 3 6 11 0
+stream 0x7C76B7E56C636B1F
+play 3 L4 MIR GLO
+day 3 L4
+result GLW COR 2 2 - sim
+result NEB MOS 3 2 - sim
+result MIR GLO 3 0 - player
+result ROC DUN 2 4 - sim
+table 1 NEB 4 2 2 0 7 5 8
+table 2 MIR 4 2 1 1 6 4 7
+table 3 DUN 4 2 1 1 9 8 7
+table 4 GLO 4 2 1 1 9 8 7
+table 5 ROC 4 2 0 2 10 7 6
+table 6 MOS 4 2 0 2 10 9 6
+table 7 GLW 4 0 2 2 7 12 2
+table 8 COR 4 0 1 3 8 13 1
+stream 0x7703B41CDD7F98D8
+play 4 quarterFinal MIR DUN
+day 4 quarterFinal
+result MIR DUN 3 2 ot player
+result COR ROC 0 6 - sim
+result NEB GLW 8 1 - sim
+result GLO MOS 0 3 - sim
+cupdraw 10 semiFinal MIR ROC
+cupdraw 10 semiFinal NEB MOS
+table 1 NEB 4 2 2 0 7 5 8
+table 2 MIR 4 2 1 1 6 4 7
+table 3 DUN 4 2 1 1 9 8 7
+table 4 GLO 4 2 1 1 9 8 7
+table 5 ROC 4 2 0 2 10 7 6
+table 6 MOS 4 2 0 2 10 9 6
+table 7 GLW 4 0 2 2 7 12 2
+table 8 COR 4 0 1 3 8 13 1
+stream 0x4C371D80CC7B3AD0
+play 5 L5 GLW MIR
+day 5 L5
+result COR NEB 1 6 - sim
+result GLW MIR 3 0 - player
+result MOS ROC 0 3 - sim
+result GLO DUN 3 1 - sim
+table 1 NEB 5 3 2 0 13 6 11
+table 2 GLO 5 3 1 1 12 9 10
+table 3 ROC 5 3 0 2 13 7 9
+table 4 DUN 5 2 1 2 10 11 7
+table 5 MIR 5 2 1 2 6 7 7
+table 6 MOS 5 2 0 3 10 12 6
+table 7 GLW 5 1 2 2 10 12 5
+table 8 COR 5 0 1 4 9 19 1
+stream 0xA88C9FFEBE4CEC74
+play 6 L6 MIR COR
+day 6 L6
+result MIR COR 4 2 - player
+result ROC NEB 5 1 - sim
+result DUN GLW 1 2 - sim
+result GLO MOS 3 1 - sim
+table 1 GLO 6 4 1 1 15 10 13
+table 2 ROC 6 4 0 2 18 8 12
+table 3 NEB 6 3 2 1 14 11 11
+table 4 MIR 6 3 1 2 10 9 10
+table 5 GLW 6 2 2 2 12 13 8
+table 6 DUN 6 2 1 3 11 13 7
+table 7 MOS 6 2 0 4 11 15 6
+table 8 COR 6 0 1 5 11 23 1
+stream 0x66AAA8C330D42203
+play 7 L7 MIR DUN
+day 7 L7
+result COR ROC 1 2 - sim
+result MIR DUN 1 1 - player
+result NEB GLO 2 3 - sim
+result GLW MOS 2 3 - sim
+table 1 GLO 7 5 1 1 18 12 16
+table 2 ROC 7 5 0 2 20 9 15
+table 3 NEB 7 3 2 2 16 14 11
+table 4 MIR 7 3 2 2 11 10 11
+table 5 MOS 7 3 0 4 14 17 9
+table 6 GLW 7 2 2 3 14 16 8
+table 7 DUN 7 2 2 3 12 14 8
+table 8 COR 7 0 1 6 12 25 1
+stream 0x24C8B187A35B5792
+play 8 L8 MOS MIR
+day 8 L8
+result DUN COR 1 4 - sim
+result GLO ROC 0 2 - sim
+result MOS MIR 0 2 - player
+result GLW NEB 3 5 - sim
+table 1 ROC 8 6 0 2 22 9 18
+table 2 GLO 8 5 1 2 18 14 16
+table 3 NEB 8 4 2 2 21 17 14
+table 4 MIR 8 4 2 2 13 10 14
+table 5 MOS 8 3 0 5 14 19 9
+table 6 GLW 8 2 2 4 17 21 8
+table 7 DUN 8 2 2 4 13 18 8
+table 8 COR 8 1 1 6 16 26 4
+stream 0x1F55ADBF1477854B
+play 9 L9 MIR NEB
+day 9 L9
+result COR GLO 1 3 - sim
+result DUN MOS 2 4 - sim
+result ROC GLW 4 1 - sim
+result MIR NEB 0 1 - player
+table 1 ROC 9 7 0 2 26 10 21
+table 2 GLO 9 6 1 2 21 15 19
+table 3 NEB 9 5 2 2 22 17 17
+table 4 MIR 9 4 2 3 13 11 14
+table 5 MOS 9 4 0 5 18 21 12
+table 6 GLW 9 2 2 5 18 25 8
+table 7 DUN 9 2 2 5 15 22 8
+table 8 COR 9 1 1 7 17 29 4
+stream 0x19E2A9F68593B304
+play 10 semiFinal MIR ROC
+day 10 semiFinal
+result MIR ROC 2 1 - player
+result NEB MOS 4 0 - sim
+cupdraw 16 final MIR NEB
+table 1 ROC 9 7 0 2 26 10 21
+table 2 GLO 9 6 1 2 21 15 19
+table 3 NEB 9 5 2 2 22 17 17
+table 4 MIR 9 4 2 3 13 11 14
+table 5 MOS 9 4 0 5 18 21 12
+table 6 GLW 9 2 2 5 18 25 8
+table 7 DUN 9 2 2 5 15 22 8
+table 8 COR 9 1 1 7 17 29 4
+stream 0xCF2F844F81529B82
+play 11 L10 MIR ROC
+day 11 L10
+result MOS COR 3 4 - sim
+result GLW GLO 1 3 - sim
+result NEB DUN 3 0 - sim
+result MIR ROC 3 3 - player
+table 1 ROC 10 7 1 2 29 13 22
+table 2 GLO 10 7 1 2 24 16 22
+table 3 NEB 10 6 2 2 25 17 20
+table 4 MIR 10 4 3 3 16 14 15
+table 5 MOS 10 4 0 6 21 25 12
+table 6 GLW 10 2 2 6 19 28 8
+table 7 DUN 10 2 2 6 15 25 8
+table 8 COR 10 2 1 7 21 32 7
+stream 0x2B8506CD73244D26
+play 12 L11 GLO MIR
+day 12 L11
+result COR GLW 4 1 - sim
+result MOS NEB 0 0 - sim
+result GLO MIR 0 1 - player
+result DUN ROC 1 1 - sim
+table 1 ROC 11 7 2 2 30 14 23
+table 2 GLO 11 7 1 3 24 17 22
+table 3 NEB 11 6 3 2 25 17 21
+table 4 MIR 11 5 3 3 17 14 18
+table 5 MOS 11 4 1 6 21 25 13
+table 6 COR 11 3 1 7 25 33 10
+table 7 DUN 11 2 3 6 16 26 9
+table 8 GLW 11 2 2 7 20 32 8
+stream 0x34563538E9EC9A37
+play 13 L12 MIR GLW
+day 13 L12
+result NEB COR 1 1 - sim
+result MIR GLW 2 2 - player
+result ROC MOS 8 2 - sim
+result DUN GLO 3 3 - sim
+table 1 ROC 12 8 2 2 38 16 26
+table 2 GLO 12 7 2 3 27 20 23
+table 3 NEB 12 6 4 2 26 18 22
+table 4 MIR 12 5 4 3 19 16 19
+table 5 MOS 12 4 1 7 23 33 13
+table 6 COR 12 3 2 7 26 34 11
+table 7 DUN 12 2 4 6 19 29 10
+table 8 GLW 12 2 3 7 22 34 9
+stream 0x09899E9CD8E83C2F
+play 14 L13 COR MIR
+day 14 L13
+result COR MIR 1 5 - player
+result NEB ROC 1 4 - sim
+result GLW DUN 3 3 - sim
+result MOS GLO 3 0 - sim
+table 1 ROC 13 9 2 2 42 17 29
+table 2 GLO 13 7 2 4 27 23 23
+table 3 MIR 13 6 4 3 24 17 22
+table 4 NEB 13 6 4 3 27 22 22
+table 5 MOS 13 5 1 7 26 33 16
+table 6 DUN 13 2 5 6 22 32 11
+table 7 COR 13 3 2 8 27 39 11
+table 8 GLW 13 2 4 7 25 37 10
+stream 0x65DF211ACAB9EDD3
+play 15 L14 DUN MIR
+day 15 L14
+result ROC COR 3 0 - sim
+result DUN MIR 2 0 - player
+result GLO NEB 1 2 - sim
+result MOS GLW 3 2 - sim
+table 1 ROC 14 10 2 2 45 17 32
+table 2 NEB 14 7 4 3 29 23 25
+table 3 GLO 14 7 2 5 28 25 23
+table 4 MIR 14 6 4 4 24 19 22
+table 5 MOS 14 6 1 7 29 35 19
+table 6 DUN 14 3 5 6 24 32 14
+table 7 COR 14 3 2 9 27 42 11
+table 8 GLW 14 2 4 8 27 40 10
+stream 0xE78E366C3EAC2B38
+play 16 final MIR NEB
+day 16 final
+result MIR NEB 1 0 ot player
+table 1 ROC 14 10 2 2 45 17 32
+table 2 NEB 14 7 4 3 29 23 25
+table 3 GLO 14 7 2 5 28 25 23
+table 4 MIR 14 6 4 4 24 19 22
+table 5 MOS 14 6 1 7 29 35 19
+table 6 DUN 14 3 5 6 24 32 14
+table 7 COR 14 3 2 9 27 42 11
+table 8 GLW 14 2 4 8 27 40 10
+stream 0xE78E366C3EAC2B38
+champion ROC
+cupwinner MIR
+trophies 0 1

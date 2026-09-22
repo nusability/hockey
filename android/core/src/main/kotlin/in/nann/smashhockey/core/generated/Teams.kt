@@ -150,8 +150,45 @@ object Career {
     const val nameMinLength: Int = 2
     const val nameMaxLength: Int = 16
     const val shortCodeLength: Int = 3
-    /** PLACEHOLDER until the curated kit palette is designed. */
-    const val kitPaletteSlots: Int = 12
+    /** Pads a derived short code short of letters; no club's code contains it. */
+    const val shortCodePad: String = "X"
+    /** The created team's kit palette: twelve pairs (§2.2). No primary equals a club's primary. */
+    val kitPalette: List<Kit> = listOf(
+        Kit("jet", 0x111827, 0xBEF264, CopyKey.KIT_JET_PRIMARY, CopyKey.KIT_JET_SECONDARY),
+        Kit("forest", 0x166534, 0xFEF9C3, CopyKey.KIT_FOREST_PRIMARY, CopyKey.KIT_FOREST_SECONDARY),
+        Kit("lime", 0x84CC16, 0x1A2E05, CopyKey.KIT_LIME_PRIMARY, CopyKey.KIT_LIME_SECONDARY),
+        Kit("sage", 0xA3A380, 0x1C1917, CopyKey.KIT_SAGE_PRIMARY, CopyKey.KIT_SAGE_SECONDARY),
+        Kit("bubblegum", 0xF9A8D4, 0x831843, CopyKey.KIT_BUBBLEGUM_PRIMARY, CopyKey.KIT_BUBBLEGUM_SECONDARY),
+        Kit("wine", 0x7F1D1D, 0xFCD34D, CopyKey.KIT_WINE_PRIMARY, CopyKey.KIT_WINE_SECONDARY),
+        Kit("snow", 0xF1F5F9, 0x0F172A, CopyKey.KIT_SNOW_PRIMARY, CopyKey.KIT_SNOW_SECONDARY),
+        Kit("lilac", 0xC4B5FD, 0x2E1065, CopyKey.KIT_LILAC_PRIMARY, CopyKey.KIT_LILAC_SECONDARY),
+        Kit("lemon", 0xFDE047, 0x18181B, CopyKey.KIT_LEMON_PRIMARY, CopyKey.KIT_LEMON_SECONDARY),
+        Kit("navy", 0x1E3A8A, 0xE0F2FE, CopyKey.KIT_NAVY_PRIMARY, CopyKey.KIT_NAVY_SECONDARY),
+        Kit("plum", 0x6B21A8, 0xF5D0FE, CopyKey.KIT_PLUM_PRIMARY, CopyKey.KIT_PLUM_SECONDARY),
+        Kit("mint", 0x86EFAC, 0x14532D, CopyKey.KIT_MINT_PRIMARY, CopyKey.KIT_MINT_SECONDARY),
+    )
+}
+
+/** A team in a season (spec §11): one of the clubs, or the created team (§2.2); [club] is null for it. */
+enum class TeamKey(val key: String, val club: Club?) {
+    MOSSFOXES("mossfoxes", Club.MOSSFOXES),
+    GLOWOWLS("glowowls", Club.GLOWOWLS),
+    NEBULA("nebula", Club.NEBULA),
+    ROCKETLYNX("rocketlynx", Club.ROCKETLYNX),
+    SCORPIONS("scorpions", Club.SCORPIONS),
+    FALCONS("falcons", Club.FALCONS),
+    WOLVES("wolves", Club.WOLVES),
+    KRAKEN("kraken", Club.KRAKEN),
+    CREATED("created", null);
+
+    companion object {
+        /** The entry declared as [key]; throws for a key that is neither a club's nor the created team's. */
+        fun of(key: String): TeamKey = entries.firstOrNull { it.key == key }
+            ?: throw IllegalArgumentException("unknown TeamKey '$key' — not declared in teams.toml")
+
+        /** The key of [club]. */
+        fun of(club: Club): TeamKey = entries.first { it.club == club }
+    }
 }
 
 /** The cup's rounds (spec §11.1). */

@@ -180,6 +180,13 @@ def localized(entity, kind, ident, field_name, where, copy):
     return key
 
 
+def kit_name(kit, ident, which, where, copy):
+    """A palette colour's accessibility label: copy key kit.<id>.<primary|secondary>."""
+    key = f"kit.{ident}.{which}"
+    copy.append(copy_entry(key, kit.get(f"{which}_name"), f"{where}.{which}_name"))
+    return key
+
+
 @dataclass
 class Model:
     trees: list            # scalar trees → Tuning
@@ -190,6 +197,7 @@ class Model:
     default_tactics: dict
     clubs: list
     career: dict
+    kits: list             # the created team's palette (§2.2)
     drills: list
     matchdays: list        # ("league", round) | ("cup", stage)
     cup_rounds: list
@@ -276,11 +284,39 @@ def load(root: Path) -> Model:
     club_ids = [c["id"] for c in clubs]
 
     career = need_table(teams, "career", "teams.toml")
-    expect_keys(career, {"demo_club", "created_rating", "created_replaces", "name_min_length",
-                         "name_max_length", "short_code_length", "kit_palette_slots"}, "teams.toml [career]")
+    expect_keys(career, {"demo_club", "created_rating", "created_replaces", "created_id", "name_min_length",
+                         "name_max_length", "short_code_length", "short_code_pad"}, "teams.toml [career]")
     for k in ("demo_club", "created_replaces"):
         if career[k] not in club_ids:
             fail(f"teams.toml career.{k}", f"{career[k]!r} is not a club")
+    if not re.fullmatch(r"[a-z]+", need_str(career["created_id"], "teams.toml career.created_id")) or career["created_id"] in club_ids:
+        fail("teams.toml career.created_id", f"{career['created_id']!r} must be a lowercase key no club has")
+    if not re.fullmatch(r"[A-Z]", need_str(career["short_code_pad"], "teams.toml career.short_code_pad")) \
+            or any(career["short_code_pad"] in s for s in shorts):
+        fail("teams.toml career.short_code_pad", "must be one capital letter that no club's short code contains (§2.2)")
+    if career["short_code_length"] != 3:
+        fail("teams.toml career.short_code_length", "the spec's short code is 3 letters (§2.2)")
+
+    # §2.2 — the created team's kit palette.
+    kits = []
+    for i, k in enumerate(need_list(teams, "kit", "teams.toml")):
+        w = f"teams.toml [[kit]] #{i + 1}"
+        expect_keys(k, {"id", "primary", "secondary", "primary_name", "secondary_name"}, w)
+        ident = need_str(k["id"], w)
+        kits.append({"id": ident, "primary": colour(k["primary"], w), "secondary": colour(k["secondary"], w),
+                     "primary_name": kit_name(k, ident, "primary", w, copy),
+                     "secondary_name": kit_name(k, ident, "secondary", w, copy)})
+    if len(kits) != 12:
+        fail("teams.toml [[kit]]", f"the palette is twelve pairs, got {len(kits)}")
+    club_primaries = {c["primary"] for c in clubs}
+    for k in kits:
+        if k["primary"] in club_primaries:
+            fail(f"teams.toml [[kit]] {k['id']!r}", "its primary equals a club's primary (§2.2)")
+    colours = [k["primary"] for k in kits] + [k["secondary"] for k in kits]
+    if len(set(colours)) != len(colours):
+        fail("teams.toml [[kit]]", "every palette colour must be unique")
+    if len({k["id"] for k in kits}) != len(kits):
+        fail("teams.toml [[kit]]", "kit ids must be unique")
     mean = sum(c["rating"] for c in clubs) / len(clubs)
     if career["created_rating"] != int(mean + 0.5):
         fail("teams.toml career.created_rating", f"must be the clubs' mean rating rounded ({mean} → {int(mean + 0.5)}, §2.2)")
@@ -341,7 +377,7 @@ def load(root: Path) -> Model:
     time.entries.append(Entry("tick_seconds", "double", spt / sps, "steps_per_tick / steps_per_second"))
 
     return Model(trees, sports, worlds, goalie, formations, default_tactics, clubs,
-                 {k: career[k] for k in career}, drills, matchdays, cup_rounds,
+                 {k: career[k] for k in career}, kits, drills, matchdays, cup_rounds,
                  load_math(math), copy_unique(copy))
 
 

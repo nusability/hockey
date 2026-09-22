@@ -39,6 +39,12 @@ enum class DrillRule(val key: String) {
     }
 }
 
+/**
+ * A pair of the created team's kit palette (spec §2.2). Colours are sRGB 0xRRGGBB; the names are
+ * the swatches' accessibility labels.
+ */
+data class Kit(val id: String, val primary: Int, val secondary: Int, val primaryName: CopyKey, val secondaryName: CopyKey)
+
 /** A step of the season's matchday plan (spec §11.1). */
 sealed interface MatchdayStep {
     data class League(val round: Int) : MatchdayStep

@@ -61,6 +61,16 @@ public enum DrillRule: String, Sendable, CaseIterable {
     case none, assist, freePlay = "free_play"
 }
 
+/// A pair of the created team's kit palette (spec §2.2). Colours are sRGB 0xRRGGBB; the names are
+/// the swatches' accessibility labels.
+public struct Kit: Sendable, Hashable {
+    public let id: String
+    public let primary: UInt32
+    public let secondary: UInt32
+    public let primaryName: CopyKey
+    public let secondaryName: CopyKey
+}
+
 /// A step of the season's matchday plan (spec §11.1).
 public enum MatchdayStep: Sendable, Hashable {
     case league(round: Int)

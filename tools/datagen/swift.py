@@ -105,6 +105,16 @@ public enum DrillRule: String, Sendable, CaseIterable {
     case none, assist, freePlay = "free_play"
 }
 
+/// A pair of the created team's kit palette (spec §2.2). Colours are sRGB 0xRRGGBB; the names are
+/// the swatches' accessibility labels.
+public struct Kit: Sendable, Hashable {
+    public let id: String
+    public let primary: UInt32
+    public let secondary: UInt32
+    public let primaryName: CopyKey
+    public let secondaryName: CopyKey
+}
+
 /// A step of the season's matchday plan (spec §11.1).
 public enum MatchdayStep: Sendable, Hashable {
     case league(round: Int)
@@ -239,8 +249,25 @@ def teams(model, bits):
     s.append(f"    public static let nameMinLength: Int = {k['name_min_length']}\n")
     s.append(f"    public static let nameMaxLength: Int = {k['name_max_length']}\n")
     s.append(f"    public static let shortCodeLength: Int = {k['short_code_length']}\n")
-    s.append(f"    /// PLACEHOLDER until the curated kit palette is designed.\n    public static let kitPaletteSlots: Int = {k['kit_palette_slots']}\n")
-    s.append("}\n\n")
+    s.append(f"    /// Pads a derived short code short of letters; no club's code contains it.\n"
+             f"    public static let shortCodePad: String = \"{k['short_code_pad']}\"\n")
+    s.append("    /// The created team's kit palette: twelve pairs (§2.2). No primary equals a club's primary.\n")
+    s.append("    public static let kitPalette: [Kit] = [\n")
+    for kit in model.kits:
+        s.append(f"        Kit(id: \"{kit['id']}\", primary: 0x{kit['primary']:06X}, secondary: 0x{kit['secondary']:06X}, "
+                 f"primaryName: .{camel(kit['primary_name'])}, secondaryName: .{camel(kit['secondary_name'])}),\n")
+    s.append("    ]\n}\n\n")
+
+    s.append("/// A team in a season (spec §11): one of the clubs, or the created team (§2.2).\n")
+    s.append("public enum TeamKey: String, Sendable, CaseIterable {\n")
+    s.append("".join(f"    case {ident(c['id'])}\n" for c in model.clubs))
+    s.append(f"    case {ident(k['created_id'])}\n\n    /// The club, or nil for the created team.\n")
+    s.append("    public var club: Club? {\n        switch self {\n")
+    s.append("".join(f"        case .{ident(c['id'])}: .{ident(c['id'])}\n" for c in model.clubs))
+    s.append(f"        case .{ident(k['created_id'])}: nil\n        }}\n    }}\n\n")
+    s.append("    public init(_ club: Club) {\n        switch club {\n")
+    s.append("".join(f"        case .{ident(c['id'])}: self = .{ident(c['id'])}\n" for c in model.clubs))
+    s.append("        }\n    }\n}\n\n")
 
     s.append("/// The cup's rounds (spec §11.1).\npublic enum CupRound: String, Sendable, CaseIterable {\n")
     s.append("".join(f"    case {ident(r)}\n" for r in model.cup_rounds))

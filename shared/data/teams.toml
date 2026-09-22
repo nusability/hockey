@@ -1,5 +1,5 @@
-# Worlds, formations, tactics, the coach's board, the clubs and the career (spec §2, §3, §12,
-# §13), declared once and generated into both apps by tools/generate-data.py. Localized names
+# Worlds, formations, tactics, the coach's board, the clubs, the career and its kit palette (spec
+# §2, §3, §12, §13), declared once and generated into both apps by tools/generate-data.py. Localized names
 # live next to what they name and are generated into the copy (§14).
 
 # §13 — the five worlds, in the demo match's order (§9).
@@ -185,7 +185,99 @@ name = { en = "Coral Kraken", de = "Korallenkraken" }
 demo_club = "mossfoxes"          # the demo's team before a career exists (§9)
 created_rating = 77              # the mean of the clubs' ratings, rounded — checked by the generator
 created_replaces = "wolves"      # the weakest club, replaced in the league and cup
-name_min_length = 2
+created_id = "created"           # the created team's key in a season and in the save (§11, §15)
+name_min_length = 2              # Unicode code points, after dropping leading and trailing spaces
 name_max_length = 16
 short_code_length = 3
-kit_palette_slots = 12           # PLACEHOLDER: the curated kit palette is not designed yet
+short_code_pad = "X"             # pads a derived short code short of letters; no club's code has one
+
+# §2.2 — the created team's kit palette: twelve pairs. The primary is chosen from the primaries and
+# the secondary from the secondaries; each primary's pair is the secondary it was designed with.
+# The generator checks that no primary equals a club's primary (§2.2) and that every colour is
+# unique. Chosen to read well against every club: the nearest palette primary to a club primary
+# is Navy against the clubs' blues at CIEDE2000 17.5 (the clubs among themselves go down to 7.4,
+# Rocket Lynx against Coral Kraken); every pair's WCAG contrast is at least 5.3:1. The names are
+# the swatches' accessibility labels (conventions: UI).
+[[kit]]
+id = "jet"
+primary = "#111827"
+secondary = "#bef264"
+primary_name = { en = "Jet", de = "Pechschwarz" }
+secondary_name = { en = "Glow lime", de = "Leuchtgrün" }
+
+[[kit]]
+id = "forest"
+primary = "#166534"
+secondary = "#fef9c3"
+primary_name = { en = "Forest", de = "Waldgrün" }
+secondary_name = { en = "Cream", de = "Creme" }
+
+[[kit]]
+id = "lime"
+primary = "#84cc16"
+secondary = "#1a2e05"
+primary_name = { en = "Lime", de = "Limette" }
+secondary_name = { en = "Moss", de = "Moos" }
+
+[[kit]]
+id = "sage"
+primary = "#a3a380"
+secondary = "#1c1917"
+primary_name = { en = "Sage", de = "Salbei" }
+secondary_name = { en = "Charcoal", de = "Anthrazit" }
+
+[[kit]]
+id = "bubblegum"
+primary = "#f9a8d4"
+secondary = "#831843"
+primary_name = { en = "Bubblegum", de = "Kaugummi" }
+secondary_name = { en = "Berry", de = "Beere" }
+
+[[kit]]
+id = "wine"
+primary = "#7f1d1d"
+secondary = "#fcd34d"
+primary_name = { en = "Wine", de = "Weinrot" }
+secondary_name = { en = "Gold", de = "Gold" }
+
+[[kit]]
+id = "snow"
+primary = "#f1f5f9"
+secondary = "#0f172a"
+primary_name = { en = "Snow", de = "Schnee" }
+secondary_name = { en = "Midnight", de = "Mitternacht" }
+
+[[kit]]
+id = "lilac"
+primary = "#c4b5fd"
+secondary = "#2e1065"
+primary_name = { en = "Lilac", de = "Flieder" }
+secondary_name = { en = "Aubergine", de = "Aubergine" }
+
+[[kit]]
+id = "lemon"
+primary = "#fde047"
+secondary = "#18181b"
+primary_name = { en = "Lemon", de = "Zitrone" }
+secondary_name = { en = "Ink", de = "Tinte" }
+
+[[kit]]
+id = "navy"
+primary = "#1e3a8a"
+secondary = "#e0f2fe"
+primary_name = { en = "Navy", de = "Marineblau" }
+secondary_name = { en = "Ice", de = "Eis" }
+
+[[kit]]
+id = "plum"
+primary = "#6b21a8"
+secondary = "#f5d0fe"
+primary_name = { en = "Plum", de = "Pflaume" }
+secondary_name = { en = "Blossom", de = "Blüte" }
+
+[[kit]]
+id = "mint"
+primary = "#86efac"
+secondary = "#14532d"
+primary_name = { en = "Mint", de = "Minze" }
+secondary_name = { en = "Pine", de = "Kiefer" }

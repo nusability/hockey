@@ -86,6 +86,12 @@ enum class DrillRule(val key: String) {
 
 """ + lookup("DrillRule", "drills.toml") + """}
 
+/**
+ * A pair of the created team's kit palette (spec §2.2). Colours are sRGB 0xRRGGBB; the names are
+ * the swatches' accessibility labels.
+ */
+data class Kit(val id: String, val primary: Int, val secondary: Int, val primaryName: CopyKey, val secondaryName: CopyKey)
+
 /** A step of the season's matchday plan (spec §11.1). */
 sealed interface MatchdayStep {
     data class League(val round: Int) : MatchdayStep
@@ -215,8 +221,28 @@ def teams(model, bits):
     s.append(f"    const val nameMinLength: Int = {k['name_min_length']}\n")
     s.append(f"    const val nameMaxLength: Int = {k['name_max_length']}\n")
     s.append(f"    const val shortCodeLength: Int = {k['short_code_length']}\n")
-    s.append(f"    /** PLACEHOLDER until the curated kit palette is designed. */\n    const val kitPaletteSlots: Int = {k['kit_palette_slots']}\n")
-    s.append("}\n\n")
+    s.append(f"    /** Pads a derived short code short of letters; no club's code contains it. */\n"
+             f"    const val shortCodePad: String = \"{k['short_code_pad']}\"\n")
+    s.append("    /** The created team's kit palette: twelve pairs (§2.2). No primary equals a club's primary. */\n")
+    s.append("    val kitPalette: List<Kit> = listOf(\n")
+    for kit in model.kits:
+        s.append(f"        Kit(\"{kit['id']}\", 0x{kit['primary']:06X}, 0x{kit['secondary']:06X}, "
+                 f"CopyKey.{upper_snake(kit['primary_name'])}, CopyKey.{upper_snake(kit['secondary_name'])}),\n")
+    s.append("    )\n}\n\n")
+
+    created = k["created_id"]
+    s.append("/** A team in a season (spec §11): one of the clubs, or the created team (§2.2); [club] is null for it. */\n")
+    s.append("enum class TeamKey(val key: String, val club: Club?) {\n")
+    rows = [f"    {c['id'].upper()}(\"{c['id']}\", Club.{c['id'].upper()})" for c in model.clubs]
+    rows.append(f"    {created.upper()}(\"{created}\", null)")
+    s.append(",\n".join(rows) + ";\n\n")
+    s.append("    companion object {\n"
+             "        /** The entry declared as [key]; throws for a key that is neither a club's nor the created team's. */\n"
+             "        fun of(key: String): TeamKey = entries.firstOrNull { it.key == key }\n"
+             "            ?: throw IllegalArgumentException(\"unknown TeamKey '$key' — not declared in teams.toml\")\n\n"
+             "        /** The key of [club]. */\n"
+             "        fun of(club: Club): TeamKey = entries.first { it.club == club }\n"
+             "    }\n}\n\n")
 
     s.append("/** The cup's rounds (spec §11.1). */\nenum class CupRound(val key: String) {\n")
     s.append(",\n".join(f"    {upper_snake(r)}(\"{r}\")" for r in model.cup_rounds) + ";\n\n"

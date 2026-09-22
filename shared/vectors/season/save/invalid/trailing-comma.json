@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "career": null,
+  "season": null,
+  "training": {
+    "won": []
+  },
+  "board": {
+    "pressing": "0x3FE199999999999A",
+    "covering": "0x3FE199999999999A",
+    "push_up": "0x3FE199999999999A",
+    "discipline": "0x0000000000000000",
+    "formation": "balanced",
+    "period_seconds": "0x405E000000000000",
+    "ball_spin_seconds": "0x4000000000000000",
+  }
+}

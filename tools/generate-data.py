@@ -11,13 +11,15 @@ write the same bytes. Writes:
   ios/SmashCore/Sources/SmashCore/Generated/*.swift            ios/SmashCore/Tests/…/Generated/
   android/core/src/main/kotlin/in/nann/smashhockey/core/generated/*.kt    …/src/test/…/generated/
   ios/Sources/Localizable.xcstrings    android/app/src/main/res/values{,-de}/strings.xml
+
+including the save records (shared/data/save.toml → SaveRecords.swift / SaveRecords.kt).
 """
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from datagen import copyout, kotlin, swift  # noqa: E402
+from datagen import copyout, kotlin, save, swift  # noqa: E402
 from datagen.common import Bits  # noqa: E402
 from datagen.model import DataError, camel, load, upper_snake  # noqa: E402
 
@@ -37,6 +39,7 @@ def render():
     files.update(kotlin.emit(model, kbits))
     files[swift.TEST + "GeneratedConstantBits.swift"] = swift.bits_test(sbits)
     files[kotlin.TEST + "GeneratedConstantBits.kt"] = kotlin.bits_test(kbits)
+    files.update(save.emit(save.load(ROOT)))
     files.update(copyout.emit(model))
     return files
 

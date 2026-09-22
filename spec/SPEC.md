@@ -123,16 +123,27 @@ drives simulated results (§11).
 The player's first act is to choose their team, **once**:
 
 - **Pick a club** — any of the eight. Its name, kit, home world and rating become the player's.
-  The coach's board (§12) starts from that club's tactics.
+  The coach's board (§12) starts from that club's tactics: pressing, covering, push up and
+  discipline take the club's values; formation, period length and ball spin stay as the player
+  set them.
 - **Create a team** — the player enters:
-  - a **name**, 2–16 characters;
-  - a **short code**, 3 letters, derived from the name and editable, and never equal to a club's;
-  - a **kit**: a primary and secondary colour, each chosen from a curated palette. No palette
-    primary equals a club's primary, so a created team never clashes with an opponent;
+  - a **name**, 2–16 characters, counted as Unicode code points once leading and trailing spaces
+    are dropped (the name is kept without them);
+  - a **short code**, three capital letters A–Z, never equal to a club's (Glacier Wolves'
+    included). It is derived from the name and editable. The derivation takes the name's letters
+    A–Z (accents dropped, case ignored, anything else skipped): the first, the second and the first
+    later letter that makes a code no club has; failing that, the first two letters — as many as
+    there are — padded with X (no club's code has one);
+  - a **kit**: a primary and secondary colour from a curated palette of twelve pairs
+    (`shared/data/`) — the primary chosen from the pairs' primaries, the secondary from their
+    secondaries. No palette primary equals a club's primary, so a created team never clashes with
+    an opponent;
   - a **home world**, one of the five (§13).
 
+  A draft that breaks any of these rules cannot be confirmed; every rule it breaks is named.
+
   A created team's **rating is fixed at 77**, the league average (the mean of the eight clubs'
-  ratings, rounded). Its tactics start from the defaults (§12). **It replaces the weakest club,
+  ratings, rounded). Its tactics start from the defaults (§12), in the same way. **It replaces the weakest club,
   Glacier Wolves, in the league and cup**, which keep eight teams. Glacier Wolves still exist as
   an opponent outside the season (quick match, §11.5).
 
@@ -587,14 +598,19 @@ on the device.
 The career's league — the eight clubs, or seven plus the created team (§2.2) — plays a **double
 round-robin**: 14 rounds.
 
-- The team order is shuffled (Fisher–Yates from the last position down, `j = floor(u × (i + 1))`)
-  from the season stream; the cup order is shuffled the same way, after it.
+- The league's teams in their canonical order — the clubs as §2.1 lists them, the created team
+  in the place of the club it replaces — are shuffled from the season stream (Fisher–Yates from
+  the last position down to position 1: for i = 7 … 1, `j = floor(u × (i + 1))`, swap i and j).
+  The cup order is shuffled the same way, from the same canonical order, after it.
 - Round r (0-based, r < 7) pairs order[i] with order[7 − i] for i = 0…3; order[i] is at home when
   r is even, order[7 − i] when r is odd. The order is then rotated with position 0 fixed (the
   last moves to position 1).
 - Rounds 8–14 repeat 1–7 with home and away swapped.
 - The **cup** quarter-finals pair cup-order positions (0, 1), (2, 3), (4, 5), (6, 7), the first
-  at home; each later round pairs the winners of consecutive ties the same way.
+  at home; each later round pairs the winners of consecutive ties the same way, and is drawn when
+  the round before it closes.
+
+A matchday's fixtures keep this order — a round's pairs by i, a cup round's ties in bracket order.
 The **matchday plan**:
 
 > league rounds 1–4 · cup quarter-finals · league rounds 5–9 · cup semi-finals · league rounds 10–14 · cup final
@@ -602,9 +618,10 @@ The **matchday plan**:
 League matches are played in the **home team's world**; cup matches likewise.
 
 #### 11.2 Playing a matchday
-The player plays their fixture of the matchday. Every other fixture is **simulated** when the
-matchday closes. Matchdays on which the player has no fixture — after a cup exit — are simulated
-straight through.
+The player plays their fixture of the matchday; its result (or a forfeit, §8.7) is recorded and
+the matchday closes. Every other fixture is **simulated** when the matchday closes. Matchdays on
+which the player has no fixture — after a cup exit — are simulated straight through, as soon as
+the matchday before them closes.
 
 #### 11.3 Simulated results
 Each side's goals are Poisson-distributed:
@@ -612,9 +629,12 @@ Each side's goals are Poisson-distributed:
 - home mean `2.3 × exp((home − away) / 22) + 0.15`;
 - away mean `2.3 × exp((away − home) / 22)`.
 
-Goals are drawn by Knuth's method from the season stream. A level cup match goes to the home
-side with probability `home mean / (home mean + away mean)`, else the away side, by one goal in
-overtime.
+Goals are drawn by Knuth's method from the season stream: `k = 0, p = 1`; repeat `k += 1, p ×= u`
+while `p > exp(−mean)`; the goals are `k − 1` (`exp` is §4.4's). A level cup match goes to the
+home side when one more draw `u < home mean / (home mean + away mean)`, else to the away side, by
+one goal in overtime. A matchday's fixtures are simulated in their order (§11.1), each drawing
+the home side's goals, then the away side's, then — only if it is a level cup match — the
+overtime draw.
 
 #### 11.4 The table, the cup, the end
 - **Table:** 3 points for a win, 1 for a draw. Ranked by points, then goal difference, then goals
@@ -626,7 +646,10 @@ overtime.
 
 #### 11.5 Quick match
 A friendly against a random club other than the player's, in a random world, outside the
-season.
+season. Both are drawn from a stream of the quick match's own, seeded when it is chosen — never
+the season's, whose position a friendly does not move: first the opponent, `floor(u × n)` into
+the clubs in §2.1's order less the player's club (all eight against a created team), then the
+world, `floor(u × 5)` into §13's order.
 
 ### 12. The coach's board
 The player tunes their own team's automatic play. It applies to every match they play, drills
@@ -660,10 +683,16 @@ name and drill text exists in both.
 ### 15. What is kept on the device
 - **The career:** the chosen club, or the created team's name, short code, kit and home world;
   and the trophy counts.
-- **The season in progress:** its seed and stream position, fixtures, results, table, cup and
-  matchday.
+- **The season in progress:** its seed and stream position, its teams, every fixture drawn so
+  far with its result, and the matchday. The table and the cup bracket follow from the results.
+  A season read back from the device continues with exactly the draws it would have made.
 - **Training:** which drills are won.
 - **The coach's board** (§12).
+
+The record's shape is declared once (`shared/data/save.toml`) and written as canonical JSON: the
+same state writes the same bytes on both platforms. It carries a format **version**. A record
+that is not well-formed, breaks a rule of this spec, or has another version is refused with a
+typed error — never read as an empty save.
 
 Nothing leaves the device. Until the first store submission, these shapes may change without
 migration (`conventions.md`, greenfield); from then on they are migrated, never reset.

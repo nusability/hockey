@@ -14,6 +14,8 @@ let package = Package(
         .target(name: "SmashCore"),
         // Records shared/vectors/math/ (spec §4.7). Not linked by the app.
         .executableTarget(name: "RecordVectors", dependencies: ["SmashCore"]),
+        // Records shared/vectors/season/ (spec §2.2, §11, §15). Not linked by the app.
+        .executableTarget(name: "RecordSeasonVectors", dependencies: ["SmashCore"]),
         .testTarget(name: "SmashCoreTests", dependencies: ["SmashCore"]),
     ],
     swiftLanguageModes: [.v6]

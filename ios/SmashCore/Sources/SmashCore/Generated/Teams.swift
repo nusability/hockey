@@ -193,8 +193,64 @@ public enum Career {
     public static let nameMinLength: Int = 2
     public static let nameMaxLength: Int = 16
     public static let shortCodeLength: Int = 3
-    /// PLACEHOLDER until the curated kit palette is designed.
-    public static let kitPaletteSlots: Int = 12
+    /// Pads a derived short code short of letters; no club's code contains it.
+    public static let shortCodePad: String = "X"
+    /// The created team's kit palette: twelve pairs (§2.2). No primary equals a club's primary.
+    public static let kitPalette: [Kit] = [
+        Kit(id: "jet", primary: 0x111827, secondary: 0xBEF264, primaryName: .kitJetPrimary, secondaryName: .kitJetSecondary),
+        Kit(id: "forest", primary: 0x166534, secondary: 0xFEF9C3, primaryName: .kitForestPrimary, secondaryName: .kitForestSecondary),
+        Kit(id: "lime", primary: 0x84CC16, secondary: 0x1A2E05, primaryName: .kitLimePrimary, secondaryName: .kitLimeSecondary),
+        Kit(id: "sage", primary: 0xA3A380, secondary: 0x1C1917, primaryName: .kitSagePrimary, secondaryName: .kitSageSecondary),
+        Kit(id: "bubblegum", primary: 0xF9A8D4, secondary: 0x831843, primaryName: .kitBubblegumPrimary, secondaryName: .kitBubblegumSecondary),
+        Kit(id: "wine", primary: 0x7F1D1D, secondary: 0xFCD34D, primaryName: .kitWinePrimary, secondaryName: .kitWineSecondary),
+        Kit(id: "snow", primary: 0xF1F5F9, secondary: 0x0F172A, primaryName: .kitSnowPrimary, secondaryName: .kitSnowSecondary),
+        Kit(id: "lilac", primary: 0xC4B5FD, secondary: 0x2E1065, primaryName: .kitLilacPrimary, secondaryName: .kitLilacSecondary),
+        Kit(id: "lemon", primary: 0xFDE047, secondary: 0x18181B, primaryName: .kitLemonPrimary, secondaryName: .kitLemonSecondary),
+        Kit(id: "navy", primary: 0x1E3A8A, secondary: 0xE0F2FE, primaryName: .kitNavyPrimary, secondaryName: .kitNavySecondary),
+        Kit(id: "plum", primary: 0x6B21A8, secondary: 0xF5D0FE, primaryName: .kitPlumPrimary, secondaryName: .kitPlumSecondary),
+        Kit(id: "mint", primary: 0x86EFAC, secondary: 0x14532D, primaryName: .kitMintPrimary, secondaryName: .kitMintSecondary),
+    ]
+}
+
+/// A team in a season (spec §11): one of the clubs, or the created team (§2.2).
+public enum TeamKey: String, Sendable, CaseIterable {
+    case mossfoxes
+    case glowowls
+    case nebula
+    case rocketlynx
+    case scorpions
+    case falcons
+    case wolves
+    case kraken
+    case created
+
+    /// The club, or nil for the created team.
+    public var club: Club? {
+        switch self {
+        case .mossfoxes: .mossfoxes
+        case .glowowls: .glowowls
+        case .nebula: .nebula
+        case .rocketlynx: .rocketlynx
+        case .scorpions: .scorpions
+        case .falcons: .falcons
+        case .wolves: .wolves
+        case .kraken: .kraken
+        case .created: nil
+        }
+    }
+
+    public init(_ club: Club) {
+        switch club {
+        case .mossfoxes: self = .mossfoxes
+        case .glowowls: self = .glowowls
+        case .nebula: self = .nebula
+        case .rocketlynx: self = .rocketlynx
+        case .scorpions: self = .scorpions
+        case .falcons: self = .falcons
+        case .wolves: self = .wolves
+        case .kraken: self = .kraken
+        }
+    }
 }
 
 /// The cup's rounds (spec §11.1).

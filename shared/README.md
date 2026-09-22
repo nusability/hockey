@@ -12,6 +12,7 @@ and the simulation's golden vectors. None of it is code either platform links.
 | `drills.toml` | the eight drills with lineups, dummies, patrols and rules (§10) |
 | `math.toml` | the deterministic math's constants, as exact IEEE-754 bit patterns (§4.3–§4.4) |
 | `copy.toml` | every user-facing string, English and German (§14); club, world, formation and drill names live next to what they name |
+| `save.toml` | the save records — career, season in progress (seed and stream position), training, coach's board — with a `version`; generated into types plus a canonical JSON encoder and a strict decoder, so both platforms write the same bytes (§15) |
 | `motion.json` | the UI's motion tokens (ADR 0005) — also loaded by the apps at runtime |
 
 **TOML**, because every number sits next to a comment naming its spec section, and Python reads it
@@ -55,8 +56,13 @@ RecordVectors`, macOS arm64; it refuses to overwrite a differing file without `-
 | `exp.txt` | 2,294 | [−50, 5], multiples of ln 2, overflow and underflow |
 | `length.txt` | 505 | `sqrt(x² + z²)` |
 
+Live too — `vectors/season/` (§2.2, §11, §15), recorded by iOS (`swift run
+RecordSeasonVectors`): two whole seasons (a picked club; a created team) with every fixture,
+result, table and bracket, 486 simulated results, the created-team rules, quick-match draws, and
+save files byte for byte — including 21 malformed saves and the typed error each must raise.
+
 Replayed by `ios/SmashCore` (`swift test`, and in the app scheme's `xcodebuild test`) and by
-`android/core` (`./gradlew :core:test`). Simulation vectors (§4.7) arrive with the simulation.
+`android/core` (`./gradlew :core:test`). Match vectors (§4.7) arrive with the simulation.
 
 ## The deterministic math
 

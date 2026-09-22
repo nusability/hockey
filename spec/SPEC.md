@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.3.2
+Spec-Version: 0.3.3
 Status: as-is — **the whole game's rules, written down; neither app plays them yet.** Both apps
 are empty shells (see the platform-delta table). What this file now holds is the complete
 gameplay contract taken from the web prototype — the pitch, the one-touch control, the ball, the
@@ -649,7 +649,8 @@ A friendly against a random club other than the player's, in a random world, out
 season. Both are drawn from a stream of the quick match's own, seeded when it is chosen — never
 the season's, whose position a friendly does not move: first the opponent, `floor(u × n)` into
 the clubs in §2.1's order less the player's club (all eight against a created team), then the
-world, `floor(u × 5)` into §13's order.
+world, `floor(u × 5)` into §13's order. Before a career exists the player's side is the Moss
+Foxes, as in the demo (§9).
 
 ### 12. The coach's board
 The player tunes their own team's automatic play. It applies to every match they play, drills

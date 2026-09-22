@@ -10,7 +10,7 @@ as-is to the spec'd to-be; it dies at commit. It never enters `spec/` (that's du
 
 ## Procedure
 1. Take the reviewed `spec/` diff as the target.
-2. Produce, on the Stori work item in `SLAP` (body/attachment):
+2. Produce, on the Stori work item in `SMASH` (body/attachment):
    - **Approach** — architecture, data shapes, interfaces, integration points.
    - **Tasks** — ordered steps, dependencies marked, **riskiest first** (principle 18).
    - **One-way doors** — name foundational, hard-to-reverse choices explicitly (principle 15).

@@ -1,6 +1,6 @@
 <!--
 This spec covers ONLY what we are building now. It is not a roadmap — everything not yet in
-scope lives in Stori project SLAP as ideas/tasks. When we pick one up, we edit this file first;
+scope lives in Stori project SMASH as ideas/tasks. When we pick one up, we edit this file first;
 the diff is the work (AGENTS.md).
 
 Split axis (declared): CAPABILITY. When this file grows, split into spec/<capability>.md
@@ -61,7 +61,7 @@ deletes it — the goal for these is zero).
 
 | Since | Kind | Delta |
 |---|---|---|
-| 2026-09-22 | **temporary** | **Neither app implements §1–§9 yet.** Both are empty shells that launch; the game is playable only in the `web/` prototype. Each section's port deletes its part of this row, on both platforms in the same commit, or splits it into a per-platform row naming the one that is behind. Closed by the porting items in Stori `SLAP`. |
+| 2026-09-22 | **temporary** | **Neither app implements §1–§9 yet.** Both are empty shells that launch; the game is playable only in the `web/` prototype. Each section's port deletes its part of this row, on both platforms in the same commit, or splits it into a per-platform row naming the one that is behind. Closed by the porting items in Stori `SMASH`. |
 | 2026-09-22 | **permanent** | **Purchases are per-store and per-device.** There is no account, so an entitlement bought on one store does not follow the player to the other. The game never implies otherwise: no affordance offers a cross-platform restore (ADR 0001). |
 
 **The golden vectors** (`shared/vectors/`) are the one place the two simulations are checked

@@ -12,7 +12,7 @@ A stylised, colourful 3D field-hockey game for phones — one ice world among fi
 | **`shared/`** | What the platforms share, none of it code: `data/` (generated config — tunables, teams, drills, copy), `assets/`, and `vectors/` (simulation golden vectors both replay). |
 | **`web/`** | The original web build — a **gameplay prototype and nothing else**, playable at **https://nusability.github.io/hockey/** (ADR 0002). |
 
-Both apps are empty shells today; the porting plan lives in Stori project **`SLAP`**.
+Both apps are empty shells today; the porting plan lives in Stori project **`SMASH`**.
 
 ## How we work
 
@@ -24,6 +24,6 @@ Spec-driven, trunk-based, one change in flight. Read these in order:
 - **`spec/`** — what the system does *right now*. Never reconstruct current state from tickets.
 - **`decisions/`** — ADRs; the durable *why*.
 
-Ideas and backlog live in Stori project **`SLAP`** (Now / Next / Later), never in `spec/`.
+Ideas and backlog live in Stori project **`SMASH`** (Now / Next / Later), never in `spec/`.
 
 The golden rule: **behavior change ⇒ spec change in the same commit, on both platforms.** `web/` is exempt — it's the sandbox.

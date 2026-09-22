@@ -1,5 +1,5 @@
 # 0005 — RealityKit on iOS, Filament on Android, and the UI lives in the scene
-Date: 2026-09-22 · Status: **proposed** — accepted when the vertical-slice spike (Stori `SLAP-2`)
+Date: 2026-09-22 · Status: **proposed** — accepted when the vertical-slice spike (Stori `SMASH-2`)
 passes; supersedes 0003 (0004 withdrawn)
 
 ## Context

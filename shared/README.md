@@ -15,4 +15,4 @@ and the simulation's golden vectors. None of it is code either platform links.
   same commit — a red vector fixed by regenerating the file is drift laundered through the gate
   built to stop it.
 
-All are empty today. The first entries arrive with the port's first tasks (Stori `SLAP`).
+All are empty today. The first entries arrive with the port's first tasks (Stori `SMASH`).

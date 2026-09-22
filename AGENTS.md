@@ -31,7 +31,7 @@ spec; nothing in either app is exempt from it.
 There is no product on either store yet. The standing goal is **build the game on both
 platforms at once, to the spec** — whose gameplay was proven in `web/` — and then keep them in
 step. The plan
-lives on Stori (`SLAP`); the what lives in `spec/`.
+lives on Stori (`SMASH`); the what lives in `spec/`.
 
 - **Every change is a two-codebase change.** A change that lands on one platform and not the
   other needs a dated delta row in the spec on the day, naming the item that closes it.
@@ -54,7 +54,7 @@ lives on Stori (`SLAP`); the what lives in `spec/`.
 - **Values/rules** → `principles.md` (constitution). Overrides everything.
 - **Stack standards** → `conventions.md`.
 - **Durable technical why** → `decisions/` (ADRs).
-- **Ideas / not-yet-built changes / the porting plan** → Stori project `SLAP` (Now / Next / Later).
+- **Ideas / not-yet-built changes / the porting plan** → Stori project `SMASH` (Now / Next / Later).
 
 ## Golden rule
 Behavior change ⇒ spec change **in the same commit**. New public surface ⇒ its spec entry,
@@ -76,7 +76,7 @@ adopted for the apps, it goes through the loop below like anything else.
 ## The loop — branchless, trunk-based
 As-is = the last commit (HEAD). To-be = your uncommitted edits to the spec.
 Steps 2–4 and 6 are skills — invoke them; they carry the detailed procedure.
-1. **Capture** the idea → Stori work item in `SLAP`; bucket Now / Next / Later; → In Progress.
+1. **Capture** the idea → Stori work item in `SMASH`; bucket Now / Next / Later; → In Progress.
 2. **`/sdd-clarify`** — resolve unknowns before non-trivial work; fold answers into the spec. Re-run at each topic switch; honor a stop.
 3. **`/sdd-spec`** — edit `spec/` (working tree) to the *desired* state. `git diff` = scope. Review it before coding.
 4. **`/sdd-plan`** — technical approach + tasks on the Stori item (ephemeral). Lasting choice? → `decisions/NNNN-*.md` (ADR). One-way door you cannot settle? **`/architecture`** — it briefs the `mobile-architect` subagent, which decides in its own context and hands back the ADR's substance.

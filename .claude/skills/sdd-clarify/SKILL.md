@@ -9,7 +9,7 @@ Lifted from Spec Kit's `/clarify`. Purpose: kill ambiguity *before* it becomes w
 This is a **gate**, not a document — the resolved spec is the record.
 
 ## Procedure
-1. Read the as-is `spec/` for the affected area + the Stori work item in `SLAP` (intent).
+1. Read the as-is `spec/` for the affected area + the Stori work item in `SMASH` (intent).
 2. Scan for underspecified areas, by coverage — check each dimension, don't free-associate:
    - **Behavior**: happy path, edge cases, error/empty states.
    - **Terms**: any word that could mean two things → pin it.

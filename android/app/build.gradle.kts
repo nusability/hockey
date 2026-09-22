@@ -31,6 +31,15 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Shared assets (worlds, fonts) and shared data (motion tokens) are read from shared/ directly, never copied (ADR 0001).
+    // Only what Android loads is packaged: the .usdz twins and the build scripts are iOS's and the
+    // pipeline's, not the app's.
+    sourceSets["main"].assets.srcDirs("src/main/assets", "../../shared/assets", "../../shared/data")
+    androidResources {
+        ignoreAssetsPattern = "!*.usdz:!*.py:!*.txt:!.*"
+        noCompress += listOf("glb", "filamat")
+    }
 }
 
 dependencies {
@@ -40,5 +49,9 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
+    implementation(libs.filament.android)
+    implementation(libs.filament.gltfio)
+    implementation(libs.filament.utils)
+    implementation(libs.earcut4j)
     testImplementation(libs.junit)
 }

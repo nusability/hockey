@@ -28,6 +28,20 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      # Shared assets and data are referenced from shared/, never copied (ADR 0001, 0005).
+      - path: ../shared/assets/worlds/oasis/oasis.usdz
+        buildPhase: resources
+      - path: ../shared/assets/fonts/LilitaOne-Regular.ttf
+        buildPhase: resources
+      - path: ../shared/data/motion.json
+        buildPhase: resources
+    # Keys the generated plist has no build setting for. xcodegen writes ios/Info.plist from this
+    # (untracked); GENERATE_INFOPLIST_FILE merges the INFOPLIST_KEY_* settings into it.
+    info:
+      path: Info.plist
+      properties:
+        # ProMotion: without this key an iPhone caps every app at 60 Hz (ADR 0005 spike).
+        CADisableMinimumFrameDurationOnPhone: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: in.nann.smashhockey
@@ -36,6 +50,7 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UIRequiresFullScreen: "YES"
         TARGETED_DEVICE_FAMILY: "1"
+
   SmashHockeyTests:
     type: bundle.unit-test
     platform: iOS

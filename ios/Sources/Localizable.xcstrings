@@ -1,19 +1,72 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "app.name" : {
-      "comment" : "Temporary: once shared/data/copy lands, this file is generated and never hand-edited.",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Smash Hockey 3D" } },
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Smash Hockey 3D" } }
+  "sourceLanguage": "en",
+  "strings": {
+    "app.name": {
+      "comment": "Temporary: once shared/data/copy lands, this file is generated and never hand-edited.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smash Hockey 3D"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smash Hockey 3D"
+          }
+        }
       }
     },
-    "menu.tagline" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "One finger. Six players. One goal." } },
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Ein Finger. Sechs Spieler. Ein Tor." } }
+    "menu.tagline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One finger. Six players. One goal."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Finger. Sechs Spieler. Ein Tor."
+          }
+        }
       }
+    },
+    "play.button": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PLAY"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SPIELEN"
+          }
+        }
+      }
+    },
+    "umlaut.probe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Übung · Größe"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Übung · Größe"
+          }
+        }
+      },
+      "comment": "Spike probe (SMASH-2): glyphs with holes and umlauts, rendered as 3D text."
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

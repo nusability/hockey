@@ -1,0 +1,22 @@
+// The 3D UI's surface (ADR 0005): lit so blocks and letters read as objects. The HUD sits well
+// inside the fog's start distance, so the weather never reaches it.
+material {
+    name : ui_lit,
+    shadingModel : lit,
+    parameters : [
+        { type : float3, name : baseColor },
+        { type : float, name : alpha }
+    ],
+    requires : [ tangents ],
+    blending : transparent,
+    culling : back
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        material.baseColor = vec4(materialParams.baseColor * materialParams.alpha, materialParams.alpha);
+        material.roughness = 0.6;
+        material.metallic = 0.0;
+    }
+}

@@ -7,6 +7,11 @@ lifecycle = "2.11.0"
 activityCompose = "1.13.0"
 composeBom = "2026.08.00"
 junit = "4.13.2"
+# ADR 0005: Filament draws the scene and the 3D UI. tools/build-materials.sh reads this line —
+# the compiled materials must come from the same release.
+filament = "1.77.0"
+# Triangulates glyph outlines with holes for the extruded 3D text (ADR 0005).
+earcut4j = "2.2.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -15,6 +20,10 @@ androidx-activity-compose = { group = "androidx.activity", name = "activity-comp
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
+filament-android = { group = "com.google.android.filament", name = "filament-android", version.ref = "filament" }
+filament-gltfio = { group = "com.google.android.filament", name = "gltfio-android", version.ref = "filament" }
+filament-utils = { group = "com.google.android.filament", name = "filament-utils-android", version.ref = "filament" }
+earcut4j = { group = "io.github.earcut4j", name = "earcut4j", version.ref = "earcut4j" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]

@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Temporary: once shared/data/copy lands, this file is generated and never hand-edited. -->
+<!-- Temporary: once shared/data/copy lands (SMASH-6), this file is generated and never hand-edited. -->
 <resources>
     <string name="app_name">Smash Hockey 3D</string>
     <string name="menu_tagline">One finger. Six players. One goal.</string>
+    <string name="play_button">PLAY</string>
+    <!-- Spike probe (SMASH-2): glyphs with holes and umlauts, rendered as 3D text. -->
+    <string name="umlaut_probe">Übung · Größe</string>
 </resources>

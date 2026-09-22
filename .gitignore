@@ -30,3 +30,4 @@ build-release/
 __pycache__/
 *.pyc
 node_modules/
+ios/Info.plist

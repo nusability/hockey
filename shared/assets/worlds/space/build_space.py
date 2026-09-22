@@ -1,665 +1,420 @@
 """
-Builds the Deep Space world (spec §13): a floating arena adrift among the stars.
+Builds Deep Space (Tiefer Weltraum): a floating arena adrift among the stars (spec §13, ADR 0006).
 
-The pitch sits on a hovering deck with a tapered hull, thruster pods and floodlight masts; around
-it drift two dashed halo rings, an asteroid belt, a banded gas giant and a ringed ice planet behind
-the far goal, a cratered moon, a wheel station and a starfield. Field hockey (corner radius 2.0).
+Re-authored from the prototype's world (web/js/worlds/space.js — read, never run): the same set
+pieces in the same places. A midnight-blue pitch with dark mowing stripes, cyan markings, cyan
+haze creeping in from its edges, a hex grid brightening towards them, pink glows in the shooting
+circles and orbit rings round the centre; deep-blue boards with a cyan rail on a dark rim; below,
+the arena's hull with a keel and a spine, outrigger arms with thruster pods and their flames,
+neon edge strips and light studs round the rim, floodlight masts, holographic boards; round it
+two dashed halo rings, an asteroid belt, a banded gas giant below the far goal, a ringed ice
+planet low beside the −X wall, a cratered moon and a small tan one, a wheel station, two
+satellites, a comet. The sky: the prototype's painted sky sphere (its gradient, colour washes,
+the milky way, nebula clouds and the planets' halos painted into the palette's sky map) with a
+starfield. No fog (ADR 0006).
 
-One scene, two exports: `space.glb` (Filament, Android) and `space.usdz` (RealityKit, iOS), plus
-`palette.png`. Deterministic: the same script always writes the same world.
-
-Run: tools/build-worlds.sh  (Blender 5, headless). Preview from the play camera:
-  Blender --background --factory-startup --python build_space.py -- --preview [--wide PATH]
-
-Coordinates: Blender is Z-up; the exporters convert to Y-up, where the game's pitch lies in X-Z
-with Z along the pitch (spec §1). Blender's -Y is the game's +Z, so the far end is Blender -Y.
-
-Materials are bound **by name** on each platform (ADR 0005): `turf`, `scenery`, `sky`. All three
-sample one palette texture (left half: an 8x8 grid of swatches; right half: the vertical sky
-gradient), so colours never live in vertex attributes either engine might drop.
+Everything that was a MeshBasic/additive glow in the prototype — stars, neon, flames, holo
+boards, the halo rings, the planet's ring, the comet — is in the unlit `sky` mesh.
+Coordinates are the game's (worldkit): X across, Y up, Z along, the far goal at +Z.
+Run: tools/build-worlds.sh (Blender 5, headless); `-- --preview` also renders preview.png.
 """
 import math
 import os
 import random
 import sys
 
-import bmesh
-import bpy
-from mathutils import Matrix, Vector
-
-WORLD = 'space'
+sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.normpath(os.path.join(HERE, '..', '..', '..', '..', 'tools')))
+import worldkit as wk  # noqa: E402
+from worldkit import T, R as Rot, S, euler, mix, clamp  # noqa: E402
+
+WORLD, SPORT = 'space', 'field'
+LIGHT = dict(hemi_sky='#9fd0ff', hemi_ground='#1a1240', hemi=1.05, sun='#fff1d8', sun_i=1.9, sun_pos=(18, 60, -20))
+BORDER = dict(color='#0369a1', top='#67e8f9', height=1.1, base='#121a38')
+GOAL = dict(post='#f472b6', net='#bae6fd')
+BASE, STRIPE, CYAN = '#151c33', '#121829', '#7df9ff'
+HW, HL, CORNER = wk.HW, wk.HL, 2.0
+
 rng = random.Random(4207)
-
-HW, HL = 15.0, 30.0          # pitch half-extents (spec §1)
-CORNER = 2.0                 # field hockey corner radius
-GOAL_Z, GOAL_W, GOAL_D = 26.0, 6.0, 1.6
-SKY_R = 320.0
-
-# ---------------------------------------------------------------- palette
-SWATCH = {
-    'turf_a': '#26335e', 'turf_b': '#1f2a50', 'line': '#7df9ff', 'line_pink': '#f0abfc',
-    'deck': '#222d52', 'deck_light': '#3a4a80', 'hull': '#46568e', 'hull_dark': '#161d38',
-    'neon_c': '#67e8f9', 'neon_p': '#e879f9', 'wall': '#0369a1', 'wall_top': '#67e8f9',
-    'post': '#f472b6', 'net': '#bae6fd', 'flame': '#60c8ff', 'lamp': '#fff6c8',
-    'giant_a': '#f3dcae', 'giant_b': '#e6b98a', 'giant_c': '#d98a6a', 'giant_d': '#a45c6b',
-    'giant_e': '#8b5a97', 'giant_f': '#f6e7c9', 'ice_a': '#cfe6ff', 'ice_b': '#7fb0e6',
-    'ring_a': '#e6f2ff', 'ring_b': '#a9cdf7', 'moon': '#b4b3c2', 'moon_dark': '#7b7a8c',
-    'rock': '#8b7f78', 'rock_dark': '#5e5250', 'rock_warm': '#a8876f', 'station': '#d4d9e3',
-    'panel': '#2563eb', 'star': '#ffffff', 'star_warm': '#ffe3a8', 'star_blue': '#b9dcff',
-    'hazard': '#fde047', 'core': '#a5f3fc',
-}
-# the sky gradient, bottom (below/at the horizon) to top (zenith)
-SKY = [(0.0, '#2d1458'), (0.25, '#22114a'), (0.55, '#0d0c2e'), (1.0, '#03040d')]
-
-
-# ================================================================ world kit (shared shape across
-# the world scripts; each script stays standalone so tools/build-worlds.sh can run it alone)
-TEX, COLS, ROWS = 256, 8, 8
-NAMES = list(SWATCH)
-assert len(NAMES) <= COLS * ROWS
-
-
-def hexc(h):
-    return tuple(int(h[i:i + 2], 16) / 255.0 for i in (1, 3, 5))
-
-
-def swatch_uv(name):
-    i = NAMES.index(name)
-    cx, cy = i % COLS, i // COLS
-    return ((cx + 0.5) / (2 * COLS), 1.0 - (cy + 0.5) / ROWS)   # left half
-
-
-def gradient(stops, t):
-    for (t0, c0), (t1, c1) in zip(stops, stops[1:]):
-        if t <= t1:
-            k = (t - t0) / (t1 - t0) if t1 > t0 else 0.0
-            a, b = hexc(c0), hexc(c1)
-            return tuple(a[i] + (b[i] - a[i]) * k for i in range(3))
-    return hexc(stops[-1][1])
-
-
-def build_palette():
-    img = bpy.data.images.new('palette', TEX, TEX, alpha=False)
-    px = [0.0] * (TEX * TEX * 4)
-    cw, ch = TEX // 2 // COLS, TEX // ROWS
-    cols = [hexc(SWATCH[n]) for n in NAMES]
-    for y in range(TEX):
-        sky = gradient(SKY, y / (TEX - 1))                   # 0 bottom (horizon) .. 1 top
-        for x in range(TEX):
-            if x < TEX // 2:
-                i = ((TEX - 1 - y) // ch) * COLS + x // cw
-                c = cols[i] if i < len(cols) else (0.5, 0.5, 0.5)
-            else:
-                c = sky
-            o = (y * TEX + x) * 4
-            px[o:o + 4] = [c[0], c[1], c[2], 1.0]
-    img.pixels = px
-    img.filepath_raw = os.path.join(HERE, 'palette.png')
-    img.file_format = 'PNG'
-    img.save()
-    return img
-
-
-def make_material(name, img):
-    m = bpy.data.materials.new(name)
-    m.use_nodes = True
-    nt = m.node_tree
-    bsdf = nt.nodes['Principled BSDF']
-    bsdf.inputs['Roughness'].default_value = 1.0
-    tex = nt.nodes.new('ShaderNodeTexImage')
-    tex.image = img
-    tex.interpolation = 'Closest'
-    nt.links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
-    return m
-
-
-def T(x, y, z):
-    return Matrix.Translation((x, y, z))
-
-
-def S(x, y, z):
-    return Matrix.Diagonal((x, y, z, 1.0))
-
-
-def R(angle, axis):
-    return Matrix.Rotation(angle, 4, axis)
-
-
-class Builder:
-    """Accumulates flat-shaded faces, each with one palette swatch, into one bmesh."""
-
-    def __init__(self):
-        self.bm = bmesh.new()
-        self.uv = self.bm.loops.layers.uv.new('UVMap')
-
-    def face(self, pts, colour):
-        f = self.bm.faces.new([self.bm.verts.new(p) for p in pts])
-        u = swatch_uv(colour)
-        for loop in f.loops:
-            loop[self.uv].uv = u
-        return f
-
-    def quad(self, a, b, c, d, colour):
-        self.face([a, b, c, d], colour)
-
-    def cuboid(self, M, colour, top=None, bottom=False):
-        """The unit cube [-.5,.5]^3 through M."""
-        c = [M @ Vector((x, y, z)) for z in (-0.5, 0.5) for y in (-0.5, 0.5) for x in (-0.5, 0.5)]
-        self.face([c[4], c[5], c[7], c[6]], top or colour)
-        self.face([c[0], c[1], c[5], c[4]], colour)
-        self.face([c[3], c[2], c[6], c[7]], colour)
-        self.face([c[1], c[3], c[7], c[5]], colour)
-        self.face([c[2], c[0], c[4], c[6]], colour)
-        if bottom:
-            self.face([c[0], c[2], c[3], c[1]], colour)
-
-    def box(self, cx, cy, z0, sx, sy, sz, colour, top=None, rot=0.0):
-        self.cuboid(T(cx, cy, z0 + sz / 2) @ R(rot, 'Z') @ S(sx, sy, sz), colour, top)
-
-    def prism(self, M, seg, r0, r1, colour, cap=None, bottom=False, phase=0.0, colour_fn=None):
-        """A frustum (a cone when r1 == 0) of height 1 along local z through M."""
-        a = [phase + 2 * math.pi * i / seg for i in range(seg)]
-        lo = [M @ Vector((r0 * math.cos(t), r0 * math.sin(t), 0)) for t in a]
-        if r1 <= 0:
-            apex = M @ Vector((0, 0, 1))
-            for i in range(seg):
-                self.face([lo[i], lo[(i + 1) % seg], apex], colour_fn(i) if colour_fn else colour)
-        else:
-            hi = [M @ Vector((r1 * math.cos(t), r1 * math.sin(t), 1)) for t in a]
-            for i in range(seg):
-                j = (i + 1) % seg
-                self.face([lo[i], lo[j], hi[j], hi[i]], colour_fn(i) if colour_fn else colour)
-            if cap:
-                self.face(hi, cap)
-        if bottom:
-            self.face(list(reversed(lo)), colour)
-
-    def sphere(self, M, seg, rings, colour_fn):
-        """A UV sphere of radius 1 through M; colour_fn(ring, segment)."""
-        def p(r, s):
-            th = math.pi * r / rings
-            ph = 2 * math.pi * s / seg
-            return M @ Vector((math.sin(th) * math.cos(ph), math.sin(th) * math.sin(ph), math.cos(th)))
-        for r in range(rings):
-            for s in range(seg):
-                c = colour_fn(r, s)
-                if r == 0:
-                    self.face([p(0, 0), p(1, s), p(1, s + 1)], c)
-                elif r == rings - 1:
-                    self.face([p(r, s), p(r + 1, 0), p(r, s + 1)], c)
-                else:
-                    self.face([p(r, s), p(r + 1, s), p(r + 1, s + 1), p(r, s + 1)], c)
-
-    def blob(self, M, colour_fn, seed, subdiv=1):
-        """A lumpy low-poly rock: an icosphere with a smooth deterministic wobble."""
-        tmp = bmesh.new()
-        bmesh.ops.create_icosphere(tmp, subdivisions=subdiv, radius=1.0)
-        vmap = {}
-        for v in tmp.verts:
-            x, y, z = v.co
-            f = 0.8 + 0.16 * math.sin(x * 4.1 + seed) * math.cos(y * 3.3 - seed) + 0.1 * math.sin(z * 5.7 + x * 2.2 + seed * 1.7)
-            vmap[v] = M @ (v.co * f)
-        for i, f in enumerate(tmp.faces):
-            self.face([vmap[v] for v in f.verts], colour_fn(i))
-        tmp.free()
-
-    def disc(self, cx, cy, z, r, seg, colour, rx=None):
-        rx = rx or r
-        pts = [(cx + rx * math.cos(2 * math.pi * i / seg), cy + r * math.sin(2 * math.pi * i / seg), z) for i in range(seg)]
-        self.face(pts, colour)
-
-    def arc(self, cx, cy, z, r, w, a0, a1, seg, colour, dashed=False):
-        for i in range(seg):
-            if dashed and i % 2:
-                continue
-            t0, t1 = a0 + (a1 - a0) * i / seg, a0 + (a1 - a0) * (i + 1) / seg
-            p = lambda t, rr: (cx + rr * math.cos(t), cy + rr * math.sin(t), z)
-            self.quad(p(t0, r - w), p(t1, r - w), p(t1, r + w), p(t0, r + w), colour)
-
-    def strip(self, ring_a, ring_b, colour, closed=True):
-        """Quads between two point loops of equal length."""
-        n = len(ring_a)
-        for i in range(n if closed else n - 1):
-            j = (i + 1) % n
-            self.quad(ring_a[i], ring_a[j], ring_b[j], ring_b[i], colour)
-
-    def to_object(self, name, material):
-        bmesh.ops.remove_doubles(self.bm, verts=self.bm.verts, dist=1e-5)
-        bmesh.ops.triangulate(self.bm, faces=self.bm.faces, quad_method='BEAUTY', ngon_method='BEAUTY')
-        mesh = bpy.data.meshes.new(name)
-        self.bm.to_mesh(mesh)
-        self.bm.free()
-        mesh.materials.append(material)
-        for p in mesh.polygons:
-            p.use_smooth = False
-        obj = bpy.data.objects.new(name, mesh)
-        bpy.context.scene.collection.objects.link(obj)
-        return obj
-
-
-def rounded_rect(hw, hl, r, per_corner=6):
-    """Counter-clockwise outline of a rounded rectangle centred on the origin."""
-    pts = []
-    for (cx, cy, a0) in ((hw - r, hl - r, 0), (-hw + r, hl - r, 90), (-hw + r, -hl + r, 180), (hw - r, -hl + r, 270)):
-        for i in range(per_corner + 1):
-            a = math.radians(a0 + 90 * i / per_corner)
-            pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
-    return pts
-
-
-def along_ring(ring, count, phase=0.0):
-    """`count` evenly spaced (x, y, heading) points along a closed outline."""
-    edges = [(ring[i], ring[(i + 1) % len(ring)]) for i in range(len(ring))]
-    total = sum(math.dist(a, c) for a, c in edges)
-    out = []
-    for k in range(count):
-        s = total * ((k + phase) / count)
-        for a, c in edges:
-            ln = math.dist(a, c)
-            if s <= ln and ln > 0:
-                t = s / ln
-                out.append((a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t, math.atan2(c[1] - a[1], c[0] - a[0])))
-                break
-            s -= ln
-    return out
-
-
-def rr_halfwidth(y, hw=HW, hl=HL, r=CORNER):
-    d = abs(y) - (hl - r)
-    if d <= 0:
-        return hw
-    return hw - r + math.sqrt(max(r * r - min(d, r) ** 2, 0.0))
-
-
-def rr_sdf(x, y, hw=HW, hl=HL, r=CORNER):
-    """Signed distance to the rounded-rect boundary (negative inside)."""
-    qx, qy = abs(x) - (hw - r), abs(y) - (hl - r)
-    return math.hypot(max(qx, 0), max(qy, 0)) + min(max(qx, qy), 0) - r
-
-
-def turf_bands(b, bands, ca, cb, r=CORNER, per=8):
-    """The pitch surface, clipped to the rounded boundary, in alternating bands."""
-    arc_ys = sorted({s * (HL - r + r * math.sin(math.pi / 2 * k / per)) for k in range(per + 1) for s in (-1, 1)})
-    for i in range(bands):
-        y0 = -HL + 2 * HL * i / bands
-        y1 = -HL + 2 * HL * (i + 1) / bands
-        ys = [y0] + [y for y in arc_ys if y0 < y < y1] + [y1]
-        right = [(rr_halfwidth(y, r=r), y, 0.0) for y in ys]
-        left = [(-rr_halfwidth(y, r=r), y, 0.0) for y in reversed(ys)]
-        b.face(right + left, ca if i % 2 else cb)
-
-
-def cross_line(b, y, w, colour, z, r=CORNER):
-    hw = min(rr_halfwidth(y - w, r=r), rr_halfwidth(y + w, r=r)) - 0.02
-    b.quad((-hw, y - w, z), (hw, y - w, z), (hw, y + w, z), (-hw, y + w, z), colour)
-
-
-def wall_ring(b, r, off, z0, z1, thick, colour, top=None, per=6):
-    """A wall band on the rounded boundary: inner face at `off` outside the boundary."""
-    ring = rounded_rect(HW + off, HL + off, r + off, per)
-    for k in range(len(ring)):
-        (ax, ay), (bx, by) = ring[k], ring[(k + 1) % len(ring)]
-        nx, ny = by - ay, -(bx - ax)
-        ln = math.hypot(nx, ny)
-        if ln < 1e-6:
-            continue
-        ox, oy = nx / ln * thick, ny / ln * thick
-        b.quad((ax, ay, z0), (bx, by, z0), (bx, by, z1), (ax, ay, z1), colour)
-        b.quad((bx + ox, by + oy, z0), (ax + ox, ay + oy, z0), (ax + ox, ay + oy, z1), (bx + ox, by + oy, z1), colour)
-        b.quad((ax, ay, z1), (bx, by, z1), (bx + ox, by + oy, z1), (ax + ox, ay + oy, z1), top or colour)
-
-
-def goals(b, post, net, height=2.1):
-    for sign in (-1, 1):
-        gy = sign * GOAL_Z
-        back = gy + sign * GOAL_D
-        for sx in (-1, 1):
-            b.box(sx * GOAL_W / 2, gy, 0, 0.14, 0.14, height, post)
-        b.box(0, gy, height - 0.07, GOAL_W, 0.14, 0.14, post)
-        b.box(0, back, 0, GOAL_W, 0.05, height, net)
-        for sx in (-1, 1):
-            b.box(sx * GOAL_W / 2, (gy + back) / 2, 0, 0.05, GOAL_D, height, net)
-        b.box(0, (gy + back) / 2, height, GOAL_W, GOAL_D, 0.05, net)
-
-
-def build_sky(mat):
-    """An inside-out dome of radius SKY_R, built face by face (as the rest) so its index order is
-    deterministic. The UVs sample the gradient in the palette's right half."""
-    seg, rings = 32, 12
-    bm = bmesh.new()
-    uv = bm.loops.layers.uv.new('UVMap')
-    verts = {}
-
-    def vert(r, s):
-        key = (r, s % seg) if 0 < r < rings else (r, 0)
-        if key not in verts:
-            th, ph = math.pi * r / rings, 2 * math.pi * s / seg
-            verts[key] = bm.verts.new((SKY_R * math.sin(th) * math.cos(ph), SKY_R * math.sin(th) * math.sin(ph), SKY_R * math.cos(th)))
-        return verts[key]
-
-    def v_of(co):
-        zn = max(0.0, co.z / SKY_R)
-        # the camera mostly sees the first few degrees above the horizon, so the haze is a thin
-        # band there (sin 4° ≈ 0.07) and the rest is the zenith colour
-        return 0.02 + 0.96 * min(1.0, zn / 0.07) ** 0.5
-    for r in range(rings):
-        for s in range(seg):
-            a, b_, c, d = vert(r, s), vert(r, s + 1), vert(r + 1, s + 1), vert(r + 1, s)
-            tris = [(a, c, d)] if r == 0 else [(a, b_, c)] if r == rings - 1 else [(a, b_, c), (a, c, d)]
-            for t in tris:
-                f = bm.faces.new(t)                            # clockwise from outside: faces inward
-                for loop in f.loops:
-                    loop[uv].uv = (0.75, v_of(loop.vert.co))
-    mesh = bpy.data.meshes.new('sky')
-    bm.to_mesh(mesh)
-    bm.free()
-    mesh.materials.append(mat)
-    for p in mesh.polygons:
-        p.use_smooth = False
-    obj = bpy.data.objects.new('sky', mesh)
-    bpy.context.scene.collection.objects.link(obj)
-    return obj
-
-
-def export(objs):
-    tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in objs)
-    per = ', '.join(f'{o.name} {sum(len(p.vertices) - 2 for p in o.data.polygons)}' for o in objs)
-    print(f'{WORLD}: {tris} triangles in {len(objs)} meshes ({per})')
-    bpy.ops.export_scene.gltf(filepath=os.path.join(HERE, f'{WORLD}.glb'), export_format='GLB',
-                              export_apply=True, export_yup=True)
-    bpy.ops.wm.usd_export(filepath=os.path.join(HERE, f'{WORLD}.usdz'), export_materials=True,
-                          generate_preview_surface=True, export_textures_mode='NEW', relative_paths=True,
-                          convert_orientation=True, export_global_forward_selection='NEGATIVE_Z',
-                          export_global_up_selection='Y')
-
-
-def preview(ambient, argv):
-    """Renders the play camera (spec: eye (0, 24, -46) → (0, 0, 2), 50° vertical, portrait) with
-    the apps' spike light rig: a sun along (0.35, -1, 0.55) and a fill. No fog. Not part of the
-    export; run with `-- --preview` (`--wide PATH`: an overview; `--shot PATH eye at`: any view)."""
-    scene = bpy.context.scene
-    try:
-        scene.render.engine = 'BLENDER_EEVEE'
-    except TypeError:
-        scene.render.engine = 'BLENDER_EEVEE_NEXT'
-    scene.render.resolution_x, scene.render.resolution_y = 540, 1200
-    scene.render.resolution_percentage = 100
-    scene.view_settings.view_transform = 'Standard'
-    scene.render.image_settings.file_format = 'PNG'
-    scene.render.image_settings.color_mode = 'RGB'
-    scene.render.image_settings.compression = 100
-    try:
-        scene.eevee.taa_render_samples = 16
-    except AttributeError:
-        pass
-    sky = bpy.data.materials['sky']
-    nt = sky.node_tree
-    tex = next(n for n in nt.nodes if n.type == 'TEX_IMAGE')
-    tex.interpolation = 'Linear'
-    em = nt.nodes.new('ShaderNodeEmission')
-    nt.links.new(tex.outputs['Color'], em.inputs['Color'])
-    nt.links.new(em.outputs['Emission'], nt.nodes['Material Output'].inputs['Surface'])
-    world = bpy.data.worlds.new('preview')
-    world.use_nodes = True
-    world.node_tree.nodes['Background'].inputs['Color'].default_value = (*hexc(ambient), 1.0)
-    world.node_tree.nodes['Background'].inputs['Strength'].default_value = 1.0
-    scene.world = world
-
-    def game(x, y, z):                     # game (Y-up, +Z far) → Blender (Z-up, -Y far)
-        return Vector((x, -z, y))
-    for name, d, energy in (('sun', (0.35, -1.0, 0.55), 3.2), ('fill', (-0.35, -0.6, -0.55), 0.8)):
-        light = bpy.data.lights.new(name, 'SUN')
-        light.energy = energy
-        light.angle = math.radians(3)
-        o = bpy.data.objects.new(name, light)
-        o.rotation_euler = game(*d).normalized().to_track_quat('-Z', 'Y').to_euler()
-        scene.collection.objects.link(o)
-    cam = bpy.data.cameras.new('cam')
-    cam.sensor_fit = 'VERTICAL'
-    cam.angle_y = math.radians(50)
-    cam.clip_start, cam.clip_end = 0.1, 500
-    co = bpy.data.objects.new('cam', cam)
-    scene.collection.objects.link(co)
-    scene.camera = co
-
-    def shoot(eye, at, path, w=540, h=1200, fov=50):
-        scene.render.resolution_x, scene.render.resolution_y = w, h
-        cam.sensor_fit = 'VERTICAL'
-        cam.angle_y = math.radians(fov)
-        co.location = game(*eye)
-        co.rotation_euler = (game(*at) - game(*eye)).to_track_quat('-Z', 'Y').to_euler()
-        scene.render.filepath = path
-        bpy.ops.render.render(write_still=True)
-    shoot((0, 24, -46), (0, 0, 2), os.path.join(HERE, 'preview.png'))
-    if '--wide' in argv:
-        shoot((0, 45, -100), (0, 5, 60), argv[argv.index('--wide') + 1], w=1200, h=800, fov=55)
-    if '--shot' in argv:                   # --shot PATH ex ey ez ax ay az (game coordinates)
-        k = argv.index('--shot')
-        v = [float(t) for t in argv[k + 2:k + 8]]
-        shoot(tuple(v[:3]), tuple(v[3:]), argv[k + 1], w=1200, h=800, fov=40)
-
-
-# ================================================================ the world
-def build_turf(mat):
-    b = Builder()
-    turf_bands(b, 12, 'turf_a', 'turf_b')
-    z, w = 0.02, 0.12
-    for y in (-GOAL_Z, GOAL_Z, 0.0):                      # goal lines and centre line
-        cross_line(b, y, w, 'line', z)
-    for y in (-15.0, 15.0):                               # the 23 m lines
-        cross_line(b, y, 0.08, 'line', z)
-    for sign in (-1, 1):                                  # shooting circles, penalty spots
-        cy = sign * GOAL_Z
-        b.arc(0, cy, z, 9.0, w, math.pi if sign > 0 else 0, 2 * math.pi if sign > 0 else math.pi, 28, 'line')
-        b.arc(0, cy, z, 11.0, 0.08, math.pi if sign > 0 else 0, 2 * math.pi if sign > 0 else math.pi, 28, 'line_pink', dashed=True)
-        b.disc(0, cy - sign * 6.4, z, 0.22, 8, 'line')
-    b.disc(0, 0, z, 0.25, 10, 'line')
-    b.arc(0, 0, z, 4.2, 0.07, 0, 2 * math.pi, 40, 'line_pink')    # centre orbit rings
-    b.arc(0, 0, z, 5.6, 0.07, 0, 2 * math.pi, 48, 'line_pink')
-    b.arc(0, 0, z, 7.2, 0.1, 0, 2 * math.pi, 48, 'line', dashed=True)
-    return b.to_object('turf', mat)
-
-
-def offset_ring(o, z, per=6, r=CORNER):
-    return [(x, y, z) for x, y in rounded_rect(HW + o, HL + o, r + o, per)]
-
-
-def build_platform(b):
-    """The floating deck: flat plating out to 4.5 beyond the boundary, a rim, a tapered hull."""
-    per = 6
-    ring0 = offset_ring(0.0, -0.02, per)
-    ring1 = offset_ring(4.5, -0.02, per)
-    # deck plates between neon inlays (the inlays are coplanar strips a hair above)
-    b.strip(ring0, ring1, 'deck')
-    for o0, o1, col in ((0.75, 0.95, 'neon_c'), (2.0, 2.3, 'neon_p'), (3.9, 4.05, 'neon_c')):
-        b.strip(offset_ring(o0, 0.01, per), offset_ring(o1, 0.01, per), col)
-    # rim, neon band, hull tapering to a keel far below
-    rim_lo = offset_ring(4.5, -1.3, per)
-    b.strip(ring1, offset_ring(4.5, -0.5, per), 'deck_light')
-    b.strip(offset_ring(4.5, -0.5, per), offset_ring(4.5, -0.8, per), 'neon_c')
-    b.strip(offset_ring(4.5, -0.8, per), rim_lo, 'deck_light')
-    mid = offset_ring(2.0, -4.5, per)
-    b.strip(rim_lo, mid, 'hull')
-    keel = offset_ring(-6.0, -10.0, per)
-    b.strip(mid, keel, 'hull_dark')
-    b.face([p for p in reversed(keel)], 'hull_dark')
-    # a glowing core hanging under the keel
-    b.prism(T(0, 0, -16) @ S(1, 1, 6), 12, 2.2, 5.5, 'core')
-    b.prism(T(0, 0, -19) @ S(1, 1, 3), 12, 0.0001, 2.2, 'neon_c')
-    # boundary wall with a glowing top rail
-    wall_ring(b, CORNER, 0.15, 0.0, 1.1, 0.3, 'wall', 'wall_top')
-    # glow studs on the wall top
-    for x, y, a in along_ring(rounded_rect(HW + 0.3, HL + 0.3, CORNER + 0.3, per), 64):
-        b.box(x, y, 1.1, 0.22, 0.22, 0.14, 'lamp', rot=a)
-
-
-def thruster_pod(b, x, y, face):
-    """A pod on an arm, jutting out from the rim; `face` is the outward direction (radians)."""
-    dx, dy = math.cos(face), math.sin(face)
-    ax, ay = x - dx * 3.0, y - dy * 3.0
-    b.cuboid(T((x + ax) / 2, (y + ay) / 2, -1.2) @ R(face, 'Z') @ S(3.2, 0.9, 0.7), 'deck_light', 'hull')
-    b.prism(T(x, y, -3.6) @ S(1, 1, 3.6), 8, 1.3, 1.5, 'hull', cap='deck_light')
-    b.prism(T(x, y, -1.4) @ S(1, 1, 0.35), 8, 1.56, 1.56, 'neon_p')
-    b.prism(T(x, y, 0.0) @ S(1, 1, 0.6), 8, 1.5, 0.6, 'deck_light', cap='neon_c')
-    b.prism(T(x, y, -3.6) @ R(math.pi, 'X') @ S(1, 1, 2.8), 8, 1.1, 0.0, 'flame')
-    b.prism(T(x, y, -3.6) @ R(math.pi, 'X') @ S(1, 1, 1.4), 8, 1.35, 0.9, 'core')
-
-
-def mast(b, x, y):
-    """A floodlight mast on the deck corner: a lattice-ish pole and a lamp head facing the pitch."""
-    b.prism(T(x, y, 0) @ S(1, 1, 14), 6, 0.45, 0.25, 'deck_light')
-    for z in (3.5, 7.0, 10.5):
-        b.prism(T(x, y, z) @ S(1, 1, 0.3), 6, 0.55, 0.5, 'neon_c')
-    face = math.atan2(-y, -x)
-    b.cuboid(T(x, y, 14.6) @ R(face, 'Z') @ R(-0.5, 'Y') @ S(1.0, 3.2, 1.8), 'hull', 'deck_light')
-    b.cuboid(T(x + math.cos(face) * 0.55, y + math.sin(face) * 0.55, 14.3) @ R(face, 'Z') @ R(-0.5, 'Y') @ S(0.2, 2.8, 1.5), 'lamp')
-
-
-def halo_ring(b, radius, z, tilt_x, tilt_y, seg, colour, width, gap):
-    M = T(0, 0, z) @ R(tilt_x, 'X') @ R(tilt_y, 'Y')
-    for i in range(seg):
-        if i % gap == gap - 1:
-            continue
-        a = 2 * math.pi * (i + 0.5) / seg
-        length = 2 * math.pi * radius / seg * 0.82
-        b.cuboid(M @ T(radius * math.cos(a), radius * math.sin(a), 0) @ R(a + math.pi / 2, 'Z') @ S(length, width, width), colour)
-
-
-def gas_giant(b, c, radius):
-    bands = ['giant_f', 'giant_a', 'giant_b', 'giant_c', 'giant_a', 'giant_d', 'giant_b', 'giant_e',
-             'giant_c', 'giant_a', 'giant_f', 'giant_b', 'giant_d', 'giant_a', 'giant_e', 'giant_b',
-             'giant_c', 'giant_a']
-    M = T(*c) @ R(0.28, 'Y') @ R(0.2, 'X') @ S(radius, radius, radius * 0.94)
-    # a storm spot: two faces on one band use the dark swatch
-    b.sphere(M, 36, 18, lambda r, s: 'giant_d' if (r == 11 and s in (5, 6)) else bands[r])
-
-
-def ringed_planet(b, c, radius):
-    M = T(*c) @ R(-0.35, 'Y') @ S(radius, radius, radius)
-    b.sphere(M, 24, 12, lambda r, s: 'ice_b' if r in (3, 7, 8) else ('ring_a' if r in (1, 10) else 'ice_a'))
-    Mr = T(*c) @ R(0.32, 'X') @ R(-0.3, 'Y')
-    for r0, r1, col in ((1.35, 1.7, 'ring_b'), (1.76, 2.15, 'ring_a')):
-        a_pts = [Mr @ Vector((radius * r0 * math.cos(2 * math.pi * i / 48), radius * r0 * math.sin(2 * math.pi * i / 48), 0)) for i in range(48)]
-        b_pts = [Mr @ Vector((radius * r1 * math.cos(2 * math.pi * i / 48), radius * r1 * math.sin(2 * math.pi * i / 48), 0)) for i in range(48)]
-        b.strip(a_pts, b_pts, col)
-
-
-def moon(b, c, radius):
-    M = T(*c) @ R(0.4, 'X') @ S(radius, radius, radius)
-    crater = {(rng.randrange(2, 12), rng.randrange(0, 20)) for _ in range(26)}
-    b.sphere(M, 20, 14, lambda r, s: 'moon_dark' if (r, s) in crater else 'moon')
-
-
-def station(b, c, radius, tilt):
-    M = T(*c) @ R(tilt, 'X') @ R(0.5, 'Y')
-    seg, side, minor = 28, 6, radius * 0.1
-    for i in range(seg):                                  # the wheel: a coarse torus
-        for j in range(side):
-            def p(ii, jj):
-                a, t = 2 * math.pi * ii / seg, 2 * math.pi * jj / side
-                rr = radius + minor * math.cos(t)
-                return M @ Vector((rr * math.cos(a), rr * math.sin(a), minor * math.sin(t)))
-            col = 'neon_c' if (j == 0 and i % 4 == 0) else 'station'
-            b.quad(p(i, j), p(i + 1, j), p(i + 1, j + 1), p(i, j + 1), col)
-    for k in range(4):                                    # spokes
-        a = math.pi / 2 * k + math.pi / 4
-        b.cuboid(M @ T(radius / 2 * math.cos(a), radius / 2 * math.sin(a), 0) @ R(a, 'Z') @ S(radius, minor * 0.6, minor * 0.6), 'station')
-    b.prism(M @ T(0, 0, -radius * 0.35) @ S(1, 1, radius * 0.7), 8, radius * 0.18, radius * 0.18, 'station', cap='deck_light', bottom=True)
-    for sgn in (-1, 1):                                   # solar wings on the hub axis
-        b.cuboid(M @ T(0, 0, sgn * radius * 0.6) @ S(radius * 1.4, radius * 0.35, 0.2), 'panel')
-        b.cuboid(M @ T(0, 0, sgn * radius * 0.48) @ S(0.3, 0.3, radius * 0.25), 'station')
-
-
-def satellite(b, c, yaw):
-    M = T(*c) @ R(yaw, 'Z') @ R(0.4, 'X')
-    b.cuboid(M @ S(1.4, 1.4, 1.8), 'station', 'hazard')
-    for sgn in (-1, 1):
-        b.cuboid(M @ T(sgn * 2.6, 0, 0) @ S(3.2, 1.2, 0.08), 'panel')
-    b.prism(M @ T(0, 0, 0.9) @ S(1, 1, 0.8), 8, 0.0001, 0.9, 'station')
-
-
-def asteroids(b):
-    placed = 0
-    while placed < 95:
-        a = rng.uniform(0, 2 * math.pi)
-        rad = rng.uniform(58, 150)
-        x, y = rad * math.cos(a), rad * math.sin(a) * 1.15
-        z = rng.uniform(-26, 6) + 6 * math.sin(a * 2)
-        if y > 40 and abs(x) < 40:                        # behind the camera: nobody sees these
-            continue
-        size = rng.uniform(1.2, 4.2) * (1.6 if rng.random() < 0.12 else 1.0)
-        seed = rng.uniform(0, 100)
-        rot = R(rng.uniform(0, 6.3), 'Z') @ R(rng.uniform(0, 6.3), 'X')
-        tone = rng.random()
-        dark = {rng.randrange(20) for _ in range(4)}
-        base = 'rock_warm' if tone < 0.3 else 'rock'
-        b.blob(T(x, y, z) @ rot @ S(size, size * rng.uniform(0.7, 1.0), size * rng.uniform(0.6, 0.9)),
-               lambda i, dark=dark, base=base: 'rock_dark' if i in dark else base, seed)
-        placed += 1
-
-
-def starfield(b):
-    cols = ['star'] * 5 + ['star_warm'] * 2 + ['star_blue'] * 2
+R = rng.uniform
+TAU = 2 * math.pi
+
+# the planets, pulled inside the dome (their apparent size kept)
+GIANT = (tuple(v * 0.8 for v in (38, -200, 252)), 74 * 0.8)
+ICE = (tuple(v * 0.8 for v in (-282, -56, 12)), 40 * 0.8)
+MOON_BIG = ((-132, -100, 110), 26)
+MOON_SMALL = ((248, -28, -14), 14)
+
+
+# ---------------------------------------------------------------- the painted sky (skyTexture)
+def _dir(az, el):
+    return (math.cos(el) * math.sin(az), math.sin(el), math.cos(el) * math.cos(az))
+
+
+def _ang(a, b):
+    return math.acos(clamp(wk._dot(a, b), -1.0, 1.0))
+
+
+SKY_STOPS = [(0.0, '#02030a'), (0.42, '#060a1f'), (0.62, '#0b0b2c'), (0.85, '#170c3a'), (1.0, '#1f0f3f')]
+
+
+def _tex_uv(d):
+    """World direction -> the prototype's equirect (u, v) on its sky sphere (rotated 0.6 about Y)."""
+    c, s = math.cos(-0.6), math.sin(-0.6)
+    x, y, z = d[0] * c + d[2] * s, d[1], -d[0] * s + d[2] * c
+    th = math.acos(clamp(y, -1, 1))
+    ph = math.atan2(z, -x) % TAU
+    return ph / TAU, th / math.pi
+
+
+WASHES = [(0.15, 0.62, 520, (90, 40, 160), 0.22), (0.55, 0.72, 600, (20, 90, 150), 0.2),
+          (0.85, 0.58, 460, (150, 50, 110), 0.16), (0.38, 0.3, 420, (40, 60, 140), 0.14)]
+NEBULAE = [((0.2, -0.45, 1), 0.55, [(124, 58, 237), (34, 211, 238), (219, 39, 119)], 0.32),
+           ((-1, -0.25, 0.15), 0.5, [(217, 70, 239), (124, 58, 237), (244, 114, 182)], 0.34),
+           ((-0.65, -0.6, 0.6), 0.45, [(225, 29, 72), (168, 85, 247), (34, 211, 238)], 0.36),
+           ((1, -0.2, 0.2), 0.5, [(249, 115, 22), (236, 72, 153), (139, 92, 246)], 0.28),
+           ((0, 0.5, -1), 0.7, [(79, 70, 229), (14, 165, 233), (147, 51, 234)], 0.2),
+           ((0, -1, 0), 0.9, [(109, 40, 217), (29, 78, 216), (190, 24, 93)], 0.22)]
+
+
+def sky(az, el):
+    d = _dir(az, el)
+    u, v = _tex_uv(d)
+    c = list(wk.gradient(SKY_STOPS, v))
+    for bu, bv, rad, col, a in WASHES:                          # broad colour washes (source-over)
+        du = min(abs(u - bu), 1 - abs(u - bu)) * 2048
+        dist = math.hypot(du, (v - bv) * 1024)
+        k = a * max(0.0, 1 - dist / rad)
+        c = [c[i] * (1 - k) + col[i] / 255 * k for i in range(3)]
+    band = 0.5 + 0.21 * math.sin(u * TAU + 0.9)                 # the milky way: a soft band, a dark lane
+    g = math.exp(-((v - band) / 0.085) ** 2)
+    lane = math.exp(-((v - band - 0.01) / 0.02) ** 2) * 0.5
+    k = 0.2 * g * (1 - lane) * (0.75 + 0.25 * wk.vnoise(u * 40, v * 20))
+    c = [c[i] + k * w for i, w in enumerate((0.95, 0.92, 1.0))]
+    for cd, spread, cols, bright in NEBULAE:                   # the nebula clouds (additive)
+        n = wk._norm(cd)
+        a = _ang(d, n)
+        w = math.exp(-(a / (spread * 0.75)) ** 2) * bright * 0.55
+        if w > 0.002:
+            t = 0.5 + 0.5 * math.sin(az * 5 + el * 7 + cd[0] * 3)
+            mixc = [lerp3(cols[0], cols[1], t)[i] * 0.6 + cols[2][i] * 0.4 * (1 - t) for i in range(3)]
+            c = [c[i] + w * mixc[i] / 255 for i in range(3)]
+    for (pos, r), col, k in ((GIANT, (255, 176, 122), 0.55), (ICE, (143, 211, 255), 0.5)):
+        n = wk._norm(pos)
+        a = _ang(d, n)
+        rim = math.asin(min(1.0, r / math.sqrt(wk._dot(pos, pos))))
+        w = k * math.exp(-((a - rim) / (rim * 0.18)) ** 2) if a > rim * 0.9 else 0.0
+        c = [c[i] + w * col[i] / 255 for i in range(3)]
+    return tuple(min(1.0, x) for x in c)
+
+
+def lerp3(a, b, t):
+    return [a[i] + (b[i] - a[i]) * t for i in range(3)]
+
+
+def stars(sky_m):
+    """The starfield: tiny unlit triangles just inside the dome, brighter and denser along the band."""
+    tints = ['#ffffff', '#ffffff', '#ccdfff', '#ffebc7', '#ffcc99', '#bfd9ff']
     n = 0
-    while n < 3200:
-        # half the stars in the band the play camera sees: a little below the horizon, ahead
-        z = rng.uniform(-1, 1) if n % 2 else rng.uniform(-0.45, 0.12)
-        t = rng.uniform(0, 2 * math.pi)
-        rr = math.sqrt(1 - z * z)
-        d = Vector((rr * math.cos(t), rr * math.sin(t), z))
-        if d.y > 0.55 and d.z < 0.2:                      # behind the camera, low
+    while n < 900:
+        y, t = R(-1, 1), R(0, TAU)
+        rr = math.sqrt(1 - y * y)
+        d = (rr * math.cos(t), y, rr * math.sin(t))
+        u, v = _tex_uv(d)
+        band = 0.5 + 0.21 * math.sin(u * TAU + 0.9)
+        if rng.random() > 0.45 + math.exp(-((v - band) / 0.16) ** 2):
             continue
-        if n % 2 == 0 and (d.y > -0.6 or rng.random() < 0.55):   # the ahead band: far end, sparser
-            continue
-        c = d * rng.uniform(300, 312)
-        u = d.cross(Vector((0, 0, 1)))
-        if u.length < 1e-3:
-            u = Vector((1, 0, 0))
-        u.normalize()
-        v = d.cross(u).normalized()
         big = rng.random()
-        s = rng.uniform(1.6, 2.4) if big > 0.97 else rng.uniform(0.8, 1.3) if big > 0.8 else rng.uniform(0.4, 0.75)
-        col = rng.choice(cols)
-        b.face([c + u * s, c + v * s, c - u * s, c - v * s], col)
-        if big > 0.97:                                    # a twinkle cross on the brightest
-            b.face([c + (u + v) * s * 0.5, c + (v - u) * s * 0.5, c - (u + v) * s * 0.5, c + (u - v) * s * 0.5], col)
+        size = R(2.2, 3.2) if big > 0.985 else R(1.3, 2.0) if big > 0.9 else R(0.6, 1.1)
+        b = rng.choice((0.6, 0.8, 1.0))
+        col = wk.scale(rng.choice(tints), b)
+        c = tuple(v_ * wk.SKY_R * 0.96 for v_ in d)
+        wk.billboard(sky_m, c, size, col, n=3 if size < 2 else 4, towards=(0, 10, 0), phase=R(0, 6))
         n += 1
 
 
-def build_scenery(mat):
-    b = Builder()
-    build_platform(b)
-    goals(b, 'post', 'net')
-    for x, y, face in ((HW + 7.0, -14, 0), (HW + 7.0, 14, 0), (-HW - 7.0, -14, math.pi), (-HW - 7.0, 14, math.pi),
-                       (8, -HL - 7.0, -math.pi / 2), (-8, -HL - 7.0, -math.pi / 2), (8, HL + 7.0, math.pi / 2), (-8, HL + 7.0, math.pi / 2)):
-        thruster_pod(b, x, y, face)
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            mast(b, sx * (HW + 2.9), sy * (HL + 2.9))
-    halo_ring(b, 46, -3.0, 0.1, 0.06, 72, 'neon_c', 0.55, 3)
-    halo_ring(b, 54, -5.5, -0.08, -0.1, 84, 'neon_p', 0.4, 4)
-    gas_giant(b, (-78, -212, -14), 58)
-    ringed_planet(b, (74, -236, -4), 15)
-    moon(b, (165, -95, -12), 22)
-    moon(b, (-120, -150, 30), 9)
-    station(b, (-150, -60, 8), 16, 1.0)
-    satellite(b, (38, -78, 6), 0.6)
-    satellite(b, (-72, 20, 14), 2.0)
-    asteroids(b)
-    starfield(b)
-    return b.to_object('scenery', mat)
+# ---------------------------------------------------------------- the pitch's paint (decorate)
+def paint(x, z, band):
+    """Cyan haze from the edges, pink glow in the shooting circles — per cell of the surface
+    (where either shows, the two stripe colours, a shade apart, are painted as one)."""
+    ds = min(x + HW, HW - x) / 6.0
+    de = min(z + HL, HL - z) / 6.0
+    cyan = round(min(0.4, 0.26 * max(0.0, 1 - ds) + 0.26 * max(0.0, 1 - de)) / 0.02) * 0.02
+    pink = max(round(0.2 * max(0.0, 1 - math.hypot(x, z - gz) / 11) / 0.02) * 0.02 for gz in (-26, 26))
+    if cyan == 0 and pink == 0:
+        return band
+    c = wk.rgb(mix(BASE, STRIPE, 0.5))
+    c = [c[i] + (v - c[i]) * pink for i, v in enumerate((244 / 255, 114 / 255, 182 / 255))]
+    c = [c[i] + (v - c[i]) * cyan for i, v in enumerate((56 / 255, 189 / 255, 248 / 255))]
+    return wk.hexs(c)
 
 
-def main():
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-    img = build_palette()
-    mats = {n: make_material(n, img) for n in ('turf', 'scenery', 'sky')}
-    objs = [build_turf(mats['turf']), build_scenery(mats['scenery']), build_sky(mats['sky'])]
-    export(objs)
-    argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-    if '--preview' in argv:
-        preview('#39407a', argv)
+def decorate(turf, pnt):
+    Rh = 1.25
+    dx, dy = Rh * math.sqrt(3), Rh * 1.5
+    row, y = 0, -dy
+    mid = mix(BASE, STRIPE, 0.5)
+    while y < 2 * HL + dy:                                     # the hex grid, brighter to the edges
+        off = dx / 2 if row % 2 else 0.0
+        x = -dx
+        while x < 2 * HW + dx:
+            cx, cz = x + off - HW, y - HL
+            d = min(cx + HW, HW - cx, cz + HL, HL - cz)
+            f = max(0.0, 1 - d / 9)
+            a = 0.03 + 0.24 * f * f
+            if a >= 0.075:
+                pts = [(cx + Rh * math.cos(math.pi / 6 + k * math.pi / 3), cz + Rh * math.sin(math.pi / 6 + k * math.pi / 3)) for k in range(7)]
+                if all(abs(px) < HW - 0.05 and abs(pz) < HL - 0.05 and wk.sd_round_rect(px, pz, r=CORNER) < -0.1 for px, pz in pts):
+                    turf.strip(pts, 0.07, wk.DECOR_Y, mix(mid, CYAN, round(a / 0.07) * 0.07))
+            x += dx
+        y += dy
+        row += 1
+    for r in (4.2, 5.6):                                       # the centre orbit rings
+        turf.annulus(0, wk.DECOR_Y, 0, r - 0.045, r + 0.045, 48, mix(mid, '#f0abfc', 0.35))
+    turf.annulus(0, wk.DECOR_Y, 0, 7.2 - 0.06, 7.2 + 0.06, 64, mix(mid, CYAN, 0.45), dashed=0.44)
 
 
-main()
+# ---------------------------------------------------------------- the hull, pods, masts, neon
+HULL, HULL_D, ARM, POLE = '#1b2542', '#141b33', '#4b5b8c', '#64748b'
+NEON = ['#22d3ee', '#e879f9', '#38bdf8']
+
+
+def hull(m, sky_m):
+    ring = lambda off, y: [(x, y, z) for x, z, _, _ in wk._rr_ring(off, CORNER, 6)]
+    levels = [(wk.SLAB_W, -0.7, HULL), (wk.SLAB_W + 1.2, -1.6, HULL), (wk.SLAB_W + 1.2, -3.8, HULL_D), (wk.SLAB_W, -4.7, HULL_D)]
+    rings = [ring(off, y) for off, y, _ in levels]
+    for k in range(len(rings) - 1):
+        A, B = rings[k], rings[k + 1]
+        for i in range(len(A)):
+            j = (i + 1) % len(A)
+            m.face([A[i], A[j], B[j], B[i]], levels[k + 1][2], out=(0, (A[i][1] + B[i][1]) / 2, 0))
+    m.face(rings[-1], HULL_D, facing=(0, -1, 0))
+    m.box(0, -6.2, 0, HW * 1.4, 1.6, HL * 1.9, HULL_D, top=HULL)                     # the keel
+    m.frustum((0, -6.6, -HL * 1.15), (0, -6.6, HL * 1.15), 1.6, 1.6, 12, HULL, cap=HULL_D, bottom=HULL_D)
+    m.frustum((-HW * 1.3, -6.6, 0), (HW * 1.3, -6.6, 0), 1.2, 1.2, 12, HULL, cap=HULL_D, bottom=HULL_D)
+    # neon edge strips: on the rim, at its edge, and round the hull's widest point
+    sky_m.ring_band(0.55, 0.85, 0.001, 0.081, CORNER, NEON[0], per=6, inner=True, outer=True)
+    sky_m.ring_band(1.85, 2.2, 0.001, 0.081, CORNER, NEON[1], per=6, inner=True, outer=True)
+    sky_m.ring_band(3.35, 3.65, -2.3, -2.0, CORNER, NEON[2], per=6, inner=True, outer=True)
+    studs = wk.rr_points(1.4, CORNER, 72)                      # the 72 light studs, mid-cycle colours
+    for i, (x, z) in enumerate(studs):
+        w = 0.5 + 0.5 * math.sin(-i * 0.35)
+        col = wk.hexs(_hsl(0.5 + 0.35 * w, 1.0, 0.3 + 0.55 * w))
+        sky_m.octa((x, 0.12, z), 0.2, 0.2, col)
+
+
+def _hsl(h, s, l):
+    import colorsys
+    return colorsys.hls_to_rgb(h % 1.0, l, s)
+
+
+def pods(m, sky_m):
+    spots = [(HW + 9.5, -1.5, -12, 0), (HW + 9.5, -1.5, 12, 0), (-HW - 9.5, -1.5, -12, 0), (-HW - 9.5, -1.5, 12, 0),
+             (9, -1.5, HL + 13, 1), (-9, -1.5, HL + 13, 1), (9, -1.5, -HL - 13, 1), (-9, -1.5, -HL - 13, 1)]
+    for x, y, z, axis in spots:
+        if axis == 0:
+            m.box(math.copysign(HW + 5.5, x), y - 0.5, z, 9, 1.0, 2.6, ARM)
+        else:
+            m.box(x, y - 0.5, math.copysign(HL + 6.5, z), 2.6, 1.0, 12, ARM)
+        m.frustum((x, y - 1.5, z), (x, y + 1.5, z), 1.7, 1.5, 14, ARM, cap=HULL, bottom=HULL)
+        m.frustum((x, y + 1.5, z), (x, y + 3.2, z), 0.09, 0.09, 5, POLE)
+        _torus(sky_m, (x, y + 0.2, z), 1.62, 0.13, 20, NEON[0])
+        sky_m.frustum((x, y + 1.47, z), (x, y + 1.63, z), 1.1, 1.1, 14, NEON[0], cap='#b8fcff')
+        sky_m.blob((x, y + 3.3, z), 0.3, CYAN, level=0)
+        sky_m.frustum((x, y - 1.5, z), (x, y - 6.5, z), 1.1, 0.0, 12, '#60c8ff', col_fn=lambda i: '#60c8ff' if i % 2 else '#8fdcff')
+
+
+def _torus(m, c, R_, r, n, col, normal=(0, 1, 0)):
+    """A torus as a ring of short square rods."""
+    ref = (1, 0, 0) if abs(normal[0]) < 0.9 else (0, 0, 1)
+    u = wk._norm(wk._cross(normal, ref))
+    v = wk._cross(normal, u)
+    P = lambda a: tuple(c[k] + R_ * (math.cos(a) * u[k] + math.sin(a) * v[k]) for k in range(3))
+    for i in range(n):
+        m.bar(P(TAU * i / n), P(TAU * (i + 1) / n), r * 2, col)
+
+
+def masts(m, sky_m):
+    for x, z in ((HW + 4.2, -22), (HW + 4.2, 0), (HW + 4.2, 22), (-HW - 4.2, -22), (-HW - 4.2, 0), (-HW - 4.2, 22)):
+        s = math.copysign(1, x)
+        m.frustum((x, 0, z), (x, 8.5, z), 0.22, 0.14, 7, POLE)
+        m.box(x - s * 0.6, 8.35, z, 2.4, 0.5, 0.7, POLE, roll=-s * 0.35)
+        sky_m.box(x - s * 0.6, 8.05, z, 2.1, 0.12, 0.5, '#9ffcff', roll=-s * 0.35)
+
+
+def holo_boards(sky_m):
+    """The four holographic boards beside the pitch: a navy panel framed in cyan, a pink planet
+    with a cyan ring, a bar graph, yellow chevrons (the prototype's canvas, as geometry)."""
+    for bx, bz in ((HW + 6.5, -11), (HW + 6.5, 11), (-HW - 6.5, -11), (-HW - 6.5, 11)):
+        s = math.copysign(1, bx)
+        facing = (-s, 0, 0)
+        P = lambda u, v, d=0.0: (bx - s * d, 4.2 + v, bz - s * u)   # u across the board (7), v up (3.5)
+        sky_m.face([P(-3.5, -1.75), P(3.5, -1.75), P(3.5, 1.75), P(-3.5, 1.75)], '#0a1a44', facing=facing)
+        for a, b in (((-3.5, -1.75), (3.5, -1.75)), ((3.5, -1.75), (3.5, 1.75)), ((3.5, 1.75), (-3.5, 1.75)), ((-3.5, 1.75), (-3.5, -1.75))):
+            (u0, v0), (u1, v1) = a, b
+            du, dv = (0.0, 0.08) if v0 == v1 else (0.08, 0.0)
+            sky_m.face([P(u0 - du, v0 - dv, 0.02), P(u1 - du, v1 - dv, 0.02), P(u1 + du, v1 + dv, 0.02), P(u0 + du, v0 + dv, 0.02)], CYAN, facing=facing)
+        cu, cv = -3.5 + 7 * 110 / 512, 0.0
+        sky_m.face([P(cu + 0.74 * math.cos(t), cv + 0.74 * math.sin(t), 0.03) for t in (TAU * k / 12 for k in range(12))], '#f472b6', facing=facing)
+        for k in range(20):
+            t0, t1 = TAU * k / 20, TAU * (k + 1) / 20
+            e = lambda t, r: (cu + r * 1.26 * (math.cos(t) * math.cos(-0.35) - 0.24 * math.sin(t) * math.sin(-0.35)),
+                              cv + r * 1.26 * (math.cos(t) * math.sin(-0.35) + 0.24 * math.sin(t) * math.cos(-0.35)))
+            a0, a1, b0, b1 = e(t0, 0.94), e(t1, 0.94), e(t0, 1.06), e(t1, 1.06)
+            sky_m.face([P(*a0, 0.04), P(*a1, 0.04), P(*b1, 0.04), P(*b0, 0.04)], CYAN, facing=facing)
+        for i in range(9):
+            h = R(30, 120) / 256 * 3.5
+            u0 = -3.5 + 7 * (230 + i * 28) / 512
+            v0 = 1.75 - 3.5 * 200 / 256
+            sky_m.face([P(u0, v0, 0.03), P(u0 + 0.25, v0, 0.03), P(u0 + 0.25, v0 + h, 0.03), P(u0, v0 + h, 0.03)],
+                    '#7df9ff' if i % 2 else '#f0abfc', facing=facing)
+        for i in range(4):
+            u0 = -3.5 + 7 * (250 + i * 60) / 512
+            pts = [(u0, 1.75 - 3.5 * 34 / 256), (u0 + 0.36, 1.75 - 3.5 * 56 / 256), (u0, 1.75 - 3.5 * 78 / 256)]
+            for (ua, va), (ub, vb) in zip(pts, pts[1:]):
+                sky_m.face([P(ua, va - 0.06, 0.03), P(ub, vb - 0.06, 0.03), P(ub, vb + 0.06, 0.03), P(ua, va + 0.06, 0.03)], '#faf08a', facing=facing)
+
+
+def halo_rings(sky_m):
+    for R_, y, r, reps, col, spin in ((46, -10, 0.32, 28, '#7df9ff', 0.0), (53, -14, 0.2, 10, '#f0abfc', 0.7)):
+        n = 240
+        for i in range(n):
+            f = (i + 0.5) / n * reps % 1.0 * 256
+            if not (f < 150 or 176 <= f < 206):
+                continue
+            a0, a1 = TAU * i / n + spin, TAU * (i + 1) / n + spin
+            sky_m.bar((R_ * math.cos(a0), y, R_ * math.sin(a0)), (R_ * math.cos(a1), y, R_ * math.sin(a1)), r * 2, col)
+
+
+# ---------------------------------------------------------------- planets, moons, belt, station
+def banded_sphere(m, c, r, bands, seg, tilt=0.0, spots=None):
+    """A UV sphere whose rings follow `bands` [(height fraction, colour)] from the north pole."""
+    M = T(*c) @ Rot(tilt, 'Z') @ S(r)
+    mm = m.xf(M)
+    th = [0.0]
+    for h, _ in bands:
+        th.append(th[-1] + h)
+    th = [t / th[-1] * math.pi for t in th]
+    P = lambda t, a: (math.sin(t) * math.cos(a), math.cos(t), math.sin(t) * math.sin(a))
+    for k, (_, col) in enumerate(bands):
+        for i in range(seg):
+            a0, a1 = TAU * i / seg, TAU * (i + 1) / seg
+            cc = spots(k, i, col) if spots else col
+            pts = [P(th[k], a0), P(th[k], a1), P(th[k + 1], a1), P(th[k + 1], a0)]
+            if k == 0:
+                pts = [P(0, 0), P(th[1], a1), P(th[1], a0)]
+            elif k == len(bands) - 1:
+                pts = [P(th[k], a0), P(th[k], a1), P(math.pi, 0)]
+            mm.face(pts, cc, out=(0, 0, 0))
+
+
+def planets(m, sky_m):
+    gp = ['#f3dcae', '#e6b98a', '#c9776a', '#f6e7c9', '#a45c6b', '#e2a27c', '#6f4c8f', '#f1d4b2', '#d98a6a', '#8b5a97']
+    bands, total, i = [], 0.0, 0
+    while total < 512:
+        h = R(14, 58)
+        bands.append((h, gp[i % len(gp)]))
+        total += h
+        i += 1
+    storm = lambda k, i_, col: ('#f5e0d0' if (k, i_) in ((len(bands) * 6 // 10, 17), (len(bands) * 6 // 10, 18)) else col)
+    banded_sphere(m, GIANT[0], GIANT[1], bands, 32, tilt=0.28, spots=storm)
+    ip = ['#a9cdf7', '#e6f2ff', '#7fb0e6', '#bfdcff', '#d9ecff', '#8fbdf0']
+    bands, total, i = [], 0.0, 0
+    while total < 256:
+        h = R(8, 40)
+        bands.append((h, ip[i % len(ip)]))
+        total += h
+        i += 1
+    banded_sphere(m, ICE[0], ICE[1], bands, 24)
+    pos, r = ICE
+    normal = wk._norm((0.55, 0.8, 0.25))
+    ref = (1, 0, 0)
+    u = wk._norm(wk._cross(normal, ref))
+    v = wk._cross(normal, u)
+    bg = '#140c33'
+    steps = 14
+    for k in range(steps):                                     # the rings: bands, unlit
+        r0, r1 = r * (1.35 + 1.1 * k / steps), r * (1.35 + 1.1 * (k + 1) / steps)
+        t = (k + 0.5) / steps
+        gap = math.sin(t * 40) * 0.5 + math.sin(t * 7.3) * 0.5
+        a = max(0.0, 0.15 + 0.55 * (0.5 + 0.5 * gap)) * ((1 - t) / 0.07 if t > 0.93 else 1)
+        col = (215, 200, 255) if t < 0.35 else (250, 235, 205) if t < 0.7 else (180, 215, 255)
+        cc = mix(bg, wk.hexs(tuple(x / 255 for x in col)), a)
+        n = 48
+        for i in range(n):
+            a0, a1 = TAU * i / n, TAU * (i + 1) / n
+            p = lambda aa, rr: tuple(pos[j] + rr * (math.cos(aa) * u[j] + math.sin(aa) * v[j]) for j in range(3))
+            sky_m.face([p(a0, r0), p(a1, r0), p(a1, r1), p(a0, r1)], cc, facing=normal)
+    moon = lambda k, i_, col: '#6f6e80' if wk._hash2(k * 7 + 3, i_ * 13 + 1) < 0.18 else ('#b4b2be' if wk._hash2(k, i_) < 0.25 else col)
+    mb = [(1, '#9b9ca8')] * 12
+    banded_sphere(m, MOON_BIG[0], MOON_BIG[1], mb, 18, tilt=0.4, spots=moon)
+    ms = [(1, '#c9bba6')] * 9
+    banded_sphere(m, MOON_SMALL[0], MOON_SMALL[1], ms, 14, spots=lambda k, i_, col: '#8f8577' if wk._hash2(k + 9, i_ + 4) < 0.2 else col)
+
+
+def belt(m):
+    M = euler(0.5, 0, 0.35)
+    for k in range(150):
+        a = R(0, TAU)
+        r = 132 + R(-18, 26) + (R(20, 40) if rng.random() > 0.85 else 0.0)
+        p = tuple(M @ wk.Vector((math.cos(a) * r, R(-9, 9), math.sin(a) * r)))
+        s = R(1.2, 4.0) * (1.6 if rng.random() > 0.92 else 1.0)
+        m.blob(p, s, ['#6f655f', '#8b7f78', '#9a8f88'], scale=(R(0.7, 1.3), R(0.7, 1.3), R(0.7, 1.3)), level=0, jitter=0.2, rng=rng, yaw=R(0, TAU))
+
+
+def station(m):
+    mm = m.xf(T(214, -18, 24) @ euler(0.25, -0.7, 0.15))
+    col, dark = '#c7ccd6', '#8e96a8'
+    n = 24
+    for i in range(n):                                          # the wheel (in the XY plane)
+        a0, a1 = TAU * i / n, TAU * (i + 1) / n
+        mm.frustum((12 * math.cos(a0), 12 * math.sin(a0), 0), (12 * math.cos(a1), 12 * math.sin(a1), 0), 1.5, 1.5, 6, col)
+    mm.frustum((0, 0, -3), (0, 0, 3), 3, 3, 14, col, cap=dark, bottom=dark)
+    for i in range(6):
+        a = TAU * i / 6
+        mm.bar((0, 0, 0), (12 * math.cos(a), 12 * math.sin(a), 0), 0.7, dark)
+    mm.frustum((0, 0, -22), (0, 0, 22), 1, 1, 8, dark, cap=col, bottom=col)
+    for s in (-1, 1):
+        mm.box(0, -0.125, s * 17, 16, 0.25, 6, '#2b4f9e', top='#3b6fd8')
+        mm.box(0, -1.2, s * 21, 2.4, 2.4, 3, col)
+
+
+def satellites(m):
+    for x, z, ry in ((60, 0, 0.3), (-40, 52, 1.9)):
+        mm = m.xf(T(x, -5.5, z) @ Rot(ry, 'Y'))
+        mm.box(0, -0.7, 0, 1.4, 1.4, 2.0, '#d9dee8')
+        for s in (-1, 1):
+            mm.box(s * 2.6, -0.04, 0, 3.6, 0.08, 1.4, '#2b4f9e', top='#3b6fd8')
+        mm.frustum((0, 0.75, 0), (0, 1.25, 0), 0.0, 0.8, 12, '#d9dee8')
+
+
+def comet(sky_m):
+    a = 2.2
+    c = (math.cos(a) * 300, -30 + 40 * math.sin(a * 2), math.sin(a) * 300)
+    d = wk._norm((-math.sin(a), 0.15, math.cos(a)))
+    wk.billboard(sky_m, c, 2.6, '#ffffff', n=10, towards=(0, 0, 0))
+    up = wk._norm(wk._cross(d, wk._norm(c)))
+    for k, (l0, l1, w0, w1, col) in enumerate(((0, 14, 2.4, 1.9, '#b4e6ff'), (14, 30, 1.9, 1.2, '#5f8fc4'), (30, 46, 1.2, 0.3, '#2c3f78'))):
+        p = lambda l, w: tuple(c[j] - d[j] * l + up[j] * w for j in range(3))
+        sky_m.face([p(l0, -w0), p(l1, -w1), p(l1, w1), p(l0, w0)], col, facing=wk._neg(c))
+
+
+# ---------------------------------------------------------------- the world
+def build(turf, scen, sky_m):
+    surface = dict(base=BASE, stripe=STRIPE, lines=CYAN, paint=(paint, 0.5))
+    wk.rink(turf, scen, SPORT, surface, BORDER, GOAL, decorate=decorate, skirt=-0.7)
+    hull(scen, sky_m)
+    pods(scen, sky_m)
+    masts(scen, sky_m)
+    holo_boards(sky_m)
+    halo_rings(sky_m)
+    planets(scen, sky_m)
+    belt(scen)
+    station(scen)
+    satellites(scen)
+    stars(sky_m)
+    comet(sky_m)
+
+
+wk.run(WORLD, HERE, wk.Palette(sky), SPORT, build, LIGHT)

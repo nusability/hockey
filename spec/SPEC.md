@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.4.0
+Spec-Version: 0.5.0
 Status: as-is — **the whole game's rules, running on both platforms, bit for bit; neither app
 lets anyone play them yet.** The match, the drills, the season, the career and the save (§1–§12,
 §15) run in each platform's core and agree to the last bit, pinned by golden vectors; what is

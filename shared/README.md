@@ -13,6 +13,7 @@ and the simulation's golden vectors. None of it is code either platform links.
 | `math.toml` | the deterministic math's constants, as exact IEEE-754 bit patterns (§4.3–§4.4) |
 | `copy.toml` | every user-facing string, English and German (§14); club, world, formation and drill names live next to what they name |
 | `save.toml` | the save records — career, season in progress (seed and stream position), training, coach's board — with a `version`; generated into types plus a canonical JSON encoder and a strict decoder, so both platforms write the same bytes (§15) |
+| `presentation.toml` | how a match looks: the play, buildup and goal cameras, figure/ball/aim-line sizes and colours, confetti, HUD layout — generated into the **app** targets only (`ios/Sources/Scene/Generated`, the Android app's `scene/generated`), never the core; per-world sun, shade, fog and sky tint live in `teams.toml`'s `[world.look]` |
 | `motion.json` | the UI's motion tokens (ADR 0005) — also loaded by the apps at runtime |
 
 **TOML**, because every number sits next to a comment naming its spec section, and Python reads it

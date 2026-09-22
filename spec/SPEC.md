@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.3.1
+Spec-Version: 0.3.2
 Status: as-is — **the whole game's rules, written down; neither app plays them yet.** Both apps
 are empty shells (see the platform-delta table). What this file now holds is the complete
 gameplay contract taken from the web prototype — the pitch, the one-touch control, the ball, the
@@ -215,7 +215,9 @@ spec writes them, **never fused** into a multiply-add. Lengths are `sqrt(x² + z
 library `hypot`. `sin`, `cos`, `atan2` and `exp` are **not** the platform's: each is a fixed
 approximation (range reduction plus polynomial, absolute error ≤ 1e-9 on the simulation's input
 ranges) whose constants are declared once in `shared/data/` and implemented identically on both
-platforms. The declaration is recorded with the first golden vector.
+platforms, and pinned bit-for-bit by golden vectors (`shared/vectors/math/`). Edge cases are part of
+the contract: `atan2(±0, +x) = ±0`, `atan2(0, 0) = 0`, `atan2(−0, −x) = +π`; `sin` and `cos` accept
+arguments up to ±1e6 (a patrolling dummy's phase grows with match time) and fail loudly beyond.
 
 #### 4.5 What a step does, in order
 1. Match time advances.

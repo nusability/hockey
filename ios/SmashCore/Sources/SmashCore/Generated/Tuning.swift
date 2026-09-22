@@ -377,6 +377,22 @@ public enum Tuning {
                 public static let stiffness: Double = 160.0
                 public static let damping: Double = 18.0
             }
+            public enum Pop {
+                public static let stiffness: Double = 260.0
+                public static let damping: Double = 13.0
+            }
+            public enum Snappy {
+                public static let stiffness: Double = 520.0
+                public static let damping: Double = 26.0
+            }
+            public enum Wobbly {
+                public static let stiffness: Double = 300.0
+                public static let damping: Double = 5.5
+            }
+            public enum Swoop {
+                public static let stiffness: Double = 38.0
+                public static let damping: Double = 11.0
+            }
         }
         public enum Fade {
             public static let seconds: Double = 0.18
@@ -385,6 +401,19 @@ public enum Tuning {
             public static let kick: Double = 7.5
             public static let squash: Double = 0.32
             public static let bulge: Double = 0.16
+            public static let hold: Double = 0.55
+        }
+        public enum Stagger {
+            public static let seconds: Double = 0.055
+        }
+        public enum Idle {
+            public static let bobMetres: Double = 0.025
+            public static let bobSeconds: Double = 2.6
+        }
+        public enum Kick {
+            public static let nope: Double = 3.5
+            public static let celebrate: Double = 3.0
+            public static let grab: Double = 4.0
         }
     }
 }

@@ -378,6 +378,22 @@ object Tuning {
                 const val stiffness: Double = 160.0
                 const val damping: Double = 18.0
             }
+            object Pop {
+                const val stiffness: Double = 260.0
+                const val damping: Double = 13.0
+            }
+            object Snappy {
+                const val stiffness: Double = 520.0
+                const val damping: Double = 26.0
+            }
+            object Wobbly {
+                const val stiffness: Double = 300.0
+                const val damping: Double = 5.5
+            }
+            object Swoop {
+                const val stiffness: Double = 38.0
+                const val damping: Double = 11.0
+            }
         }
         object Fade {
             const val seconds: Double = 0.18
@@ -386,6 +402,19 @@ object Tuning {
             const val kick: Double = 7.5
             const val squash: Double = 0.32
             const val bulge: Double = 0.16
+            const val hold: Double = 0.55
+        }
+        object Stagger {
+            const val seconds: Double = 0.055
+        }
+        object Idle {
+            const val bobMetres: Double = 0.025
+            const val bobSeconds: Double = 2.6
+        }
+        object Kick {
+            const val nope: Double = 3.5
+            const val celebrate: Double = 3.0
+            const val grab: Double = 4.0
         }
     }
 }

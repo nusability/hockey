@@ -153,3 +153,24 @@
 "event.passFirst" = { en = "PASS FIRST!", de = "ERST PASSEN!" }
 "event.wrongNet" = { en = "WRONG GOAL!", de = "FALSCHES TOR!" }
 "event.reset" = { en = "RESET", de = "NEUSTART" }
+
+# The 3D UI kit's motion sketch (SMASH-5) — screens not yet specified; keys move into their
+# screens' sections when those screens are built for real.
+"title.logo.top" = { en = "SMASH", de = "SMASH" }
+"title.logo.bottom" = { en = "HOCKEY", de = "HOCKEY" }
+"title.training" = { en = "TRAINING", de = "TRAINING" }
+"title.coach" = { en = "COACH", de = "TAKTIK" }
+"hub.header" = { en = "SEASON 1 · MATCHDAY 5", de = "SAISON 1 · SPIELTAG 5" }
+"hub.vs" = { en = "VS", de = "GEGEN" }
+"hub.fixture" = { en = "LEAGUE · DESERT OASIS", de = "LIGA · WÜSTENOASE" }
+"hub.play" = { en = "PLAY MATCH", de = "ANPFIFF" }
+"hub.back" = { en = "BACK", de = "ZURÜCK" }
+"table.played" = { en = "P", de = "SP" }
+"table.points" = { en = "PTS", de = "PKT" }
+"match.score.home" = { en = "Home score", de = "Tore Heim" }
+"match.score.away" = { en = "Away score", de = "Tore Gast" }
+"match.clock" = { en = "Clock", de = "Uhr" }
+"match.goal" = { en = "GOAL!", de = "TOR!" }
+"match.fulltime" = { en = "FULL TIME", de = "ABPFIFF" }
+"result.score" = { en = "Final score", de = "Endstand" }
+"coach.pushup" = { en = "PUSH UP", de = "AUFRÜCKEN" }

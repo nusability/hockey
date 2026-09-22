@@ -25,12 +25,7 @@ enum TextMesh {
 
     /// A node whose child is the centred text model — rotate and scale the node, not the model.
     static func entity(_ text: String, height: Float, depth: Float, material: RealityKit.Material) -> Entity {
-        let size = CGFloat(height / capHeightPerEm)
-        guard let font = UIFont(name: "LilitaOne", size: size) else {
-            preconditionFailure("Lilita One is not registered — call TextMesh.registerFont() first")
-        }
-        let mesh = MeshResource.generateText(text, extrusionDepth: depth, font: font,
-                                             containerFrame: .zero, alignment: .center, lineBreakMode: .byClipping)
+        let mesh = mesh(text, height: height, depth: depth)
         let model = ModelEntity(mesh: mesh, materials: [material])
         let b = mesh.bounds
         model.position = SIMD3(-b.center.x, -b.center.y, -b.center.z)
@@ -38,4 +33,22 @@ enum TextMesh {
         node.addChild(model)
         return node
     }
+
+    /// The extruded mesh for `text`, meshed once per (text, height, depth) and cached: a flip
+    /// digit or a ticking clock asks for the same few strings over and over.
+    static func mesh(_ text: String, height: Float, depth: Float) -> MeshResource {
+        let key = MeshKey(text: text, height: height, depth: depth)
+        if let cached = cache[key] { return cached }
+        let size = CGFloat(height / capHeightPerEm)
+        guard let font = UIFont(name: "LilitaOne", size: size) else {
+            preconditionFailure("Lilita One is not registered — call TextMesh.registerFont() first")
+        }
+        let mesh = MeshResource.generateText(text, extrusionDepth: depth, font: font,
+                                             containerFrame: .zero, alignment: .center, lineBreakMode: .byClipping)
+        cache[key] = mesh
+        return mesh
+    }
+
+    private struct MeshKey: Hashable { let text: String; let height: Float; let depth: Float }
+    private static var cache: [MeshKey: MeshResource] = [:]
 }

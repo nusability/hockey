@@ -312,10 +312,25 @@ internal object GeneratedConstantBits {
         Triple("Tuning.Motion.Spring.Bouncy.damping", Tuning.Motion.Spring.Bouncy.damping, 4622382067542392832L), // 0x4026000000000000
         Triple("Tuning.Motion.Spring.Soft.stiffness", Tuning.Motion.Spring.Soft.stiffness, 4639833516098453504L), // 0x4064000000000000
         Triple("Tuning.Motion.Spring.Soft.damping", Tuning.Motion.Spring.Soft.damping, 4625759767262920704L), // 0x4032000000000000
+        Triple("Tuning.Motion.Spring.Pop.stiffness", Tuning.Motion.Spring.Pop.stiffness, 4643281584563159040L), // 0x4070400000000000
+        Triple("Tuning.Motion.Spring.Pop.damping", Tuning.Motion.Spring.Pop.damping, 4623507967449235456L), // 0x402A000000000000
+        Triple("Tuning.Motion.Spring.Snappy.stiffness", Tuning.Motion.Spring.Snappy.stiffness, 4647785184190529536L), // 0x4080400000000000
+        Triple("Tuning.Motion.Spring.Snappy.damping", Tuning.Motion.Spring.Snappy.damping, 4628011567076605952L), // 0x403A000000000000
+        Triple("Tuning.Motion.Spring.Wobbly.stiffness", Tuning.Motion.Spring.Wobbly.stiffness, 4643985272004935680L), // 0x4072C00000000000
+        Triple("Tuning.Motion.Spring.Wobbly.damping", Tuning.Motion.Spring.Wobbly.damping, 4617878467915022336L), // 0x4016000000000000
+        Triple("Tuning.Motion.Spring.Swoop.stiffness", Tuning.Motion.Spring.Swoop.stiffness, 4630544841867001856L), // 0x4043000000000000
+        Triple("Tuning.Motion.Spring.Swoop.damping", Tuning.Motion.Spring.Swoop.damping, 4622382067542392832L), // 0x4026000000000000
         Triple("Tuning.Motion.Fade.seconds", Tuning.Motion.Fade.seconds, 4595653203753948938L), // 0x3FC70A3D70A3D70A
         Triple("Tuning.Motion.Press.kick", Tuning.Motion.Press.kick, 4620130267728707584L), // 0x401E000000000000
         Triple("Tuning.Motion.Press.squash", Tuning.Motion.Press.squash, 4599436227440940155L), // 0x3FD47AE147AE147B
         Triple("Tuning.Motion.Press.bulge", Tuning.Motion.Press.bulge, 4594932627813569659L), // 0x3FC47AE147AE147B
+        Triple("Tuning.Motion.Press.hold", Tuning.Motion.Press.hold, 4603129179135383962L), // 0x3FE199999999999A
+        Triple("Tuning.Motion.Stagger.seconds", Tuning.Motion.Stagger.seconds, 4588087156379966505L), // 0x3FAC28F5C28F5C29
+        Triple("Tuning.Motion.Idle.bobMetres", Tuning.Motion.Idle.bobMetres, 4582862980812216730L), // 0x3F9999999999999A
+        Triple("Tuning.Motion.Idle.bobSeconds", Tuning.Motion.Idle.bobSeconds, 4613037098315599053L), // 0x4004CCCCCCCCCCCD
+        Triple("Tuning.Motion.Kick.nope", Tuning.Motion.Kick.nope, 4615063718147915776L), // 0x400C000000000000
+        Triple("Tuning.Motion.Kick.celebrate", Tuning.Motion.Kick.celebrate, 4613937818241073152L), // 0x4008000000000000
+        Triple("Tuning.Motion.Kick.grab", Tuning.Motion.Kick.grab, 4616189618054758400L), // 0x4010000000000000
         Triple("Sport.FIELD.cornerRadius", Sport.FIELD.cornerRadius, 4611686018427387904L), // 0x4000000000000000
         Triple("Sport.FIELD.ballFriction", Sport.FIELD.ballFriction, 4606281698874543309L), // 0x3FECCCCCCCCCCCCD
         Triple("Sport.FIELD.ballDrag", Sport.FIELD.ballDrag, 4599075939470750515L), // 0x3FD3333333333333

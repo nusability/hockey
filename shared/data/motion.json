@@ -1,9 +1,16 @@
 {
-  "_comment": "Motion tokens (ADR 0005): the 3D UI's springs and fades, read by both platforms so both move the same way. The apps load this file at runtime (Motion.swift, Motion.kt), and tools/generate-data.py also generates it into Tuning.Motion in SmashCore and :core. Springs are integrated in fixed 1/240 s substeps with semi-implicit Euler: a = -stiffness*(x - target) - damping*v.",
+  "_comment": "Motion tokens (ADR 0005): the 3D UI's springs and fades, read by both platforms so both move the same way. The apps load this file at runtime (Motion.swift, Motion.kt), and tools/generate-data.py also generates it into Tuning.Motion in SmashCore and :core. Springs are integrated in fixed 1/240 s substeps with semi-implicit Euler: a = -stiffness*(x - target) - damping*v. Spring values are unitless (a component maps 0..1 onto its own pose); kicks are velocities in those units per second.",
   "spring": {
-    "bouncy": { "stiffness": 420.0, "damping": 11.0 },
-    "soft":   { "stiffness": 160.0, "damping": 18.0 }
+    "bouncy": { "stiffness": 420.0, "damping": 11.0, "_use": "button squash-and-stretch, slider knob" },
+    "soft":   { "stiffness": 160.0, "damping": 18.0, "_use": "things leaving: hop, spin and fall away" },
+    "pop":    { "stiffness": 260.0, "damping": 13.0, "_use": "things arriving: overshoot once, settle" },
+    "snappy": { "stiffness": 520.0, "damping": 26.0, "_use": "flip cards: a fast turn with a small clack past the stop" },
+    "wobbly": { "stiffness": 300.0, "damping": 5.5,  "_use": "celebration jelly: rings for about a second" },
+    "swoop":  { "stiffness": 38.0,  "damping": 11.0, "_use": "the camera between screens, about a second" }
   },
   "fade": { "seconds": 0.18 },
-  "press": { "kick": 7.5, "squash": 0.32, "bulge": 0.16 }
+  "press": { "kick": 7.5, "squash": 0.32, "bulge": 0.16, "hold": 0.55 },
+  "stagger": { "seconds": 0.055 },
+  "idle": { "bobMetres": 0.025, "bobSeconds": 2.6 },
+  "kick": { "nope": 3.5, "celebrate": 3.0, "grab": 4.0 }
 }

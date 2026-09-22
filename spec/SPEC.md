@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.6.1
+Spec-Version: 0.7.0
 Status: as-is — **the whole game's rules, running on both platforms, bit for bit; neither app
 lets anyone play them yet.** The match, the drills, the season, the career and the save (§1–§12,
 §15) run in each platform's core and agree to the last bit, pinned by golden vectors; what is
@@ -65,7 +65,7 @@ deletes it — the goal for these is zero).
 
 | Since | Kind | Delta |
 |---|---|---|
-| 2026-09-22 | **temporary** | **Neither app offers a screen yet.** Both apps play a match in any of the five worlds (§13) — drawn with its camera and slow motion (§8.6), the aim line (§5.2) and the finger (§5.3) — but only from a debug launch (a quick match, a drill, the demo); a minimal HUD shows score, clock and period. Still missing on **both**: the menus and the styled HUD, the demo behind the menus (§9), quitting from the pause (§8.7), saving to the device (§15). Each lands on both platforms in one commit and trims this row. Closed by Stori `SMASH` (SMASH-11, SMASH-12). |
+| 2026-09-22 | **temporary** | **Neither app offers the screens of §16 yet, nor saves to the device (§15).** Both play a match from a debug launch, with the kit's motion sketch in place of menus. Lands on both platforms together. Closed by Stori `SMASH` (SMASH-11, SMASH-12). |
 | 2026-09-22 | **permanent** | **The two look the same to a player's eye, not to the pixel.** Geometry, textures, text, layout, motion and — since ADR 0006 — the shading itself are identical by construction: both platforms compute the same flat Lambert/toon formula in their own unlit materials, with no engine lighting or tone mapping. What remains different is how two engines rasterise and anti-alias. A difference a player would notice is still a bug. |
 | 2026-09-22 | **permanent** | **iOS renders at 60 Hz on ProMotion iPhones, Android at the display's rate up to what it holds.** RealityKit's view offers no frame-rate control (ADR 0005). The simulation is unaffected — it runs in fixed steps (§4). |
 | 2026-09-22 | **permanent** | **Purchases are per-store and per-device.** There is no account, so an entitlement bought on one store does not follow the player to the other. The game never implies otherwise: no affordance offers a cross-platform restore (ADR 0001). |
@@ -750,8 +750,70 @@ same state writes the same bytes on both platforms. It carries a format **versio
 that is not well-formed, breaks a rule of this spec, or has another version is refused with a
 typed error — never read as an empty save.
 
+**When it is written:** after every recorded result (a played match, a forfeit, a won drill),
+every career change, and every change on the coach's board — before the next screen appears.
+**When a record is refused** on launch, the game says so on a screen of its own, keeps the file
+untouched beside a new one, and offers exactly one way on: start over. It never opens as if the
+player were new.
+
 Nothing leaves the device. Until the first store submission, these shapes may change without
 migration (`conventions.md`, greenfield); from then on they are migrated, never reset.
+
+### 16. The screens
+Every screen is built from the 3D UI kit (ADR 0005, `conventions.md` UI): blocks, flip digits,
+panels and lettering in the world, moving on the shared motion tokens, reached by camera moves
+rather than cuts, with the demo match (§9) playing behind every menu. Every control has a stable
+accessibility identifier, the same on both platforms (`<screen>_<control>_button`), and every word
+comes from the declared copy (§14).
+
+#### 16.1 First launch — choosing the team
+With no career saved, the game opens here, once (§2.2). Two ways:
+- **Pick a club:** the eight clubs as cards — name, kit, home world, rating as a strength bar.
+  Choosing one and confirming starts the career.
+- **Create a team:** name (the system keyboard; 2–16 characters), short code (derived, editable,
+  refused when it equals a club's), kit (primary and secondary from the 12 palette pairs), home
+  world (the five). A live preview disk wears the kit. Confirming starts the career; Glacier
+  Wolves are replaced (§2.2).
+
+Training and quick match are reachable from here too (§2.2) without choosing.
+
+#### 16.2 The title
+The logo, and: **Season** (continue, or start the next one — §11.4), **Training**, **Quick match**,
+**Coach**, **How to play**. The trophy counts are shown when there are any. Settings live on the
+coach's board; there is no other settings screen.
+
+#### 16.3 The season hub
+- **Next fixture:** both teams' kits, league round or cup round, the world it is played in, and
+  **Play**, which starts the match in one tap (A2).
+- **League table** (§11.4), the player's row marked; **the cup** bracket with results so far.
+- **Season over:** champion, cup winner, the player's place and trophies, and **Next season**.
+
+#### 16.4 The match
+The HUD: both teams' short codes on their kit colours, the score and the clock as flip digits, the
+period (or OT), and a pause button in a corner, clear of the pitch (§8.6's slow motion leaves the
+HUD at real speed). Goals flip the score and wobble the board. The pause panel: **Resume** and
+**Quit** — quitting a season match says it forfeits 0–3 before it does (§8.7).
+
+In a drill the HUD shows goals scored of the target and the clock; the drill's hint is the
+intro card before "get ready" (§10).
+
+#### 16.5 The result
+The final score, win/draw/loss, overtime if it happened, and one button on: back to the hub (season),
+**Again** (a drill, one tap — A2) or **Next drill** when won, back to the title (quick match).
+
+#### 16.6 Training
+The eight drills as cards in order: name, world, goals/time, what opposes (none, goalie, dummies,
+defenders), won or locked (§10). A locked card does not start. Choosing an open one shows its
+intro (the hint) and **Start**.
+
+#### 16.7 The coach's board
+Sliders for pressing, covering, push up and discipline (§12), the five formations as a picker
+drawn as disks on a small pitch, period length and ball spin as stepped sliders, and **Reset**
+(§12). Changes save as they are made (§15).
+
+#### 16.8 How to play
+The prototype's six lessons (the copy's `help.*`), each a card, the one-touch control shown by a
+disk with a ball circling it and an aim line.
 
 ---
 

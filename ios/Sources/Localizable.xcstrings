@@ -1,0 +1,19 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "app.name" : {
+      "comment" : "Temporary: once shared/data/copy lands, this file is generated and never hand-edited.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Slapshot League" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Slapshot League" } }
+      }
+    },
+    "menu.tagline" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "One finger. Six players. One goal." } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Ein Finger. Sechs Spieler. Ein Tor." } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

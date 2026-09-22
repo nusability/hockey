@@ -1,0 +1,54 @@
+# The iOS half of a two-platform product. ADR 0001: a native codebase sharing no executable code
+# of ours with android/. The .xcodeproj is generated from this file and never committed.
+name: SlapshotLeague
+options:
+  # One-way door at registration (conventions.md): the bundle id is decided before the first
+  # App Store Connect registration and never changed after it. Placeholder until then.
+  bundleIdPrefix: in.nann
+  deploymentTarget:
+    # ADR 0003 (proposed): iOS 17.
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    CODE_SIGN_STYLE: Automatic
+    # A team id is not a secret; it ships in every signed binary. Same team as flashybird.
+    DEVELOPMENT_TEAM: 33N7Q5ZPGX
+    GENERATE_INFOPLIST_FILE: "YES"
+    # A store field, not an engineering contract; the release lane will set the build number.
+    MARKETING_VERSION: "0.1"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  SlapshotLeague:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: in.nann.slapshot
+        INFOPLIST_KEY_CFBundleDisplayName: Slapshot League
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UIRequiresFullScreen: "YES"
+        TARGETED_DEVICE_FAMILY: "1"
+  SlapshotLeagueTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: SlapshotLeague
+
+schemes:
+  SlapshotLeague:
+    build:
+      targets:
+        SlapshotLeague: all
+    test:
+      targets:
+        - SlapshotLeagueTests

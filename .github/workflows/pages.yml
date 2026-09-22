@@ -3,6 +3,8 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+    # Only the web build is published. Spec, ADRs and the native apps never reach the site.
+    paths: ['web/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -27,14 +29,14 @@ jobs:
         # tab can tell whether what it loaded is still what is published.
         run: |
           BUILD="${GITHUB_SHA::12}"
-          printf '{ "version": "%s", "time": "%s" }\n' "$BUILD" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > version.json
-          sed -i "s|<meta name=\"build\" content=\"[^\"]*\">|<meta name=\"build\" content=\"$BUILD\">|" index.html
+          printf '{ "version": "%s", "time": "%s" }\n' "$BUILD" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > web/version.json
+          sed -i "s|<meta name=\"build\" content=\"[^\"]*\">|<meta name=\"build\" content=\"$BUILD\">|" web/index.html
           echo "Stamped build $BUILD"
-          grep -o '<meta name="build"[^>]*>' index.html
-          cat version.json
+          grep -o '<meta name="build"[^>]*>' web/index.html
+          cat web/version.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: web
       - id: deployment
         uses: actions/deploy-pages@v4

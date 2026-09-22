@@ -1,11 +1,13 @@
 import Foundation
+import SmashCore
 
 /// The motion vocabulary (ADR 0005, `shared/data/motion.json`): named springs and fades that both
-/// platforms read, integrated identically, so a bounce on iOS is the bounce on Android.
-struct SpringToken: Sendable {
-    let stiffness: Double
-    let damping: Double
-}
+/// platforms read, integrated identically, so a bounce on iOS is the bounce on Android. The spring
+/// itself and the presence it drives are the core's (`SmashCore.Spring`, `SmashCore.UIPresence`),
+/// so one test pins both apps' motion; this file is the app's end of it — the tokens, read from
+/// the bundle.
+typealias SpringToken = SmashCore.SpringToken
+typealias Spring = SmashCore.Spring
 
 /// The springs the UI may ask for, by name. Every one must be in motion.json (checked at load).
 enum SpringName: String, CaseIterable, Sendable {
@@ -85,45 +87,5 @@ enum AssetError: Error, CustomStringConvertible {
     case missing(String)
     var description: String {
         switch self { case .missing(let what): "asset missing: \(what)" }
-    }
-}
-
-/// A damped spring toward `target`, integrated with semi-implicit Euler in fixed 1/240 s substeps
-/// — the same equations and step on both platforms, so a curve can be pinned by a golden vector.
-struct Spring {
-    static let step = 1.0 / 240.0
-    let token: SpringToken
-    private(set) var value: Double
-    var velocity = 0.0
-    var target: Double
-    private var carry = 0.0
-
-    init(_ token: SpringToken, initial: Double = 0) {
-        self.token = token
-        value = initial
-        target = initial
-    }
-
-    mutating func kick(_ impulse: Double) { velocity += impulse }
-
-    /// Jumps to `v` and stops there — Reduce Motion, or restarting a one-shot move.
-    mutating func snap(to v: Double) {
-        value = v
-        target = v
-        velocity = 0
-        carry = 0
-    }
-
-    /// At rest on its target (to well below anything visible).
-    var isSettled: Bool { abs(value - target) < 1e-3 && abs(velocity) < 1e-2 }
-
-    mutating func advance(_ dt: Double) {
-        carry += dt
-        while carry >= Spring.step {
-            let a = -token.stiffness * (value - target) - token.damping * velocity
-            velocity += a * Spring.step
-            value += velocity * Spring.step
-            carry -= Spring.step
-        }
     }
 }

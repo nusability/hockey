@@ -1,8 +1,8 @@
 package `in`.nann.smashhockey.ui
 
 import `in`.nann.smashhockey.engine.Spring
-import `in`.nann.smashhockey.ui.DesignTokens.Colour
-import `in`.nann.smashhockey.ui.DesignTokens.Size
+import `in`.nann.smashhockey.ui.generated.DesignTokens.Colour
+import `in`.nann.smashhockey.ui.generated.DesignTokens.Size
 import kotlin.math.max
 import kotlin.math.min
 
@@ -41,8 +41,8 @@ class Tile(
 
     init {
         val corner = min(Size.CORNER, h * 0.3f)
-        // A swatch keeps its own colour when chosen: a cream frame behind it says so instead.
-        haloNode = if (halo) kit.slab(w + 0.04f, h + 0.04f, depth * 0.6f, Colour.CREAM, body, corner).also {
+        // A swatch keeps its own colour when chosen: a paper frame behind it says so instead.
+        haloNode = if (halo) kit.slab(w + 0.04f, h + 0.04f, depth * 0.6f, Colour.PAPER, body, corner).also {
             it.setPosition(0f, 0f, -depth * 0.3f)
             it.enabled = false
         } else null

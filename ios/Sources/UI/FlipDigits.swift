@@ -1,13 +1,17 @@
 import RealityKit
+import SmashCore
 
 /// One flip card: a dark tile with a character on each face. A change writes the new character
 /// on the hidden face and turns the card half a revolution about its horizontal axis, top edge
 /// falling toward the viewer like a split-flap, on the `snappy` spring — so it clacks a little
-/// past the stop and settles.
+/// past the stop and settles. A card may show **nothing** (`Scoreboard.blank`) — the tens card of a
+/// single-digit score — and flips from blank to a digit like any other change.
 @MainActor
 private final class FlipCard {
     let entity = Entity()
-    private let faces: [ModelEntity]
+    private let faceNodes: [Entity]
+    private var faces: [ModelEntity?]
+    private let ink: Int
     private var turn: Spring
     private var flips = 0
     private(set) var shown: Character
@@ -18,24 +22,40 @@ private final class FlipCard {
     init(_ c: Character, size: SIMD2<Float>, depth: Float, textHeight: Float, cardColour: Int, ink: Int, motion: MotionTokens) {
         shown = c
         self.textHeight = textHeight
+        self.ink = ink
         turn = Spring(motion.spring(.snappy))
         let tile = Blocks.slab([size.x, size.y, depth], cardColour, corner: min(size.x, size.y) * 0.12)
         entity.addChild(tile)
-        let front = Blocks.text(String(c), height: textHeight, ink)
-        let back = Blocks.text(String(c), height: textHeight, ink)
         let frontNode = Entity(), backNode = Entity()
         frontNode.position.z = depth / 2
         backNode.position.z = -depth / 2
         // Upside down on the back: after half a turn about X it reads the right way up.
         backNode.orientation = simd_quatf(angle: .pi, axis: [1, 0, 0])
-        frontNode.addChild(front)
-        backNode.addChild(back)
         entity.addChild(frontNode)
         entity.addChild(backNode)
+        faceNodes = [frontNode, backNode]
+        faces = [nil, nil]
         // A hairline across the middle, the split-flap's split.
         let split = Blocks.slab([size.x * 1.001, size.y * 0.025, depth * 1.02], DesignTokens.Colour.board, corner: 0)
         entity.addChild(split)
-        faces = [front, back]
+        write(0, c)
+        write(1, c)
+    }
+
+    /// Puts `c` on face `i` — a blank card carries no lettering at all.
+    private func write(_ i: Int, _ c: Character) {
+        if c == Scoreboard.blank {
+            faces[i]?.removeFromParent()
+            faces[i] = nil
+            return
+        }
+        if let face = faces[i] {
+            Blocks.retext(face, String(c), height: textHeight)
+        } else {
+            let face = Blocks.text(String(c), height: textHeight, ink)
+            faceNodes[i].addChild(face)
+            faces[i] = face
+        }
     }
 
     func set(_ c: Character) {
@@ -48,7 +68,7 @@ private final class FlipCard {
 
     private func start(_ c: Character) {
         flips += 1
-        Blocks.retext(faces[flips % 2], String(c), height: textHeight)
+        write(flips % 2, c)
         shown = c
         turn.target = Double(flips) * .pi
         KitSound.flip()
@@ -124,7 +144,9 @@ final class FlipDigits: Semantic, Presentable {
         entity.isEnabled = false
     }
 
-    private static func isSeparator(_ c: Character) -> Bool { c == ":" || c == "-" || c == " " || c == "." || c == "/" }
+    /// A character printed between the cards rather than on one. A blank is **not** one: it is a
+    /// card showing nothing, so a score can grow a digit without the board changing shape.
+    private static func isSeparator(_ c: Character) -> Bool { c == ":" || c == "-" || c == "." || c == "/" }
 
     var boundsEntity: Entity { entity }
     var bounds: BoundingBox { bounds_ }

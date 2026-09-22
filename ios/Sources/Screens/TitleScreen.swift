@@ -14,11 +14,11 @@ final class TitleScreen: Screen {
         let m = motion
         part(WaveText(L(.titleLogoTop), height: 0.36, colour: C.sun, id: "title_logo_header", motion: m),
              at: at(0, top - 0.45, tilt: 0.05))
-        part(WaveText(L(.titleLogoBottom), height: 0.30, colour: C.cream, bob: 0.7, id: "title_logo2_header", motion: m),
+        part(WaveText(L(.titleLogoBottom), height: 0.30, colour: C.paper, bob: 0.7, id: "title_logo2_header", motion: m),
              at: at(-0.05, top - 0.90, tilt: 0.05))
-        badge = part(Panel(size: [0.42, 0.30, 0.12], colour: C.coral, entrance: .pop, motion: m),
+        badge = part(Panel(size: [0.42, 0.30, 0.12], colour: C.pink, entrance: .pop, motion: m),
                      at: at(0.62, top - 1.22, z: 0.05, tilt: -0.22))
-        child(Label3D("3D", height: 0.16, colour: C.cream, motion: m), on: badge.content).presence.show(after: 0)
+        child(Label3D("3D", height: 0.16, colour: C.ink, motion: m), on: badge.content).presence.show(after: 0)
         // The buttons stand on the bottom edge; the tagline and the trophies ride just above them.
         let y0 = bottom + 0.3
         part(Label3D(L(.titleTagline), height: S.textSmall, colour: C.ink, maxWidth: 1.7, entrance: .tumble, motion: m),

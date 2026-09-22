@@ -2,9 +2,12 @@ package `in`.nann.smashhockey.engine
 
 /**
  * The motion vocabulary (ADR 0005, `shared/data/motion.json`): named springs and fades that both
- * platforms read, integrated identically, so a bounce on Android is the bounce on iOS.
+ * platforms read, integrated identically, so a bounce on Android is the bounce on iOS. The spring
+ * itself and the presence it drives are the core's, so one test pins both apps' motion; this file is
+ * the app's end of it — the tokens, read from the assets.
  */
-data class SpringToken(val stiffness: Double, val damping: Double)
+typealias SpringToken = `in`.nann.smashhockey.core.feel.SpringToken
+typealias Spring = `in`.nann.smashhockey.core.feel.Spring
 
 data class MotionTokens(
     val bouncy: SpringToken,
@@ -32,42 +35,4 @@ data class MotionTokens(
             )
         }
     }
-}
-
-/**
- * A damped spring toward [target], integrated with semi-implicit Euler in fixed 1/240 s substeps —
- * the same equations, step and API as iOS's `Spring` (snap, settle), so a curve can be pinned by
- * a golden vector. The one spring of the app: the match's HUD and the UI kit both run on it.
- */
-class Spring(val token: SpringToken, initial: Double = 0.0) {
-    var value = initial
-        private set
-    var velocity = 0.0
-    var target = initial
-    private var carry = 0.0
-
-    fun kick(impulse: Double) { velocity += impulse }
-
-    /** Jumps to [v] and stops there — Reduce Motion, or restarting a one-shot move. */
-    fun snap(v: Double) {
-        value = v
-        target = v
-        velocity = 0.0
-        carry = 0.0
-    }
-
-    /** At rest on its target (to well below anything visible). */
-    val isSettled: Boolean get() = kotlin.math.abs(value - target) < 1e-3 && kotlin.math.abs(velocity) < 1e-2
-
-    fun advance(dt: Double) {
-        carry += dt
-        while (carry >= STEP) {
-            val a = -token.stiffness * (value - target) - token.damping * velocity
-            velocity += a * STEP
-            value += velocity * STEP
-            carry -= STEP
-        }
-    }
-
-    companion object { const val STEP = 1.0 / 240.0 }
 }

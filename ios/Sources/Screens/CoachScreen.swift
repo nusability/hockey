@@ -18,7 +18,7 @@ final class CoachScreen: Screen {
         super.init(pose: CameraPose(Presentation.Screens.Coach.eye, Presentation.Screens.Coach.target), game: game)
         let m = motion
         let b = game.save.board
-        part(WaveText(L(.coachTitle), height: 0.16, colour: C.cream, bob: 0.6, id: "coach_title_header", motion: m),
+        part(WaveText(L(.coachTitle), height: 0.16, colour: C.paper, bob: 0.6, id: "coach_title_header", motion: m),
              at: at(0, top - 0.22))
         board = part(Panel(size: [1.76, 1.4, 0.12], colour: C.chalk, entrance: .tumble, motion: m), at: at(0, top - 1.05))
         let tactics: [(CopyKey, String, Double)] = [(.coachPressing, "coach_pressing_field", b.pressing),
@@ -32,7 +32,7 @@ final class CoachScreen: Screen {
             sliders.append(s)
         }
 
-        part(Label3D(L(.coachFormation), height: 0.045, colour: C.cream, align: .leading, motion: m), at: at(-0.86, top - 1.88))
+        part(Label3D(L(.coachFormation), height: 0.045, colour: C.paper, align: .leading, motion: m), at: at(-0.86, top - 1.88))
         for (i, f) in Formation.allCases.enumerated() {
             let t = part(pitch(f), at: at(-0.72 + Float(i) * 0.36, top - 2.14))
             t.isSelected = f == b.formation
@@ -67,7 +67,7 @@ final class CoachScreen: Screen {
 
     /// A formation as its six disks on a little pitch, attacking up (§3).
     private func pitch(_ f: Formation) -> Tile {
-        let t = Tile(size: [0.32, 0.4], colour: C.rail, selectedColour: C.teal, id: "coach_formation_\(f.rawValue)_button",
+        let t = Tile(size: [0.32, 0.4], colour: C.rail, selectedColour: C.green, id: "coach_formation_\(f.rawValue)_button",
                      label: L(f.nameKey), motion: motion) { [weak self] in self?.choose(f) }
         let line = Blocks.slab([0.28, 0.006, 0.01], C.chalk, corner: 0)
         line.position = [0, 0.03, 0.005]
@@ -79,9 +79,9 @@ final class CoachScreen: Screen {
             t.content.addChild(d)
         }
         disk(Formation.goalie, C.ink)
-        for p in f.players { disk(p.spot, p.role == .defender ? C.cream : C.sun) }
+        for p in f.players { disk(p.spot, p.role == .defender ? C.paper : C.sun) }
         let name = L(f.nameKey).split(separator: " ").first.map(String.init) ?? ""
-        letters(name, height: 0.034, colour: C.cream, maxWidth: 0.28, at: [0, -0.16, 0.01], on: t.content)
+        letters(name, height: 0.034, colour: C.paper, maxWidth: 0.28, at: [0, -0.16, 0.01], on: t.content)
         return t
     }
 

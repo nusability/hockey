@@ -35,7 +35,7 @@ class TeamScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Team.eye, P
     private var picked: Club? = null
 
     init {
-        part(WaveText(kit, L(CopyKey.TEAM_TITLE), 0.17f, C.CREAM, bob = 0.6f, id = "team_title_header"), at(0f, top - 0.2f))
+        part(WaveText(kit, L(CopyKey.TEAM_TITLE), 0.17f, C.PAPER, bob = 0.6f, id = "team_title_header"), at(0f, top - 0.2f))
         pickTab = part(tab(L(CopyKey.TEAM_PICK), "team_pick_button") { switchTo(false) }, at(-0.45f, top - 0.52f))
         createTab = part(tab(L(CopyKey.TEAM_CREATE), "team_create_button") { switchTo(true) }, at(0.45f, top - 0.52f))
         pickTab.isSelected = true
@@ -65,7 +65,7 @@ class TeamScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Team.eye, P
     }
 
     private fun tab(title: String, id: String, action: () -> Unit): Tile {
-        val t = Tile(kit, 0.86f, 0.26f, C.CREAM, C.TEAL, id = id, label = title, action = action)
+        val t = Tile(kit, 0.86f, 0.26f, C.PAPER, C.GREEN, id = id, label = title, action = action)
         letters(title, 0.075f, C.INK, maxWidth = 0.76f, parent = t.content)
         return t
     }
@@ -73,19 +73,19 @@ class TeamScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Team.eye, P
     /** A club's card: its kit with the short code, its name, its home world and its strength. */
     private fun clubCard(club: Club, h: Float): Tile {
         val label = "${L(club.nameKey)}, ${L(club.world.nameKey)}, ${L(CopyKey.TEAM_STRENGTH, club.rating)}"
-        val card = Tile(kit, 0.86f, h, C.CREAM, id = "team_club_${club.key}_button", label = label) { pick(club) }
+        val card = Tile(kit, 0.86f, h, C.PAPER, id = "team_club_${club.key}_button", label = label) { pick(club) }
         val chipH = minOf(0.3f, h * 0.72f)
         kit.slab(0.24f, chipH, 0.05f, club.primary, card.content, corner = 0.03f).setPosition(-0.28f, 0f, 0.02f)
         kit.slab(0.05f, chipH + 0.005f, 0.055f, club.secondary, card.content, corner = 0.005f).setPosition(-0.36f, 0f, 0.022f)
         letters(club.short, 0.07f, club.secondary, maxWidth = 0.16f, x = -0.26f, z = 0.05f, parent = card.content)
         letters(Names.team(TeamKey.of(club), null), 0.05f, C.INK, maxWidth = 0.5f, align = Label3D.Align.LEADING,
             x = -0.13f, y = h * 0.2f, parent = card.content)
-        letters(Names.world(club.world), 0.034f, C.TEAL_SHADE, maxWidth = 0.5f, align = Label3D.Align.LEADING,
+        letters(Names.world(club.world), 0.034f, C.GREEN_INK, maxWidth = 0.5f, align = Label3D.Align.LEADING,
             x = -0.13f, parent = card.content)
         // Strength: the rating across the clubs' range (§2.1's skill, 60…90).
-        kit.slab(0.5f, 0.035f, 0.02f, C.CREAM_SHADE, card.content, corner = 0.012f).setPosition(0.12f, -h * 0.24f, 0.01f)
+        kit.slab(0.5f, 0.035f, 0.02f, C.PAPER_SHADE, card.content, corner = 0.012f).setPosition(0.12f, -h * 0.24f, 0.01f)
         val share = ((club.rating - 60) / 30.0).coerceIn(0.05, 1.0).toFloat()
-        kit.slab(0.5f * share, 0.045f, 0.03f, C.CORAL, card.content, corner = 0.015f).setPosition(-0.13f + 0.25f * share, -h * 0.24f, 0.015f)
+        kit.slab(0.5f * share, 0.045f, 0.03f, C.PINK, card.content, corner = 0.015f).setPosition(-0.13f + 0.25f * share, -h * 0.24f, 0.015f)
         return card
     }
 

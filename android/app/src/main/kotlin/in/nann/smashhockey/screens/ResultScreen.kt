@@ -1,5 +1,6 @@
 package `in`.nann.smashhockey.screens
 
+import `in`.nann.smashhockey.core.feel.Scoreboard
 import `in`.nann.smashhockey.core.generated.CopyKey
 import `in`.nann.smashhockey.core.generated.Drill
 import `in`.nann.smashhockey.core.match.MatchResult
@@ -31,12 +32,13 @@ class ResultScreen(game: Game, private val outcome: Outcome) :
         val plan = outcome.plan
         val won = outcome.result == MatchResult.WON
         val header = if (plan !is MatchPlan.Practice) CopyKey.RESULT_FULLTIME else if (won) CopyKey.RESULT_DRILL_WON else CopyKey.RESULT_TIME_UP
-        part(WaveText(kit, L(header), 0.2f, C.CREAM, id = "result_title_header"), at(0f, top - 0.3f))
+        part(WaveText(kit, L(header), 0.2f, C.PAPER, id = "result_title_header"), at(0f, top - 0.3f))
         slab = part(Panel(kit, 1.66f, 1.0f, 0.18f, C.SUN, Entrance.Tumble), at(0f, top - 1.05f, tilt = 0.03f))
         val s = outcome.score
         val goals = outcome.drillGoals
         if (goals != null) {
-            digits = child(FlipDigits(kit, "0/$goals", 0.32f, 0.44f, "result_score", L(CopyKey.RESULT_SCORE)), at(0f, -0.02f, z = 0.06f), slab.content)
+            digits = child(FlipDigits(kit, Scoreboard.drill(0, goals), CARD_W, CARD_H, "result_score", L(CopyKey.RESULT_SCORE)),
+                at(0f, -0.02f, z = 0.06f), slab.content)
         } else {
             for ((i, x) in listOf(-0.52f, 0.52f).withIndex()) {
                 val colours = outcome.colours[i]
@@ -44,16 +46,16 @@ class ResultScreen(game: Game, private val outcome: Outcome) :
                 chip.show(0.0)
                 child(Label3D(kit, outcome.codes?.get(i) ?: "", 0.09f, colours.secondary, maxWidth = 0.4f), parent = chip.content).show(0.0)
             }
-            digits = child(FlipDigits(kit, zeroed("${s[0]}:${s[1]}"), 0.32f, 0.44f, "result_score", L(CopyKey.RESULT_SCORE)),
+            digits = child(FlipDigits(kit, Scoreboard.score(0, 0), CARD_W, CARD_H, "result_score", L(CopyKey.RESULT_SCORE)),
                 at(0f, -0.1f, z = 0.06f), slab.content)
             val key = if (won) CopyKey.RESULT_WIN else if (outcome.result == MatchResult.LOST) CopyKey.RESULT_LOSS else CopyKey.RESULT_DRAW
-            val b = part(Panel(kit, 0.62f, 0.26f, 0.12f, if (won) C.CORAL else C.TEAL, Entrance.Pop), at(0.5f, top - 1.58f, z = 0.2f, tilt = -0.2f))
-            child(Label3D(kit, L(key), 0.1f, C.CREAM, maxWidth = 0.54f), parent = b.content).show(0.0)
+            val b = part(Panel(kit, 0.62f, 0.26f, 0.12f, if (won) C.PINK else C.GREEN, Entrance.Pop), at(0.5f, top - 1.58f, z = 0.2f, tilt = -0.2f))
+            child(Label3D(kit, L(key), 0.1f, C.INK, maxWidth = 0.54f), parent = b.content).show(0.0)
             badge = b
         }
         digits.show(0.0)
         digits.onLanded = { slab.thud() }
-        if (outcome.overtime) part(Label3D(kit, L(CopyKey.RESULT_OT), 0.07f, C.CREAM, maxWidth = 1.5f), at(0f, top - 1.8f))
+        if (outcome.overtime) part(Label3D(kit, L(CopyKey.RESULT_OT), 0.07f, C.PAPER, maxWidth = 1.5f), at(0f, top - 1.8f))
 
         fun button(key: CopyKey, id: String, text: Float = 0.13f, action: () -> Unit) =
             BlockButton(kit, L(key), id, BlockButton.Style.PRIMARY, 1.3f, 0.38f, text, action = action)
@@ -78,7 +80,6 @@ class ResultScreen(game: Game, private val outcome: Outcome) :
     }
 
     /** The final score's shape with every digit a zero — where the count starts. */
-    private fun zeroed(text: String) = text.map { if (it.isDigit()) '0' else it }.joinToString("")
 
     override fun show(after: Double) {
         super.show(after)
@@ -87,20 +88,26 @@ class ResultScreen(game: Game, private val outcome: Outcome) :
         val steps = ArrayList<String>()
         val goals = outcome.drillGoals
         if (goals != null) {
-            for (g in 0..minOf(s[0], 9)) steps += "$g/$goals"
+            for (g in 0..minOf(s[0], goals)) steps += Scoreboard.drill(g, goals)
         } else {
-            val final = "${s[0]}:${s[1]}"
-            fun pad(h: Int, a: Int) = "$h:$a".let { if (it.length == final.length) it else final }   // two-digit scores: straight to the final
-            steps += zeroed(final)
-            for (h in 0..s[0]) steps += pad(h, 0)
-            for (a in 1..s[1]) steps += pad(s[0], a)
+            steps += Scoreboard.score(0, 0)
+            for (h in 0..s[0]) steps += Scoreboard.score(h, 0)
+            for (a in 1..s[1]) steps += Scoreboard.score(s[0], a)
         }
-        for ((i, text) in steps.drop(1).withIndex()) stage.after(after + 0.9 + i * 0.4) { digits.set(text) }
-        stage.after(after + 0.9 + steps.size * 0.4) {
+        // The ladder runs the same length whether the score is 1:0 or 12:11.
+        val tick = minOf(0.4, 3.6 / maxOf(1, steps.size - 1))
+        for ((i, text) in steps.drop(1).withIndex()) stage.after(after + 0.9 + i * tick) { digits.set(text) }
+        stage.after(after + 0.9 + steps.size * tick) {
             if (outcome.result != MatchResult.WON) return@after
             digits.celebrate()
             badge?.celebrate(1.2)
             slab.celebrate(0.6)
         }
+    }
+
+    private companion object {
+        /** Two cards a side, so 0:0 and 12:11 stand in the same place (§16.4). */
+        const val CARD_W = 0.26f
+        const val CARD_H = 0.36f
     }
 }

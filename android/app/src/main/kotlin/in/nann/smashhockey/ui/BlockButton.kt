@@ -1,7 +1,7 @@
 package `in`.nann.smashhockey.ui
 
-import `in`.nann.smashhockey.ui.DesignTokens.Colour
-import `in`.nann.smashhockey.ui.DesignTokens.Size
+import `in`.nann.smashhockey.ui.generated.DesignTokens.Colour
+import `in`.nann.smashhockey.ui.generated.DesignTokens.Size
 import kotlin.math.max
 import kotlin.math.sin
 import `in`.nann.smashhockey.engine.Spring
@@ -28,9 +28,9 @@ class BlockButton(
     class Style(val cap: Int, val base: Int, val ink: Int) {
         companion object {
             val PRIMARY = Style(Colour.SUN, Colour.SUN_SHADE, Colour.INK)
-            val SECONDARY = Style(Colour.TEAL, Colour.TEAL_SHADE, Colour.CREAM)
-            val QUIET = Style(Colour.CREAM, Colour.CREAM_SHADE, Colour.INK)
-            val DANGER = Style(Colour.CORAL, Colour.CORAL_SHADE, Colour.CREAM)
+            val SECONDARY = Style(Colour.GREEN, Colour.GREEN_INK, Colour.INK)
+            val QUIET = Style(Colour.PAPER, Colour.PAPER_SHADE, Colour.INK)
+            val DANGER = Style(Colour.PINK, Colour.PINK_INK, Colour.INK)
             val DISABLED = Style(Colour.DISABLED, Colour.DISABLED_SHADE, Colour.DISABLED_INK)
         }
     }

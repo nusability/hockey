@@ -1,4 +1,5 @@
 import RealityKit
+import SmashCore
 
 /// One row of a table — a league table line, a list entry. A slab with cells of lettering laid
 /// out by column, an optional kit chip, and a slot it springs to: re-rank the table and the rows

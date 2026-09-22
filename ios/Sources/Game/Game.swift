@@ -73,8 +73,9 @@ final class Game {
         let motion = try MotionTokens.load()
         try TextMesh.registerFont()
         let materials = try await Materials.load()
-        // The UI blocks are toon-shaded under one fixed light, whatever world stands behind them.
-        Blocks.light(with: materials, look: World.oasis.look)
+        // The UI blocks are toon-shaded under the UI's own light (design.json), not the light of the
+        // world standing behind them: a menu looks the same everywhere and a white slab stays white.
+        Blocks.light(with: materials, look: DesignTokens.look)
         let stage = UIStage(pose: CameraPose(Presentation.Screens.Refused.eye, Presentation.Screens.Refused.target),
                             viewSize: viewSize, insets: insets, motion: motion)
         let pitch = try Pitch(materials: materials, feel: try await FeelMaterials.load())

@@ -1,5 +1,6 @@
 import RealityKit
 import simd
+import SmashCore
 
 /// How an element arrives. Leaving is always the same goofy exit: a hop, a spin, a fall.
 enum Entrance {
@@ -13,81 +14,44 @@ enum Entrance {
     case slide(fromLeft: Bool)
 }
 
-/// An element's arrival and departure, driven only by motion tokens: `pop` in, `soft` out, and
-/// under Reduce Motion plain fades of `fade.seconds` with no movement at all (conventions: UI).
+/// An element's arrival and departure on screen: the core's `UIPresence` (which decides *when* an
+/// element is arriving, arrived, leaving or gone, and is pinned by `FeelTests`) plus this app's
+/// half — how it is posed while it does. `pop` in, `soft` out, and under Reduce Motion plain fades
+/// of `fade.seconds` with no movement at all (conventions: UI). The twin of Android's `Presence`.
 struct Presence {
-    enum Phase { case hidden, shown, leaving }
-    private(set) var phase = Phase.hidden
     var style: Entrance
-    private var enter: Spring
-    private var exit: Spring
-    private var opacity = 0.0
-    private var pending: (phase: Phase, delay: Double)?
+    private var core: UIPresence
 
     init(_ style: Entrance, motion: MotionTokens) {
         self.style = style
-        enter = Spring(motion.spring(.pop))
-        exit = Spring(motion.spring(.soft))
+        core = UIPresence(enter: motion.spring(.pop), exit: motion.spring(.soft))
     }
 
-    mutating func show(after delay: Double = 0) { pending = (.shown, delay) }
-    mutating func hide(after delay: Double = 0) {
-        if phase == .hidden { pending = nil; return }
-        pending = (.leaving, delay)
-    }
+    mutating func show(after delay: Double = 0) { core.show(after: delay) }
+    mutating func hide(after delay: Double = 0) { core.hide(after: delay) }
 
     /// Visible or about to be: the element is (or will soon be) on screen.
-    var isVisible: Bool { phase != .hidden || pending?.phase == .shown }
+    var isVisible: Bool { core.isVisible }
     /// Arrived and not leaving — the only state in which it takes touches or reaches VoiceOver.
-    var isSettledIn: Bool { phase == .shown && pending == nil && enter.value > 0.85 }
+    var isSettledIn: Bool { core.isSettledIn }
     /// 0…1(+overshoot) progress of the arrival, for elements that stage their own children.
-    var arrival: Double { enter.value }
+    var arrival: Double { core.arrival }
 
     mutating func advance(_ dt: Double, _ ctx: UIContext) {
-        if let p = pending {
-            let left = p.delay - dt
-            if left > 0 { pending = (p.phase, left) } else { begin(p.phase); pending = nil }
-        }
-        if ctx.reduceMotion {
-            let goal = phase == .shown ? 1.0 : 0.0
-            let step = dt / ctx.motion.fadeSeconds
-            opacity = opacity < goal ? min(goal, opacity + step) : max(goal, opacity - step)
-            enter.snap(to: phase == .hidden ? 0 : 1)
-            exit.snap(to: 0)
-            if phase == .leaving && opacity == 0 { phase = .hidden }
-            return
-        }
-        enter.advance(dt)
-        exit.advance(dt)
-        opacity = 1
-        if phase == .leaving && exit.value > 0.97 { phase = .hidden }
-    }
-
-    private mutating func begin(_ next: Phase) {
-        switch next {
-        case .shown:
-            if phase != .shown { enter.snap(to: 0); exit.snap(to: 0); enter.target = 1 }
-            phase = .shown
-        case .leaving:
-            guard phase == .shown else { return }
-            exit.target = 1
-            phase = .leaving
-        case .hidden:
-            phase = .hidden
-        }
+        core.advance(dt, reduceMotion: ctx.reduceMotion, fadeSeconds: ctx.motion.fadeSeconds)
     }
 
     /// Poses `e` at `rest` bent by the arrival or departure, and fades it under Reduce Motion.
     @MainActor func apply(to e: Entity, rest: Transform, reduceMotion: Bool) {
-        let visible = phase != .hidden
+        let visible = core.phase != .hidden
         if e.isEnabled != visible { e.isEnabled = visible }
         guard visible else { return }
         if reduceMotion {
             e.transform = rest
-            setOpacity(e, Float(opacity))
+            setOpacity(e, Float(core.opacity))
             return
         }
-        let a = Float(enter.value), x = Float(exit.value)
+        let a = Float(core.arrival), x = Float(core.departure)
         var offset = SIMD3<Float>.zero
         var scale = SIMD3<Float>(repeating: 1)
         var turn = simd_quatf(angle: 0, axis: [0, 0, 1])

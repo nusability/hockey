@@ -24,8 +24,8 @@ final class HubScreen: Screen {
         let over = season.isFinished
         // Which season of the career this is (§15, §16.3), then the matchday.
         let header = L(.hubSeason, season.number) + " · " + (over ? L(.hubOver) : L(.hubHeader, season.matchday + 1, Season.plan.count))
-        part(Label3D(header, height: 0.1, colour: C.cream, maxWidth: 1.7, entrance: .drop, motion: m), at: at(0, top - 0.14))
-        card = part(Panel(size: [1.72, 0.62, S.slabDepth], colour: C.cream, entrance: .tumble, motion: m),
+        part(Label3D(header, height: 0.1, colour: C.paper, maxWidth: 1.7, entrance: .drop, motion: m), at: at(0, top - 0.14))
+        card = part(Panel(size: [1.72, 0.62, S.slabDepth], colour: C.paper, entrance: .tumble, motion: m),
                     at: at(0, top - 0.62, tilt: -0.02))
         if over { seasonOver(career, season) } else if let f = game.save.playerFixture { fixture(career, season, f) }
 
@@ -57,7 +57,7 @@ final class HubScreen: Screen {
     }
 
     private func tab(_ title: String, id: String, action: @escaping () -> Void) -> Tile {
-        let t = Tile(size: [0.52, 0.18], colour: C.cream, selectedColour: C.teal, id: id, label: title, motion: motion,
+        let t = Tile(size: [0.52, 0.18], colour: C.paper, selectedColour: C.green, id: id, label: title, motion: motion,
                      action: action)
         letters(title, height: 0.06, colour: C.ink, maxWidth: 0.46, at: [0, 0, 0], on: t.content)
         return t
@@ -77,7 +77,7 @@ final class HubScreen: Screen {
             child(Label3D(career.short(of: team), height: 0.13, colour: Int(kit.secondary), maxWidth: 0.36, motion: motion),
                   at: at(0.05, 0), on: chip.content).show(after: 0)
         }
-        child(Label3D(L(.hubVs), height: 0.12, colour: C.coral, maxWidth: 0.36, motion: motion), on: card.content).show(after: 0)
+        child(Label3D(L(.hubVs), height: 0.12, colour: C.pinkInk, maxWidth: 0.36, motion: motion), on: card.content).show(after: 0)
         let step = Season.plan[season.matchday]
         let line = "\(Names.matchday(step)) · \(Names.world(career.homeWorld(of: f.home)))"
         child(Label3D(line, height: S.textSmall, colour: C.ink, maxWidth: 1.6, motion: motion), at: at(0, -0.225),
@@ -90,14 +90,14 @@ final class HubScreen: Screen {
         let cupWinner = season.cupWinner ?? champion
         for (i, (label, team)) in [(L(.hubChampion), champion), (L(.hubCupWinner), cupWinner)].enumerated() {
             let y = 0.18 - Float(i) * 0.19
-            letters(label, height: 0.045, colour: C.tealShade, maxWidth: 0.5, align: .leading, at: [-0.8, y, 0.01], on: card.content)
+            letters(label, height: 0.045, colour: C.greenInk, maxWidth: 0.5, align: .leading, at: [-0.8, y, 0.01], on: card.content)
             let kit = career.kit(of: team)
             let chip = Blocks.slab([0.2, 0.13, 0.04], Int(kit.primary), corner: 0.02)
             chip.position = [-0.2, y, 0.02]
             card.content.addChild(chip)
             letters(career.short(of: team), height: 0.05, colour: Int(kit.secondary), maxWidth: 0.16, at: [-0.2, y, 0.04],
                     on: card.content)
-            letters(Names.team(team, career), height: 0.055, colour: team == career.team ? C.coral : C.ink, maxWidth: 0.66,
+            letters(Names.team(team, career), height: 0.055, colour: team == career.team ? C.pinkInk : C.ink, maxWidth: 0.66,
                     align: .leading, at: [-0.06, y, 0.01], on: card.content)
         }
         let place = (standings.firstIndex { $0.team == career.team } ?? 0) + 1
@@ -116,7 +116,7 @@ final class HubScreen: Screen {
                                        .init(at: 0.91, align: .centre)]
         let width: Float = 1.72
         let head = child(TableRow(["#", L(.tableTeam), L(.tablePlayed), L(.tableGd), L(.tablePoints)], columns: cols,
-                                  size: [width, 0.09], id: "hub_table_header", colour: C.board, ink: C.cream,
+                                  size: [width, 0.09], id: "hub_table_header", colour: C.board, ink: C.paper,
                                   textHeight: S.textSmall, y: top, entrance: .tumble, motion: motion),
                          at: at(0, top), on: layer)
         tableParts.append(head)
@@ -161,19 +161,19 @@ final class HubScreen: Screen {
             let count = 4 >> c
             let ties = season.cupTies(round)
             let x = -0.58 + Float(c) * 0.58
-            cupParts.append(child(Label3D(Names.cupRound(round), height: 0.04, colour: C.cream, maxWidth: 0.54,
+            cupParts.append(child(Label3D(Names.cupRound(round), height: 0.04, colour: C.paper, maxWidth: 0.54,
                                           entrance: .drop, motion: motion), at: at(x, top + 0.02), on: layer))
             for i in 0..<count {
                 let span = Float(1 << c)
                 let y = top - 0.2 - pitch * (Float(i) * span + (span - 1) / 2)
-                let tie = child(Panel(size: [0.54, 0.3, 0.06], colour: C.cream, entrance: .pop, motion: motion),
+                let tie = child(Panel(size: [0.54, 0.3, 0.06], colour: C.paper, entrance: .pop, motion: motion),
                                 at: at(x, y), on: layer)
                 cupParts.append(tie)
                 let f = i < ties.count ? ties[i] : nil
                 for (line, team) in [f?.home, f?.away].enumerated() {
                     let ly: Float = line == 0 ? 0.065 : -0.065
                     let won = f.flatMap { SeasonRecord.winnerOf($0) } == team && team != nil
-                    let ink = team == career.team ? C.coral : (f?.score == nil || won ? C.ink : C.disabledInk)
+                    let ink = team == career.team ? C.pinkInk : (f?.score == nil || won ? C.ink : C.disabledInk)
                     letters(team.map { career.short(of: $0) } ?? "–", height: 0.05, colour: ink, align: .leading,
                             at: [-0.23, ly, 0.01], on: tie.content)
                     if let s = f?.score {

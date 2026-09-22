@@ -22,6 +22,7 @@ import `in`.nann.smashhockey.generated.WorldLook
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.sqrt
+import `in`.nann.smashhockey.ui.generated.DesignTokens
 
 /**
  * How the UI is painted: the match's toon shader (ADR 0006), lit by [look] — the kit's blocks and

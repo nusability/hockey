@@ -1,5 +1,6 @@
 import RealityKit
 import simd
+import SmashCore
 
 /// Where the camera stands for a screen, and what it looks at.
 struct CameraPose: Equatable {

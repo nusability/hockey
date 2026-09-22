@@ -15,7 +15,7 @@ final class TrainingScreen: Screen {
         super.init(pose: CameraPose(Presentation.Screens.Training.eye, Presentation.Screens.Training.target), game: game)
         let m = motion
         let save = game.save
-        part(WaveText(L(.trainingTitle), height: 0.17, colour: C.cream, bob: 0.6, id: "training_title_header", motion: m),
+        part(WaveText(L(.trainingTitle), height: 0.17, colour: C.paper, bob: 0.6, id: "training_title_header", motion: m),
              at: at(0, top - 0.2))
         let done = Drill.allCases.filter(save.isWon).count
         part(Label3D(L(.trainingProgress, done, Drill.allCases.count), height: S.textSmall, colour: C.sun, maxWidth: 1.6,
@@ -47,24 +47,24 @@ final class TrainingScreen: Screen {
         let open = save.isOpen(d), won = save.isWon(d)
         let state = won ? L(.trainingWon) : open ? "" : L(.trainingLocked)
         let label = [L(.trainingDrill, d.number), L(d.nameKey), L(d.world.nameKey), state].filter { !$0.isEmpty }.joined(separator: ", ")
-        let t = Tile(size: [0.86, h], colour: won ? C.rowDark : C.cream, id: "training_drill_\(d.number)_button", label: label,
+        let t = Tile(size: [0.86, h], colour: won ? C.rowDark : C.paper, id: "training_drill_\(d.number)_button", label: label,
                      motion: motion) { [weak self] in self?.open(d) }
         t.isEnabled = open
         let ink = open ? C.ink : C.disabledInk
-        letters(L(.trainingDrill, d.number), height: 0.032, colour: open ? C.tealShade : C.disabledInk, align: .leading,
+        letters(L(.trainingDrill, d.number), height: 0.032, colour: open ? C.greenInk : C.disabledInk, align: .leading,
                 at: [-0.39, h * 0.3, 0], on: t.content)
         letters(L(d.nameKey).uppercased(), height: 0.05, colour: ink, maxWidth: 0.76, align: .leading, at: [-0.39, h * 0.08, 0],
                 on: t.content)
         let facts = "\(Names.world(d.world)) · \(L(.trainingGoalsIn, d.goals, Int(d.seconds)))"
         letters(facts, height: 0.03, colour: ink, maxWidth: 0.76, align: .leading, at: [-0.39, -h * 0.13, 0], on: t.content)
-        letters(L(Self.opposition(d)), height: 0.03, colour: open ? C.coralShade : C.disabledInk, maxWidth: 0.5, align: .leading,
+        letters(L(Self.opposition(d)), height: 0.03, colour: open ? C.pinkInk : C.disabledInk, maxWidth: 0.5, align: .leading,
                 at: [-0.39, -h * 0.3, 0], on: t.content)
         if won || !open {
-            let badge = Blocks.slab([0.26, 0.08, 0.03], won ? C.teal : C.disabledShade, corner: 0.03)
+            let badge = Blocks.slab([0.26, 0.08, 0.03], won ? C.green : C.disabledShade, corner: 0.03)
             badge.position = [0.27, -h * 0.3, 0.02]
             badge.orientation = simd_quatf(angle: -0.12, axis: [0, 0, 1])
             t.content.addChild(badge)
-            letters(state, height: 0.035, colour: C.cream, maxWidth: 0.22, at: [0.27, -h * 0.3, 0.04], on: t.content)
+            letters(state, height: 0.035, colour: C.ink, maxWidth: 0.22, at: [0.27, -h * 0.3, 0.04], on: t.content)
         }
         return t
     }
@@ -80,14 +80,14 @@ final class TrainingScreen: Screen {
         }
         KitSound.sweep()
         let m = motion
-        let panel = child(Panel(size: [1.62, 1.5, 0.14], colour: C.cream, entrance: .tumble, motion: m), at: at(0, 0.05, z: 0.5),
+        let panel = child(Panel(size: [1.62, 1.5, 0.14], colour: C.paper, entrance: .tumble, motion: m), at: at(0, 0.05, z: 0.5),
                           on: layer)
         var parts: [Presentable] = [panel]
-        child(Label3D(L(.trainingDrill, d.number), height: 0.05, colour: C.tealShade, motion: m), at: at(0, 0.6), on: panel.content)
+        child(Label3D(L(.trainingDrill, d.number), height: 0.05, colour: C.greenInk, motion: m), at: at(0, 0.6), on: panel.content)
             .show(after: 0)
         child(Label3D(L(d.nameKey).uppercased(), height: 0.11, colour: C.ink, maxWidth: 1.45, motion: m), at: at(0, 0.45),
               on: panel.content).show(after: 0)
-        child(Label3D(L(.trainingGoalsIn, d.goals, Int(d.seconds)), height: 0.05, colour: C.coralShade, maxWidth: 1.4, motion: m),
+        child(Label3D(L(.trainingGoalsIn, d.goals, Int(d.seconds)), height: 0.05, colour: C.pinkInk, maxWidth: 1.4, motion: m),
               at: at(0, 0.31), on: panel.content).show(after: 0)
         let hint = child(Paragraph(L(d.hintKey), height: 0.058, colour: C.ink, width: 1.4, id: "training_hint", motion: m),
                          at: at(0, -0.02), on: panel.content)

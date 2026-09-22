@@ -52,8 +52,8 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
         // The season's number in the career heads the hub (§16.3, §15).
         val header = L(CopyKey.HUB_SEASON, season.number) + " · " +
             (if (over) L(CopyKey.HUB_OVER) else L(CopyKey.HUB_HEADER, season.matchday + 1, Season.plan.size))
-        part(Label3D(kit, header, 0.1f, C.CREAM, maxWidth = 1.7f, entrance = Entrance.Drop), at(0f, top - 0.14f))
-        card = part(Panel(kit, 1.72f, 0.62f, S.SLAB_DEPTH, C.CREAM, Entrance.Tumble), at(0f, top - 0.62f, tilt = -0.02f))
+        part(Label3D(kit, header, 0.1f, C.PAPER, maxWidth = 1.7f, entrance = Entrance.Drop), at(0f, top - 0.14f))
+        card = part(Panel(kit, 1.72f, 0.62f, S.SLAB_DEPTH, C.PAPER, Entrance.Tumble), at(0f, top - 0.62f, tilt = -0.02f))
         val f = game.save.playerFixture
         if (over) seasonOver(career, season) else if (f != null) fixture(career, season, f)
 
@@ -81,7 +81,7 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
     }
 
     private fun tab(title: String, id: String, action: () -> Unit): Tile {
-        val t = Tile(kit, 0.52f, 0.18f, C.CREAM, C.TEAL, id = id, label = title, action = action)
+        val t = Tile(kit, 0.52f, 0.18f, C.PAPER, C.GREEN, id = id, label = title, action = action)
         letters(title, 0.06f, C.INK, maxWidth = 0.46f, parent = t.content)
         return t
     }
@@ -96,7 +96,7 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
             kit.slab(0.1f, 0.37f, 0.085f, k.second, chip.body, corner = 0.01f).setPosition(-0.2f, 0f, 0f)
             child(Label3D(kit, career.short(team), 0.13f, k.second, maxWidth = 0.36f), at(0.05f, 0f), chip.content).show(0.0)
         }
-        child(Label3D(kit, L(CopyKey.HUB_VS), 0.12f, C.CORAL, maxWidth = 0.36f), parent = card.content).show(0.0)
+        child(Label3D(kit, L(CopyKey.HUB_VS), 0.12f, C.PINK_INK, maxWidth = 0.36f), parent = card.content).show(0.0)
         val line = "${Names.matchday(Season.plan[season.matchday])} · ${Names.world(career.homeWorld(f.home))}"
         child(Label3D(kit, line, S.TEXT_SMALL, C.INK, maxWidth = 1.6f), at(0f, -0.225f), card.content).show(0.0)
     }
@@ -108,11 +108,11 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
         for ((i, pair) in listOf(L(CopyKey.HUB_CHAMPION) to champion, L(CopyKey.HUB_CUP_WINNER) to cupWinner).withIndex()) {
             val (label, team) = pair
             val y = 0.18f - i * 0.19f
-            letters(label, 0.045f, C.TEAL_SHADE, maxWidth = 0.5f, align = Label3D.Align.LEADING, x = -0.8f, y = y, z = 0.01f, parent = card.content)
+            letters(label, 0.045f, C.GREEN_INK, maxWidth = 0.5f, align = Label3D.Align.LEADING, x = -0.8f, y = y, z = 0.01f, parent = card.content)
             val k = career.kit(team)
             kit.slab(0.2f, 0.13f, 0.04f, k.first, card.content, corner = 0.02f).setPosition(-0.2f, y, 0.02f)
             letters(career.short(team), 0.05f, k.second, maxWidth = 0.16f, x = -0.2f, y = y, z = 0.04f, parent = card.content)
-            letters(Names.team(team, career), 0.055f, if (team == career.team) C.CORAL else C.INK, maxWidth = 0.66f,
+            letters(Names.team(team, career), 0.055f, if (team == career.team) C.PINK_INK else C.INK, maxWidth = 0.66f,
                 align = Label3D.Align.LEADING, x = -0.06f, y = y, z = 0.01f, parent = card.content)
         }
         val place = standings.indexOfFirst { it.team == career.team } + 1
@@ -128,7 +128,7 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
             TableRow.Column(0.91f, Label3D.Align.CENTRE))
         val width = 1.72f
         tableParts += child(TableRow(kit, listOf("#", L(CopyKey.TABLE_TEAM), L(CopyKey.TABLE_PLAYED), L(CopyKey.TABLE_GD),
-            L(CopyKey.TABLE_POINTS)), cols, width, 0.09f, "hub_table_header", C.BOARD, ink = C.CREAM, textHeight = S.TEXT_SMALL,
+            L(CopyKey.TABLE_POINTS)), cols, width, 0.09f, "hub_table_header", C.BOARD, ink = C.PAPER, textHeight = S.TEXT_SMALL,
             y = top, entrance = Entrance.Tumble), at(0f, top), layer)
         val step = S.ROW_HEIGHT + S.ROW_GAP + 0.02f
         val rowY = FloatArray(8) { top - 0.12f - it * step }
@@ -165,19 +165,19 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
             val count = 4 shr c
             val ties = season.cupTies(round)
             val x = -0.58f + c * 0.58f
-            cupParts += child(Label3D(kit, Names.cupRound(round), 0.04f, C.CREAM, maxWidth = 0.54f, entrance = Entrance.Drop),
+            cupParts += child(Label3D(kit, Names.cupRound(round), 0.04f, C.PAPER, maxWidth = 0.54f, entrance = Entrance.Drop),
                 at(x, top + 0.02f), layer)
             for (i in 0 until count) {
                 val span = (1 shl c).toFloat()
                 val y = top - 0.2f - pitch * (i * span + (span - 1) / 2)
-                val tie = child(Panel(kit, 0.54f, 0.3f, 0.06f, C.CREAM, Entrance.Pop), at(x, y), layer)
+                val tie = child(Panel(kit, 0.54f, 0.3f, 0.06f, C.PAPER, Entrance.Pop), at(x, y), layer)
                 cupParts += tie
                 val f = ties.getOrNull(i)
                 val winner = f?.let(::winnerOf)
                 for ((line, team) in listOf(f?.home, f?.away).withIndex()) {
                     val ly = if (line == 0) 0.065f else -0.065f
                     val won = team != null && winner == team
-                    val ink = if (team == career.team) C.CORAL else if (f?.score == null || won) C.INK else C.DISABLED_INK
+                    val ink = if (team == career.team) C.PINK_INK else if (f?.score == null || won) C.INK else C.DISABLED_INK
                     letters(team?.let { career.short(it) } ?: "–", 0.05f, ink, align = Label3D.Align.LEADING, x = -0.23f, y = ly,
                         z = 0.01f, parent = tie.content)
                     val s = f?.score ?: continue

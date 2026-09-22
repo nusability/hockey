@@ -33,7 +33,7 @@ class CoachScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Coach.eye,
 
     init {
         val b = game.save.board
-        part(WaveText(kit, L(CopyKey.COACH_TITLE), 0.16f, C.CREAM, bob = 0.6f, id = "coach_title_header"), at(0f, top - 0.22f))
+        part(WaveText(kit, L(CopyKey.COACH_TITLE), 0.16f, C.PAPER, bob = 0.6f, id = "coach_title_header"), at(0f, top - 0.22f))
         board = part(Panel(kit, 1.76f, 1.4f, 0.12f, C.CHALK, Entrance.Tumble), at(0f, top - 1.05f))
         val tactics = listOf(Triple(CopyKey.COACH_PRESSING, "coach_pressing_field", b.pressing),
             Triple(CopyKey.COACH_COVERING, "coach_covering_field", b.covering),
@@ -46,7 +46,7 @@ class CoachScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Coach.eye,
             sliders += s
         }
 
-        part(Label3D(kit, L(CopyKey.COACH_FORMATION), 0.045f, C.CREAM, Label3D.Align.LEADING), at(-0.86f, top - 1.88f))
+        part(Label3D(kit, L(CopyKey.COACH_FORMATION), 0.045f, C.PAPER, Label3D.Align.LEADING), at(-0.86f, top - 1.88f))
         for ((i, f) in Formation.entries.withIndex()) {
             val t = part(pitch(f), at(-0.72f + i * 0.36f, top - 2.14f))
             t.isSelected = f == b.formation
@@ -72,7 +72,7 @@ class CoachScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Coach.eye,
 
     /** A formation as its six disks on a little pitch, attacking up (§3). */
     private fun pitch(f: Formation): Tile {
-        val t = Tile(kit, 0.32f, 0.4f, C.RAIL, C.TEAL, id = "coach_formation_${f.key}_button", label = L(f.nameKey)) { choose(f) }
+        val t = Tile(kit, 0.32f, 0.4f, C.RAIL, C.GREEN, id = "coach_formation_${f.key}_button", label = L(f.nameKey)) { choose(f) }
         kit.slab(0.28f, 0.006f, 0.01f, C.CHALK, t.content, corner = 0f).setPosition(0f, 0.03f, 0.005f)
         val upright = Quat().axisAngle((Math.PI / 2).toFloat(), 1f, 0f, 0f)
         fun disk(spot: Spot, rgb: Int) {
@@ -81,9 +81,9 @@ class CoachScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Coach.eye,
             d.setPosition((spot.x / 15).toFloat() * 0.13f, 0.03f + (spot.z / 28).toFloat() * 0.15f, 0.012f)
         }
         disk(Formation.goalie, C.INK)
-        for (p in f.players) disk(p.spot, if (p.role == Role.DEFENDER) C.CREAM else C.SUN)
+        for (p in f.players) disk(p.spot, if (p.role == Role.DEFENDER) C.PAPER else C.SUN)
         val name = L(f.nameKey).split(' ').firstOrNull() ?: ""
-        letters(name, 0.034f, C.CREAM, maxWidth = 0.28f, y = -0.16f, z = 0.01f, parent = t.content)
+        letters(name, 0.034f, C.PAPER, maxWidth = 0.28f, y = -0.16f, z = 0.01f, parent = t.content)
         return t
     }
 

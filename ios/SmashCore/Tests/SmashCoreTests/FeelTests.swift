@@ -60,6 +60,201 @@ import Testing
         #expect(ice < field)
     }
 
+    // MARK: the scoreboard, 0:0 to 99:99 (§16.4)
+
+    static let board = Scoreboard.metrics(card: 0.14, gap: 0.0112, colon: 0.084, chip: 0.30, margin: 0.03)
+
+    @Test func everyScoreTheBoardCanShowKeepsItsLayout() {
+        let want = 2 * Scoreboard.cards + 1
+        for home in 0...99 {
+            for away in [0, 1, 9, 10, 11, 99] {
+                let text = Scoreboard.score(home, away)
+                #expect(text.count == want, "\(home):\(away) is '\(text)'")
+                #expect(text.filter { $0 == ":" }.count == 1)
+            }
+        }
+        #expect(Scoreboard.score(0) == " 0")
+        #expect(Scoreboard.score(9) == " 9")
+        #expect(Scoreboard.score(10) == "10")
+        #expect(Scoreboard.score(99) == "99")
+        #expect(Scoreboard.score(120) == "99")       // clamped, never wider than the board
+        #expect(Scoreboard.score(-1) == " 0")
+        // The card that changes when the tenth goal goes in is the tens card, so it flips.
+        let nine = Array(Scoreboard.score(9)), ten = Array(Scoreboard.score(10))
+        #expect(nine[0] == Scoreboard.blank && ten[0] == "1")
+    }
+
+    @Test func theTwoSidesAndTheirChipsNeverRunIntoEachOther() {
+        let m = Self.board
+        // The sides' cards clear the colon in the middle and each other.
+        #expect(m.scoreX - m.halfCards > 0)
+        // A chip clears its own side's cards.
+        #expect(m.chipX - 0.30 / 2 >= m.scoreX + m.halfCards)
+        // And the board holds the lot.
+        #expect(m.boardWidth / 2 >= m.chipX + 0.30 / 2)
+        // Nothing here depends on the score: the layout is the same at 0:0 and 99:99.
+        #expect(m.halfCards > 0.14)                  // two cards wide, not one
+    }
+
+    @Test func aDrillsTargetSetsItsWidth() {
+        #expect(Scoreboard.drill(scored: 0, target: 3) == "0/3")
+        #expect(Scoreboard.drill(scored: 3, target: 3) == "3/3")
+        #expect(Scoreboard.drill(scored: 9, target: 3) == "3/3")     // never past the target
+        #expect(Scoreboard.drill(scored: 0, target: 12) == " 0/12")
+        #expect(Scoreboard.drill(scored: 10, target: 12) == "10/12")
+        for target in 1...99 {
+            let width = Scoreboard.drill(scored: 0, target: target).count
+            for scored in 0...target { #expect(Scoreboard.drill(scored: scored, target: target).count == width) }
+        }
+    }
+
+    // MARK: the UI's arrivals and departures (conventions: UI)
+
+    /// motion.json's `pop` in, `soft` out, `fade.seconds`.
+    static func presence() -> UIPresence {
+        UIPresence(enter: SpringToken(stiffness: 260, damping: 13), exit: SpringToken(stiffness: 160, damping: 18))
+    }
+    static let fadeSeconds = 0.18
+
+    /// Runs `seconds` of 60 Hz frames.
+    static func run(_ p: inout UIPresence, _ seconds: Double, reduceMotion: Bool = false) {
+        for _ in 0..<Int(seconds * 60) { p.advance(1.0 / 60, reduceMotion: reduceMotion, fadeSeconds: fadeSeconds) }
+    }
+
+    @Test func anArrivalEndsOnItsExactPose() {
+        var p = Self.presence()
+        p.show()
+        Self.run(&p, 0.1)
+        #expect(p.phase == .shown && p.arrival < 1)          // still on its way
+        Self.run(&p, 2)
+        #expect(p.isSettledIn)
+        #expect(p.arrival == 1)                              // exactly, not a hair short for ever
+    }
+
+    @Test func aLeaveAlwaysEndsHidden() {
+        for reduce in [false, true] {
+            var p = Self.presence()
+            p.show()
+            Self.run(&p, 2, reduceMotion: reduce)
+            p.hide()
+            Self.run(&p, 0.05, reduceMotion: reduce)
+            #expect(p.phase == .leaving, "\(reduce)")
+            Self.run(&p, 3, reduceMotion: reduce)
+            #expect(p.phase == .hidden, "\(reduce)")
+            #expect(!p.isVisible, "\(reduce)")
+        }
+    }
+
+    /// The bug that left a piece of UI hanging in the air: Reduce Motion is read every frame on
+    /// Android (the system animator scale, battery saver), so it can turn on or off in the middle of
+    /// a transition. Neither way of playing a leave may strand the other's.
+    @Test func reduceMotionTurningOnOrOffMidLeaveStillFinishes() {
+        for (before, after) in [(false, true), (true, false)] {
+            var p = Self.presence()
+            p.show()
+            Self.run(&p, 2, reduceMotion: before)
+            p.hide()
+            Self.run(&p, 0.1, reduceMotion: before)          // the leave is in flight…
+            #expect(p.phase == .leaving, "\(before) then \(after)")
+            Self.run(&p, 5, reduceMotion: after)             // …and the setting flips under it
+            #expect(p.phase == .hidden, "\(before) then \(after)")
+        }
+    }
+
+    @Test func aLeaveInterruptedByAShowComesBackAndCanLeaveAgain() {
+        var p = Self.presence()
+        p.show()
+        Self.run(&p, 2)
+        p.hide()
+        Self.run(&p, 0.1)
+        p.show()                                             // caught mid-flight
+        Self.run(&p, 2)
+        #expect(p.isSettledIn && p.arrival == 1)
+        p.hide()
+        Self.run(&p, 3)
+        #expect(p.phase == .hidden)
+    }
+
+    @Test func hidingBeforeAnArrivalBeginsCancelsIt() {
+        var p = Self.presence()
+        p.show(after: 0.5)
+        p.hide()
+        Self.run(&p, 2)
+        #expect(p.phase == .hidden && !p.isVisible)
+    }
+
+    // MARK: what the arrow shows, transition by transition (§5.2)
+
+    /// One frame of the arrow, 1/60 s after the last.
+    private struct Rig {
+        var showing = AimArrow.Showing()
+        var clock = 0.0
+        static let fadeIn = 0.08
+
+        mutating func frame(_ state: MatchState = .play, playerCarrier: Bool = true, carrier: Int? = 1,
+                            aim: MatchSnapshot.Aim? = .unassisted, step: Double = 1.0 / 60) -> AimArrow.Look {
+            clock += step
+            return showing.frame(state: state, playerCarrier: playerCarrier, carrier: carrier, aim: aim,
+                                 clock: clock, fadeIn: Self.fadeIn)
+        }
+    }
+
+    @Test func theArrowShowsOnlyForThePlayersOwnCarrierInPlay() {
+        var r = Rig()
+        for state in MatchState.allCases {
+            let shown = r.frame(state).arrow
+            #expect(shown == (state == .play || state == .ready), "\(state)")
+        }
+        #expect(!r.frame(.play, playerCarrier: false).arrow)
+        #expect(!r.frame(.play, carrier: nil).arrow)
+        #expect(!r.frame(.play, aim: nil).arrow)
+        // …and it comes back the very next frame the match is back in play.
+        #expect(r.frame(.play).arrow)
+    }
+
+    @Test func theArrowsColourSaysWhatAReleaseWouldDo() {
+        var r = Rig()
+        #expect(r.frame(aim: .unassisted).colour == 0)
+        #expect(r.frame(aim: .pass(to: 3)).colour == 1)
+        #expect(r.frame(aim: .shot).colour == 2)
+        #expect(!r.frame(aim: .unassisted).snapped)
+        #expect(r.frame(aim: .shot).snapped)
+    }
+
+    /// The whole reason the arrow has a state machine: a snap's fade must start at every beginning
+    /// and at no other time, and it must never run on for ever.
+    @Test func theLockOnFadesInAtEverySnapBeginning() {
+        var r = Rig()
+        // A free arrow has no lock-on.
+        #expect(r.frame(aim: .unassisted).lock == .none)
+        // A snap begins: the fade runs from nothing to one over fade_in, then stops.
+        #expect(r.frame(aim: .shot).fade < 0.3)
+        for _ in 0..<4 { _ = r.frame(aim: .shot) }
+        #expect(r.frame(aim: .shot).fade == 1)
+        for _ in 0..<600 { _ = r.frame(aim: .shot) }
+        #expect(r.frame(aim: .shot).fade == 1)
+        // A new snap begins, even to the same receiver, when the ball changes hands.
+        _ = r.frame(aim: .pass(to: 3))
+        for _ in 0..<20 { _ = r.frame(aim: .pass(to: 3)) }
+        #expect(r.frame(aim: .pass(to: 3)).fade == 1)
+        #expect(r.frame(carrier: 2, aim: .pass(to: 3)).fade < 1)
+        // And after a whistle it fades in again rather than coming back fully lit.
+        for _ in 0..<20 { _ = r.frame(carrier: 2, aim: .pass(to: 3)) }
+        #expect(r.frame(carrier: 2, aim: .pass(to: 3)).fade == 1)
+        _ = r.frame(.whistle, aim: .pass(to: 3))
+        #expect(r.frame(.play, carrier: 2, aim: .pass(to: 3)).fade < 1)
+    }
+
+    @Test func aRestartedSceneClockDoesNotStickTheLockOn() {
+        var r = Rig()
+        for _ in 0..<20 { _ = r.frame(aim: .shot) }
+        #expect(r.frame(aim: .shot).fade == 1)
+        // A new match's scene starts its clock again; the arrow must not read a negative age.
+        r.clock = 0
+        let look = r.frame(aim: .shot)
+        #expect(look.fade >= 0 && look.fade <= 1)
+    }
+
     // MARK: banners (§16.4)
 
     @Test func theDrillsGetReadySaysWhy() {

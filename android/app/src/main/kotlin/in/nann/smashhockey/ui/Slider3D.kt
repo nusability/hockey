@@ -1,7 +1,7 @@
 package `in`.nann.smashhockey.ui
 
-import `in`.nann.smashhockey.ui.DesignTokens.Colour
-import `in`.nann.smashhockey.ui.DesignTokens.Size
+import `in`.nann.smashhockey.ui.generated.DesignTokens.Colour
+import `in`.nann.smashhockey.ui.generated.DesignTokens.Size
 import kotlin.math.max
 import kotlin.math.min
 import `in`.nann.smashhockey.engine.Spring
@@ -50,14 +50,14 @@ class Slider3D(
         val r = Size.KNOB_RADIUS
         val upright = Quat().axisAngle((Math.PI / 2).toFloat(), 1f, 0f, 0f)
         kit.cylinder(Size.KNOB_DEPTH, r, Colour.INK, puck).setRotation(upright)
-        val cap = kit.cylinder(Size.KNOB_DEPTH * 0.3f, r * 0.55f, Colour.CREAM, puck)
+        val cap = kit.cylinder(Size.KNOB_DEPTH * 0.3f, r * 0.55f, Colour.PAPER, puck)
         cap.setRotation(upright)
         cap.setPosition(0f, 0f, Size.KNOB_DEPTH * 0.5f)
         puck.setPosition(0f, 0f, railH)
 
         val titleNode = kit.node(body)
         val readoutNode = kit.node(body)
-        val titleText = kit.text(title, Size.TEXT_BODY, Colour.CREAM, titleNode)
+        val titleText = kit.text(title, Size.TEXT_BODY, Colour.PAPER, titleNode)
         readout = kit.text(format(value), Size.TEXT_BODY, Colour.SUN, readoutNode)
         titleNode.setPosition(-length / 2 + kit.width(titleText) / 2, 0.12f, 0f)
         readoutNode.setPosition(length / 2 - 0.12f, 0.12f, 0f)

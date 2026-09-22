@@ -138,6 +138,6 @@ final class Actors {
         ballDisc.position = SIMD3(Float(ballPos.x), 0.02, Float(ballPos.y))
         trail.update(ball: ballPos, time: s.time + ahead, loose: b.carrier == nil,
                      speed: (b.vx * b.vx + b.vz * b.vz).squareRoot())
-        aim.update(s, positions: positions, angle: angle, clock: clock, dt: dt)
+        aim.update(s, positions: positions, angle: angle, clock: clock)
     }
 }

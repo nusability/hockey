@@ -1,5 +1,6 @@
 package `in`.nann.smashhockey.ui
 
+import `in`.nann.smashhockey.ui.generated.DesignTokens
 /**
  * A slab that things sit on: a fixture card, a scoreboard housing, the pause sign — the twin of
  * iOS's `Panel`. It tumbles (or pops, or drops) in, hops away on the way out, and jiggles when

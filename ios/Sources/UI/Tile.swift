@@ -1,4 +1,5 @@
 import RealityKit
+import SmashCore
 
 /// A card you can press: a slab with anything on its face — a club, a kit swatch, a world, a
 /// formation, a drill, a text field. Touch-down sinks it, lifting springs it back and fires if the
@@ -39,8 +40,8 @@ final class Tile: Interactive, Presentable {
         lift = Spring(motion.spring(.pop))
         nope = Jiggle(motion.spring(.wobbly))
         slab = Blocks.slab([size.x, size.y, depth], colour, corner: min(DesignTokens.Size.corner, size.y * 0.3))
-        // A swatch keeps its own colour when chosen: a cream frame behind it says so instead.
-        self.halo = halo ? Blocks.slab([size.x + 0.04, size.y + 0.04, depth * 0.6], DesignTokens.Colour.cream,
+        // A swatch keeps its own colour when chosen: a paper frame behind it says so instead.
+        self.halo = halo ? Blocks.slab([size.x + 0.04, size.y + 0.04, depth * 0.6], DesignTokens.Colour.paper,
                                        corner: min(DesignTokens.Size.corner, size.y * 0.3)) : nil
         content.position.z = depth / 2
         entity.addChild(body)

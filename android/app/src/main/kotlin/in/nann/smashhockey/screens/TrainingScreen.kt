@@ -35,7 +35,7 @@ class TrainingScreen(game: Game, intro: Drill?) :
 
     init {
         val save = game.save
-        part(WaveText(kit, L(CopyKey.TRAINING_TITLE), 0.17f, C.CREAM, bob = 0.6f, id = "training_title_header"), at(0f, top - 0.2f))
+        part(WaveText(kit, L(CopyKey.TRAINING_TITLE), 0.17f, C.PAPER, bob = 0.6f, id = "training_title_header"), at(0f, top - 0.2f))
         val done = Drill.entries.count { save.isWon(it) }
         part(Label3D(kit, L(CopyKey.TRAINING_PROGRESS, done, Drill.entries.size), S.TEXT_SMALL, C.SUN, maxWidth = 1.6f,
             entrance = Entrance.Drop), at(0f, top - 0.43f))
@@ -58,21 +58,21 @@ class TrainingScreen(game: Game, intro: Drill?) :
         val won = save.isWon(d)
         val state = if (won) L(CopyKey.TRAINING_WON) else if (open) "" else L(CopyKey.TRAINING_LOCKED)
         val label = listOf(L(CopyKey.TRAINING_DRILL, d.number), L(d.nameKey), L(d.world.nameKey), state).filter { it.isNotEmpty() }.joinToString(", ")
-        val t = Tile(kit, 0.86f, h, if (won) C.ROW_DARK else C.CREAM, id = "training_drill_${d.number}_button", label = label) { open(d) }
+        val t = Tile(kit, 0.86f, h, if (won) C.ROW_DARK else C.PAPER, id = "training_drill_${d.number}_button", label = label) { open(d) }
         t.isEnabled = open
         val ink = if (open) C.INK else C.DISABLED_INK
-        letters(L(CopyKey.TRAINING_DRILL, d.number), 0.032f, if (open) C.TEAL_SHADE else C.DISABLED_INK, align = Label3D.Align.LEADING,
+        letters(L(CopyKey.TRAINING_DRILL, d.number), 0.032f, if (open) C.GREEN_INK else C.DISABLED_INK, align = Label3D.Align.LEADING,
             x = -0.39f, y = h * 0.3f, parent = t.content)
         letters(L(d.nameKey).uppercase(), 0.05f, ink, maxWidth = 0.76f, align = Label3D.Align.LEADING, x = -0.39f, y = h * 0.08f, parent = t.content)
         val facts = "${Names.world(d.world)} · ${L(CopyKey.TRAINING_GOALS_IN, d.goals, d.seconds.toInt())}"
         letters(facts, 0.03f, ink, maxWidth = 0.76f, align = Label3D.Align.LEADING, x = -0.39f, y = -h * 0.13f, parent = t.content)
-        letters(L(opposition(d)), 0.03f, if (open) C.CORAL_SHADE else C.DISABLED_INK, maxWidth = 0.5f, align = Label3D.Align.LEADING,
+        letters(L(opposition(d)), 0.03f, if (open) C.PINK_INK else C.DISABLED_INK, maxWidth = 0.5f, align = Label3D.Align.LEADING,
             x = -0.39f, y = -h * 0.3f, parent = t.content)
         if (won || !open) {
-            val badge = kit.slab(0.26f, 0.08f, 0.03f, if (won) C.TEAL else C.DISABLED_SHADE, t.content, corner = 0.03f)
+            val badge = kit.slab(0.26f, 0.08f, 0.03f, if (won) C.GREEN else C.DISABLED_SHADE, t.content, corner = 0.03f)
             badge.setPosition(0.27f, -h * 0.3f, 0.02f)
             badge.setRotation(Quat().axisAngle(-0.12f, 0f, 0f, 1f))
-            letters(state, 0.035f, C.CREAM, maxWidth = 0.22f, x = 0.27f, y = -h * 0.3f, z = 0.04f, parent = t.content)
+            letters(state, 0.035f, C.INK, maxWidth = 0.22f, x = 0.27f, y = -h * 0.3f, z = 0.04f, parent = t.content)
         }
         return t
     }
@@ -83,10 +83,10 @@ class TrainingScreen(game: Game, intro: Drill?) :
         closeIntro()
         for ((i, c) in cards.withIndex()) c.isSelected = Drill.entries[i] == d
         cards.forEach { it.isEnabled = false }      // the cards behind the intro take no taps (§16.6)
-        val panel = child(Panel(kit, 1.62f, 1.5f, 0.14f, C.CREAM, Entrance.Tumble), at(0f, 0.05f, z = 0.5f), layer)
-        child(Label3D(kit, L(CopyKey.TRAINING_DRILL, d.number), 0.05f, C.TEAL_SHADE), at(0f, 0.6f), panel.content).show(0.0)
+        val panel = child(Panel(kit, 1.62f, 1.5f, 0.14f, C.PAPER, Entrance.Tumble), at(0f, 0.05f, z = 0.5f), layer)
+        child(Label3D(kit, L(CopyKey.TRAINING_DRILL, d.number), 0.05f, C.GREEN_INK), at(0f, 0.6f), panel.content).show(0.0)
         child(Label3D(kit, L(d.nameKey).uppercase(), 0.11f, C.INK, maxWidth = 1.45f), at(0f, 0.45f), panel.content).show(0.0)
-        child(Label3D(kit, L(CopyKey.TRAINING_GOALS_IN, d.goals, d.seconds.toInt()), 0.05f, C.CORAL_SHADE, maxWidth = 1.4f),
+        child(Label3D(kit, L(CopyKey.TRAINING_GOALS_IN, d.goals, d.seconds.toInt()), 0.05f, C.PINK_INK, maxWidth = 1.4f),
             at(0f, 0.31f), panel.content).show(0.0)
         child(Paragraph(kit, L(d.hintKey), 0.058f, C.INK, 1.4f, id = "training_hint"), at(0f, -0.02f), panel.content).show(0.0)
         val start = child(BlockButton(kit, L(CopyKey.TRAINING_START), "training_start_button", BlockButton.Style.PRIMARY, 0.8f, 0.32f, 0.13f) {

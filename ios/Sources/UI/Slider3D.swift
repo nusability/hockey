@@ -1,5 +1,6 @@
 import Foundation
 import RealityKit
+import SmashCore
 
 /// A puck on a rail, for the coach's board values 0–1. Grab it anywhere on the row and drag; the
 /// puck chases the finger on the `bouncy` spring, leans into the direction it travels and
@@ -48,14 +49,14 @@ final class Slider3D: Interactive, Presentable {
         let r = DesignTokens.Size.knobRadius
         let disc = Blocks.model(.generateCylinder(height: DesignTokens.Size.knobDepth, radius: r), DesignTokens.Colour.ink)
         disc.orientation = simd_quatf(angle: .pi / 2, axis: [1, 0, 0])
-        let cap = Blocks.model(.generateCylinder(height: DesignTokens.Size.knobDepth * 0.3, radius: r * 0.55), DesignTokens.Colour.cream)
+        let cap = Blocks.model(.generateCylinder(height: DesignTokens.Size.knobDepth * 0.3, radius: r * 0.55), DesignTokens.Colour.paper)
         cap.orientation = disc.orientation
         cap.position.z = DesignTokens.Size.knobDepth * 0.5
         puck.addChild(disc)
         puck.addChild(cap)
         puck.position.z = railH
 
-        self.title = Blocks.text(title, height: DesignTokens.Size.textBody, DesignTokens.Colour.cream)
+        self.title = Blocks.text(title, height: DesignTokens.Size.textBody, DesignTokens.Colour.paper)
         readout = Blocks.text(self.format(value), height: DesignTokens.Size.textBody, DesignTokens.Colour.sun)
         let titleNode = Entity(), readoutNode = Entity()
         titleNode.addChild(self.title)

@@ -15,7 +15,7 @@ final class HelpScreen: Screen {
     init(game: Game) {
         super.init(pose: CameraPose(Presentation.Screens.Help.eye, Presentation.Screens.Help.target), game: game)
         let m = motion
-        part(WaveText(L(.helpTitle), height: 0.16, colour: C.cream, bob: 0.6, id: "help_title_header", motion: m),
+        part(WaveText(L(.helpTitle), height: 0.16, colour: C.paper, bob: 0.6, id: "help_title_header", motion: m),
              at: at(0, top - 0.22))
         part(KitDisk(radius: 0.2, primary: Int(Career.demoClub.primary), secondary: Int(Career.demoClub.secondary), ball: true,
                      motion: m), at: at(0, top - 0.95))
@@ -35,9 +35,9 @@ final class HelpScreen: Screen {
     private func showCard(after delay: Double) {
         let m = motion
         let y = (top - 1.45 + bottom + 0.55) / 2
-        let panel = child(Panel(size: [1.66, 1.35, 0.14], colour: C.cream, entrance: .tumble, motion: m),
+        let panel = child(Panel(size: [1.66, 1.35, 0.14], colour: C.paper, entrance: .tumble, motion: m),
                           at: at(0, y, tilt: index % 2 == 0 ? 0.02 : -0.02), on: layer)
-        child(Label3D("\(index + 1) / \(Self.lessons.count)", height: 0.05, colour: C.tealShade, motion: m),
+        child(Label3D("\(index + 1) / \(Self.lessons.count)", height: 0.05, colour: C.greenInk, motion: m),
               at: at(0, 0.54), on: panel.content).show(after: 0)
         child(Paragraph(L(Self.lessons[index]), height: 0.066, colour: C.ink, width: 1.44, id: "help_card", motion: m),
               at: at(0, -0.04), on: panel.content).show(after: 0)

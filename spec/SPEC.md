@@ -322,7 +322,11 @@ how far the release would carry: free, 16; a pass, to just short of the receiver
 short of the goal — always stopping short of the boards (1.2 and the orbit radius before them) and
 never shorter than 2.5. When a snap begins a **lock-on marker** fades in within 0.08 s: for a pass the
 receiver's pulsing ring and a faint dotted line in the pass colour from the arrowhead to where the
-pass would go (§5.4's lead point); for a shot a pink glow across the goal mouth. Every measure and
+pass would go (§5.4's lead point); for a shot a pink glow across the goal mouth. A snap **begins**
+whenever what a release would snap to changes, and whenever the ball changes hands — a new carrier
+is a new snap even when it aims at the same place. The arrow and its marker are shown only while
+the player's own carrier has the ball in play or at the ready, and they come back, fading in from
+nothing, the moment that is true again after a whistle, a goal or a face-off. Every measure and
 colour is declared once for both apps (`shared/data/presentation.toml` `[aim]`).
 
 #### 5.3 The player's release
@@ -831,6 +835,23 @@ rather than cuts, with the demo match (§9) playing behind every menu. Every con
 accessibility identifier, the same on both platforms (`<screen>_<control>_button`), and every word
 comes from the declared copy (§14).
 
+**The look.** Panels, slabs, cards and rows are **white**; everything that reads as lettering, a
+digit or an accent is a saturated colour from the game's own set — the sun yellow, the pink, the
+green and the deep navy. Anything text-like clears **4.5:1** against what it sits on. The whole
+palette, the design frame's sizes and the UI's own light are declared once in
+`shared/data/design.json` and generated into both apps; no screen or component spells a colour or
+a size of its own.
+
+**The UI has its own light**, not the light of the world standing behind it: the kit's blocks are
+toon-shaded (ADR 0006) under one neutral rig — bright from the front, a little less from above, less
+again from the sides — so a white slab reads white and a menu looks the same in every world. The
+shading is there to make a block feel like an object, never to colour it.
+
+**A transition finishes.** An element that arrives ends on its exact pose; an element that leaves
+ends hidden, and is only then taken off the screen. This holds however the motion is being played —
+the whimsical springs, or Reduce Motion's plain fades — including when the system's Reduce Motion
+setting changes in the middle of one. Nothing is ever left part-way, hanging where it should not be.
+
 #### 16.1 First launch — choosing the team
 With no career saved, the game opens here, once (§2.2). Two ways:
 - **Pick a club:** the eight clubs as cards — name, kit, home world, rating as a strength bar.
@@ -858,11 +879,15 @@ coach's board; there is no other settings screen.
 The HUD: both teams' short codes on their kit colours, the score and the clock as flip digits, the
 period as three pips, and a pause button in a corner, clear of the pitch (§8.6's slow motion leaves
 the HUD at real speed). In overtime **OT** takes the clock's place. Goals flip the score and wobble
-the board. The pause panel: **Resume** and **Quit** — quitting a season match says it forfeits 0–3
+the board. The board holds **two cards a side**, the tens card blank below ten, so a side may reach
+99 without the board changing shape or running into the short codes: the tenth goal flips the tens
+card from blank to 1 like any other change, and every card stands in the same place at 0:0 and at
+12:11. The result slab (§16.5) counts up on the same two cards a side. The pause panel: **Resume** and **Quit** — quitting a season match says it forfeits 0–3
 before it does (§8.7).
 
-In a drill the HUD shows goals scored of the target and the clock; the drill's hint is the
-intro card before "get ready" (§10).
+In a drill the HUD shows goals scored of the target and the clock — the target sets the width, so a
+target of ten or more gets two cards a side — and the drill's hint is the intro card before
+"get ready" (§10).
 
 **Banners** — the prototype's, built from the kit's lettering in the middle of the screen, each for
 its time in real seconds and then gone (a new one replaces the last):
@@ -879,7 +904,7 @@ its time in real seconds and then gone (a new one replaces the last):
 | a goal | GOAL! (ours) · GOAL AGAINST | good · bad | 2.4 |
 | the end | FINAL (a match) · DRILL DONE! / TIME'S UP (a drill) | good, or bad for a loss | 1.5 |
 
-Good is the sun yellow and pops in big; bad a coral red; warn orange; info cyan.
+Good is the sun yellow and pops in big; bad the pink; warn orange; info cyan.
 
 #### 16.5 The result
 The final score, win/draw/loss, overtime if it happened, and the way on: back to the hub (season);

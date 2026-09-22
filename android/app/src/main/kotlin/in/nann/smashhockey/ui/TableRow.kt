@@ -1,7 +1,7 @@
 package `in`.nann.smashhockey.ui
 
-import `in`.nann.smashhockey.ui.DesignTokens.Colour
-import `in`.nann.smashhockey.ui.DesignTokens.Size
+import `in`.nann.smashhockey.ui.generated.DesignTokens.Colour
+import `in`.nann.smashhockey.ui.generated.DesignTokens.Size
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min

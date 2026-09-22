@@ -25,18 +25,22 @@ final class AimArrowView {
     private let strip: ModelEntity
     private var chevron: ShaderGraphMaterial
     private var glowMaterial: ShaderGraphMaterial
+    private var headMaterial: ShaderGraphMaterial
     private var headGlowMaterial: ShaderGraphMaterial
     private var mouthMaterial: ShaderGraphMaterial
     private var stripMaterial: ShaderGraphMaterial
+    private var targetMaterial: ShaderGraphMaterial
+    private var dotMaterial: ShaderGraphMaterial
     private let corner: Double
     private let params = AimArrow.Params(maxLength: A.maxLength, minLength: A.minLength, passShort: A.passShort,
                                          shotShort: A.shotShort, boardMargin: A.boardMargin, boardProbe: A.boardProbe,
                                          probeStep: A.probeStep)
-    /// The snap being shown, and real seconds since it began (the lock-on's fade).
-    private var snap: MatchSnapshot.Aim?
-    private var snapAge = 0.0
+    /// What the arrow shows, decided by the core's state machine (both apps share the rules).
+    private var showing = AimArrow.Showing()
+    /// What each material currently says, so a material is written only when that changes.
     private var kindShown = -1
     private var dotsOpacity = -1.0
+    private var targetOpacity = -1.0
 
     init(sport: Sport, feel: FeelMaterials.Set) throws {
         corner = sport.cornerRadius
@@ -47,8 +51,15 @@ final class AimArrowView {
         headGlowMaterial = feel.glow
         mouthMaterial = feel.glow
         stripMaterial = feel.glow
+        headMaterial = feel.flat
+        targetMaterial = feel.flat
+        dotMaterial = feel.flat
         FeelMaterials.colour(&mouthMaterial, A.shot)
         FeelMaterials.colour(&stripMaterial, A.shot)
+        FeelMaterials.colour(&headMaterial, A.free)
+        FeelMaterials.set(&headMaterial, "Opacity", A.opacityFree)
+        FeelMaterials.colour(&targetMaterial, Presentation.Player.target)
+        FeelMaterials.colour(&dotMaterial, A.pass)
         let sort = ModelSortGroup(depthPass: nil)
         func model(_ kit: MeshKit, _ m: RealityKit.Material, order: Int32) throws -> ModelEntity {
             let e = ModelEntity(mesh: try kit.resource(), materials: [m])
@@ -58,7 +69,7 @@ final class AimArrowView {
         glow = try model(Self.ribbon(A.glowNear, A.glowFar), glowMaterial, order: 0)
         ribbon = try model(Self.ribbon(A.ribbonNear, A.ribbonFar), chevron, order: 1)
         headGlow = try model(Self.head(), headGlowMaterial, order: 2)
-        head = try model(Self.head(), Materials.flat(A.free, opacity: A.opacityFree), order: 3)
+        head = try model(Self.head(), headMaterial, order: 3)
         let start = Float(Tuning.Orbit.radius + A.start)
         glow.position = [0, Float(A.lift) - 0.005, start]
         ribbon.position = [0, Float(A.lift), start]
@@ -68,13 +79,13 @@ final class AimArrowView {
         typealias P = Presentation.Player
         let rr = Float(Tuning.Player.outfieldRadius)
         target = try model(Shapes.ring(inner: rr + Float(P.targetInner), outer: rr + Float(P.targetOuter), segments: 32),
-                           Materials.flat(P.target, opacity: P.targetOpacity), order: 0)
+                           targetMaterial, order: 0)
         root.addChild(target)
         var disc = MeshKit()
         disc.disc(radius: Float(L.dot) / 2, y: 0, segments: 12)
         let dotMesh = try disc.resource()
         for _ in 0..<40 {
-            let d = ModelEntity(mesh: dotMesh, materials: [Materials.flat(A.pass, opacity: L.dotOpacity)])
+            let d = ModelEntity(mesh: dotMesh, materials: [dotMaterial])
             d.isEnabled = false
             root.addChild(d)
             dots.append(d)
@@ -118,13 +129,14 @@ final class AimArrowView {
         mouth.isEnabled = false
         strip.isEnabled = false
         for d in dots { d.isEnabled = false }
-        snap = nil
     }
 
     /// One frame: `positions` are the players' drawn positions, `angle` the drawn orbit angle,
-    /// `clock` real seconds (the pulses), `dt` this frame's real seconds.
-    func update(_ s: MatchSnapshot, positions: [SIMD2<Double>], angle: Double, clock: Double, dt: Double) {
-        guard s.playerCarrier, let c = s.ball.carrier, let aim = s.aim, s.state == .play || s.state == .ready else {
+    /// `clock` real seconds (the pulses and the lock-on's fade).
+    func update(_ s: MatchSnapshot, positions: [SIMD2<Double>], angle: Double, clock: Double) {
+        let look = showing.frame(state: s.state, playerCarrier: s.playerCarrier, carrier: s.ball.carrier,
+                                 aim: s.aim, clock: clock, fadeIn: L.fadeIn)
+        guard look.arrow, let c = s.ball.carrier, let aim = s.aim else {
             hide()
             return
         }
@@ -132,16 +144,13 @@ final class AimArrowView {
         let team = s.players[c].team
         let goalZ = team == 0 ? Tuning.Pitch.goalLineZ : -Tuning.Pitch.goalLineZ
         var kind = AimArrow.Kind.free
-        var colour = 0
         switch aim {
-        case .pass(let m): kind = .pass(x: positions[m].x, z: positions[m].y); colour = 1
-        case .shot: kind = .shot(goalZ: goalZ); colour = 2
+        case .pass(let m): kind = .pass(x: positions[m].x, z: positions[m].y)
+        case .shot: kind = .shot(goalZ: goalZ)
         case .unassisted: break
         }
         let len = AimArrow.length(kind, x: me.x, z: me.y, angle: angle, corner: corner, params)
-        let snapped = colour != 0
-        if aim != snap { snap = aim; snapAge = 0 } else { snapAge += dt }
-        let fade = snapped ? min(1, snapAge / L.fadeIn) : 0
+        let colour = look.colour, snapped = look.snapped, fade = look.fade
 
         // The arrow.
         arrow.isEnabled = true
@@ -154,16 +163,18 @@ final class AimArrowView {
             FeelMaterials.colour(&chevron, rgb)
             FeelMaterials.colour(&glowMaterial, rgb)
             FeelMaterials.colour(&headGlowMaterial, rgb)
+            FeelMaterials.colour(&headMaterial, rgb)
         }
         let opacity = snapped ? A.opacitySnapped + sin(clock * A.pulseRate) * A.pulse : A.opacityFree
         FeelMaterials.set(&chevron, "Opacity", opacity)
         FeelMaterials.set(&chevron, "Repeat", len / A.chevron)
         FeelMaterials.set(&glowMaterial, "Opacity", snapped ? A.glowSnapped : A.glowFree)
         FeelMaterials.set(&headGlowMaterial, "Opacity", snapped ? A.headGlowSnapped : A.headGlowFree)
+        FeelMaterials.set(&headMaterial, "Opacity", opacity)
         ribbon.model?.materials = [chevron]
         glow.model?.materials = [glowMaterial]
         headGlow.model?.materials = [headGlowMaterial]
-        head.model?.materials = [Materials.flat(rgb, opacity: opacity)]
+        head.model?.materials = [headMaterial]
         let w = Float(A.width), l = Float(len), start = Float(Tuning.Orbit.radius + A.start)
         ribbon.scale = [w, 1, l]
         glow.scale = [w, 1, l]
@@ -186,7 +197,12 @@ final class AimArrowView {
             target.isEnabled = true
             target.position = local(r, y: 0.03, me)
             target.scale = SIMD3(repeating: Float(1 + sin(clock * P.targetPulseRate) * P.targetPulse))
-            target.model?.materials = [Materials.flat(P.target, opacity: P.targetOpacity * fade)]
+            let to = (P.targetOpacity * fade * 50).rounded() / 50
+            if to != targetOpacity {
+                targetOpacity = to
+                FeelMaterials.set(&targetMaterial, "Opacity", to)
+                target.model?.materials = [targetMaterial]
+            }
             let p = s.players[m]
             let d = simd_distance(r, me)
             let o = Tuning.Orbit.self
@@ -204,8 +220,8 @@ final class AimArrowView {
             let o2 = (L.dotOpacity * fade * 50).rounded() / 50
             if o2 != dotsOpacity {
                 dotsOpacity = o2
-                let mat = Materials.flat(A.pass, opacity: max(o2, 0.001))
-                for d in dots { d.model?.materials = [mat] }
+                FeelMaterials.set(&dotMaterial, "Opacity", o2)
+                for d in dots { d.model?.materials = [dotMaterial] }
             }
         case .shot:
             let breathe = 1 + L.mouthPulse * sin(clock * A.pulseRate)

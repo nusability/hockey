@@ -19,7 +19,7 @@ final class TeamScreen: Screen {
     init(game: Game) {
         super.init(pose: CameraPose(Presentation.Screens.Team.eye, Presentation.Screens.Team.target), game: game)
         let m = motion
-        part(WaveText(L(.teamTitle), height: 0.17, colour: C.cream, bob: 0.6, id: "team_title_header", motion: m),
+        part(WaveText(L(.teamTitle), height: 0.17, colour: C.paper, bob: 0.6, id: "team_title_header", motion: m),
              at: at(0, top - 0.2))
         pickTab = part(tab(L(.teamPick), id: "team_pick_button") { [weak self] in self?.switchTo(creating: false) },
                        at: at(-0.45, top - 0.52))
@@ -50,7 +50,7 @@ final class TeamScreen: Screen {
     }
 
     private func tab(_ title: String, id: String, action: @escaping () -> Void) -> Tile {
-        let t = Tile(size: [0.86, 0.26], colour: C.cream, selectedColour: C.teal, id: id, label: title, motion: motion,
+        let t = Tile(size: [0.86, 0.26], colour: C.paper, selectedColour: C.green, id: id, label: title, motion: motion,
                      action: action)
         letters(title, height: 0.075, colour: C.ink, maxWidth: 0.76, at: [0, 0, 0], on: t.content)
         return t
@@ -59,7 +59,7 @@ final class TeamScreen: Screen {
     /// A club's card: its kit with the short code, its name, its home world and its strength.
     private func clubCard(_ club: Club, height h: Float) -> Tile {
         let label = "\(L(club.nameKey)), \(L(club.world.nameKey)), \(L(.teamStrength, club.rating))"
-        let card = Tile(size: [0.86, h], colour: C.cream, id: "team_club_\(club.rawValue)_button", label: label,
+        let card = Tile(size: [0.86, h], colour: C.paper, id: "team_club_\(club.rawValue)_button", label: label,
                         motion: motion) { [weak self] in self?.pick(club) }
         let chip = Blocks.slab([0.24, min(0.3, h * 0.72), 0.05], Int(club.primary), corner: 0.03)
         chip.position = [-0.28, 0, 0.02]
@@ -70,13 +70,13 @@ final class TeamScreen: Screen {
         letters(club.short, height: 0.07, colour: Int(club.secondary), maxWidth: 0.16, at: [-0.26, 0, 0.05], on: card.content)
         letters(Names.team(TeamKey(club), nil), height: 0.05, colour: C.ink, maxWidth: 0.5, align: .leading,
                 at: [-0.13, h * 0.2, 0], on: card.content)
-        letters(Names.world(club.world), height: 0.034, colour: C.tealShade, maxWidth: 0.5, align: .leading,
+        letters(Names.world(club.world), height: 0.034, colour: C.greenInk, maxWidth: 0.5, align: .leading,
                 at: [-0.13, 0, 0], on: card.content)
         // Strength: the rating across the clubs' range (§2.1's skill, 60…90).
-        let track = Blocks.slab([0.5, 0.035, 0.02], C.creamShade, corner: 0.012)
+        let track = Blocks.slab([0.5, 0.035, 0.02], C.paperShade, corner: 0.012)
         track.position = [0.12, -h * 0.24, 0.01]
         let share = Float(min(max(Double(club.rating - 60) / 30, 0.05), 1))
-        let fill = Blocks.slab([0.5 * share, 0.045, 0.03], C.coral, corner: 0.015)
+        let fill = Blocks.slab([0.5 * share, 0.045, 0.03], C.pink, corner: 0.015)
         fill.position = [-0.13 + 0.25 * share, -h * 0.24, 0.015]
         card.content.addChild(track)
         card.content.addChild(fill)

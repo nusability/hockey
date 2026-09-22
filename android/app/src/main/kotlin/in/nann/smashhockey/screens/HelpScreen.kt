@@ -25,7 +25,7 @@ class HelpScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Help.eye, P
     private val next: BlockButton
 
     init {
-        part(WaveText(kit, L(CopyKey.HELP_TITLE), 0.16f, C.CREAM, bob = 0.6f, id = "help_title_header"), at(0f, top - 0.22f))
+        part(WaveText(kit, L(CopyKey.HELP_TITLE), 0.16f, C.PAPER, bob = 0.6f, id = "help_title_header"), at(0f, top - 0.22f))
         part(KitDisk(kit, 0.2f, Career.demoClub.primary, Career.demoClub.secondary, ball = true), at(0f, top - 0.95f))
         part(BlockButton(kit, L(CopyKey.COMMON_BACK), "help_back_button", BlockButton.Style.QUIET, 0.78f, 0.32f, 0.1f) {
             game.go(game.home)
@@ -43,8 +43,8 @@ class HelpScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Help.eye, P
 
     private fun showCard(after: Double) {
         val y = (top - 1.45f + bottom + 0.55f) / 2
-        val panel = child(Panel(kit, 1.66f, 1.35f, 0.14f, C.CREAM, Entrance.Tumble), at(0f, y, tilt = if (index % 2 == 0) 0.02f else -0.02f), layer)
-        child(Label3D(kit, "${index + 1} / ${LESSONS.size}", 0.05f, C.TEAL_SHADE), at(0f, 0.54f), panel.content).show(0.0)
+        val panel = child(Panel(kit, 1.66f, 1.35f, 0.14f, C.PAPER, Entrance.Tumble), at(0f, y, tilt = if (index % 2 == 0) 0.02f else -0.02f), layer)
+        child(Label3D(kit, "${index + 1} / ${LESSONS.size}", 0.05f, C.GREEN_INK), at(0f, 0.54f), panel.content).show(0.0)
         child(Paragraph(kit, L(LESSONS[index]), 0.066f, C.INK, 1.44f, id = "help_card"), at(0f, -0.04f), panel.content).show(0.0)
         panel.show(after)
         card = panel

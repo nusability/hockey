@@ -1,5 +1,6 @@
 package `in`.nann.smashhockey.screens
 
+import `in`.nann.smashhockey.core.feel.Scoreboard
 import `in`.nann.smashhockey.core.generated.CopyKey
 import `in`.nann.smashhockey.core.generated.Tuning
 import `in`.nann.smashhockey.core.feel.Banner
@@ -31,7 +32,8 @@ import `in`.nann.smashhockey.ui.WaveText
  */
 class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Screen(game) {
     private val drillGoals = kickoff.drillGoals
-    private val board: Panel = part(Panel(kit, 1.3f, 0.38f, 0.12f, C.BOARD, Entrance.Drop), at(-0.12f, top - 0.26f))
+    private val board: Panel = part(Panel(kit, BOARD.boardWidth.toFloat(), 0.38f, 0.12f, C.BOARD, Entrance.Drop),
+        at(-0.12f, top - 0.26f))
     private val scores = arrayOfNulls<FlipDigits>(2)
     private val shownScore = intArrayOf(0, 0)
     private val clock: FlipDigits
@@ -47,19 +49,22 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
     init {
         val goals = drillGoals
         if (goals != null) {
-            val digits = child(FlipDigits(kit, "0/$goals", 0.19f, 0.27f, "match_goals", L(CopyKey.HUD_GOALS)), at(0f, 0f, z = 0.05f), board.content)
+            val digits = child(FlipDigits(kit, Scoreboard.drill(0, goals), CARD_W, CARD_H, "match_goals", L(CopyKey.HUD_GOALS)),
+                at(0f, 0f, z = 0.05f), board.content)
             digits.onLanded = { board.thud() }
             digits.show(0.0)
             scores[0] = digits
         } else {
-            for ((i, x) in listOf(-0.45f, 0.45f).withIndex()) {
+            for (i in 0..1) {
                 val colours = kickoff.colours[i]
-                val chip = child(Panel(kit, 0.34f, 0.26f, 0.06f, colours.primary, Entrance.Pop), at(x, 0f), board.content)
+                val x = if (i == 0) -BOARD.chipX.toFloat() else BOARD.chipX.toFloat()
+                val chip = child(Panel(kit, CHIP, 0.26f, 0.06f, colours.primary, Entrance.Pop), at(x, 0f), board.content)
                 chip.show(0.0)
-                child(Label3D(kit, kickoff.codes?.get(i) ?: "", 0.085f, colours.secondary, maxWidth = 0.3f), parent = chip.content).show(0.0)
+                child(Label3D(kit, kickoff.codes?.get(i) ?: "", 0.085f, colours.secondary, maxWidth = CHIP - 0.04f),
+                    parent = chip.content).show(0.0)
             }
-            for (side in 0..1) scores[side] = makeScore(side, "0")
-            child(Label3D(kit, ":", 0.14f, C.CARD_INK), parent = board.content).show(0.0)
+            for (side in 0..1) scores[side] = makeScore(side, Scoreboard.score(0))
+            child(Label3D(kit, ":", 0.12f, C.CARD_INK), parent = board.content).show(0.0)
         }
         shownClock = Names.clock(kickoff.match.snapshot.clock)
         clock = part(FlipDigits(kit, shownClock, 0.11f, 0.15f, "match_clock", L(CopyKey.MATCH_CLOCK), entrance = Entrance.Drop),
@@ -71,7 +76,7 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
                     .also { it.setPosition((i - 1) * 0.1f, 0f, 0.01f) }
             }
             // In overtime "OT" takes the clock's place (§16.4).
-            overtime = child(Label3D(kit, L(CopyKey.HUD_OT), 0.11f, C.CORAL, entrance = Entrance.Pop), at(-0.12f, top - 0.6f, z = 0.06f), layer)
+            overtime = child(Label3D(kit, L(CopyKey.HUD_OT), 0.11f, C.PINK, entrance = Entrance.Pop), at(-0.12f, top - 0.6f, z = 0.06f), layer)
         }
         pause = part(BlockButton(kit, "II", "match_pause_button", BlockButton.Style.QUIET, 0.26f, 0.26f, 0.11f, Entrance.Pop,
             label = L(CopyKey.HUD_PAUSE)) { game.pause(true) }, at(0.72f, top - 0.26f))
@@ -79,8 +84,10 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
     }
 
     private fun makeScore(side: Int, text: String): FlipDigits {
-        val d = child(FlipDigits(kit, text, 0.19f, 0.27f, if (side == 0) "match_home_score" else "match_away_score",
-            L(if (side == 0) CopyKey.MATCH_SCORE_HOME else CopyKey.MATCH_SCORE_AWAY)), at(if (side == 0) -0.13f else 0.13f, 0f, z = 0.05f), board.content)
+        val x = BOARD.scoreX.toFloat()
+        val d = child(FlipDigits(kit, text, CARD_W, CARD_H, if (side == 0) "match_home_score" else "match_away_score",
+            L(if (side == 0) CopyKey.MATCH_SCORE_HOME else CopyKey.MATCH_SCORE_AWAY)),
+            at(if (side == 0) -x else x, 0f, z = 0.05f), board.content)
         d.onLanded = { board.thud() }
         d.show(0.0)
         return d
@@ -88,11 +95,11 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
 
     private fun buildPausePanel(season: Boolean) {
         val height = if (season) 1.3f else 1.1f
-        val panel = child(Panel(kit, 1.4f, height, 0.12f, C.CREAM, Entrance.Tumble), at(0f, 0f, z = 0.4f), layer)
+        val panel = child(Panel(kit, 1.4f, height, 0.12f, C.PAPER, Entrance.Tumble), at(0f, 0f, z = 0.4f), layer)
         val y0 = height / 2
         child(Label3D(kit, L(CopyKey.PAUSE_TITLE), 0.15f, C.INK, maxWidth = 1.2f), at(0f, y0 - 0.2f), panel.content).show(0.0)
         if (season) {
-            child(Label3D(kit, L(CopyKey.PAUSE_FORFEIT), 0.06f, C.CORAL_SHADE, maxWidth = 1.25f), at(0f, y0 - 0.4f), panel.content).show(0.0)
+            child(Label3D(kit, L(CopyKey.PAUSE_FORFEIT), 0.06f, C.PINK_INK, maxWidth = 1.25f), at(0f, y0 - 0.4f), panel.content).show(0.0)
         }
         val resume = child(BlockButton(kit, L(CopyKey.PAUSE_RESUME), "pause_resume_button", BlockButton.Style.PRIMARY, 1.0f, 0.3f) {
             game.pause(false)
@@ -166,19 +173,13 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
         val s = game.pitch.snapshot ?: return
         val goals = drillGoals
         if (goals != null) {
-            scores[0]?.set("${minOf(s.score[0], 9)}/$goals")
+            scores[0]?.set(Scoreboard.drill(s.score[0], goals))
         } else {
+            // The board always holds two cards a side, so a tenth goal flips the tens card rather
+            // than rebuilding anything (§16.4).
             for (side in 0..1) {
                 if (s.score[side] == shownScore[side]) continue
-                val text = "${s.score[side]}"
-                val d = scores[side]
-                if (d != null && text.length != "${shownScore[side]}".length) {
-                    d.hide(0.0)
-                    stage.after(0.6) { stage.remove(d.node) }
-                    scores[side] = makeScore(side, text)
-                } else {
-                    d?.set(text)
-                }
+                scores[side]?.set(Scoreboard.score(s.score[side]))
                 scores[side]?.celebrate()
                 shownScore[side] = s.score[side]
             }
@@ -196,5 +197,14 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
                 overtime?.show(0.0)
             }
         }
+    }
+
+    private companion object {
+        /** The board's measures (§16.4), derived once from one card so both apps lay it out the
+         *  same: two cards a side, a colon between them, a team chip outside each. */
+        const val CARD_W = 0.14f
+        const val CARD_H = 0.20f
+        const val CHIP = 0.30f
+        val BOARD = Scoreboard.metrics(CARD_W.toDouble(), CARD_W.toDouble() * 0.08, 0.084, CHIP.toDouble(), 0.03)
     }
 }

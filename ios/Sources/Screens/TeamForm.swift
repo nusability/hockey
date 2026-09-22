@@ -32,24 +32,24 @@ final class TeamForm {
         let m = screen.motion
         var y = top - 0.13
 
-        nameField = add(Tile(size: [1.72, 0.24], colour: C.cream, selectedColour: C.cream, id: "team_name_field",
+        nameField = add(Tile(size: [1.72, 0.24], colour: C.paper, selectedColour: C.paper, id: "team_name_field",
                              label: L(.teamName), motion: m) { [weak self] in self?.editName() }, y: y)
-        screen.letters(L(.teamName), height: 0.034, colour: C.tealShade, align: .leading, at: [-0.8, 0.07, 0],
+        screen.letters(L(.teamName), height: 0.034, colour: C.greenInk, align: .leading, at: [-0.8, 0.07, 0],
                        on: nameField.content)
         nameText = screen.letters(L(.teamNameEmpty), height: 0.085, colour: C.disabledInk, maxWidth: 1.5, at: [0, -0.02, 0],
                                   on: nameField.content)
         y -= 0.33
 
-        codeField = add(Tile(size: [0.66, 0.26], colour: C.cream, selectedColour: C.cream, id: "team_code_field",
+        codeField = add(Tile(size: [0.66, 0.26], colour: C.paper, selectedColour: C.paper, id: "team_code_field",
                              label: L(.teamCode), motion: m) { [weak self] in self?.editCode() }, x: -0.52, y: y)
-        screen.letters(L(.teamCode), height: 0.034, colour: C.tealShade, align: .leading, at: [-0.29, 0.08, 0],
+        screen.letters(L(.teamCode), height: 0.034, colour: C.greenInk, align: .leading, at: [-0.29, 0.08, 0],
                        on: codeField.content)
         codeText = screen.letters("XXX", height: 0.11, colour: C.ink, at: [0, -0.025, 0], on: codeField.content)
         disk = add(KitDisk(radius: 0.13, primary: Int(draft.primary), secondary: Int(draft.secondary), motion: m),
                    x: 0.42, y: y - 0.02)
         y -= 0.25
 
-        add(Label3D(L(.teamShirt), height: 0.04, colour: C.cream, align: .leading, motion: m), x: -0.86, y: y)
+        add(Label3D(L(.teamShirt), height: 0.04, colour: C.paper, align: .leading, motion: m), x: -0.86, y: y)
         y -= 0.13
         for (i, pair) in Career.kitPalette.enumerated() {
             let t = add(Tile(size: [0.12, 0.12], colour: Int(pair.primary), selectedColour: Int(pair.primary), halo: true,
@@ -59,7 +59,7 @@ final class TeamForm {
             shirts.append(t)
         }
         y -= 0.16
-        add(Label3D(L(.teamTrim), height: 0.04, colour: C.cream, align: .leading, motion: m), x: -0.86, y: y)
+        add(Label3D(L(.teamTrim), height: 0.04, colour: C.paper, align: .leading, motion: m), x: -0.86, y: y)
         y -= 0.13
         for (i, pair) in Career.kitPalette.enumerated() {
             let t = add(Tile(size: [0.12, 0.12], colour: Int(pair.secondary), selectedColour: Int(pair.secondary), halo: true,
@@ -69,16 +69,16 @@ final class TeamForm {
             trims.append(t)
         }
         y -= 0.16
-        add(Label3D(L(.teamHome), height: 0.04, colour: C.cream, align: .leading, motion: m), x: -0.86, y: y)
+        add(Label3D(L(.teamHome), height: 0.04, colour: C.paper, align: .leading, motion: m), x: -0.86, y: y)
         y -= 0.15
         for (i, w) in World.allCases.enumerated() {
-            let t = add(Tile(size: [0.33, 0.2], colour: C.cream, selectedColour: C.sun, id: "team_world_\(w.rawValue)_button",
+            let t = add(Tile(size: [0.33, 0.2], colour: C.paper, selectedColour: C.sun, id: "team_world_\(w.rawValue)_button",
                              label: L(w.nameKey), motion: m) { [weak self] in self?.setWorld(w) }, x: -0.72 + Float(i) * 0.36, y: y)
             screen.letters(Names.world(w), height: 0.032, colour: C.ink, maxWidth: 0.29, at: [0, 0, 0], on: t.content)
             worlds[w] = t
         }
         y -= 0.19
-        issues = add(Label3D(" ", height: 0.042, colour: C.coral, maxWidth: 1.72, motion: m), y: y)
+        issues = add(Label3D(" ", height: 0.042, colour: C.pink, maxWidth: 1.72, motion: m), y: y)
         refresh(notify: false)
     }
 

@@ -1,4 +1,5 @@
 import RealityKit
+import SmashCore
 
 /// A chunky toy key: a rounded cap sitting in a darker base. Touch-down squashes the cap and
 /// holds it squashed; lifting lets it spring back through a stretch — and fires, if the finger is
@@ -10,9 +11,9 @@ final class BlockButton: Interactive, Presentable {
         let base: Int
         let ink: Int
         static let primary = Style(cap: DesignTokens.Colour.sun, base: DesignTokens.Colour.sunShade, ink: DesignTokens.Colour.ink)
-        static let secondary = Style(cap: DesignTokens.Colour.teal, base: DesignTokens.Colour.tealShade, ink: DesignTokens.Colour.cream)
-        static let quiet = Style(cap: DesignTokens.Colour.cream, base: DesignTokens.Colour.creamShade, ink: DesignTokens.Colour.ink)
-        static let danger = Style(cap: DesignTokens.Colour.coral, base: DesignTokens.Colour.coralShade, ink: DesignTokens.Colour.cream)
+        static let secondary = Style(cap: DesignTokens.Colour.green, base: DesignTokens.Colour.greenInk, ink: DesignTokens.Colour.ink)
+        static let quiet = Style(cap: DesignTokens.Colour.paper, base: DesignTokens.Colour.paperShade, ink: DesignTokens.Colour.ink)
+        static let danger = Style(cap: DesignTokens.Colour.pink, base: DesignTokens.Colour.pinkInk, ink: DesignTokens.Colour.ink)
         static let disabled = Style(cap: DesignTokens.Colour.disabled, base: DesignTokens.Colour.disabledShade, ink: DesignTokens.Colour.disabledInk)
     }
 

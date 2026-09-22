@@ -64,8 +64,8 @@ class AimArrow(
     private val mouth: Node
     private val strip: Node
 
-    private var snapKey: MatchSnapshot.Aim? = null
-    private var snapSince = 0.0
+    /** What the arrow shows, decided by the core's state machine (both apps share the rules). */
+    private val showing = Arrow.Showing()
 
     init {
         fun part(kit: MeshKit, m: MaterialInstance, under: Int, priority: Int = 6): Node {
@@ -117,9 +117,9 @@ class AimArrow(
     fun update(s: MatchSnapshot, xs: DoubleArray, zs: DoubleArray, angle: Double, clock: Double) {
         val c = s.ball.carrier
         val kind = s.aim
-        if (!s.playerCarrier || c == null || kind == null || (s.state != MatchState.PLAY && s.state != MatchState.READY)) {
+        val look = showing.frame(s.state, s.playerCarrier, c, kind, clock, lock.fadeIn)
+        if (!look.arrow || c == null || kind == null) {
             arrowShown(false); lockShown(null)
-            snapKey = null
             return
         }
         arrowShown(true)
@@ -133,8 +133,8 @@ class AimArrow(
             MatchSnapshot.Aim.Unassisted -> Arrow.Kind.Free
         }
         val len = Arrow.length(arrowKind, xs[c], zs[c], angle, corner, params)
-        val snapped = kind != MatchSnapshot.Aim.Unassisted
-        val colour = when (kind) { is MatchSnapshot.Aim.Pass -> a.pass; MatchSnapshot.Aim.Shot -> a.shot; else -> a.free }
+        val snapped = look.snapped
+        val colour = intArrayOf(a.free, a.pass, a.shot)[look.colour]
         val opacity = if (snapped) a.opacitySnapped + a.pulse * sin(clock * a.pulseRate) else a.opacityFree
         materials.set(ribbonMat, colour, opacity)
         ribbonMat.setParameter("cells", (len / a.chevron).toFloat())
@@ -147,10 +147,9 @@ class AimArrow(
         for (n in listOf(ribbon, glow)) { n.sx = a.width.toFloat(); n.sy = 1f; n.sz = len.toFloat(); n.apply() }
         for (n in listOf(head, headGlow)) { n.z = (start + len).toFloat(); n.apply() }
 
-        // The lock-on: a snap begins when the kind or the receiver changes.
-        if (!snapped) { lockShown(null); snapKey = null; return }
-        if (kind != snapKey) { snapKey = kind; snapSince = clock }
-        val fade = min(1.0, (clock - snapSince) / lock.fadeIn)
+        // The lock-on, faded in since this snap began (the core decides when that was).
+        if (!snapped) { lockShown(null); return }
+        val fade = look.fade
         lockShown(kind)
         when (kind) {
             is MatchSnapshot.Aim.Pass -> {

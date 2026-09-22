@@ -2,6 +2,7 @@ package `in`.nann.smashhockey.ui
 
 import kotlin.math.max
 import kotlin.math.min
+import `in`.nann.smashhockey.core.feel.UIPresence
 import `in`.nann.smashhockey.engine.Spring
 
 /** How an element arrives. Leaving is always the same goofy exit: a hop, a spin, a fall. */
@@ -17,89 +18,48 @@ sealed class Entrance {
 }
 
 /**
- * An element's arrival and departure — the twin of iOS's `Presence`, same equations and
- * constants: `pop` in, `soft` out, and under Reduce Motion plain fades of `fade.seconds` with no
- * movement at all (conventions: UI).
+ * An element's arrival and departure on screen: the core's [UIPresence] (which decides *when* an
+ * element is arriving, arrived, leaving or gone, and is pinned by `FeelTest`) plus this app's half —
+ * how it is posed while it does. `pop` in, `soft` out, and under Reduce Motion plain fades of
+ * `fade.seconds` with no movement at all (conventions: UI). The twin of iOS's `Presence`.
  */
 class Presence(var style: Entrance, motion: Motion) {
-    enum class Phase { HIDDEN, SHOWN, LEAVING }
+    private val core = UIPresence(motion.spring(SpringName.POP), motion.spring(SpringName.SOFT))
 
-    var phase = Phase.HIDDEN
-        private set
-    private val enter = Spring(motion.spring(SpringName.POP))
-    private val exit = Spring(motion.spring(SpringName.SOFT))
-    private var opacity = 0.0
-    private var pendingPhase: Phase? = null
-    private var pendingDelay = 0.0
+    val phase: UIPresence.Phase get() = core.phase
 
     // Scratch for apply(): nothing is allocated per frame.
     private val pose = Xform()
     private val turn = Quat()
     private val spinQ = Quat()
 
-    fun show(after: Double = 0.0) { pendingPhase = Phase.SHOWN; pendingDelay = after }
+    fun show(after: Double = 0.0) = core.show(after)
 
-    fun hide(after: Double = 0.0) {
-        if (phase == Phase.HIDDEN) { pendingPhase = null; return }
-        pendingPhase = Phase.LEAVING; pendingDelay = after
-    }
+    fun hide(after: Double = 0.0) = core.hide(after)
 
     /** Visible or about to be: the element is (or will soon be) on screen. */
-    val isVisible: Boolean get() = phase != Phase.HIDDEN || pendingPhase == Phase.SHOWN
+    val isVisible: Boolean get() = core.isVisible
 
     /** Arrived and not leaving — the only state in which it takes touches or reaches TalkBack. */
-    val isSettledIn: Boolean get() = phase == Phase.SHOWN && pendingPhase == null && enter.value > 0.85
+    val isSettledIn: Boolean get() = core.isSettledIn
 
     /** 0…1(+overshoot) progress of the arrival, for elements that stage their own children. */
-    val arrival: Double get() = enter.value
+    val arrival: Double get() = core.arrival
 
-    fun advance(dt: Double, ctx: UiContext) {
-        pendingPhase?.let { p ->
-            val left = pendingDelay - dt
-            if (left > 0) pendingDelay = left else { pendingPhase = null; begin(p) }
-        }
-        if (ctx.reduceMotion) {
-            val goal = if (phase == Phase.SHOWN) 1.0 else 0.0
-            val step = dt / ctx.motion.fadeSeconds
-            opacity = if (opacity < goal) min(goal, opacity + step) else max(goal, opacity - step)
-            enter.snap(if (phase == Phase.HIDDEN) 0.0 else 1.0)
-            exit.snap(0.0)
-            if (phase == Phase.LEAVING && opacity == 0.0) phase = Phase.HIDDEN
-            return
-        }
-        enter.advance(dt)
-        exit.advance(dt)
-        opacity = 1.0
-        if (phase == Phase.LEAVING && exit.value > 0.97) phase = Phase.HIDDEN
-    }
-
-    private fun begin(next: Phase) {
-        when (next) {
-            Phase.SHOWN -> {
-                if (phase != Phase.SHOWN) { enter.snap(0.0); exit.snap(0.0); enter.target = 1.0 }
-                phase = Phase.SHOWN
-            }
-            Phase.LEAVING -> {
-                if (phase != Phase.SHOWN) return
-                exit.target = 1.0
-                phase = Phase.LEAVING
-            }
-            Phase.HIDDEN -> phase = Phase.HIDDEN
-        }
-    }
+    fun advance(dt: Double, ctx: UiContext) = core.advance(dt, ctx.reduceMotion, ctx.motion.fadeSeconds)
 
     /** Poses [node] at [rest] bent by the arrival or departure, and fades it under Reduce Motion. */
     fun apply(node: UiNode, rest: Xform, reduceMotion: Boolean) {
-        val visible = phase != Phase.HIDDEN
+        val visible = core.phase != UIPresence.Phase.HIDDEN
         node.enabled = visible
         if (!visible) return
         if (reduceMotion) {
             node.setTransform(rest)
-            node.opacity = opacity.toFloat()
+            node.opacity = core.opacity.toFloat()
             return
         }
-        val a = enter.value.toFloat()
-        val x = exit.value.toFloat()
+        val a = core.arrival.toFloat()
+        val x = core.departure.toFloat()
         var ox = 0f; var oy = 0f; var oz = 0f
         var kx = 1f; var ky = 1f; var kz = 1f
         turn.identity()

@@ -1,6 +1,7 @@
 package `in`.nann.smashhockey.ui
 
 import kotlin.math.sin
+import `in`.nann.smashhockey.ui.generated.DesignTokens
 
 /**
  * Extruded lettering from the shared font (ADR 0005), placed by its centre, its left or its right

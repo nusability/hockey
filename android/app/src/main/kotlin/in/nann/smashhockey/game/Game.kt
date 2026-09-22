@@ -48,6 +48,7 @@ import `in`.nann.smashhockey.screens.TitleScreen
 import `in`.nann.smashhockey.screens.TrainingScreen
 import `in`.nann.smashhockey.ui.CameraPose
 import `in`.nann.smashhockey.ui.Kit
+import `in`.nann.smashhockey.ui.generated.DesignTokens
 import `in`.nann.smashhockey.ui.KitSound
 import `in`.nann.smashhockey.ui.Motion
 import `in`.nann.smashhockey.ui.UIStage
@@ -79,8 +80,10 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
     private val host = FilamentHost(surfaceView, ::frame)
     private val engine = host.engine
     private val assets = Assets(context.assets)
+    // The UI blocks are toon-shaded under the UI's own light (design.json), not the light of the world
+    // standing behind them: a menu looks the same everywhere and a white slab stays white.
     val kit = Kit(engine, host.scene, assets, Typeface.createFromAsset(context.assets, "fonts/LilitaOne-Regular.ttf"),
-        Motion.load(assets), World.OASIS.look)   // the UI blocks are lit by one fixed light, whatever world stands
+        Motion.load(assets), DesignTokens.LOOK)
     val pitch = Pitch(context, engine, host.scene, assets)
     val keyboard = Keyboard()
     private val haptics = Haptics(context)

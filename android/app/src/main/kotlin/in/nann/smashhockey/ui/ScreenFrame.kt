@@ -1,6 +1,7 @@
 package `in`.nann.smashhockey.ui
 
 import kotlin.math.tan
+import `in`.nann.smashhockey.ui.generated.DesignTokens
 
 /**
  * A screen's layout plane — the twin of iOS's `ScreenFrame`: [DesignTokens.Size.FRAME_DEPTH] in

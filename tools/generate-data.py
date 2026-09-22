@@ -24,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from datagen import copyout, effects, kotlin, presentation, save, sounds, swift  # noqa: E402
+from datagen import copyout, design, effects, kotlin, presentation, save, sounds, swift  # noqa: E402
 from datagen.common import Bits  # noqa: E402
 from datagen.model import DataError, camel, load, upper_snake  # noqa: E402
 
@@ -47,6 +47,7 @@ def render():
     files.update(save.emit(save.load(ROOT)))
     files.update(copyout.emit(model))
     files.update(presentation.emit(ROOT, model))
+    files.update(design.emit(ROOT))
     files.update(effects.emit(ROOT))
     files.update(sounds.emit(ROOT))
     return files
@@ -54,7 +55,8 @@ def render():
 
 def generated_dirs():
     return [ROOT / swift.SRC, ROOT / swift.TEST, ROOT / kotlin.SRC, ROOT / kotlin.TEST,
-            ROOT / presentation.SWIFT, ROOT / presentation.KOTLIN, ROOT / effects.SWIFT, ROOT / effects.KOTLIN]
+            ROOT / presentation.SWIFT, ROOT / presentation.KOTLIN, ROOT / effects.SWIFT, ROOT / effects.KOTLIN,
+            ROOT / design.SWIFT, ROOT / design.KOTLIN]
 
 
 def main(argv):

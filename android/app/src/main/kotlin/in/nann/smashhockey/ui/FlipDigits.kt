@@ -1,6 +1,7 @@
 package `in`.nann.smashhockey.ui
 
-import `in`.nann.smashhockey.ui.DesignTokens.Colour
+import `in`.nann.smashhockey.core.feel.Scoreboard
+import `in`.nann.smashhockey.ui.generated.DesignTokens.Colour
 import kotlin.math.abs
 import `in`.nann.smashhockey.engine.Spring
 
@@ -8,7 +9,8 @@ import `in`.nann.smashhockey.engine.Spring
  * One flip card: a dark tile with a character on each face. A change writes the new character on
  * the hidden face and turns the card half a revolution about its horizontal axis, top edge falling
  * toward the viewer like a split-flap, on the `snappy` spring — so it clacks a little past the
- * stop and settles.
+ * stop and settles. A card may show **nothing** ([Scoreboard.BLANK]) — the tens card of a
+ * single-digit score — and flips from blank to a digit like any other change.
  */
 private class FlipCard(
     private val kit: Kit,
@@ -19,7 +21,9 @@ private class FlipCard(
     cardColour: Int, ink: Int,
 ) {
     val node = kit.node(parent)
-    private val faces: Array<UiNode>
+    private val faceNodes: Array<UiNode>
+    private val faces = arrayOfNulls<UiNode>(2)
+    private val ink = ink
     private val turn = Spring(kit.motion.spring(SpringName.SNAPPY))
     private var flips = 0
     var shown: Char = c
@@ -35,9 +39,23 @@ private class FlipCard(
         backNode.setPosition(0f, 0f, -depth / 2)
         // Upside down on the back: after half a turn about X it reads the right way up.
         backNode.setRotation(Quat().axisAngle(Math.PI.toFloat(), 1f, 0f, 0f))
-        faces = arrayOf(kit.text(c.toString(), textHeight, ink, frontNode), kit.text(c.toString(), textHeight, ink, backNode))
+        faceNodes = arrayOf(frontNode, backNode)
         // A hairline across the middle, the split-flap's split.
         kit.slab(w * 1.001f, h * 0.025f, depth * 1.02f, Colour.BOARD, node, corner = 0f)
+        write(0, c)
+        write(1, c)
+    }
+
+    /** Puts [c] on face [i] — a blank card carries no lettering at all. */
+    private fun write(i: Int, c: Char) {
+        if (c == Scoreboard.BLANK) {
+            faces[i]?.let { kit.destroy(it) }
+            faces[i] = null
+            return
+        }
+        val face = faces[i]
+        if (face != null) kit.retext(face, c.toString(), textHeight)
+        else faces[i] = kit.text(c.toString(), textHeight, ink, faceNodes[i])
     }
 
     fun set(c: Char) {
@@ -51,7 +69,7 @@ private class FlipCard(
     private fun start(c: Char) {
         KitSound.flip()
         flips += 1
-        kit.retext(faces[flips % 2], c.toString(), textHeight)
+        write(flips % 2, c)
         shown = c
         turn.target = flips * Math.PI
     }
@@ -72,7 +90,9 @@ private class FlipCard(
 
 /**
  * A scoreboard number or clock whose characters flip like split-flap tiles when they change — the
- * twin of iOS's `FlipDigits`. Separators (":", "-", " ", ".") are fixed lettering between cards.
+ * twin of iOS's `FlipDigits`. Separators (":", "-", ".", "/") are fixed lettering between the cards;
+ * a blank is **not** one — it is a card showing nothing, so a score can grow a digit without the
+ * board changing shape.
  * [cardW]×[cardH] is one tile; the text height follows it.
  */
 class FlipDigits(
@@ -162,6 +182,7 @@ class FlipDigits(
     }
 
     private companion object {
-        fun isSeparator(c: Char) = c == ':' || c == '-' || c == ' ' || c == '.' || c == '/'
+        /** A character printed between the cards rather than on one. A blank is not one. */
+        fun isSeparator(c: Char) = c == ':' || c == '-' || c == '.' || c == '/'
     }
 }

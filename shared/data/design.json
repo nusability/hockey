@@ -1,0 +1,59 @@
+{
+  "_comment": "The 3D UI's design tokens (conventions: UI — 'Design tokens, not raw values'), read by tools/generate-data.py and written into both apps as DesignTokens. Colours are sRGB #rrggbb. Sizes are metres in a screen's design frame: a plane frame_depth in front of the camera, frame_width wide, scaled as a whole to the phone's visible width (ScreenFrame). No component or screen spells a colour or a size of its own.",
+
+  "_colour": "The palette. Panels, slabs and cards are white — the UI's own light (below) keeps them white in every world — and everything that reads as lettering, a digit or an accent is a saturated colour from the game's own set: the yellow, the pink, the green and the deep navy. Every colour used as lettering on paper clears 4.5:1.",
+  "colour": {
+    "ink": "#1e1b4b",
+    "paper": "#ffffff",
+    "paper_shade": "#d8dcec",
+    "sun": "#ffc83d",
+    "sun_shade": "#c98a12",
+    "pink": "#f472b6",
+    "pink_ink": "#be185d",
+    "green": "#4ade80",
+    "green_ink": "#15803d",
+    "disabled": "#c7cbda",
+    "disabled_shade": "#8a90a6",
+    "disabled_ink": "#5a607a",
+    "board": "#1e1b4b",
+    "card": "#2a2660",
+    "card_ink": "#ffc83d",
+    "chalk": "#1e1b4b",
+    "rail": "#2a2660",
+    "row_light": "#ffffff",
+    "row_dark": "#eef1fa",
+    "row_highlight": "#ffc83d"
+  },
+
+  "size": {
+    "frame_depth": 4.0,
+    "frame_width": 1.8,
+    "corner": 0.06,
+    "button_width": 1.3,
+    "button_height": 0.32,
+    "button_depth": 0.16,
+    "button_base_inset": -0.035,
+    "text_depth_ratio": 0.32,
+    "text_title": 0.3,
+    "text_heading": 0.13,
+    "text_button": 0.12,
+    "text_body": 0.075,
+    "text_small": 0.055,
+    "slab_depth": 0.1,
+    "row_height": 0.105,
+    "row_gap": 0.018,
+    "rail_height": 0.045,
+    "knob_radius": 0.085,
+    "knob_depth": 0.07
+  },
+
+  "_look": "The light the UI is lit by (ADR 0006's formula, the same one the players are shaded with), and **not** the light of the world standing behind it: a menu looks the same in the oasis and in space, and a white slab reads white rather than taking the world's tint. Neutral and slightly cool from above, the sun low and toward the viewer, so a block's front face is bright, its top a little less and its sides less again — enough shading to read as a toy-plastic object, never enough to colour it.",
+  "look": {
+    "hemi_sky": "#ffffff",
+    "hemi_ground": "#dfe3f2",
+    "hemi_strength": 0.38,
+    "sun": "#ffffff",
+    "sun_strength": 0.52,
+    "sun_direction": [-0.45, 0.4, 1.0]
+  }
+}

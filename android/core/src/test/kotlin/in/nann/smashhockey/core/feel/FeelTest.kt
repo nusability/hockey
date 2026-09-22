@@ -69,6 +69,195 @@ class FeelTest {
         assertTrue(ice < field)
     }
 
+    // ---- the scoreboard, 0:0 to 99:99 (§16.4)
+
+    private val board = Scoreboard.metrics(0.14, 0.0112, 0.084, 0.30, 0.03)
+
+    @Test fun everyScoreTheBoardCanShowKeepsItsLayout() {
+        val want = 2 * Scoreboard.CARDS + 1
+        for (home in 0..99) {
+            for (away in listOf(0, 1, 9, 10, 11, 99)) {
+                val text = Scoreboard.score(home, away)
+                assertEquals("$home:$away is '$text'", want, text.length)
+                assertEquals(1, text.count { it == ':' })
+            }
+        }
+        assertEquals(" 0", Scoreboard.score(0))
+        assertEquals(" 9", Scoreboard.score(9))
+        assertEquals("10", Scoreboard.score(10))
+        assertEquals("99", Scoreboard.score(99))
+        assertEquals("99", Scoreboard.score(120))
+        assertEquals(" 0", Scoreboard.score(-1))
+        assertEquals(Scoreboard.BLANK, Scoreboard.score(9)[0])
+        assertEquals('1', Scoreboard.score(10)[0])
+    }
+
+    @Test fun theTwoSidesAndTheirChipsNeverRunIntoEachOther() {
+        val m = board
+        assertTrue(m.scoreX - m.halfCards > 0)
+        assertTrue(m.chipX - 0.30 / 2 >= m.scoreX + m.halfCards)
+        assertTrue(m.boardWidth / 2 >= m.chipX + 0.30 / 2)
+        assertTrue(m.halfCards > 0.14)
+    }
+
+    @Test fun aDrillsTargetSetsItsWidth() {
+        assertEquals("0/3", Scoreboard.drill(0, 3))
+        assertEquals("3/3", Scoreboard.drill(3, 3))
+        assertEquals("3/3", Scoreboard.drill(9, 3))
+        assertEquals(" 0/12", Scoreboard.drill(0, 12))
+        assertEquals("10/12", Scoreboard.drill(10, 12))
+        for (target in 1..99) {
+            val width = Scoreboard.drill(0, target).length
+            for (scored in 0..target) assertEquals(width, Scoreboard.drill(scored, target).length)
+        }
+    }
+
+    // ---- the UI's arrivals and departures (conventions: UI)
+
+    /** motion.json's `pop` in, `soft` out, `fade.seconds`. */
+    private fun presence() = UIPresence(SpringToken(260.0, 13.0), SpringToken(160.0, 18.0))
+
+    /** Runs [seconds] of 60 Hz frames. */
+    private fun run(p: UIPresence, seconds: Double, reduceMotion: Boolean = false) {
+        repeat((seconds * 60).toInt()) { p.advance(1.0 / 60, reduceMotion, FADE_SECONDS) }
+    }
+
+    @Test fun anArrivalEndsOnItsExactPose() {
+        val p = presence()
+        p.show()
+        run(p, 0.1)
+        assertTrue(p.phase == UIPresence.Phase.SHOWN && p.arrival < 1.0)
+        run(p, 2.0)
+        assertTrue(p.isSettledIn)
+        assertEquals(1.0, p.arrival, 0.0)
+    }
+
+    @Test fun aLeaveAlwaysEndsHidden() {
+        for (reduce in listOf(false, true)) {
+            val p = presence()
+            p.show()
+            run(p, 2.0, reduce)
+            p.hide()
+            run(p, 0.05, reduce)
+            assertEquals("$reduce", UIPresence.Phase.LEAVING, p.phase)
+            run(p, 3.0, reduce)
+            assertEquals("$reduce", UIPresence.Phase.HIDDEN, p.phase)
+            assertTrue(!p.isVisible)
+        }
+    }
+
+    /**
+     * The bug that left a piece of UI hanging in the air: Reduce Motion is read every frame on
+     * Android (the system animator scale, battery saver), so it can turn on or off in the middle of a
+     * transition. Neither way of playing a leave may strand the other's.
+     */
+    @Test fun reduceMotionTurningOnOrOffMidLeaveStillFinishes() {
+        for ((before, after) in listOf(false to true, true to false)) {
+            val p = presence()
+            p.show()
+            run(p, 2.0, before)
+            p.hide()
+            run(p, 0.1, before)
+            assertEquals("$before then $after", UIPresence.Phase.LEAVING, p.phase)
+            run(p, 5.0, after)
+            assertEquals("$before then $after", UIPresence.Phase.HIDDEN, p.phase)
+        }
+    }
+
+    @Test fun aLeaveInterruptedByAShowComesBackAndCanLeaveAgain() {
+        val p = presence()
+        p.show()
+        run(p, 2.0)
+        p.hide()
+        run(p, 0.1)
+        p.show()
+        run(p, 2.0)
+        assertTrue(p.isSettledIn)
+        assertEquals(1.0, p.arrival, 0.0)
+        p.hide()
+        run(p, 3.0)
+        assertEquals(UIPresence.Phase.HIDDEN, p.phase)
+    }
+
+    @Test fun hidingBeforeAnArrivalBeginsCancelsIt() {
+        val p = presence()
+        p.show(0.5)
+        p.hide()
+        run(p, 2.0)
+        assertTrue(p.phase == UIPresence.Phase.HIDDEN && !p.isVisible)
+    }
+
+    // ---- what the arrow shows, transition by transition (§5.2)
+
+    /** One frame of the arrow, 1/60 s after the last. */
+    private class Rig {
+        val showing = AimArrow.Showing()
+        var clock = 0.0
+
+        fun frame(
+            state: MatchState = MatchState.PLAY,
+            playerCarrier: Boolean = true,
+            carrier: Int? = 1,
+            aim: MatchSnapshot.Aim? = MatchSnapshot.Aim.Unassisted,
+        ): AimArrow.Look {
+            clock += 1.0 / 60
+            return showing.frame(state, playerCarrier, carrier, aim, clock, FADE_IN)
+        }
+
+        companion object { const val FADE_IN = 0.08 }
+    }
+
+    @Test fun theArrowShowsOnlyForThePlayersOwnCarrierInPlay() {
+        val r = Rig()
+        for (state in MatchState.entries) {
+            assertEquals(state.name, state == MatchState.PLAY || state == MatchState.READY, r.frame(state).arrow)
+        }
+        assertTrue(!r.frame(playerCarrier = false).arrow)
+        assertTrue(!r.frame(carrier = null).arrow)
+        assertTrue(!r.frame(aim = null).arrow)
+        assertTrue(r.frame().arrow)
+    }
+
+    @Test fun theArrowsColourSaysWhatAReleaseWouldDo() {
+        val r = Rig()
+        assertEquals(0, r.frame(aim = MatchSnapshot.Aim.Unassisted).colour)
+        assertEquals(1, r.frame(aim = MatchSnapshot.Aim.Pass(3)).colour)
+        assertEquals(2, r.frame(aim = MatchSnapshot.Aim.Shot).colour)
+        assertTrue(!r.frame(aim = MatchSnapshot.Aim.Unassisted).snapped)
+        assertTrue(r.frame(aim = MatchSnapshot.Aim.Shot).snapped)
+    }
+
+    /**
+     * The whole reason the arrow has a state machine: a snap's fade must start at every beginning and
+     * at no other time, and it must never run on for ever.
+     */
+    @Test fun theLockOnFadesInAtEverySnapBeginning() {
+        val r = Rig()
+        assertEquals(AimArrow.Lock.None, r.frame(aim = MatchSnapshot.Aim.Unassisted).lock)
+        assertTrue(r.frame(aim = MatchSnapshot.Aim.Shot).fade < 0.3)
+        repeat(4) { r.frame(aim = MatchSnapshot.Aim.Shot) }
+        assertEquals(1.0, r.frame(aim = MatchSnapshot.Aim.Shot).fade, 0.0)
+        repeat(600) { r.frame(aim = MatchSnapshot.Aim.Shot) }
+        assertEquals(1.0, r.frame(aim = MatchSnapshot.Aim.Shot).fade, 0.0)
+        val pass = MatchSnapshot.Aim.Pass(3)
+        repeat(21) { r.frame(aim = pass) }
+        assertEquals(1.0, r.frame(aim = pass).fade, 0.0)
+        assertTrue(r.frame(carrier = 2, aim = pass).fade < 1.0)
+        repeat(20) { r.frame(carrier = 2, aim = pass) }
+        assertEquals(1.0, r.frame(carrier = 2, aim = pass).fade, 0.0)
+        r.frame(state = MatchState.WHISTLE, aim = pass)
+        assertTrue(r.frame(carrier = 2, aim = pass).fade < 1.0)
+    }
+
+    @Test fun aRestartedSceneClockDoesNotStickTheLockOn() {
+        val r = Rig()
+        repeat(20) { r.frame(aim = MatchSnapshot.Aim.Shot) }
+        assertEquals(1.0, r.frame(aim = MatchSnapshot.Aim.Shot).fade, 0.0)
+        r.clock = 0.0
+        val look = r.frame(aim = MatchSnapshot.Aim.Shot)
+        assertTrue(look.fade >= 0.0 && look.fade <= 1.0)
+    }
+
     // ---- banners (§16.4)
 
     @Test fun theDrillsGetReadySaysWhy() {
@@ -227,4 +416,6 @@ class FeelTest {
             SoundCue.UI_SLIDER_TICK, SoundCue.UI_CONFETTI_POP)
         for (cue in used) assertTrue("${cue.key} has no files", cue.spec.field.isNotEmpty() && cue.spec.ice.isNotEmpty())
     }
+
+    private companion object { const val FADE_SECONDS = 0.18 }
 }

@@ -12,13 +12,17 @@ import RealityKit
 ///   inside while `0.72 + 0.233·s − 0.281 < c < 0.72 + 0.233·s` (edges smoothed by 0.02) and
 ///   `s > 0.062`; colour at `Opacity` × that;
 /// - **Glow** — a flat colour added to what is behind it (premultiplied, zero coverage);
-/// - **Trail** — a flat colour at `Opacity` × the vertex's first texture coordinate.
+/// - **Trail** — a flat colour at `Opacity` × the vertex's first texture coordinate;
+/// - **Flat** — a flat colour at `Opacity`, the twin of Android's `flat.mat`: the arrowhead, the
+///   lock-on's ring and its dots. It exists so the parts that pulse **mutate one material** instead
+///   of building a fresh `UnlitMaterial` each frame, as Android's `Materials.flatOwned` does.
 @MainActor
 enum FeelMaterials {
     struct Set {
         let chevron: ShaderGraphMaterial
         let glow: ShaderGraphMaterial
         let trail: ShaderGraphMaterial
+        let flat: ShaderGraphMaterial
     }
 
     private static var loaded: Set?
@@ -36,7 +40,8 @@ enum FeelMaterials {
                 m.writesDepth = false
                 return m
             }
-            let set = Set(chevron: try await graph("Chevron"), glow: try await graph("Glow"), trail: try await graph("Trail"))
+            let set = Set(chevron: try await graph("Chevron"), glow: try await graph("Glow"),
+                          trail: try await graph("Trail"), flat: try await graph("Flat"))
             loaded = set
             return set
         } catch {
@@ -57,7 +62,7 @@ enum FeelMaterials {
     }
 
     static var usda: String {
-        let graphs = [chevron(), glow(), trail()].map(\.usda).joined(separator: "\n\n")
+        let graphs = [chevron(), glow(), trail(), flat()].map(\.usda).joined(separator: "\n\n")
         return """
             #usda 1.0
             (
@@ -100,6 +105,13 @@ enum FeelMaterials {
         let g = FxGraph("Glow")
         let colour = g.param("Colour", .color3), opacity = g.param("Opacity", .float)
         g.surface(colour: g.mul(colour, opacity), opacity: g.c(0), premultiplied: true)
+        return g
+    }
+
+    private static func flat() -> FxGraph {
+        let g = FxGraph("Flat")
+        let colour = g.param("Colour", .color3), opacity = g.param("Opacity", .float)
+        g.surface(colour: colour, opacity: opacity, premultiplied: false)
         return g
     }
 

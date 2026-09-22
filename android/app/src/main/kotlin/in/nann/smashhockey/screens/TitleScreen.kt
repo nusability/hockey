@@ -27,10 +27,10 @@ class TitleScreen(game: Game) :
 
     init {
         part(WaveText(kit, L(CopyKey.TITLE_LOGO_TOP), 0.36f, C.SUN, id = "title_logo_header"), at(0f, top - 0.45f, tilt = 0.05f))
-        part(WaveText(kit, L(CopyKey.TITLE_LOGO_BOTTOM), 0.30f, C.CREAM, bob = 0.7f, id = "title_logo2_header"),
+        part(WaveText(kit, L(CopyKey.TITLE_LOGO_BOTTOM), 0.30f, C.PAPER, bob = 0.7f, id = "title_logo2_header"),
             at(-0.05f, top - 0.90f, tilt = 0.05f))
-        badge = part(Panel(kit, 0.42f, 0.30f, 0.12f, C.CORAL, Entrance.Pop), at(0.62f, top - 1.22f, z = 0.05f, tilt = -0.22f))
-        child(Label3D(kit, "3D", 0.16f, C.CREAM), parent = badge.content).show(0.0)
+        badge = part(Panel(kit, 0.42f, 0.30f, 0.12f, C.PINK, Entrance.Pop), at(0.62f, top - 1.22f, z = 0.05f, tilt = -0.22f))
+        child(Label3D(kit, "3D", 0.16f, C.INK), parent = badge.content).show(0.0)
         // The buttons stand on the bottom edge; the tagline and the trophies ride just above them.
         val y0 = bottom + 0.3f
         part(Label3D(kit, L(CopyKey.TITLE_TAGLINE), S.TEXT_SMALL, C.INK, maxWidth = 1.7f, entrance = Entrance.Tumble),

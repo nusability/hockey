@@ -3,7 +3,7 @@ package `in`.nann.smashhockey.screens
 import `in`.nann.smashhockey.game.Game
 import `in`.nann.smashhockey.generated.Presentation
 import `in`.nann.smashhockey.ui.CameraPose
-import `in`.nann.smashhockey.ui.DesignTokens
+import `in`.nann.smashhockey.ui.generated.DesignTokens
 import `in`.nann.smashhockey.ui.Label3D
 import `in`.nann.smashhockey.ui.Presentable
 import `in`.nann.smashhockey.ui.UIStage

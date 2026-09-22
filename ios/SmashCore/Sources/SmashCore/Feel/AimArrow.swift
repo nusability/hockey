@@ -53,6 +53,69 @@ public enum AimArrow {
         return max(p.minLength, min(len, toBoards - r - p.boardMargin))
     }
 
+    /// What the lock-on marker shows (spec §5.2).
+    public enum Lock: Sendable, Hashable {
+        case none
+        /// The receiver's ring and the dotted line to their lead point.
+        case pass(Int)
+        /// The glow across the goal mouth.
+        case shot
+    }
+
+    /// What the arrow shows this frame.
+    public struct Look: Sendable, Hashable {
+        /// The ribbon, its glow, the arrowhead and the ring the ball circles on are drawn.
+        public var arrow: Bool
+        /// 0 free (yellow), 1 a pass (green), 2 a shot (pink) — `[aim]`'s three colours in order.
+        public var colour: Int
+        public var lock: Lock
+        /// 0…1 — how far the lock-on has faded in since this snap began.
+        public var fade: Double
+        /// Whether a release now would snap: the arrow pulses and its glow lifts.
+        public var snapped: Bool { colour != 0 }
+
+        public static let hidden = Look(arrow: false, colour: 0, lock: .none, fade: 0)
+    }
+
+    /// The arrow's state between frames (spec §5.2) — which snap is being shown and since when — so
+    /// the arrow is right at **every** transition: the match leaving and re-entering play, a snap
+    /// beginning, changing or ending, the ball changing hands, a restart. Both apps drive their
+    /// arrow from this; nothing about it is a platform's own.
+    public struct Showing: Sendable, Hashable {
+        /// The snap on screen: whose it is and what it aims at. Nil while the arrow is hidden, so
+        /// the next one fades in from nothing rather than appearing fully lit.
+        private var carrier: Int?
+        private var aim: MatchSnapshot.Aim?
+        /// The real second the snap on screen began.
+        private var since = 0.0
+
+        public init() {}
+
+        /// One frame. `clock` is real seconds, monotonic for the life of the match scene; `fadeIn`
+        /// is the lock-on's fade (`[aim.lock] fade_in`).
+        public mutating func frame(state: MatchState, playerCarrier: Bool, carrier: Int?,
+                                   aim: MatchSnapshot.Aim?, clock: Double, fadeIn: Double) -> Look {
+            guard playerCarrier, let carrier, let aim, state == .play || state == .ready else {
+                self.carrier = nil
+                self.aim = nil
+                return .hidden
+            }
+            // A snap begins when what it aims at changes — and when the ball changes hands, which is
+            // a new snap even when it aims at the same place.
+            if self.carrier != carrier || self.aim != aim {
+                (self.carrier, self.aim, since) = (carrier, aim, clock)
+            }
+            // Never run backwards: a clock that jumps back (a new scene) restarts the fade.
+            if clock < since { since = clock }
+            let fade = fadeIn > 0 ? min(1, (clock - since) / fadeIn) : 1
+            switch aim {
+            case .unassisted: return Look(arrow: true, colour: 0, lock: .none, fade: 0)
+            case .pass(let to): return Look(arrow: true, colour: 1, lock: .pass(to), fade: fade)
+            case .shot: return Look(arrow: true, colour: 2, lock: .shot, fade: fade)
+            }
+        }
+    }
+
     /// How far out along `angle` the pitch stays clear of the boards: marching from 1 m in steps of
     /// `probeStep` while under `maxLength + 2`, the last distance whose point is more than
     /// `boardProbe` inside the boundary; 0 if the first is not.

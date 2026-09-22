@@ -45,43 +45,43 @@ class TeamForm(private val screen: Screen, top: Float, private val changed: () -
         draft = TeamDraft("", "", pair.primary, pair.secondary, World.MAGICWOOD)
         var y = top - 0.13f
 
-        nameField = add(Tile(kit, 1.72f, 0.24f, C.CREAM, C.CREAM, id = "team_name_field", label = L(CopyKey.TEAM_NAME)) { editName() }, y = y)
-        screen.letters(L(CopyKey.TEAM_NAME), 0.034f, C.TEAL_SHADE, align = Label3D.Align.LEADING, x = -0.8f, y = 0.07f, parent = nameField.content)
+        nameField = add(Tile(kit, 1.72f, 0.24f, C.PAPER, C.PAPER, id = "team_name_field", label = L(CopyKey.TEAM_NAME)) { editName() }, y = y)
+        screen.letters(L(CopyKey.TEAM_NAME), 0.034f, C.GREEN_INK, align = Label3D.Align.LEADING, x = -0.8f, y = 0.07f, parent = nameField.content)
         nameText = screen.letters(L(CopyKey.TEAM_NAME_EMPTY), 0.085f, C.DISABLED_INK, maxWidth = 1.5f, y = -0.02f, parent = nameField.content)
         y -= 0.33f
 
-        codeField = add(Tile(kit, 0.66f, 0.26f, C.CREAM, C.CREAM, id = "team_code_field", label = L(CopyKey.TEAM_CODE)) { editCode() },
+        codeField = add(Tile(kit, 0.66f, 0.26f, C.PAPER, C.PAPER, id = "team_code_field", label = L(CopyKey.TEAM_CODE)) { editCode() },
             x = -0.52f, y = y)
-        screen.letters(L(CopyKey.TEAM_CODE), 0.034f, C.TEAL_SHADE, align = Label3D.Align.LEADING, x = -0.29f, y = 0.08f, parent = codeField.content)
+        screen.letters(L(CopyKey.TEAM_CODE), 0.034f, C.GREEN_INK, align = Label3D.Align.LEADING, x = -0.29f, y = 0.08f, parent = codeField.content)
         codeText = screen.letters("XXX", 0.11f, C.INK, y = -0.025f, parent = codeField.content)
         disk = add(KitDisk(kit, 0.13f, draft.primary, draft.secondary), x = 0.42f, y = y - 0.02f)
         y -= 0.25f
 
-        add(Label3D(kit, L(CopyKey.TEAM_SHIRT), 0.04f, C.CREAM, Label3D.Align.LEADING), x = -0.86f, y = y)
+        add(Label3D(kit, L(CopyKey.TEAM_SHIRT), 0.04f, C.PAPER, Label3D.Align.LEADING), x = -0.86f, y = y)
         y -= 0.13f
         for ((i, p) in Career.kitPalette.withIndex()) {
             shirts += add(Tile(kit, 0.12f, 0.12f, p.primary, p.primary, halo = true, id = "team_shirt_${p.id}_button",
                 label = L(p.primaryName)) { draft = draft.copy(primary = p.primary); refresh() }, x = -0.83f + i * 0.151f, y = y)
         }
         y -= 0.16f
-        add(Label3D(kit, L(CopyKey.TEAM_TRIM), 0.04f, C.CREAM, Label3D.Align.LEADING), x = -0.86f, y = y)
+        add(Label3D(kit, L(CopyKey.TEAM_TRIM), 0.04f, C.PAPER, Label3D.Align.LEADING), x = -0.86f, y = y)
         y -= 0.13f
         for ((i, p) in Career.kitPalette.withIndex()) {
             trims += add(Tile(kit, 0.12f, 0.12f, p.secondary, p.secondary, halo = true, id = "team_trim_${p.id}_button",
                 label = L(p.secondaryName)) { draft = draft.copy(secondary = p.secondary); refresh() }, x = -0.83f + i * 0.151f, y = y)
         }
         y -= 0.16f
-        add(Label3D(kit, L(CopyKey.TEAM_HOME), 0.04f, C.CREAM, Label3D.Align.LEADING), x = -0.86f, y = y)
+        add(Label3D(kit, L(CopyKey.TEAM_HOME), 0.04f, C.PAPER, Label3D.Align.LEADING), x = -0.86f, y = y)
         y -= 0.15f
         for ((i, w) in World.entries.withIndex()) {
-            val t = add(Tile(kit, 0.33f, 0.2f, C.CREAM, C.SUN, id = "team_world_${w.key}_button", label = L(w.nameKey)) {
+            val t = add(Tile(kit, 0.33f, 0.2f, C.PAPER, C.SUN, id = "team_world_${w.key}_button", label = L(w.nameKey)) {
                 draft = draft.copy(world = w); refresh()
             }, x = -0.72f + i * 0.36f, y = y)
             screen.letters(Names.world(w), 0.032f, C.INK, maxWidth = 0.29f, parent = t.content)
             worlds[w] = t
         }
         y -= 0.19f
-        issues = add(Label3D(kit, " ", 0.042f, C.CORAL, maxWidth = 1.72f), y = y)
+        issues = add(Label3D(kit, " ", 0.042f, C.PINK, maxWidth = 1.72f), y = y)
         refresh(notify = false)
     }
 

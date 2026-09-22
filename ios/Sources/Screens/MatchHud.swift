@@ -29,24 +29,27 @@ final class MatchHud: Screen {
         drillGoals = kickoff.drillGoals
         super.init(hudOf: game)
         let m = motion
-        board = part(Panel(size: [1.3, 0.38, 0.12], colour: C.board, entrance: .drop, motion: m), at: at(-0.12, top - 0.26))
+        let b = Self.board
+        board = part(Panel(size: [Float(b.boardWidth), 0.38, 0.12], colour: C.board, entrance: .drop, motion: m),
+                     at: at(-0.12, top - 0.26))
         if let goals = drillGoals {
-            let digits = child(FlipDigits("0/\(goals)", cardSize: [0.19, 0.27], id: "match_goals", label: L(.hudGoals), motion: m),
+            let digits = child(FlipDigits(Scoreboard.drill(scored: 0, target: goals), cardSize: Self.card,
+                                          id: "match_goals", label: L(.hudGoals), motion: m),
                                at: at(0, 0, z: 0.05), on: board.content)
             digits.onLanded = { [weak self] in self?.board.thud() }
             digits.show(after: 0)
             scores[0] = digits
         } else {
-            for (i, x) in [Float(-0.45), 0.45].enumerated() {
+            for i in 0..<2 {
                 let colours = kickoff.colours[i]
-                let chip = child(Panel(size: [0.34, 0.26, 0.06], colour: Int(colours.primary), entrance: .pop, motion: m),
-                                 at: at(x, 0), on: board.content)
+                let chip = child(Panel(size: [Self.chip, 0.26, 0.06], colour: Int(colours.primary), entrance: .pop, motion: m),
+                                 at: at(i == 0 ? -Float(b.chipX) : Float(b.chipX), 0), on: board.content)
                 chip.show(after: 0)
-                child(Label3D(kickoff.codes?[i] ?? "", height: 0.085, colour: Int(colours.secondary), maxWidth: 0.3, motion: m),
-                      on: chip.content).show(after: 0)
+                child(Label3D(kickoff.codes?[i] ?? "", height: 0.085, colour: Int(colours.secondary),
+                              maxWidth: Self.chip - 0.04, motion: m), on: chip.content).show(after: 0)
             }
-            for side in 0..<2 { scores[side] = makeScore(side, "0") }
-            child(Label3D(":", height: 0.14, colour: C.cardInk, motion: m), on: board.content).show(after: 0)
+            for side in 0..<2 { scores[side] = makeScore(side, Scoreboard.score(0)) }
+            child(Label3D(":", height: 0.12, colour: C.cardInk, motion: m), on: board.content).show(after: 0)
         }
         let seconds = kickoff.match.snapshot.clock
         clock = part(FlipDigits(Names.clock(seconds), cardSize: [0.11, 0.15], id: "match_clock", label: L(.matchClock),
@@ -61,7 +64,7 @@ final class MatchHud: Screen {
                 pips.append(pip)
             }
             // In overtime "OT" takes the clock's place (§16.4).
-            overtime = child(Label3D(L(.hudOt), height: 0.11, colour: C.coral, entrance: .pop, motion: m),
+            overtime = child(Label3D(L(.hudOt), height: 0.11, colour: C.pink, entrance: .pop, motion: m),
                              at: at(-0.12, top - 0.6, z: 0.06), on: layer)
         }
         pause = part(BlockButton("II", id: "match_pause_button", label: L(.hudPause), style: .quiet, size: [0.26, 0.26], textHeight: 0.11,
@@ -69,10 +72,18 @@ final class MatchHud: Screen {
         buildPausePanel(plan.isSeason)
     }
 
+    /// The board's measures (§16.4), derived once from one card so both apps lay it out the same:
+    /// two cards a side, a colon between them, a team chip outside each.
+    static let card = SIMD2<Float>(0.14, 0.20)
+    static let chip: Float = 0.30
+    static let board = Scoreboard.metrics(card: Double(card.x), gap: Double(card.x) * 0.08,
+                                          colon: 0.084, chip: Double(chip), margin: 0.03)
+
     private func makeScore(_ side: Int, _ text: String) -> FlipDigits {
-        let d = child(FlipDigits(text, cardSize: [0.19, 0.27], id: side == 0 ? "match_home_score" : "match_away_score",
+        let x = Float(Self.board.scoreX)
+        let d = child(FlipDigits(text, cardSize: Self.card, id: side == 0 ? "match_home_score" : "match_away_score",
                                  label: L(side == 0 ? .matchScoreHome : .matchScoreAway), motion: motion),
-                      at: at(side == 0 ? -0.13 : 0.13, 0, z: 0.05), on: board.content)
+                      at: at(side == 0 ? -x : x, 0, z: 0.05), on: board.content)
         d.onLanded = { [weak self] in self?.board.thud() }
         d.show(after: 0)
         return d
@@ -81,13 +92,13 @@ final class MatchHud: Screen {
     private func buildPausePanel(_ season: Bool) {
         let m = motion
         let height: Float = season ? 1.3 : 1.1
-        pausePanel = child(Panel(size: [1.4, height, 0.12], colour: C.cream, entrance: .tumble, motion: m),
+        pausePanel = child(Panel(size: [1.4, height, 0.12], colour: C.paper, entrance: .tumble, motion: m),
                            at: at(0, 0, z: 0.4), on: layer)
         let y0 = height / 2
         child(Label3D(L(.pauseTitle), height: 0.15, colour: C.ink, maxWidth: 1.2, motion: m),
               at: at(0, y0 - 0.2), on: pausePanel.content).show(after: 0)
         if season {
-            child(Label3D(L(.pauseForfeit), height: 0.06, colour: C.coralShade, maxWidth: 1.25, motion: m),
+            child(Label3D(L(.pauseForfeit), height: 0.06, colour: C.pinkInk, maxWidth: 1.25, motion: m),
                   at: at(0, y0 - 0.4), on: pausePanel.content).show(after: 0)
         }
         let resume = child(BlockButton(L(.pauseResume), id: "pause_resume_button", style: .primary, size: [1.0, 0.3],
@@ -165,17 +176,12 @@ final class MatchHud: Screen {
     override func update(_ dt: Double) {
         guard game.pitch.plan == plan, let s = game.pitch.snapshot else { return }
         if let goals = drillGoals {
-            scores[0]?.set("\(min(s.score[0], 9))/\(goals)")
+            scores[0]?.set(Scoreboard.drill(scored: s.score[0], target: goals))
         } else {
+            // The board always holds two cards a side, so a tenth goal flips the tens card rather
+            // than rebuilding anything (§16.4).
             for side in 0..<2 where s.score[side] != shownScore[side] {
-                let text = "\(s.score[side])"
-                if let d = scores[side], text.count != "\(shownScore[side])".count {
-                    d.hide(after: 0)
-                    stage.after(0.6) { [weak stage] in stage?.remove(under: d.entity) }
-                    scores[side] = makeScore(side, text)
-                } else {
-                    scores[side]?.set(text)
-                }
+                scores[side]?.set(Scoreboard.score(s.score[side]))
                 scores[side]?.celebrate()
                 shownScore[side] = s.score[side]
             }

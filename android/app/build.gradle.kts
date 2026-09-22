@@ -22,6 +22,17 @@ android {
         versionName = "0.1"
     }
 
+    buildTypes {
+        // Release code paths (no debuggable ART, R8) signed with the local debug key, so a device
+        // soak measures what players would run without needing the upload key (SMASH-2).
+        create("soak") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            matchingFallbacks += listOf("release")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21

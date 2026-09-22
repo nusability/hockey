@@ -1,6 +1,6 @@
 # 0005 — RealityKit on iOS, Filament on Android, and the UI lives in the scene
-Date: 2026-09-22 · Status: **proposed** — accepted when the vertical-slice spike (Stori `SMASH-2`)
-passes; supersedes 0003 (0004 withdrawn)
+Date: 2026-09-22 · Status: **accepted** 2026-09-22 after the vertical-slice spike (SMASH-2, see
+*The spike that decided it*); supersedes 0003 (0004 withdrawn)
 
 ## Context
 
@@ -88,7 +88,7 @@ platform-delta table.
 - A glTF → USDZ conversion step in the iOS build.
 - Spec: minimum OS lines; the UI sections are specified per screen as each is designed.
 
-## The spike that decides it
+## The spike that decided it
 
 One vertical slice on both platforms: **one world as a shared asset, a camera-parented score HUD,
 one menu button** — DE/EN extruded text, a spring bounce, the tap hit-test, VoiceOver and TalkBack
@@ -98,6 +98,31 @@ logged. Fix the frame-time percentile and the by-eye screenshot bar **before** s
 Must also prove: `RealityView` lets us cap/request the frame rate (else fall back to
 `ARView(cameraMode: .nonAR)`, same entity graph); Android text triangulation handles glyph holes
 and umlauts — the piece most likely to kill the approach.
+
+### Result (2026-09-22)
+
+Measured on real devices with release-configuration builds, the app in front, over six minutes:
+
+| Device | Frames | p50 | p95 | p99 | Worst thermal |
+|---|---|---|---|---|---|
+| iPhone 17 Pro (RealityKit) | 22,206 | 16.67 ms | 16.77 ms | 16.99 ms | nominal |
+| OnePlus Nord AC2003, Snapdragon 765G, Android 12 (Filament) | 21,614 | 16.67 ms | 16.69 ms | 16.71 ms | none |
+
+Both hold 60 fps with no thermal change — a p95 0.07 ms above 16.7 on iOS is vsync jitter at a
+locked 60.0 fps, not a missed frame. Text with holes and umlauts, the spring, the hit-test and
+the accessibility overlay work on both. The owner judged the two "almost identical", bouncing
+the same, and accepted. Findings carried forward:
+
+- **iOS runs at 60 Hz, not 120**, even with `CADisableMinimumFrameDurationOnPhone`: RealityView
+  exposes no frame-rate control (a known limitation). 60 is the bar, so this is recorded as a
+  permanent delta rather than chased through `ARView`.
+- **Android looks more saturated.** Filament is set to a linear tone mapper; RealityKit applies
+  its own, which cannot be switched off. Part may be the Nord's display mode. Closing it is
+  colour-pipeline work for the parity rig (SMASH-13).
+- **Face culling must agree**: the world is authored double-sided; RealityKit's custom materials
+  cull back faces unless told not to. Both platforms now draw both sides.
+- Filament materials cannot opt out of fog (`variantFilter: [fog]` aborts at render); the sky is
+  kept out with the fog's `cutOffDistance`.
 
 ## What would change it
 

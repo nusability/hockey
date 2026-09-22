@@ -268,9 +268,9 @@ def build_sky(mat):
     for f in bm.faces:
         for loop in f.loops:
             zn = max(0.0, loop.vert.co.z / 320.0)
-            # right half: the gradient; the power pulls the blue down toward the horizon, where the
-            # camera actually sees the sky
-            loop[uv].uv = (0.75, 0.02 + 0.96 * zn ** 0.35)
+            # right half: the gradient. The camera only ever sees the first few degrees above the
+            # horizon, so the warm haze is a thin band there (sin 4° ≈ 0.07) and the rest is blue.
+            loop[uv].uv = (0.75, 0.02 + 0.96 * min(1.0, zn / 0.07) ** 0.5)
     mesh = bpy.data.meshes.new('sky')
     bm.to_mesh(mesh)
     bm.free()

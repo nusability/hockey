@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.3.0
+Spec-Version: 0.3.1
 Status: as-is — **the whole game's rules, written down; neither app plays them yet.** Both apps
 are empty shells (see the platform-delta table). What this file now holds is the complete
 gameplay contract taken from the web prototype — the pitch, the one-touch control, the ball, the
@@ -44,7 +44,7 @@ platform-delta table says otherwise**. There is one specification, not two; a pl
 free to be different, only to be *late*, and lateness has to be written down.
 
 - **iPhone**, portrait. **Android phone**, portrait. Minimum OS: **iOS 18**, **Android API 26**
-  (proposed by the renderer decision, ADR 0005; confirmed when it is accepted).
+  (set by the renderer decision, ADR 0005).
 - **iPad, tablets and landscape are out of scope.**
 - **Two languages**, German and English, chosen by the device, never by a menu (§14).
 - The two builds are **stand-alone implementations** sharing no executable code of ours — only
@@ -61,6 +61,8 @@ deletes it — the goal for these is zero).
 | Since | Kind | Delta |
 |---|---|---|
 | 2026-09-22 | **temporary** | **Neither app implements §1–§15 yet.** Both are empty shells that launch. Each section's implementation deletes its part of this row, on both platforms in the same commit, or splits it into a per-platform row naming the one that is behind. Closed by the items in Stori `SMASH` (SMASH-2, SMASH-7 onward). |
+| 2026-09-22 | **permanent** | **The two look the same to a player's eye, not to the pixel.** Geometry, textures, text, layout and motion are identical by construction; lighting, shadow softness and tone mapping come from two engines (RealityKit, Filament) and differ slightly (ADR 0005). A difference a player would notice is still a bug. |
+| 2026-09-22 | **permanent** | **iOS renders at 60 Hz on ProMotion iPhones, Android at the display's rate up to what it holds.** RealityKit's view offers no frame-rate control (ADR 0005). The simulation is unaffected — it runs in fixed steps (§4). |
 | 2026-09-22 | **permanent** | **Purchases are per-store and per-device.** There is no account, so an entitlement bought on one store does not follow the player to the other. The game never implies otherwise: no affordance offers a cross-platform restore (ADR 0001). |
 
 **The golden vectors** (`shared/vectors/`) are the one place the two simulations are checked

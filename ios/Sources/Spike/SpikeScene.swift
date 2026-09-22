@@ -94,9 +94,16 @@ final class SpikeScene {
             let isSky = entity.name == "sky" || entity.parent?.name == "sky"
             sawSky = sawSky || isSky
             model.materials = try model.materials.map { original -> RealityKit.Material in
-                if isSky { return try CustomMaterial(from: original, surfaceShader: skyShader) }
+                if isSky {
+                    var sky = try CustomMaterial(from: original, surfaceShader: skyShader)
+                    sky.faceCulling = .none
+                    return sky
+                }
                 var lit = try CustomMaterial(from: original, surfaceShader: fog)
                 lit.custom.value = SIMD4(eye, 0)
+                // The world's glTF/USD twin is double-sided (Blender exports it so, and Filament
+                // honours it); cull nothing here too, or every quad wound the other way vanishes.
+                lit.faceCulling = .none
                 return lit
             }
             entity.components.set(model)

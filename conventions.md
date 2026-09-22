@@ -4,8 +4,7 @@ Stack-specific coding standards. Unlike `principles.md` (universal values), thes
 to the tech in use and change with it.
 
 The stack is **two stand-alone native implementations** (ADR 0001): Swift on iOS, Kotlin on
-Android. **What draws the 3D scene and the 3D UI on each is ADR 0005** — until it is accepted,
-entries about rendering are marked *(pending 0005)*.
+Android. **RealityKit draws the scene and the 3D UI on iOS, Filament on Android** (ADR 0005).
 
 ## Greenfield — until the first store submission
 Nothing has shipped, so **principle 13's exception is asleep**: there is no player whose record
@@ -46,9 +45,18 @@ Those apply from the first line.
 - **Nothing blocks the next match.** No load, fetch, ad or dialog between a result and the next
   face-off (principle A2).
 
-## Rendering *(pending 0005)*
+## Rendering
 - **Shared assets where one file serves both** (`shared/assets/`: models, textures, sounds);
-  the scene code that places and animates them is each platform's own.
+  the scene code that places and animates them is each platform's own. A world is one Blender
+  script writing its `.glb` (Filament) and `.usdz` (RealityKit) twin — `tools/build-worlds.sh`.
+- **Materials are bound by name, and the two platforms treat an asset the same way**: the same V
+  flip for the shared palette, the same face culling (world assets are double-sided), the same
+  fog formula (Filament's; iOS reproduces it in a surface shader). A difference in treatment is
+  a parity bug, not a platform trait.
+- **Android's materials are compiled with the Filament release the app links** (`tools/
+  build-materials.sh` reads the version from the catalog); the `.filamat` files are committed.
+- **One clock per platform**: RealityKit's scene update on iOS, one Choreographer callback on
+  Android. Nothing else drives motion.
 - **"The same game to a player's eye" is checked, not hoped for.** A parity rig renders the same
   scene state on both platforms side by side.
 - **Assets are budgeted.** Draw calls, triangle counts, texture memory and audio banks have a
@@ -69,7 +77,7 @@ Those apply from the first line.
   on-device verification at minimum. No ad-hoc entitlement reads scattered through gameplay.
 - **Purchases are per-store.** There is no account; the UI never implies a cross-platform restore.
 
-## UI — it is made of 3D *(engine pending 0005)*
+## UI — it is made of 3D
 - **Menus, scoreboards and the HUD are objects in the 3D world**, built from primitives, so they
   can bounce, flip, squash, stretch and tumble. Goofy and whimsical is the brief; a standard
   widget look is a miss. Native widget toolkits are used only where the system requires them

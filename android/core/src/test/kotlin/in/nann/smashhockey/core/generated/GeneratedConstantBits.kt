@@ -7,6 +7,9 @@ internal object GeneratedConstantBits {
         Triple("Tuning.Time.maxRealGap", Tuning.Time.maxRealGap, 4591870180066957722L), // 0x3FB999999999999A
         Triple("Tuning.Time.stepSeconds", Tuning.Time.stepSeconds, 4571453861756211473L), // 0x3F71111111111111
         Triple("Tuning.Time.tickSeconds", Tuning.Time.tickSeconds, 4575957461383581969L), // 0x3F81111111111111
+        Triple("Tuning.Sim.contactEpsilon", Tuning.Sim.contactEpsilon, 4547007122018943789L), // 0x3F1A36E2EB1C432D
+        Triple("Tuning.Sim.directionEpsilon", Tuning.Sim.directionEpsilon, 4517329193108106637L), // 0x3EB0C6F7A0B5ED8D
+        Triple("Tuning.Sim.clearEpsilon", Tuning.Sim.clearEpsilon, 4562254508917369340L), // 0x3F50624DD2F1A9FC
         Triple("Tuning.Pitch.halfWidth", Tuning.Pitch.halfWidth, 4624633867356078080L), // 0x402E000000000000
         Triple("Tuning.Pitch.halfLength", Tuning.Pitch.halfLength, 4629137466983448576L), // 0x403E000000000000
         Triple("Tuning.Pitch.goalLineZ", Tuning.Pitch.goalLineZ, 4628011567076605952L), // 0x403A000000000000
@@ -80,6 +83,7 @@ internal object GeneratedConstantBits {
         Triple("Tuning.Release.goalGuardX", Tuning.Release.goalGuardX, 4615288898129284301L), // 0x400CCCCCCCCCCCCD
         Triple("Tuning.Release.goalGuardClampZ", Tuning.Release.goalGuardClampZ, 4627870829588250624L), // 0x4039800000000000
         Triple("Tuning.Release.releaserCooldown", Tuning.Release.releaserCooldown, 4601778099247172813L), // 0x3FDCCCCCCCCCCCCD
+        Triple("Tuning.Release.shotSideChance", Tuning.Release.shotSideChance, 4602678819172646912L), // 0x3FE0000000000000
         Triple("Tuning.Ball.maxSpeed", Tuning.Ball.maxSpeed, 4629137466983448576L), // 0x403E000000000000
         Triple("Tuning.Ball.boardHitSpeed", Tuning.Ball.boardHitSpeed, 4616189618054758400L), // 0x4010000000000000
         Triple("Tuning.Ball.playerRestitution", Tuning.Ball.playerRestitution, 4605831338911806259L), // 0x3FEB333333333333
@@ -99,6 +103,10 @@ internal object GeneratedConstantBits {
         Triple("Tuning.Ball.deadTime", Tuning.Ball.deadTime, 4620693217682128896L), // 0x4020000000000000
         Triple("Tuning.Ball.deadSlowFactor", Tuning.Ball.deadSlowFactor, 4596373779694328218L), // 0x3FC999999999999A
         Triple("Tuning.Ball.whistleDelay", Tuning.Ball.whistleDelay, 4608983858650965606L), // 0x3FF6666666666666
+        Triple("Tuning.Ball.goalMouthInset", Tuning.Ball.goalMouthInset, 4599075939470750515L), // 0x3FD3333333333333
+        Triple("Tuning.Ball.goalLineMargin", Tuning.Ball.goalLineMargin, 4602678819172646912L), // 0x3FE0000000000000
+        Triple("Tuning.Ball.netRollDrag", Tuning.Ball.netRollDrag, 4616189618054758400L), // 0x4010000000000000
+        Triple("Tuning.Ball.netRollBounce", Tuning.Ball.netRollBounce, 4596373779694328218L), // 0x3FC999999999999A
         Triple("Tuning.AI.thinkBase", Tuning.AI.thinkBase, 4593311331947716280L), // 0x3FBEB851EB851EB8
         Triple("Tuning.AI.thinkSpread", Tuning.AI.thinkSpread, 4591870180066957722L), // 0x3FB999999999999A
         Triple("Tuning.AI.firstThinkSpread", Tuning.AI.firstThinkSpread, 4596373779694328218L), // 0x3FC999999999999A

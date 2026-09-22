@@ -9,6 +9,12 @@
 steps_per_second = 240          # the fixed step is 1/240 s
 steps_per_tick = 2              # a tick is 1/120 s: two steps
 max_real_gap = 0.1              # real-time gaps are clamped to this (s)
+real_units_per_tick = 1000000000  # real time is counted in whole 1/(120·10⁹) s, so 60 Hz and 120 Hz frames sum exactly
+
+[sim] # §4.4 — numerical guards, identical on both platforms (not tunables)
+contact_epsilon = 0.0001        # overlaps closer than this are left alone (no direction to push along)
+direction_epsilon = 0.000001    # a vector shorter than this has no direction (normalizes to zero)
+clear_epsilon = 0.001           # a target this close to what it keeps clear of is pushed along +x
 
 [pitch] # §1
 half_width = 15.0               # x
@@ -87,6 +93,7 @@ goal_guard_z = 25.7             # a release point with |z| > 25.7 and |x| < 3.6 
 goal_guard_x = 3.6
 goal_guard_clamp_z = 25.5       # … is moved to the carrier, z kept within 25.5
 releaser_cooldown = 0.45
+shot_side_chance = 0.5          # with no goalie, −x on a draw below 0.5, else +x
 
 [ball] # §6
 max_speed = 30.0
@@ -108,6 +115,10 @@ dead_speed = 2.5
 dead_time = 8.0
 dead_slow_factor = 0.2
 whistle_delay = 1.4
+goal_mouth_inset = 0.3          # a goal needs the ball within 3.0 − 0.3·r of the centre …
+goal_line_margin = 0.5          # … in front of the line by at least −0.5·r, then across it by more than 0.5·r
+net_roll_drag = 4.0             # §8.1: a ball in the net after a goal slows by exp(−4·dt) per step …
+net_roll_bounce = 0.2           # … and bounces off the net's back and sides keeping 20 % of its speed
 
 [ai] # §7
 think_base = 0.12               # outfield re-think every 0.12 + 0.1u

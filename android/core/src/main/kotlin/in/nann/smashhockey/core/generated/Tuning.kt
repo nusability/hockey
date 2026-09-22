@@ -7,10 +7,16 @@ object Tuning {
         const val stepsPerSecond: Int = 240
         const val stepsPerTick: Int = 2
         const val maxRealGap: Double = 0.1
+        const val realUnitsPerTick: Int = 1000000000
         /** 1 / steps_per_second */
         const val stepSeconds: Double = 0.004166666666666667
         /** steps_per_tick / steps_per_second */
         const val tickSeconds: Double = 0.008333333333333333
+    }
+    object Sim {
+        const val contactEpsilon: Double = 0.0001
+        const val directionEpsilon: Double = 1e-06
+        const val clearEpsilon: Double = 0.001
     }
     object Pitch {
         const val halfWidth: Double = 15.0
@@ -99,6 +105,7 @@ object Tuning {
         const val goalGuardX: Double = 3.6
         const val goalGuardClampZ: Double = 25.5
         const val releaserCooldown: Double = 0.45
+        const val shotSideChance: Double = 0.5
     }
     object Ball {
         const val maxSpeed: Double = 30.0
@@ -120,6 +127,10 @@ object Tuning {
         const val deadTime: Double = 8.0
         const val deadSlowFactor: Double = 0.2
         const val whistleDelay: Double = 1.4
+        const val goalMouthInset: Double = 0.3
+        const val goalLineMargin: Double = 0.5
+        const val netRollDrag: Double = 4.0
+        const val netRollBounce: Double = 0.2
     }
     object AI {
         const val thinkBase: Double = 0.12

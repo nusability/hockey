@@ -189,15 +189,17 @@ first, then team 1's. Every "for each player" in this spec runs in roster order.
 
 #### 4.1 The step
 The simulation advances in **fixed steps of 1/240 s**, never by the display's frame time. A
-match is advanced in **ticks of 1/120 s**, two steps each; input is applied at tick boundaries.
-**Match time** advances by one step at the start of each step. The match clock, every timer and
-every rule below is measured in match time.
+match is advanced in **ticks of 1/120 s**, two steps each; input is applied at tick boundaries:
+every finger edge since the last tick is applied, in order, before the tick's first step — so a
+tap shorter than a tick still lifts. **Match time** advances by one step at the start of each
+step. The match clock, every timer and every rule below is measured in match time.
 
 #### 4.2 Presentation time
 Real time drives the simulation through a **time scale** that only presentation sets (§8.6's
 slow motion). The time scale changes how many ticks run per real second, never what a tick does:
 a match is the same sequence of ticks at any time scale and any display rate. Real-time gaps
-longer than 0.1 s are clamped to 0.1 s.
+longer than 0.1 s are clamped to 0.1 s. Real time × time scale is counted in whole units of
+1/(120 × 10⁹) s, so frames of 1/60 s and pairs of 1/120 s add up to exactly the same ticks.
 
 #### 4.3 Randomness
 Every random draw on the simulation path comes from a **seeded SplitMix64 stream**:
@@ -215,7 +217,12 @@ uniform ← (out >> 11) × 2^−53                  a double in [0, 1)
   seeded when it is created and stored with it (§15), which schedules fixtures and simulates
   results (§11).
 - Draws happen in the order the rules are evaluated: per step, team 0's AI then team 1's; within
-  a team, players in roster order.
+  a team, players in roster order. The draw sites, each where its rule runs: an outfield player's
+  first re-think (§7, at setup) and each re-think period; a face-off's drop (§8.2); an AI
+  carrier's re-think period, shot chance, `noise(0.8)` per pass candidate in roster order, pass
+  chance and shot power (§7.6); a defender's marking chance (§7.3, drawn only when there is
+  someone to mark); a goalie's `noise(0.5)` per team-mate (§7.8); a pass's aim noise, x then z;
+  a shot's side (only with no goalie), then its 25 % pull, then its aim noise (§5.4).
 - `noise(s)` is `(u₁ + u₂ + u₃ − 1.5) × s` from three consecutive draws.
 - Presentation (camera shake, particles, scenery) never draws from these streams.
 
@@ -229,16 +236,23 @@ ranges) whose constants are declared once in `shared/data/` and implemented iden
 platforms, and pinned bit-for-bit by golden vectors (`shared/vectors/math/`). Edge cases are part of
 the contract: `atan2(±0, +x) = ±0`, `atan2(0, 0) = 0`, `atan2(−0, −x) = +π`; `sin` and `cos` accept
 arguments up to ±1e6 (a patrolling dummy's phase grows with match time) and fail loudly beyond.
+`min`, `max` and `clamp` return their first argument on a tie (so a signed zero is the same on
+both platforms). Three numerical guards, declared with the rules (`shared/data/rules.toml`
+`[sim]`), are part of the arithmetic: two bodies closer than 1e-4 are not pushed apart (they have
+no contact normal); a vector shorter than 1e-6 has no direction (a release along it does
+nothing); a target within 1e-3 of what it keeps clear of is pushed along +x.
 
 #### 4.5 What a step does, in order
 1. Match time advances.
 2. The state machine (§8.1): timers count down; a face-off that expires starts play with its
    drop draw; any other expired state moves on.
 3. In play: the clock counts down; at zero the period, match or drill ends (§8.3, §8.4, §10) —
-   the rest of this step still runs as in play.
-4. In play: team 0's automatic play, then team 1's (§7).
-5. Every player moves (§3), in roster order.
-6. Player–player contact (§3), then each player is kept inside the boundary and out of the nets.
+   the rest of this step still runs as in play, but a goal, a whistle or a drill's interruption
+   only happens while the state is play, so none does in that step.
+4. In play: the loose-ball timer (§7.1), then team 0's automatic play, then team 1's (§7).
+5. Every player moves (§3), in roster order; pickup cooldowns count down here, in every state.
+6. Player–player contact (§3), then each player but a dummy is kept inside the boundary and out
+   of the nets.
 7. The ball: in play it moves (§6); otherwise a carried ball follows its carrier (orbiting only
    during a drill's "get ready"), a ball in the net after a goal rolls on (§8.1), and a loose ball
    stays put.
@@ -247,16 +261,20 @@ arguments up to ±1e6 (a patrolling dummy's phase grows with match time) and fai
 #### 4.6 What a restart resets
 Every face-off and drill reset clears: the ball's carrier, velocity, last touches, assist and
 pending release; and for every player, velocity, target, pickup cooldown, hold time, decision,
-mark, expected pass, steal contact, challenge commitment, and the loose-ball timer (§7.1). Think
-timers (§7) are not reset.
+mark, expected pass, steal contact, challenge commitment, and the loose-ball and dead-ball timers
+(§7.1, §6.5). Think timers (§7), the orbit angle and the time of the last release (§7.8) are not
+reset.
 
 #### 4.7 Golden vectors
 A **vector** is `(seed, sport, teams and ratings, tactics and formations, the player's input as
 (tick, hold | release) events, and the sampled state)`: for every sampled tick, the match state
-(§8), clock, score, each player's position and velocity, and the ball's position, velocity,
-carrier and orbit angle. Both platforms replay every vector and must reproduce every sample
-exactly. A vector is recorded by the first platform to implement a rule, checked against this
-spec and by playing it, and **re-recording one requires a spec change in the same commit**.
+(§8), period, overtime, clock, score, the match stream's position, each player's position,
+velocity and facing, and the ball's position, velocity, carrier, orbit angle and direction — and
+every event (§8, §10) with the tick it happened in. An input's tick is the number of ticks run
+when it is applied. Every double is written as the hex of its bits. Both platforms replay every
+vector and must reproduce every sample and every event exactly. A vector is recorded by the first
+platform to implement a rule, checked against this spec and by playing it, and **re-recording one
+requires a spec change in the same commit**. The corpus is `shared/vectors/match/`.
 
 ### 5. One-touch control
 
@@ -301,11 +319,13 @@ When the finger lifts:
 
 1. If the ball would snap to something **now**, it goes there.
 2. Otherwise, if it **would have** snapped at any of the four instants 0.0625, 0.125, 0.1875,
-   0.25 s ago (the late grace, 0.25 s), it goes to the first of those it finds.
-3. Otherwise, if it **will** snap within 0.05, 0.10, 0.15, 0.20 or 0.25 s from now, the release is
-   **held pending**: it fires the moment the ball snaps, or — if nothing snaps — unassisted 0.06 s
-   after that instant. A pending release is cancelled only if the player loses the ball; a new
-   touch does not cancel it.
+   0.25 s ago (the late grace, 0.25 s), it goes to the first of those it finds. "Would have" winds
+   the orbit angle back to that instant; everyone else is taken where they are now.
+3. Otherwise, if it **will** snap within 0.05, 0.10, 0.15, 0.20 or 0.25 s from now (the orbit
+   wound forward the same way), the release is **held pending**: it fires the moment the ball
+   snaps, or — if nothing snaps — unassisted 0.06 s after that instant. It is checked each step,
+   after the orbit moves and before the steal check (§6.1). A pending release is cancelled only
+   if the player loses the ball; a new touch does not cancel it, and a new lift is judged afresh.
 4. Otherwise it leaves unassisted along the orbit direction.
 
 #### 5.4 How the ball leaves
@@ -317,14 +337,16 @@ Every release leaves **from the orbit point**; the direction of an aimed release
   re-thinks at once and **expects the pass**: an expectation of 1.6 that drops by 0.2 at each of
   their re-thinks (§7).
 - **A shot** travels at **30** toward the far side of the goal from the goalie — `±(3.0 − 0.85)`
-  in x: −x when the goalie's x > 0, else +x (a random side if there is no goalie) — pulled to 30 %
-  of that on a 25 % draw, plus `noise(1.5 × (1.2 − accuracy))`.
+  in x: −x when the goalie's x > 0, else +x (a random side if there is no goalie: −x on a draw
+  below 0.5) — pulled to 30 % of that on a 25 % draw, plus `noise(1.5 × (1.2 − accuracy))`, at
+  the goal line it attacks.
 - **An unassisted release** travels at **24** along the orbit direction.
 - The player's own releases have accuracy 1. The ball also inherits 20 % of the carrier's
   velocity.
 - A release point with `|z| > 25.7` and `|x| < 3.6` (at either goal) is moved back to the
   carrier's x and z, z kept within 25.5.
-- The releaser cannot take the ball back for 0.45 s.
+- The releaser cannot take the ball back for 0.45 s. A release makes the releaser the ball's last
+  touch and last releaser (§8.5).
 
 ### 6. The ball
 
@@ -342,15 +364,19 @@ A loose ball, each step, in this order:
   a board hit.
 - **The posts** (at x = ±3.0 on each goal line, radius 0.18) reflect it with a lively 0.8 restitution.
 - **A goal** is scored when the ball, having been in front of the line (by at least −r/2) and
-  within `3.0 − 0.3r` of the centre, crosses the goal line by more than half its radius. From any
-  other side the net (§1) is solid and reflects it with the wall restitution. A goal ends the
-  step's ball update. Nets come first, then posts, then the boundary.
+  within `3.0 − 0.3r` of the centre, crosses the goal line by more than half its radius — both
+  judged on its position before and after this step's move, while it is inside the net's frame.
+  From any other side the net (§1) is solid: the ball is pushed out through whichever is nearer,
+  its side or its back, and that velocity component reflected with the wall restitution. A goal
+  ends the step's ball update. After moving, the ball meets the nets first (team 0's, then team
+  1's), then the posts, then the boundary, then the players.
 - **Players**, in roster order, deflect it when it overlaps them — pushed out to touching, and
-  its velocity relative to them reflected with restitution 0.85 (a goalie smothers it with 0.35,
-  which is a save; a dummy's touch is a block).
+  its velocity relative to them, when closing, reflected with restitution 0.85 (a goalie smothers
+  it with 0.35, which is a save; a dummy's touch is a block). A deflection is not a touch.
 
 #### 6.3 Picking it up
-After all deflections, of the players who may pick up (not dummies), the nearest within reach
+After all deflections, of the players who may pick up (not dummies), the nearest (the first in
+roster order on a tie) within reach
 — **1.45** for an outfield player, `radius + ball radius + 0.35` for a goalie — with no pickup
 cooldown takes it, **if** the ball's speed relative to them, measured after the deflections, is
 below a limit: **9** for a goalie; **27** when their own team touched the ball last; **17**
@@ -368,18 +394,25 @@ A goalie carrying the ball cannot be stolen from.
 
 #### 6.5 A ball nobody collects
 If the ball is loose and slower than 2.5 for **8 s**, play is whistled dead: the ball slows to 20 %
-of its speed, and after **1.4 s** play restarts with a face-off at the nearest of the nine spots.
-In a drill, the drill resets instead.
+of its speed, and after **1.4 s** play restarts with a face-off at the spot nearest the ball when
+the whistle went (centre, then neutral, then end spots on a tie). In a drill, the drill is
+interrupted instead (§10), the ball left as it is.
 
 ### 7. Automatic play
 Everyone except the player's release decision is automatic, and both teams run the same rules
 with their own tactics (§12) and rating. Outfield players re-think every **0.12 + 0.1u** s
-(u a draw; each player's first re-think falls at `0.2u`, drawn in roster order when the match
-is set up); carriers and goalies think every step.
+(u a draw; each outfield player's first re-think falls at `0.2u`, drawn in roster order when the
+match is set up); carriers and goalies think every step. Every player's think timer counts down
+each step in play; a carrier keeps its own (§7.6). Dummies do not think. Wherever §5–§7 pick
+the nearest, best, lowest or most of something, a tie goes to the first in roster order (or in
+slot order, §7.4). An opponent means anyone on the other team — goalie and dummies included —
+unless a rule says otherwise.
 
 #### 7.1 Loose ball
 - A player **expecting a pass** heads for the point on the ball's line of travel nearest them,
-  ahead of the ball only (the ball itself when it is slower than 2).
+  ahead of the ball only (the ball itself when it is slower than 2). The expectation drops by 0.2
+  at the start of each re-think, before it is looked at; while it stays above zero the player is
+  a chaser (§7.5), whatever their rank.
 - Otherwise the outfield players ranked by distance to the ball — the pass receiver counts in
   the ranking — chase where the ball will be: its position plus `0.7 × velocity × t`, `t =
   clamp(distance / max(top speed, 1), 0, 1.2)`. One chases; **two** when pressing > 0.75, the
@@ -388,11 +421,12 @@ is set up); carriers and goalies think every step.
 - Everyone else takes a support position (§7.4).
 - A chase target less than 0.4 in front of a goal line (or behind it) and within 4.6 of the
   centre, while the chaser is more than 0.4 in front of that line, is replaced by the net's
-  corner waypoint `(±4.6, 0.6 in front of the line)` on the chaser's side of x.
+  corner waypoint `(±4.6, 0.6 in front of the line)` on the chaser's side of x (+ at x = 0).
+  Team 0's goal line is checked first. This applies to both kinds of loose-ball chase above.
 
 #### 7.2 The other team has it — challengers
 Up to **2** players go in for the ball — **3** when pressing > 0.75. Candidates are those already
-committed (a challenger stays committed for 0.7 s); a player **goal-side** of the carrier
+committed (a challenger stays committed for 0.7 s, renewed each step it is chosen); a player **goal-side** of the carrier
 (at least 0.5 nearer their own goal than the carrier, within 7 of the carrier's route to it) within **10** of
 the ball; and anyone else within the press range `(10 + 22 × pressing) × (1 − 0.35 × discipline)`
 of it. Committed players come first,
@@ -408,11 +442,11 @@ toward their own goal from them; otherwise they clear their mark and hold their 
 player's mark is also cleared whenever they are not defending (chasing, challenging, supporting).
 
 #### 7.4 Support — own ball, or loose and not chasing
-Six **support slots** relative to the ball (or its carrier), for a team attacking +Z. A
-*mirror* slot's x is absolute, measured from the pitch's centre line, and multiplied by −1 when
-the ball's x ≥ 0 — so positive-x mirror slots land on the far side of the ball and negative-x
-ones on its side. The others are x-offsets from the ball. Every slot's z is an offset from the
-ball:
+Six **support slots** relative to the ball (or its carrier — the *reference*), for a team
+attacking +Z. A *mirror* slot's x is absolute, measured from the pitch's centre line, and
+multiplied by −1 when the reference's x ≥ 0 — so positive-x mirror slots land on the far side of
+the ball and negative-x ones on its side. The others are x-offsets from the reference, the same
+for both teams. Every slot's z is an offset from the reference, toward the goal the team attacks:
 
 | Slot | x | z | Role | Mirror |
 |---|---|---|---|---|
@@ -425,9 +459,11 @@ ball:
 
 Slot depth is scaled by `0.8 + 0.4 × push up`. Slots are kept 2.5 inside the sidelines, between 3
 short of their own goal line and 5 short of the opponent's; a slot within 7 of the goal they
-attack is moved sideways to `|x| ≥ 7`; then it is pushed 7.5 from the ball. Team-mates take slots **greedily in roster order**, each
+attack is moved sideways to `|x| ≥ 7`; then it is pushed 7.5 from the ball. The team's outfield
+players other than the carrier — chasers included — take slots **greedily in roster order**, each
 the nearest free slot, a role mismatch counting as 8 extra metres. A player whose slot has an
-opponent within 3.4 shifts 3.5 across and 1.5 along, away from them.
+opponent within 3.4 shifts 3.5 across and 1.5 along, away from the nearest one (the unit vector
+from them, its x scaled by 3.5 and its z by 1.5).
 
 #### 7.5 Shape, spacing and discipline
 For every player not chasing:
@@ -439,17 +475,17 @@ For every player not chasing:
   strict): the zone is the home spot moved toward the ball by `(D 0.35 | F 0.5) × (0.7 + 0.6 ×
   push up)` along the pitch and 0.22 across.
 - Then the target is pushed **7.5 from the ball** (5.5 when defending),
-- then **6 from every outfield team-mate's current position** (the carrier included) when in
-  possession, 3.5 otherwise,
-- then out of their own **crease** — at least `3.2 + 1.2` from their goal centre, and never
-  closer than 2.2 to their own goal line,
+- then **6 from every outfield team-mate's current position** (the carrier included), each in
+  turn in roster order, when in possession, 3.5 otherwise,
+- then out of their own **crease** — first moved to at least 2.2 in front of their own goal line,
+  then out to at least `3.2 + 1.2` from their goal centre (along the line from it),
 - and finally — for chasers too — clamped to `|x| ≤ 13.8`, `|z| ≤ 28.8`.
 
 #### 7.6 An AI carrier's decision
 An AI carrier decides after holding for 0.15 s, re-thinking every `0.2 + 0.15u` s until it has a
 decision (the think timer keeps being drawn every period, decision or not). A **threat** is the
-nearest opponent who can steal, goalies excluded. The carrier is **forced** when a threat is
-within 2.6 or it has held for 3.5 s.
+nearest opponent who can steal, goalies excluded (with none, no threat condition below holds).
+The carrier is **forced** when a threat is within 2.6 or it has held for 3.5 s.
 
 - **Shoot** when within `11 + 11 × shooting` of goal, `|x| < 11`, and no non-goalie opponent
   (dummies included) is within 1.3 of the line to the goal centre and nearer than the goal — or
@@ -465,7 +501,7 @@ within 2.6 or it has held for 3.5 s.
 
 It then **waits for the orbit to line up** with its aim — the goal centre for a shot or a
 clear; for a pass the receiver's lead position with `t = distance / clamp(11 + 0.55 × distance,
-14, 24)` — within `0.22 + 0.12 × (1 − skill)` (+0.5 when an opponent is within 2.2). The AI
+14, 24)` — within `0.22 + 0.12 × (1 − skill)` (+0.5 when the threat is within 2.2). The AI
 never releases through the player's snap-and-grace rules (§5.3). A pass uses accuracy `0.55 + 0.5 × skill`;
 a shot uses the same accuracy and power `20 + 6 × skill + 2u`.
 
@@ -481,8 +517,8 @@ It keeps out of its own crease and within the §7.5 clamp.
 - **Positioning:** on the line from the goal centre toward the ball, `(1.2 + 0.5 × skill)` out,
   x scaled by 1.6. It stays within `±(3.0 + 0.4)` in x and `0.6–2.4` in front of the line.
 - **Reading a shot:** once `0.16 + 0.2 × (1 − skill)` s have passed since the last release of any
-  kind, a ball (loose or carried) moving toward the goal faster than 4 sets the goalie's x to 0.9
-  × an aim x: the predicted crossing x (lead factor `0.75 + 0.25 × skill`) when it arrives within
+  kind, a ball (loose or carried) whose velocity toward the goal line (its z-component) exceeds 4
+  sets the goalie's x to 0.9 × an aim x: the predicted crossing x (lead factor `0.75 + 0.25 × skill`) when it arrives within
   2.5 s, else the ball's current x.
 - **Smothering:** a loose, slow ball (under 7) within 3.5, `|x| < 6` and within 5 of the line
   draws the goalie straight onto it.
@@ -490,7 +526,8 @@ It keeps out of its own crease and within the §7.5 clamp.
   (openness ≤ 8, −5 for a blocked lane, +1 for a defender, `noise(0.5)`). It releases when the
   orbit is within 0.35 of that team-mate's current position (no lead), or after 2.5 s
   regardless, passing at accuracy 0.9 — or, with nobody to pass to, clearing unassisted once the
-  orbit points up the pitch.
+  orbit points (within 0.35) straight up the pitch, or after 2.5 s regardless. Its target while it
+  holds the ball is where it stands.
 
 ### 8. The match
 
@@ -498,7 +535,11 @@ It keeps out of its own crease and within the §7.5 clamp.
 `face-off → play → (goal | whistle | period end) → … → ended`, plus `ready` and `lost` in
 drills (§10). Only in **play** does the clock run, the AI think, the ball move freely and a release
 count. Outside play, players ease to a stop: their velocity blends toward zero as in §3, then ×
-0.8, each step. Patrolling dummies and pickup cooldowns run in every state.
+0.8, each step. Patrolling dummies and pickup cooldowns run in every state. A carried ball keeps
+its carrier outside play, and moves with them. After a goal the ball rolls on inside the net: it
+moves by its velocity, slows by `exp(−4·dt)` each step, and bounces off the net's back (at the
+net's depth less its radius) and sides (`±(3.0 − r)`) keeping 20 % of its speed. `ended` is
+outside play like any pause, and lasts.
 
 #### 8.2 Face-offs
 A face-off lasts **1.3 s**, with the ball on the spot and each team lined up by **roster slot**
@@ -509,25 +550,28 @@ A face-off lasts **1.3 s**, with the ball on the spot and each team lined up by 
 - slots 3 and 5: 5.5 to the left and right, 1.4 back;
 - slot 4: level with the spot, 1.5 back.
 
-Everyone is clamped to `|x| ≤ 13`, `|z| ≤ 28`, and outfield players kept at least 3 off their own
-goal line. Everyone faces up the pitch. Play starts with the ball's velocity `(3 cos a, 3 sin
+Everyone is clamped to `|x| ≤ 13`, `|z| ≤ 28`, and outfield players kept at least 3 in front of
+their own goal line. Everyone faces up the pitch. Play starts with the ball's velocity `(3 cos a, 3 sin
 a)` in (x, z), `a = 2πu`.
 
 #### 8.3 Periods and the clock
 **Three periods**, each of the chosen **period length** (default 120 s, §12). A period ends with
 the clock; a 2.5 s pause follows before the next face-off at centre. After a goal, play restarts
-at centre after a **3.0 s** celebration.
+at centre after a **3.0 s** celebration. A face-off, a drill's "get ready" and each of these
+pauses count down in match time; when one runs out, the state it leads to begins in the same
+step.
 
 #### 8.4 The end
 After the third period the match ends — a win, a loss or a **draw**. In a **cup** match level
 after three periods, **sudden-death overtime** follows a 2.5 s pause: the clock stops mattering
-and the next goal ends it.
+(it shows 0 and stands still) and the next goal ends it, when its 3.0 s celebration is over.
 
 #### 8.5 Goals and scorers
 A goal counts for the team attacking that net. The scorer is the last player to touch the ball,
 unless that was an opponent and the last release was by the scoring team, in which case the
-releaser scores. The assist is the team-mate whose touch set the scorer up. A goal into your own
-net is an own goal. The last 5 seconds of every period are counted down audibly.
+releaser scores. The assist is the team-mate whose touch set the scorer up: the last touch before
+the scorer won the ball, when that was a team-mate of theirs. A goal into your own net is an own
+goal, and has no assist. The last 5 seconds of every period are counted down audibly.
 
 #### 8.6 Slow motion
 Presentation sets the time scale (§4.2); the camera choreography around it is designed for the
@@ -559,10 +603,13 @@ Eight drills, unlocked in order: a drill is open once the one before it has been
 world, a goal target and a time limit.
 
 - **Setup:** fixed lineups. The ball starts with the player's first player (or the one the drill
-  names), orbiting from behind them, after a 1.4 s "get ready".
-- **Win:** reach the goal target before the clock runs out. **Fail:** time runs out.
+  names), orbiting from behind them (the orbit angle π, turning as §5.1 chooses), after a 1.4 s
+  "get ready". The drill's clock is its time limit.
+- **Win:** reach the goal target before the clock runs out — the drill ends, won, when that goal's
+  1.6 s reset is over. **Fail:** time runs out.
 - **Reset:** after each goal (1.6 s), or when the drill is interrupted (1.2 s), everyone returns to
-  their start and a new 1.4 s "get ready" begins (the clock does not run). A drill is interrupted when:
+  their start and a new 1.4 s "get ready" begins (the clock does not run). A drill is interrupted,
+  during play, when:
   - the defence takes the ball — "saved" by the goalie, "stolen" by anyone else;
   - the ball goes into the wrong net;
   - a drill that requires an assist sees a goal scored without one;
@@ -585,8 +632,9 @@ world, a goal target and a time limit.
 
 The opposing goalie stands at (0, 24.6). "Speed" multiplies top speed. A patrolling dummy slides
 between its start and its second point as `k = 0.5 + 0.5·sin(match time × speed + phase)`, its
-velocity being its displacement over the step divided by the step (zero across a reset). Dummies
-have radius 0.9.
+velocity being its displacement over the step divided by the step (zero across a reset: a reset
+returns it to its start, and its first step after the drill's setup or a reset reports zero).
+Dummies have radius 0.9.
 
 In **free play** (Scrimmage) the opponents may take the ball and score; every goal, either way,
 resets the drill. Drill opponents play the default tactics with pressing 0.7. Completion is saved

@@ -6,10 +6,16 @@ public enum Tuning {
         public static let stepsPerSecond: Int = 240
         public static let stepsPerTick: Int = 2
         public static let maxRealGap: Double = 0.1
+        public static let realUnitsPerTick: Int = 1000000000
         /// 1 / steps_per_second
         public static let stepSeconds: Double = 0.004166666666666667
         /// steps_per_tick / steps_per_second
         public static let tickSeconds: Double = 0.008333333333333333
+    }
+    public enum Sim {
+        public static let contactEpsilon: Double = 0.0001
+        public static let directionEpsilon: Double = 1e-06
+        public static let clearEpsilon: Double = 0.001
     }
     public enum Pitch {
         public static let halfWidth: Double = 15.0
@@ -98,6 +104,7 @@ public enum Tuning {
         public static let goalGuardX: Double = 3.6
         public static let goalGuardClampZ: Double = 25.5
         public static let releaserCooldown: Double = 0.45
+        public static let shotSideChance: Double = 0.5
     }
     public enum Ball {
         public static let maxSpeed: Double = 30.0
@@ -119,6 +126,10 @@ public enum Tuning {
         public static let deadTime: Double = 8.0
         public static let deadSlowFactor: Double = 0.2
         public static let whistleDelay: Double = 1.4
+        public static let goalMouthInset: Double = 0.3
+        public static let goalLineMargin: Double = 0.5
+        public static let netRollDrag: Double = 4.0
+        public static let netRollBounce: Double = 0.2
     }
     public enum AI {
         public static let thinkBase: Double = 0.12

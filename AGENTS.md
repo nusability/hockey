@@ -115,10 +115,16 @@ Skills lifted in spirit from GitHub Spec Kit (`/clarify` · `/specify` · `/plan
   player would feel differently — are the escalation that survives.
 
 ## Verification
+- **Budget: the cheap checks are the default, the owner's phones are the judge.** Every change runs
+  `python3 tools/generate-data.py --check`, `swift test` (ios/SmashCore), `./gradlew :core:test`
+  and one compile of each app. Simulators, emulators, screenshot loops and `xcodebuild test` are
+  **not** routine — the Mac is shared with another game's development. Use them only to debug a
+  specific failure, or when the owner asks; look and feel are judged by the owner on his iPhone
+  and OnePlus Nord.
 - **Verify against reality, not assumptions.** Check the real thing, not what you expect.
 - **Verify anything web in a browser.** Read the console; confirm visibility, not DOM presence.
-- **Verify each app on a device or its emulator** — iOS on a device or simulator, Android on a
-  device or emulator. A gameplay change is verified by **playing it, on both**.
+- **A gameplay change is verified by playing it, on both platforms** — by the owner, on his
+  phones, with a build from us; not by us driving an emulator.
 - **The vectors and the hands are both required.** Golden vectors prove the numbers agree
   across iOS and Android; only a person holding the phone proves it feels right.
   Neither alone verifies a gameplay change.

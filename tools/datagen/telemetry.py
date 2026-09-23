@@ -5,7 +5,7 @@ player's career, which is why it is a file of its own beside the save (ADR 0009)
 The JSON runtime the generated code calls is the save's (core/season on either platform); the
 `validate` rule check is hand-written in Telemetry/ (SmashCore) and core/telemetry (Android).
 """
-from . import records
+from . import collector, records
 
 DECL = records.Declaration(
     toml="telemetry.toml",
@@ -18,8 +18,12 @@ DECL = records.Declaration(
     kotlin_doc="The device record (telemetry.toml, spec §17): the types, their canonical JSON and its strict decoding.\n"
                "// The JSON runtime is the save's (core/season); the `validate(path)` rule check is hand-written in core/telemetry.",
     kotlin_imports=["core.season.JsonValue", "core.season.SaveJson", "core.telemetry.validate"],
+    sql_path="telemetry/schema.sql",
+    contract_path="telemetry/columns.json",
 )
 
 
 def emit(root):
-    return records.emit(root, DECL)
+    """Both halves of the same declaration: the apps' record types, and the collector's DDL and
+    column contract (spec §18, ADR 0009). One edit to telemetry.toml reaches all four."""
+    return records.emit(root, DECL) | collector.emit(root, DECL)

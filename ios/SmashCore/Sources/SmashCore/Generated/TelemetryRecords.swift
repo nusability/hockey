@@ -7,6 +7,47 @@ public enum TelemetryFormat {
     public static let version: Int = 1
 }
 
+/// Which app wrote the row. One dataset for both, with a column to tell them apart — 'does iOS behave like Android' is a question you cannot ask of two tables.
+public enum Platform: String, Sendable, Hashable, CaseIterable {
+    case ios
+    case android
+}
+
+/// Which build wrote the row. A debug or TestFlight/App-Review build reports staging; only a real store install reports production. They share a table so the two can be compared, and every view filters to production so they never silently mix.
+public enum Env: String, Sendable, Hashable, CaseIterable {
+    case staging
+    case production
+}
+
+/// What the match counted for (spec §11): a league matchday, a cup round, a friendly outside a season, or a training drill.
+public enum Competition: String, Sendable, Hashable, CaseIterable {
+    case league
+    case cup
+    case quick
+    case drill
+}
+
+/// How it ended for the player.
+public enum MatchOutcome: String, Sendable, Hashable, CaseIterable {
+    case won
+    case drew
+    case lost
+}
+
+/// What armed the love dialog (spec §17.2). Mirrors LoveTrigger in both cores.
+public enum LoveTriggerKind: String, Sendable, Hashable, CaseIterable {
+    case cup
+    case league
+    case hardFought
+}
+
+/// How the player answered the panel (spec §17.2). A dismissal is an answer, not a no-op.
+public enum LoveAnswerKind: String, Sendable, Hashable, CaseIterable {
+    case positive
+    case negative
+    case dismissed
+}
+
 /// What this install remembers about itself rather than about a career (spec §17): when it was first seen, how many matches have been played on it, and what the love dialog has already asked and been told. Kept beside the save and never inside it, so starting over and a refused save both leave it alone.
 public struct DeviceRecord: Sendable, Hashable {
     public var version: Int
@@ -45,5 +86,385 @@ extension DeviceRecord {
         if case .null = o[3] { self.lastAskedAt = nil } else { self.lastAskedAt = try SaveJSON.i64(o[3], at: path + ".last_asked_at") }
         self.answeredPositively = try SaveJSON.bool(o[4], at: path + ".answered_positively")
         try validate(at: path)
+    }
+}
+
+/// What every row carries whatever it is about (spec §18.1): who sent it (an anonymous install id and nothing else), which code, which platform, which build, and when by the device's own clock. Declared once and prepended to every table, so four tables cannot drift apart.
+public struct Envelope: Sendable, Hashable {
+    public var installId: String
+    public var commit: String
+    public var at: Int64
+    public var platform: Platform
+    public var env: Env
+    public var language: String
+    public var synthetic: Bool
+
+    public init(installId: String, commit: String, at: Int64, platform: Platform, env: Env, language: String, synthetic: Bool) {
+        self.installId = installId
+        self.commit = commit
+        self.at = at
+        self.platform = platform
+        self.env = env
+        self.language = language
+        self.synthetic = synthetic
+    }
+}
+
+extension Envelope {
+    /// This record as its canonical JSON value.
+    func json() -> JSONValue {
+        .object([
+            ("install_id", SaveJSON.uuid(installId)),
+            ("commit", .string(commit)),
+            ("at", SaveJSON.i64(at)),
+            ("platform", .string(platform.rawValue)),
+            ("env", .string(env.rawValue)),
+            ("language", .string(language)),
+            ("synthetic", .bool(synthetic)),
+        ])
+    }
+
+    /// Decodes the record at `path` ("$" for the file's root), failing on anything but its exact shape.
+    init(json: JSONValue, at path: String) throws(SaveDecodeError) {
+        let o = try SaveJSON.fields(json, at: path, ["install_id", "commit", "at", "platform", "env", "language", "synthetic"])
+        self.installId = try SaveJSON.uuid(o[0], at: path + ".install_id")
+        self.commit = try SaveJSON.string(o[1], at: path + ".commit")
+        self.at = try SaveJSON.i64(o[2], at: path + ".at")
+        self.platform = try SaveJSON.key(o[3], at: path + ".platform") as Platform
+        self.env = try SaveJSON.key(o[4], at: path + ".env") as Env
+        self.language = try SaveJSON.string(o[5], at: path + ".language")
+        self.synthetic = try SaveJSON.bool(o[6], at: path + ".synthetic")
+    }
+}
+
+/// One played match (spec §18.2). Enough to answer how many matches a player gets through, whether they come back, and whether the two platforms behave alike — and deliberately not a per-touch tape: there is no difficulty heatmap here to fill.
+public struct MatchRow: Sendable, Hashable {
+    public var installId: String
+    public var commit: String
+    public var at: Int64
+    public var platform: Platform
+    public var env: Env
+    public var language: String
+    public var synthetic: Bool
+    public var sport: Sport
+    public var world: World
+    public var competition: Competition
+    public var seasonNumber: Int?
+    public var matchday: Int?
+    public var goalsFor: Int
+    public var goalsAgainst: Int
+    public var result: MatchOutcome
+    public var overtime: Bool
+    public var forfeit: Bool
+    public var durationMs: Int
+    public var periodSeconds: Double
+    public var formation: Formation
+    public var matchesPlayed: Int
+    public var trailed: Bool
+    public var hardFought: Bool
+
+    public init(installId: String, commit: String, at: Int64, platform: Platform, env: Env, language: String, synthetic: Bool, sport: Sport, world: World, competition: Competition, seasonNumber: Int?, matchday: Int?, goalsFor: Int, goalsAgainst: Int, result: MatchOutcome, overtime: Bool, forfeit: Bool, durationMs: Int, periodSeconds: Double, formation: Formation, matchesPlayed: Int, trailed: Bool, hardFought: Bool) {
+        self.installId = installId
+        self.commit = commit
+        self.at = at
+        self.platform = platform
+        self.env = env
+        self.language = language
+        self.synthetic = synthetic
+        self.sport = sport
+        self.world = world
+        self.competition = competition
+        self.seasonNumber = seasonNumber
+        self.matchday = matchday
+        self.goalsFor = goalsFor
+        self.goalsAgainst = goalsAgainst
+        self.result = result
+        self.overtime = overtime
+        self.forfeit = forfeit
+        self.durationMs = durationMs
+        self.periodSeconds = periodSeconds
+        self.formation = formation
+        self.matchesPlayed = matchesPlayed
+        self.trailed = trailed
+        self.hardFought = hardFought
+    }
+}
+
+extension MatchRow {
+    /// This record as its canonical JSON value.
+    func json() -> JSONValue {
+        .object([
+            ("install_id", SaveJSON.uuid(installId)),
+            ("commit", .string(commit)),
+            ("at", SaveJSON.i64(at)),
+            ("platform", .string(platform.rawValue)),
+            ("env", .string(env.rawValue)),
+            ("language", .string(language)),
+            ("synthetic", .bool(synthetic)),
+            ("sport", .string(sport.rawValue)),
+            ("world", .string(world.rawValue)),
+            ("competition", .string(competition.rawValue)),
+            ("season_number", seasonNumber.map { .int($0) } ?? .null),
+            ("matchday", matchday.map { .int($0) } ?? .null),
+            ("goals_for", .int(goalsFor)),
+            ("goals_against", .int(goalsAgainst)),
+            ("result", .string(result.rawValue)),
+            ("overtime", .bool(overtime)),
+            ("forfeit", .bool(forfeit)),
+            ("duration_ms", .int(durationMs)),
+            ("period_seconds", SaveJSON.double(periodSeconds)),
+            ("formation", .string(formation.rawValue)),
+            ("matches_played", .int(matchesPlayed)),
+            ("trailed", .bool(trailed)),
+            ("hard_fought", .bool(hardFought)),
+        ])
+    }
+
+    /// Decodes the record at `path` ("$" for the file's root), failing on anything but its exact shape.
+    init(json: JSONValue, at path: String) throws(SaveDecodeError) {
+        let o = try SaveJSON.fields(json, at: path, ["install_id", "commit", "at", "platform", "env", "language", "synthetic", "sport", "world", "competition", "season_number", "matchday", "goals_for", "goals_against", "result", "overtime", "forfeit", "duration_ms", "period_seconds", "formation", "matches_played", "trailed", "hard_fought"])
+        self.installId = try SaveJSON.uuid(o[0], at: path + ".install_id")
+        self.commit = try SaveJSON.string(o[1], at: path + ".commit")
+        self.at = try SaveJSON.i64(o[2], at: path + ".at")
+        self.platform = try SaveJSON.key(o[3], at: path + ".platform") as Platform
+        self.env = try SaveJSON.key(o[4], at: path + ".env") as Env
+        self.language = try SaveJSON.string(o[5], at: path + ".language")
+        self.synthetic = try SaveJSON.bool(o[6], at: path + ".synthetic")
+        self.sport = try SaveJSON.key(o[7], at: path + ".sport") as Sport
+        self.world = try SaveJSON.key(o[8], at: path + ".world") as World
+        self.competition = try SaveJSON.key(o[9], at: path + ".competition") as Competition
+        if case .null = o[10] { self.seasonNumber = nil } else { self.seasonNumber = try SaveJSON.int(o[10], at: path + ".season_number") }
+        if case .null = o[11] { self.matchday = nil } else { self.matchday = try SaveJSON.int(o[11], at: path + ".matchday") }
+        self.goalsFor = try SaveJSON.int(o[12], at: path + ".goals_for")
+        self.goalsAgainst = try SaveJSON.int(o[13], at: path + ".goals_against")
+        self.result = try SaveJSON.key(o[14], at: path + ".result") as MatchOutcome
+        self.overtime = try SaveJSON.bool(o[15], at: path + ".overtime")
+        self.forfeit = try SaveJSON.bool(o[16], at: path + ".forfeit")
+        self.durationMs = try SaveJSON.int(o[17], at: path + ".duration_ms")
+        self.periodSeconds = try SaveJSON.double(o[18], at: path + ".period_seconds")
+        self.formation = try SaveJSON.key(o[19], at: path + ".formation") as Formation
+        self.matchesPlayed = try SaveJSON.int(o[20], at: path + ".matches_played")
+        self.trailed = try SaveJSON.bool(o[21], at: path + ".trailed")
+        self.hardFought = try SaveJSON.bool(o[22], at: path + ".hard_fought")
+    }
+}
+
+/// One finished season (spec §18.3): where the player came and what they won. This is what 'do they finish a season' and 'what fraction ever win the cup' are read from.
+public struct SeasonRow: Sendable, Hashable {
+    public var installId: String
+    public var commit: String
+    public var at: Int64
+    public var platform: Platform
+    public var env: Env
+    public var language: String
+    public var synthetic: Bool
+    public var seasonNumber: Int
+    public var position: Int
+    public var points: Int
+    public var played: Int
+    public var won: Int
+    public var drawn: Int
+    public var lost: Int
+    public var goalsFor: Int
+    public var goalsAgainst: Int
+    public var champion: Bool
+    public var cupWon: Bool
+    public var matchesPlayed: Int
+
+    public init(installId: String, commit: String, at: Int64, platform: Platform, env: Env, language: String, synthetic: Bool, seasonNumber: Int, position: Int, points: Int, played: Int, won: Int, drawn: Int, lost: Int, goalsFor: Int, goalsAgainst: Int, champion: Bool, cupWon: Bool, matchesPlayed: Int) {
+        self.installId = installId
+        self.commit = commit
+        self.at = at
+        self.platform = platform
+        self.env = env
+        self.language = language
+        self.synthetic = synthetic
+        self.seasonNumber = seasonNumber
+        self.position = position
+        self.points = points
+        self.played = played
+        self.won = won
+        self.drawn = drawn
+        self.lost = lost
+        self.goalsFor = goalsFor
+        self.goalsAgainst = goalsAgainst
+        self.champion = champion
+        self.cupWon = cupWon
+        self.matchesPlayed = matchesPlayed
+    }
+}
+
+extension SeasonRow {
+    /// This record as its canonical JSON value.
+    func json() -> JSONValue {
+        .object([
+            ("install_id", SaveJSON.uuid(installId)),
+            ("commit", .string(commit)),
+            ("at", SaveJSON.i64(at)),
+            ("platform", .string(platform.rawValue)),
+            ("env", .string(env.rawValue)),
+            ("language", .string(language)),
+            ("synthetic", .bool(synthetic)),
+            ("season_number", .int(seasonNumber)),
+            ("position", .int(position)),
+            ("points", .int(points)),
+            ("played", .int(played)),
+            ("won", .int(won)),
+            ("drawn", .int(drawn)),
+            ("lost", .int(lost)),
+            ("goals_for", .int(goalsFor)),
+            ("goals_against", .int(goalsAgainst)),
+            ("champion", .bool(champion)),
+            ("cup_won", .bool(cupWon)),
+            ("matches_played", .int(matchesPlayed)),
+        ])
+    }
+
+    /// Decodes the record at `path` ("$" for the file's root), failing on anything but its exact shape.
+    init(json: JSONValue, at path: String) throws(SaveDecodeError) {
+        let o = try SaveJSON.fields(json, at: path, ["install_id", "commit", "at", "platform", "env", "language", "synthetic", "season_number", "position", "points", "played", "won", "drawn", "lost", "goals_for", "goals_against", "champion", "cup_won", "matches_played"])
+        self.installId = try SaveJSON.uuid(o[0], at: path + ".install_id")
+        self.commit = try SaveJSON.string(o[1], at: path + ".commit")
+        self.at = try SaveJSON.i64(o[2], at: path + ".at")
+        self.platform = try SaveJSON.key(o[3], at: path + ".platform") as Platform
+        self.env = try SaveJSON.key(o[4], at: path + ".env") as Env
+        self.language = try SaveJSON.string(o[5], at: path + ".language")
+        self.synthetic = try SaveJSON.bool(o[6], at: path + ".synthetic")
+        self.seasonNumber = try SaveJSON.int(o[7], at: path + ".season_number")
+        self.position = try SaveJSON.int(o[8], at: path + ".position")
+        self.points = try SaveJSON.int(o[9], at: path + ".points")
+        self.played = try SaveJSON.int(o[10], at: path + ".played")
+        self.won = try SaveJSON.int(o[11], at: path + ".won")
+        self.drawn = try SaveJSON.int(o[12], at: path + ".drawn")
+        self.lost = try SaveJSON.int(o[13], at: path + ".lost")
+        self.goalsFor = try SaveJSON.int(o[14], at: path + ".goals_for")
+        self.goalsAgainst = try SaveJSON.int(o[15], at: path + ".goals_against")
+        self.champion = try SaveJSON.bool(o[16], at: path + ".champion")
+        self.cupWon = try SaveJSON.bool(o[17], at: path + ".cup_won")
+        self.matchesPlayed = try SaveJSON.int(o[18], at: path + ".matches_played")
+    }
+}
+
+/// One love-dialog showing and the answer it got (spec §18.4). Carries no free text — by type: the message has its own record and its own table, so a call site cannot put a player's words into an analytics row.
+public struct LoveRow: Sendable, Hashable {
+    public var installId: String
+    public var commit: String
+    public var at: Int64
+    public var platform: Platform
+    public var env: Env
+    public var language: String
+    public var synthetic: Bool
+    public var trigger: LoveTriggerKind
+    public var answer: LoveAnswerKind
+    public var shownAt: Int64
+    public var matchesPlayed: Int
+
+    public init(installId: String, commit: String, at: Int64, platform: Platform, env: Env, language: String, synthetic: Bool, trigger: LoveTriggerKind, answer: LoveAnswerKind, shownAt: Int64, matchesPlayed: Int) {
+        self.installId = installId
+        self.commit = commit
+        self.at = at
+        self.platform = platform
+        self.env = env
+        self.language = language
+        self.synthetic = synthetic
+        self.trigger = trigger
+        self.answer = answer
+        self.shownAt = shownAt
+        self.matchesPlayed = matchesPlayed
+    }
+}
+
+extension LoveRow {
+    /// This record as its canonical JSON value.
+    func json() -> JSONValue {
+        .object([
+            ("install_id", SaveJSON.uuid(installId)),
+            ("commit", .string(commit)),
+            ("at", SaveJSON.i64(at)),
+            ("platform", .string(platform.rawValue)),
+            ("env", .string(env.rawValue)),
+            ("language", .string(language)),
+            ("synthetic", .bool(synthetic)),
+            ("trigger", .string(trigger.rawValue)),
+            ("answer", .string(answer.rawValue)),
+            ("shown_at", SaveJSON.i64(shownAt)),
+            ("matches_played", .int(matchesPlayed)),
+        ])
+    }
+
+    /// Decodes the record at `path` ("$" for the file's root), failing on anything but its exact shape.
+    init(json: JSONValue, at path: String) throws(SaveDecodeError) {
+        let o = try SaveJSON.fields(json, at: path, ["install_id", "commit", "at", "platform", "env", "language", "synthetic", "trigger", "answer", "shown_at", "matches_played"])
+        self.installId = try SaveJSON.uuid(o[0], at: path + ".install_id")
+        self.commit = try SaveJSON.string(o[1], at: path + ".commit")
+        self.at = try SaveJSON.i64(o[2], at: path + ".at")
+        self.platform = try SaveJSON.key(o[3], at: path + ".platform") as Platform
+        self.env = try SaveJSON.key(o[4], at: path + ".env") as Env
+        self.language = try SaveJSON.string(o[5], at: path + ".language")
+        self.synthetic = try SaveJSON.bool(o[6], at: path + ".synthetic")
+        self.trigger = try SaveJSON.key(o[7], at: path + ".trigger") as LoveTriggerKind
+        self.answer = try SaveJSON.key(o[8], at: path + ".answer") as LoveAnswerKind
+        self.shownAt = try SaveJSON.i64(o[9], at: path + ".shown_at")
+        self.matchesPlayed = try SaveJSON.int(o[10], at: path + ".matches_played")
+    }
+}
+
+/// One message a player typed after answering 'Not really' (spec §18.5). **The only row that carries free text, and it is the whole reason this table exists apart from the others**: an analytics row can never hold a player's words, because the type that holds them is not an analytics row.
+public struct FeedbackRow: Sendable, Hashable {
+    public var installId: String
+    public var commit: String
+    public var at: Int64
+    public var platform: Platform
+    public var env: Env
+    public var language: String
+    public var synthetic: Bool
+    public var message: String
+    public var trigger: LoveTriggerKind
+    public var matchesPlayed: Int
+
+    public init(installId: String, commit: String, at: Int64, platform: Platform, env: Env, language: String, synthetic: Bool, message: String, trigger: LoveTriggerKind, matchesPlayed: Int) {
+        self.installId = installId
+        self.commit = commit
+        self.at = at
+        self.platform = platform
+        self.env = env
+        self.language = language
+        self.synthetic = synthetic
+        self.message = message
+        self.trigger = trigger
+        self.matchesPlayed = matchesPlayed
+    }
+}
+
+extension FeedbackRow {
+    /// This record as its canonical JSON value.
+    func json() -> JSONValue {
+        .object([
+            ("install_id", SaveJSON.uuid(installId)),
+            ("commit", .string(commit)),
+            ("at", SaveJSON.i64(at)),
+            ("platform", .string(platform.rawValue)),
+            ("env", .string(env.rawValue)),
+            ("language", .string(language)),
+            ("synthetic", .bool(synthetic)),
+            ("message", .string(message)),
+            ("trigger", .string(trigger.rawValue)),
+            ("matches_played", .int(matchesPlayed)),
+        ])
+    }
+
+    /// Decodes the record at `path` ("$" for the file's root), failing on anything but its exact shape.
+    init(json: JSONValue, at path: String) throws(SaveDecodeError) {
+        let o = try SaveJSON.fields(json, at: path, ["install_id", "commit", "at", "platform", "env", "language", "synthetic", "message", "trigger", "matches_played"])
+        self.installId = try SaveJSON.uuid(o[0], at: path + ".install_id")
+        self.commit = try SaveJSON.string(o[1], at: path + ".commit")
+        self.at = try SaveJSON.i64(o[2], at: path + ".at")
+        self.platform = try SaveJSON.key(o[3], at: path + ".platform") as Platform
+        self.env = try SaveJSON.key(o[4], at: path + ".env") as Env
+        self.language = try SaveJSON.string(o[5], at: path + ".language")
+        self.synthetic = try SaveJSON.bool(o[6], at: path + ".synthetic")
+        self.message = try SaveJSON.string(o[7], at: path + ".message")
+        self.trigger = try SaveJSON.key(o[8], at: path + ".trigger") as LoveTriggerKind
+        self.matchesPlayed = try SaveJSON.int(o[9], at: path + ".matches_played")
     }
 }

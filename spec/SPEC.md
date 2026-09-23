@@ -9,13 +9,14 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.21.0
+Spec-Version: 0.22.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
-the save on the device (see the platform-delta table for what still differs). **§17 is the one
-section with no screen yet:** when the game may ask the player whether they like it is decided in
-both cores and pinned by a corpus, and nothing shows it. What this file holds is the complete
+the save on the device (see the platform-delta table for what still differs). **§17 and §18 are the
+two sections no build has reached yet:** when the game may ask the player whether they like it is
+decided in both cores and pinned by a corpus, but nothing shows it — and what would leave the device
+is declared, with a live collector to receive it, but nothing sends it. What this file holds is the complete
 gameplay contract taken from the web prototype — the pitch, the one-touch control, the ball, the
 automatic play, the match, the drills, the season and the coach's board, with every number the
 prototype was tuned to — plus the one thing the prototype never had: **a career**, in which the
@@ -1141,8 +1142,10 @@ has done, rather than what a career holds. It has its own version and will have 
 that the refusal above and starting over cannot reach it, and it will stay out of device backup
 while the save stays in it.
 
-Nothing leaves the device. Until the first store submission, these shapes may change without
-migration (`conventions.md`, greenfield); from then on they are migrated, never reset.
+Nothing leaves the device — **today, and by the plain fact that no build sends anything.** §18
+declares what will, and retires this sentence on the day a build carries it. Until the first store
+submission, these shapes may change without migration (`conventions.md`, greenfield); from then on
+they are migrated, never reset.
 
 ### 16. The screens
 Every screen is built from the 3D UI kit (ADR 0005, `conventions.md` UI): blocks, flip digits,
@@ -1416,6 +1419,85 @@ never disable a working feature — only a deliberate flip can. **A failed read 
 resolves to on**, never to unread; otherwise an unreachable server would silence the question
 forever instead of for one launch.
 
+### 18. What leaves the device
+The game will send a small, anonymous record of how it is played, because before the first store
+submission we know nothing about it: how many matches a player gets through, whether they finish a
+season, whether they come back, what fraction ever win the cup, and whether the two platforms behave
+alike. None of those can be answered from a device.
+
+**Today the contract exists and the collector is live; no build sends anything.** §15's "nothing
+leaves the device" is therefore still literally true, and it is this section that will retire that
+sentence — on the day a build carries the sending, not before.
+
+#### 18.1 What every row carries, and what it does not
+One **anonymous install id** — a random UUID minted on first launch — and nothing else about the
+person or the phone. Never an advertising or vendor identifier, never anything derived from the
+device, and deliberately kept out of any record that syncs, so it can never become a cross-device
+person id. Beside it: the commit the build came from, the platform, the language actually shown, the
+device's own clock, whether the build is a staging or a production one, and whether a debug toggle
+made the row not worth counting.
+
+**The id is the opt-out.** Resetting progress discards it (§17.1), and a fresh id is a fresh install
+as far as anything here can tell. There is no consent gate and no in-app switch: the basis is GDPR
+Art. 6(1)(f) legitimate interest, disclosed in a privacy policy.
+
+**Free text never rides one of these rows.** A message a player types has its own record and its own
+table (§18.5), so a call site cannot put a player's words into an analytics row — enforced by the
+type, not by care.
+
+#### 18.2–18.5 The catalogue
+Four kinds of row, and no more. Deliberately **not** a per-touch or per-tick tape: there is no
+difficulty heatmap here to fill, and a tape would make the queue a real system rather than an array.
+
+- **18.2 A played match** — the sport, the world, what it counted for (league, cup, a friendly or a
+  drill), the score and the result, whether it went to overtime or was forfeited, how long it lasted,
+  the period length and the formation, the lifetime match count, and whether the player trailed or the
+  win was hard-fought (§17.2).
+- **18.3 A finished season** — its number, the final position, points, the record, goals, and whether
+  the league or the cup was won.
+- **18.4 A love-dialog showing** — what armed it, what the player answered, when it was shown, and the
+  match count at the time. One row per showing, so a dismissal is a row like any other.
+- **18.5 A typed message** — the player's words, with what armed the dialog and the match count. **The
+  only row that carries free text**, and the whole reason it is a separate kind.
+
+#### 18.6 The shape is declared once, and nothing spells a column twice
+Every row's columns are declared in one place (`shared/data/telemetry.toml`), and from that one
+declaration are generated: both apps' record types, the collector's schema, and the machine-readable
+column contract the collector builds its statements from. **No hand-kept column list exists on either
+side.** A field reaches all four from one edit, or the build fails.
+
+This is a rule and not a preference, because the failure it prevents is silent and documented: a
+column that is sent and not stored is not an error at any layer — it is a default quietly standing in
+for a measurement, and it looks exactly like data.
+
+Consequently a row is **rejected, never defaulted**. A missing required value, or a value outside its
+declared set, is refused with the column named. A rejected row is one lost row; a defaulted one is a
+wrong answer to a question we will make decisions on.
+
+#### 18.7 Staging and production, and silence in tests
+A debug build, a TestFlight build and an App Review build all report **staging**; only a real store
+install reports **production**. The two share one dataset with a column to tell them apart, so they
+can be compared, and every reading of production says so. The routing is a pure function of two
+booleans on each platform, so both branches are testable — and because the signal is store-side, each
+platform answers it its own way (iOS reads the receipt; Android reads the installer package and can
+only say Play or not-Play, so a Play test track reads as production: a platform-delta row, not a
+licence).
+
+**A test run reports nothing at all.** Not a staging row — nothing. `../flashybird` put 329 events and
+65 rows into production from a single `xcodebuild test`, and that is the standard this rule exists to
+clear.
+
+#### 18.8 Sending may never cost the game anything
+Rows are appended to an in-memory queue and **never persisted across launches**: a lost row changes no
+decision, and a second write path near the frame would cost more than the rows are worth. The backlog
+is bounded and drops oldest-first. A send is fire-and-forget on a background queue; **a failed send is
+dropped, never retried.**
+
+Flushes happen on going to background and on arriving at the hub — **never on the result screen, never
+on an input path, and never between a result and the next face-off** (A0, A2, Constraints). Nothing on
+the sending path touches the simulation, which draws only from its seeded stream (§4), so determinism
+is unaffected by construction.
+
 ---
 
 ## Out of scope
@@ -1439,3 +1521,6 @@ forever instead of for one launch.
   platforms (§4.3–§4.7).
 - **Player data is local and sacred once shipped** (principle 13, and `conventions.md`'s
   greenfield section until the first store submission).
+- **Telemetry may never cost the game anything** (§18.8): nothing is sent or flushed on an input path,
+  on the result screen, or between a result and the next face-off; a failed send is dropped, never
+  retried; and nothing on that path touches the simulation.

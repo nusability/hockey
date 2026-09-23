@@ -1,0 +1,462 @@
+{
+  "_generated": "tools/generate-data.py from shared/data/telemetry.toml \u2014 do not edit",
+  "format": 1,
+  "tables": {
+    "matches": {
+      "doc": "One played match (spec \u00a718.2). Enough to answer how many matches a player gets through, whether they come back, and whether the two platforms behave alike \u2014 and deliberately not a per-touch tape: there is no difficulty heatmap here to fill.",
+      "columns": [
+        {
+          "name": "install_id",
+          "type": "uuid",
+          "sql": "UUID",
+          "required": true
+        },
+        {
+          "name": "commit",
+          "type": "string",
+          "sql": "TEXT",
+          "required": true
+        },
+        {
+          "name": "at",
+          "type": "i64",
+          "sql": "BIGINT",
+          "required": true
+        },
+        {
+          "name": "platform",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "ios",
+            "android"
+          ]
+        },
+        {
+          "name": "env",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "staging",
+            "production"
+          ]
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "sql": "TEXT",
+          "required": true
+        },
+        {
+          "name": "synthetic",
+          "type": "bool",
+          "sql": "BOOLEAN",
+          "required": true
+        },
+        {
+          "name": "sport",
+          "type": "key",
+          "sql": "TEXT",
+          "required": true
+        },
+        {
+          "name": "world",
+          "type": "key",
+          "sql": "TEXT",
+          "required": true
+        },
+        {
+          "name": "competition",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "league",
+            "cup",
+            "quick",
+            "drill"
+          ]
+        },
+        {
+          "name": "season_number",
+          "type": "int",
+          "sql": "INT",
+          "required": false
+        },
+        {
+          "name": "matchday",
+          "type": "int",
+          "sql": "INT",
+          "required": false
+        },
+        {
+          "name": "goals_for",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "goals_against",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "result",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "won",
+            "drew",
+            "lost"
+          ]
+        },
+        {
+          "name": "overtime",
+          "type": "bool",
+          "sql": "BOOLEAN",
+          "required": true
+        },
+        {
+          "name": "forfeit",
+          "type": "bool",
+          "sql": "BOOLEAN",
+          "required": true
+        },
+        {
+          "name": "duration_ms",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "period_seconds",
+          "type": "double",
+          "sql": "DOUBLE PRECISION",
+          "required": true
+        },
+        {
+          "name": "formation",
+          "type": "key",
+          "sql": "TEXT",
+          "required": true
+        },
+        {
+          "name": "matches_played",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "trailed",
+          "type": "bool",
+          "sql": "BOOLEAN",
+          "required": true
+        },
+        {
+          "name": "hard_fought",
+          "type": "bool",
+          "sql": "BOOLEAN",
+          "required": true
+        }
+      ]
+    },
+    "seasons": {
+      "doc": "One finished season (spec \u00a718.3): where the player came and what they won. This is what 'do they finish a season' and 'what fraction ever win the cup' are read from.",
+      "columns": [
+        {
+          "name": "install_id",
+          "type": "uuid",
+          "sql": "UUID",
+          "required": true
+        },
+        {
+          "name": "commit",
+          "type": "string",
+          "sql": "TEXT",
+          "required": true
+        },
+        {
+          "name": "at",
+          "type": "i64",
+          "sql": "BIGINT",
+          "required": true
+        },
+        {
+          "name": "platform",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "ios",
+            "android"
+          ]
+        },
+        {
+          "name": "env",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "staging",
+            "production"
+          ]
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "sql": "TEXT",
+          "required": true
+        },
+        {
+          "name": "synthetic",
+          "type": "bool",
+          "sql": "BOOLEAN",
+          "required": true
+        },
+        {
+          "name": "season_number",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "position",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "points",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "played",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "won",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "drawn",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "lost",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "goals_for",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "goals_against",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        },
+        {
+          "name": "champion",
+          "type": "bool",
+          "sql": "BOOLEAN",
+          "required": true
+        },
+        {
+          "name": "cup_won",
+          "type": "bool",
+          "sql": "BOOLEAN",
+          "required": true
+        },
+        {
+          "name": "matches_played",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        }
+      ]
+    },
+    "love": {
+      "doc": "One love-dialog showing and the answer it got (spec \u00a718.4). Carries no free text \u2014 by type: the message has its own record and its own table, so a call site cannot put a player's words into an analytics row.",
+      "columns": [
+        {
+          "name": "install_id",
+          "type": "uuid",
+          "sql": "UUID",
+          "required": true
+        },
+        {
+          "name": "commit",
+          "type": "string",
+          "sql": "TEXT",
+          "required": true
+        },
+        {
+          "name": "at",
+          "type": "i64",
+          "sql": "BIGINT",
+          "required": true
+        },
+        {
+          "name": "platform",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "ios",
+            "android"
+          ]
+        },
+        {
+          "name": "env",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "staging",
+            "production"
+          ]
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "sql": "TEXT",
+          "required": true
+        },
+        {
+          "name": "synthetic",
+          "type": "bool",
+          "sql": "BOOLEAN",
+          "required": true
+        },
+        {
+          "name": "trigger",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "cup",
+            "league",
+            "hardFought"
+          ]
+        },
+        {
+          "name": "answer",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "positive",
+            "negative",
+            "dismissed"
+          ]
+        },
+        {
+          "name": "shown_at",
+          "type": "i64",
+          "sql": "BIGINT",
+          "required": true
+        },
+        {
+          "name": "matches_played",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        }
+      ]
+    },
+    "feedback": {
+      "doc": "One message a player typed after answering 'Not really' (spec \u00a718.5). **The only row that carries free text, and it is the whole reason this table exists apart from the others**: an analytics row can never hold a player's words, because the type that holds them is not an analytics row.",
+      "columns": [
+        {
+          "name": "install_id",
+          "type": "uuid",
+          "sql": "UUID",
+          "required": true
+        },
+        {
+          "name": "commit",
+          "type": "string",
+          "sql": "TEXT",
+          "required": true
+        },
+        {
+          "name": "at",
+          "type": "i64",
+          "sql": "BIGINT",
+          "required": true
+        },
+        {
+          "name": "platform",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "ios",
+            "android"
+          ]
+        },
+        {
+          "name": "env",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "staging",
+            "production"
+          ]
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "sql": "TEXT",
+          "required": true
+        },
+        {
+          "name": "synthetic",
+          "type": "bool",
+          "sql": "BOOLEAN",
+          "required": true
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "sql": "TEXT",
+          "required": true
+        },
+        {
+          "name": "trigger",
+          "type": "enum",
+          "sql": "TEXT",
+          "required": true,
+          "values": [
+            "cup",
+            "league",
+            "hardFought"
+          ]
+        },
+        {
+          "name": "matches_played",
+          "type": "int",
+          "sql": "INT",
+          "required": true
+        }
+      ]
+    }
+  }
+}

@@ -180,6 +180,23 @@ object SaveJson {
 
     const val EXACT_INTEGER: Long = 1L shl 53
 
+    /**
+     * An install id (telemetry.toml): the canonical lowercase 8-4-4-4-12 form, and nothing else. Held
+     * as a [String] rather than a java.util.UUID so the bytes on the wire are the bytes in the vector.
+     */
+    fun uuid(v: String): JsonValue = JsonValue.Str(v)
+
+    fun uuid(v: JsonValue, path: String): String {
+        val s = string(v, path)
+        val groups = s.split("-")
+        if (groups.map { it.length } != listOf(8, 4, 4, 4, 12) ||
+            !groups.all { g -> g.all { it in '0'..'9' || it in 'a'..'f' } }
+        ) {
+            refuse(SaveDecodeError.BadValue(path))
+        }
+        return s
+    }
+
     fun bool(v: JsonValue, path: String): Boolean = (v as? JsonValue.Bool)?.value ?: refuse(SaveDecodeError.WrongType(path))
 
     fun string(v: JsonValue, path: String): String = (v as? JsonValue.Str)?.value ?: refuse(SaveDecodeError.WrongType(path))

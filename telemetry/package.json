@@ -1,0 +1,7 @@
+{
+  "name": "smashhockey-telemetry",
+  "private": true,
+  "type": "module",
+  "description": "Telemetry collector (spec §18, ADR 0009). Columns come from columns.json, never from code.",
+  "dependencies": { "pg": "^8.13.1" }
+}

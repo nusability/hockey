@@ -12,6 +12,47 @@ object TelemetryFormat {
     const val version: Int = 1
 }
 
+/** Which app wrote the row. One dataset for both, with a column to tell them apart — 'does iOS behave like Android' is a question you cannot ask of two tables. */
+enum class Platform(val key: String) {
+    IOS("ios"),
+    ANDROID("android"),
+}
+
+/** Which build wrote the row. A debug or TestFlight/App-Review build reports staging; only a real store install reports production. They share a table so the two can be compared, and every view filters to production so they never silently mix. */
+enum class Env(val key: String) {
+    STAGING("staging"),
+    PRODUCTION("production"),
+}
+
+/** What the match counted for (spec §11): a league matchday, a cup round, a friendly outside a season, or a training drill. */
+enum class Competition(val key: String) {
+    LEAGUE("league"),
+    CUP("cup"),
+    QUICK("quick"),
+    DRILL("drill"),
+}
+
+/** How it ended for the player. */
+enum class MatchOutcome(val key: String) {
+    WON("won"),
+    DREW("drew"),
+    LOST("lost"),
+}
+
+/** What armed the love dialog (spec §17.2). Mirrors LoveTrigger in both cores. */
+enum class LoveTriggerKind(val key: String) {
+    CUP("cup"),
+    LEAGUE("league"),
+    HARD_FOUGHT("hardFought"),
+}
+
+/** How the player answered the panel (spec §17.2). A dismissal is an answer, not a no-op. */
+enum class LoveAnswerKind(val key: String) {
+    POSITIVE("positive"),
+    NEGATIVE("negative"),
+    DISMISSED("dismissed"),
+}
+
 /** What this install remembers about itself rather than about a career (spec §17): when it was first seen, how many matches have been played on it, and what the love dialog has already asked and been told. Kept beside the save and never inside it, so starting over and a refused save both leave it alone. */
 data class DeviceRecord(
     val version: Int,
@@ -43,6 +84,316 @@ data class DeviceRecord(
                 answeredPositively = SaveJson.bool(o[4], "$path.answered_positively"),
             )
             record.validate(path)
+            return record
+        }
+    }
+}
+
+/** What every row carries whatever it is about (spec §18.1): who sent it (an anonymous install id and nothing else), which code, which platform, which build, and when by the device's own clock. Declared once and prepended to every table, so four tables cannot drift apart. */
+data class Envelope(
+    val installId: String,
+    val commit: String,
+    val at: Long,
+    val platform: Platform,
+    val env: Env,
+    val language: String,
+    val synthetic: Boolean,
+) {
+    /** This record as its canonical JSON value. */
+    fun toJson(): JsonValue = JsonValue.Obj(
+        listOf(
+            "install_id" to SaveJson.uuid(installId),
+            "commit" to JsonValue.Str(commit),
+            "at" to SaveJson.i64(at),
+            "platform" to JsonValue.Str(platform.key),
+            "env" to JsonValue.Str(env.key),
+            "language" to JsonValue.Str(language),
+            "synthetic" to JsonValue.Bool(synthetic),
+        ),
+    )
+
+    companion object {
+        /** Decodes the record at [path] ("$" for the file's root), failing on anything but its exact shape. */
+        fun fromJson(json: JsonValue, path: String): Envelope {
+            val o = SaveJson.fields(json, path, listOf("install_id", "commit", "at", "platform", "env", "language", "synthetic"))
+            val record = Envelope(
+                installId = SaveJson.uuid(o[0], "$path.install_id"),
+                commit = SaveJson.string(o[1], "$path.commit"),
+                at = SaveJson.i64(o[2], "$path.at"),
+                platform = SaveJson.key(o[3], "$path.platform", Platform.entries) { it.key },
+                env = SaveJson.key(o[4], "$path.env", Env.entries) { it.key },
+                language = SaveJson.string(o[5], "$path.language"),
+                synthetic = SaveJson.bool(o[6], "$path.synthetic"),
+            )
+            return record
+        }
+    }
+}
+
+/** One played match (spec §18.2). Enough to answer how many matches a player gets through, whether they come back, and whether the two platforms behave alike — and deliberately not a per-touch tape: there is no difficulty heatmap here to fill. */
+data class MatchRow(
+    val installId: String,
+    val commit: String,
+    val at: Long,
+    val platform: Platform,
+    val env: Env,
+    val language: String,
+    val synthetic: Boolean,
+    val sport: Sport,
+    val world: World,
+    val competition: Competition,
+    val seasonNumber: Int?,
+    val matchday: Int?,
+    val goalsFor: Int,
+    val goalsAgainst: Int,
+    val result: MatchOutcome,
+    val overtime: Boolean,
+    val forfeit: Boolean,
+    val durationMs: Int,
+    val periodSeconds: Double,
+    val formation: Formation,
+    val matchesPlayed: Int,
+    val trailed: Boolean,
+    val hardFought: Boolean,
+) {
+    /** This record as its canonical JSON value. */
+    fun toJson(): JsonValue = JsonValue.Obj(
+        listOf(
+            "install_id" to SaveJson.uuid(installId),
+            "commit" to JsonValue.Str(commit),
+            "at" to SaveJson.i64(at),
+            "platform" to JsonValue.Str(platform.key),
+            "env" to JsonValue.Str(env.key),
+            "language" to JsonValue.Str(language),
+            "synthetic" to JsonValue.Bool(synthetic),
+            "sport" to JsonValue.Str(sport.key),
+            "world" to JsonValue.Str(world.key),
+            "competition" to JsonValue.Str(competition.key),
+            "season_number" to (seasonNumber?.let { JsonValue.Num(it.toLong()) } ?: JsonValue.Null),
+            "matchday" to (matchday?.let { JsonValue.Num(it.toLong()) } ?: JsonValue.Null),
+            "goals_for" to JsonValue.Num(goalsFor.toLong()),
+            "goals_against" to JsonValue.Num(goalsAgainst.toLong()),
+            "result" to JsonValue.Str(result.key),
+            "overtime" to JsonValue.Bool(overtime),
+            "forfeit" to JsonValue.Bool(forfeit),
+            "duration_ms" to JsonValue.Num(durationMs.toLong()),
+            "period_seconds" to SaveJson.double(periodSeconds),
+            "formation" to JsonValue.Str(formation.key),
+            "matches_played" to JsonValue.Num(matchesPlayed.toLong()),
+            "trailed" to JsonValue.Bool(trailed),
+            "hard_fought" to JsonValue.Bool(hardFought),
+        ),
+    )
+
+    companion object {
+        /** Decodes the record at [path] ("$" for the file's root), failing on anything but its exact shape. */
+        fun fromJson(json: JsonValue, path: String): MatchRow {
+            val o = SaveJson.fields(json, path, listOf("install_id", "commit", "at", "platform", "env", "language", "synthetic", "sport", "world", "competition", "season_number", "matchday", "goals_for", "goals_against", "result", "overtime", "forfeit", "duration_ms", "period_seconds", "formation", "matches_played", "trailed", "hard_fought"))
+            val record = MatchRow(
+                installId = SaveJson.uuid(o[0], "$path.install_id"),
+                commit = SaveJson.string(o[1], "$path.commit"),
+                at = SaveJson.i64(o[2], "$path.at"),
+                platform = SaveJson.key(o[3], "$path.platform", Platform.entries) { it.key },
+                env = SaveJson.key(o[4], "$path.env", Env.entries) { it.key },
+                language = SaveJson.string(o[5], "$path.language"),
+                synthetic = SaveJson.bool(o[6], "$path.synthetic"),
+                sport = SaveJson.key(o[7], "$path.sport", Sport.entries) { it.key },
+                world = SaveJson.key(o[8], "$path.world", World.entries) { it.key },
+                competition = SaveJson.key(o[9], "$path.competition", Competition.entries) { it.key },
+                seasonNumber = o[10].let { if (it is JsonValue.Null) null else SaveJson.int(it, "$path.season_number") },
+                matchday = o[11].let { if (it is JsonValue.Null) null else SaveJson.int(it, "$path.matchday") },
+                goalsFor = SaveJson.int(o[12], "$path.goals_for"),
+                goalsAgainst = SaveJson.int(o[13], "$path.goals_against"),
+                result = SaveJson.key(o[14], "$path.result", MatchOutcome.entries) { it.key },
+                overtime = SaveJson.bool(o[15], "$path.overtime"),
+                forfeit = SaveJson.bool(o[16], "$path.forfeit"),
+                durationMs = SaveJson.int(o[17], "$path.duration_ms"),
+                periodSeconds = SaveJson.double(o[18], "$path.period_seconds"),
+                formation = SaveJson.key(o[19], "$path.formation", Formation.entries) { it.key },
+                matchesPlayed = SaveJson.int(o[20], "$path.matches_played"),
+                trailed = SaveJson.bool(o[21], "$path.trailed"),
+                hardFought = SaveJson.bool(o[22], "$path.hard_fought"),
+            )
+            return record
+        }
+    }
+}
+
+/** One finished season (spec §18.3): where the player came and what they won. This is what 'do they finish a season' and 'what fraction ever win the cup' are read from. */
+data class SeasonRow(
+    val installId: String,
+    val commit: String,
+    val at: Long,
+    val platform: Platform,
+    val env: Env,
+    val language: String,
+    val synthetic: Boolean,
+    val seasonNumber: Int,
+    val position: Int,
+    val points: Int,
+    val played: Int,
+    val won: Int,
+    val drawn: Int,
+    val lost: Int,
+    val goalsFor: Int,
+    val goalsAgainst: Int,
+    val champion: Boolean,
+    val cupWon: Boolean,
+    val matchesPlayed: Int,
+) {
+    /** This record as its canonical JSON value. */
+    fun toJson(): JsonValue = JsonValue.Obj(
+        listOf(
+            "install_id" to SaveJson.uuid(installId),
+            "commit" to JsonValue.Str(commit),
+            "at" to SaveJson.i64(at),
+            "platform" to JsonValue.Str(platform.key),
+            "env" to JsonValue.Str(env.key),
+            "language" to JsonValue.Str(language),
+            "synthetic" to JsonValue.Bool(synthetic),
+            "season_number" to JsonValue.Num(seasonNumber.toLong()),
+            "position" to JsonValue.Num(position.toLong()),
+            "points" to JsonValue.Num(points.toLong()),
+            "played" to JsonValue.Num(played.toLong()),
+            "won" to JsonValue.Num(won.toLong()),
+            "drawn" to JsonValue.Num(drawn.toLong()),
+            "lost" to JsonValue.Num(lost.toLong()),
+            "goals_for" to JsonValue.Num(goalsFor.toLong()),
+            "goals_against" to JsonValue.Num(goalsAgainst.toLong()),
+            "champion" to JsonValue.Bool(champion),
+            "cup_won" to JsonValue.Bool(cupWon),
+            "matches_played" to JsonValue.Num(matchesPlayed.toLong()),
+        ),
+    )
+
+    companion object {
+        /** Decodes the record at [path] ("$" for the file's root), failing on anything but its exact shape. */
+        fun fromJson(json: JsonValue, path: String): SeasonRow {
+            val o = SaveJson.fields(json, path, listOf("install_id", "commit", "at", "platform", "env", "language", "synthetic", "season_number", "position", "points", "played", "won", "drawn", "lost", "goals_for", "goals_against", "champion", "cup_won", "matches_played"))
+            val record = SeasonRow(
+                installId = SaveJson.uuid(o[0], "$path.install_id"),
+                commit = SaveJson.string(o[1], "$path.commit"),
+                at = SaveJson.i64(o[2], "$path.at"),
+                platform = SaveJson.key(o[3], "$path.platform", Platform.entries) { it.key },
+                env = SaveJson.key(o[4], "$path.env", Env.entries) { it.key },
+                language = SaveJson.string(o[5], "$path.language"),
+                synthetic = SaveJson.bool(o[6], "$path.synthetic"),
+                seasonNumber = SaveJson.int(o[7], "$path.season_number"),
+                position = SaveJson.int(o[8], "$path.position"),
+                points = SaveJson.int(o[9], "$path.points"),
+                played = SaveJson.int(o[10], "$path.played"),
+                won = SaveJson.int(o[11], "$path.won"),
+                drawn = SaveJson.int(o[12], "$path.drawn"),
+                lost = SaveJson.int(o[13], "$path.lost"),
+                goalsFor = SaveJson.int(o[14], "$path.goals_for"),
+                goalsAgainst = SaveJson.int(o[15], "$path.goals_against"),
+                champion = SaveJson.bool(o[16], "$path.champion"),
+                cupWon = SaveJson.bool(o[17], "$path.cup_won"),
+                matchesPlayed = SaveJson.int(o[18], "$path.matches_played"),
+            )
+            return record
+        }
+    }
+}
+
+/** One love-dialog showing and the answer it got (spec §18.4). Carries no free text — by type: the message has its own record and its own table, so a call site cannot put a player's words into an analytics row. */
+data class LoveRow(
+    val installId: String,
+    val commit: String,
+    val at: Long,
+    val platform: Platform,
+    val env: Env,
+    val language: String,
+    val synthetic: Boolean,
+    val trigger: LoveTriggerKind,
+    val answer: LoveAnswerKind,
+    val shownAt: Long,
+    val matchesPlayed: Int,
+) {
+    /** This record as its canonical JSON value. */
+    fun toJson(): JsonValue = JsonValue.Obj(
+        listOf(
+            "install_id" to SaveJson.uuid(installId),
+            "commit" to JsonValue.Str(commit),
+            "at" to SaveJson.i64(at),
+            "platform" to JsonValue.Str(platform.key),
+            "env" to JsonValue.Str(env.key),
+            "language" to JsonValue.Str(language),
+            "synthetic" to JsonValue.Bool(synthetic),
+            "trigger" to JsonValue.Str(trigger.key),
+            "answer" to JsonValue.Str(answer.key),
+            "shown_at" to SaveJson.i64(shownAt),
+            "matches_played" to JsonValue.Num(matchesPlayed.toLong()),
+        ),
+    )
+
+    companion object {
+        /** Decodes the record at [path] ("$" for the file's root), failing on anything but its exact shape. */
+        fun fromJson(json: JsonValue, path: String): LoveRow {
+            val o = SaveJson.fields(json, path, listOf("install_id", "commit", "at", "platform", "env", "language", "synthetic", "trigger", "answer", "shown_at", "matches_played"))
+            val record = LoveRow(
+                installId = SaveJson.uuid(o[0], "$path.install_id"),
+                commit = SaveJson.string(o[1], "$path.commit"),
+                at = SaveJson.i64(o[2], "$path.at"),
+                platform = SaveJson.key(o[3], "$path.platform", Platform.entries) { it.key },
+                env = SaveJson.key(o[4], "$path.env", Env.entries) { it.key },
+                language = SaveJson.string(o[5], "$path.language"),
+                synthetic = SaveJson.bool(o[6], "$path.synthetic"),
+                trigger = SaveJson.key(o[7], "$path.trigger", LoveTriggerKind.entries) { it.key },
+                answer = SaveJson.key(o[8], "$path.answer", LoveAnswerKind.entries) { it.key },
+                shownAt = SaveJson.i64(o[9], "$path.shown_at"),
+                matchesPlayed = SaveJson.int(o[10], "$path.matches_played"),
+            )
+            return record
+        }
+    }
+}
+
+/** One message a player typed after answering 'Not really' (spec §18.5). **The only row that carries free text, and it is the whole reason this table exists apart from the others**: an analytics row can never hold a player's words, because the type that holds them is not an analytics row. */
+data class FeedbackRow(
+    val installId: String,
+    val commit: String,
+    val at: Long,
+    val platform: Platform,
+    val env: Env,
+    val language: String,
+    val synthetic: Boolean,
+    val message: String,
+    val trigger: LoveTriggerKind,
+    val matchesPlayed: Int,
+) {
+    /** This record as its canonical JSON value. */
+    fun toJson(): JsonValue = JsonValue.Obj(
+        listOf(
+            "install_id" to SaveJson.uuid(installId),
+            "commit" to JsonValue.Str(commit),
+            "at" to SaveJson.i64(at),
+            "platform" to JsonValue.Str(platform.key),
+            "env" to JsonValue.Str(env.key),
+            "language" to JsonValue.Str(language),
+            "synthetic" to JsonValue.Bool(synthetic),
+            "message" to JsonValue.Str(message),
+            "trigger" to JsonValue.Str(trigger.key),
+            "matches_played" to JsonValue.Num(matchesPlayed.toLong()),
+        ),
+    )
+
+    companion object {
+        /** Decodes the record at [path] ("$" for the file's root), failing on anything but its exact shape. */
+        fun fromJson(json: JsonValue, path: String): FeedbackRow {
+            val o = SaveJson.fields(json, path, listOf("install_id", "commit", "at", "platform", "env", "language", "synthetic", "message", "trigger", "matches_played"))
+            val record = FeedbackRow(
+                installId = SaveJson.uuid(o[0], "$path.install_id"),
+                commit = SaveJson.string(o[1], "$path.commit"),
+                at = SaveJson.i64(o[2], "$path.at"),
+                platform = SaveJson.key(o[3], "$path.platform", Platform.entries) { it.key },
+                env = SaveJson.key(o[4], "$path.env", Env.entries) { it.key },
+                language = SaveJson.string(o[5], "$path.language"),
+                synthetic = SaveJson.bool(o[6], "$path.synthetic"),
+                message = SaveJson.string(o[7], "$path.message"),
+                trigger = SaveJson.key(o[8], "$path.trigger", LoveTriggerKind.entries) { it.key },
+                matchesPlayed = SaveJson.int(o[9], "$path.matches_played"),
+            )
             return record
         }
     }

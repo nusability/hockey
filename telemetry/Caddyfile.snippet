@@ -1,0 +1,42 @@
+# Add to /etc/caddy/Caddyfile on box #2 (stori-monitoring), then:
+#   cp -a /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak.$(date +%s)
+#   cat Caddyfile.snippet >> /etc/caddy/Caddyfile
+#   caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
+#
+# ⚠️ `caddy validate` is NOT a rehearsal of the reload. Check `systemctl reload` actually succeeded —
+# ../flashybird learned this over a `log { output file … }` block, which validates clean and then
+# fails the reload on permissions because Caddy cannot create a file in a root-owned directory. That
+# is why there is no log block here: every other vhost on this box logs to journald, which Loki
+# already collects, and a file log would be the odd one out.
+#
+# NOTE: this is another public service on a box whose D4 says "only Grafana is public". A collector
+# has to be publicly reachable — phones POST to it — so the exception is unavoidable, but it is an
+# exception, and it is why the token, the body cap and the write-only routes exist. Nothing here
+# reads.
+#
+# `ingest.nann.in` is a SHARED ingest host, not Smash Hockey's own: `*.nann.in` resolves to this box,
+# so every future product is a path here and needs no DNS record, no certificate and no new vhost.
+# Per-product paths, separate collectors, separate schemas — never a shared table (ADR 0009).
+#
+# ⚠️ The paths below are a ONE-WAY DOOR from the first shipped build. An installed app cannot be
+# rewired: ../flashybird's `fb.nann.in` has to keep answering forever because real phones hold it.
+
+ingest.nann.in {
+    encode zstd gzip
+
+    # Smash Hockey (spec §18). Ingest only — one route per declared table, all write-only. The paths
+    # match the table names in shared/data/telemetry.toml, and the collector rejects anything else.
+    handle /smash/* {
+        uri strip_prefix /smash
+        reverse_proxy 127.0.0.1:3014
+    }
+
+    handle {
+        respond "ingest" 200
+    }
+
+    header {
+        -Server
+        Strict-Transport-Security "max-age=31536000;"
+    }
+}

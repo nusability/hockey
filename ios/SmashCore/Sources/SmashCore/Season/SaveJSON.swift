@@ -111,6 +111,21 @@ enum SaveJSON {
 
     static let exactInteger = 1 << 53
 
+    /// An install id (telemetry.toml): the canonical lowercase 8-4-4-4-12 form, and nothing else.
+    /// Held as a `String` rather than a `UUID` so the core stays free of Foundation and so the bytes
+    /// on the wire are the bytes in the vector.
+    static func uuid(_ v: String) -> JSONValue { .string(v) }
+
+    static func uuid(_ v: JSONValue, at path: String) throws(SaveDecodeError) -> String {
+        let s = try string(v, at: path)
+        let groups = s.split(separator: "-", omittingEmptySubsequences: false)
+        guard groups.map(\.count) == [8, 4, 4, 4, 12],
+              groups.allSatisfy({ $0.allSatisfy { $0.isHexDigit && !$0.isUppercase } }) else {
+            throw .badValue(path: path)
+        }
+        return s
+    }
+
     static func bool(_ v: JSONValue, at path: String) throws(SaveDecodeError) -> Bool {
         guard case .bool(let b) = v else { throw .wrongType(path: path) }
         return b

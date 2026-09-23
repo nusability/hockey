@@ -1,0 +1,69 @@
+# Smash Hockey telemetry — a compose fragment for box #2 (`stori-monitoring`).
+#
+# Deploys to /opt/smashhockey/ and is fronted by the same host Caddy that already fronts Grafana,
+# Umami, Bugsink, flashybird and vidi. Deliberately NOT part of stori's `monitoring/` stack: that
+# repo is config-as-code for Stori, and this is a different product with its own lifecycle.
+#
+# Follows the box's pattern (umami-db, bugsink-db, flashybird-db, vidi-db): one small Postgres per
+# service, internal only, no published port. That makes this the **seventh** Postgres on a 8 GB box —
+# noted rather than shrugged at. It fits today (5.1 GB available when this was written, ~150 MB for
+# this one), and the cheaper alternative if it ever gets tight is a `smashhockey` database inside an
+# existing cluster, at the cost of coupling this schema to another product's container lifecycle.
+#
+# **No Grafana here, unlike flashybird and vidi.** A fourth Grafana for a table with no rows in it is
+# three containers of pattern-following and nothing to look at; dashboards land when there is data
+# worth a dashboard, and this file gains a service then or points an existing instance at this
+# database as a second datasource.
+
+name: smashhockey
+
+services:
+  smashhockey-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smashhockey
+      POSTGRES_USER: smashhockey
+      POSTGRES_PASSWORD: ${SH_DB_PASSWORD:?set SH_DB_PASSWORD in /opt/smashhockey/.env}
+    volumes:
+      - smashhockey-db-data:/var/lib/postgresql/data
+      # Generated from shared/data/telemetry.toml. Runs on first boot only — a later declaration
+      # change is applied by re-running it by hand (`psql -f`), because it is idempotent.
+      - ./schema.sql:/docker-entrypoint-initdb.d/10-schema.sql:ro
+    networks: [smashhockey]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smashhockey -d smashhockey"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  collector:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm i --omit=dev --no-audit --no-fund && node server.js"
+    environment:
+      DATABASE_URL: postgres://smashhockey:${SH_DB_PASSWORD}@smashhockey-db:5432/smashhockey
+      PORT: 3014
+      # Not a secret — it ships inside the app binary. It exists so a drive-by scanner cannot write
+      # rows into the dataset we make design decisions from.
+      SH_INGEST_TOKEN: ${SH_INGEST_TOKEN:?set SH_INGEST_TOKEN in /opt/smashhockey/.env}
+    volumes:
+      - ./server.js:/app/server.js:ro
+      - ./package.json:/app/package.json:ro
+      # The column contract. The collector reads it at boot and builds its INSERTs from it, so this
+      # mount is not optional — it is the reason there is no column list in server.js (ADR 0009).
+      - ./columns.json:/app/columns.json:ro
+    # Loopback only, on 3014: 3000–3003 and 3010–3013 were taken by the six services already here.
+    # The host Caddy is the single public edge, exactly as it is for everything else on this box.
+    ports: ["127.0.0.1:3014:3014"]
+    depends_on:
+      smashhockey-db:
+        condition: service_healthy
+    networks: [smashhockey]
+
+networks:
+  smashhockey:
+
+volumes:
+  smashhockey-db-data:

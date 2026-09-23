@@ -18,9 +18,58 @@
 #     second phone and counted twice. save.json stays backed up — player data is sacred.
 #
 # Decoding is the save's: strict, typed, and a record of another version is refused, not read.
+#
+# ---------------------------------------------------------------------------------------------------
+# This file also declares **what leaves the device** (spec §18): one [record.*] per event kind, each
+# marked `_table`. From those same declarations the generator writes both apps' record types, the
+# collector's `telemetry/schema.sql`, and `telemetry/columns.json` — the machine-readable column
+# contract the collector reads at boot and builds its INSERTs from.
+#
+# **There is no hand-kept column list anywhere.** That is the whole point, and it is not theoretical:
+# ../flashybird's collector kept one by hand, and its own schema header records the result — `platform`
+# and `language` were being *sent and not inserted* for months, along with the five columns its
+# difficulty question grouped on. As it puts it: "A column missing from this list is not an error at
+# any layer; it is a default quietly standing in for a measurement." A field added here reaches the
+# Swift type, the Kotlin type, the DDL, the contract and the INSERT from one edit, or
+# `tools/generate-data.py --check` fails.
+#
+# Every table gets the fields of `[record.Envelope]` prepended, declared once so four tables cannot
+# drift apart. The wire shape is **flat** — one column set per event kind, which settles the open
+# caveat ADR 0009 left for the day the collector was built.
+#
+# ⚠️ **Event names, column names and the payload shape are a one-way door from the first shipped
+# build.** Nothing ships yet, so they are still free to change; the day a build carries them, installs
+# hold them forever (../flashybird's `fb.nann.in` is the standing proof).
 
 [format]
 version = 1
+
+# Enumerated columns: a declared set of values, generated as a real enum on both platforms and as a
+# CHECK constraint in the DDL, so neither a call site nor a row can hold a value nobody declared.
+
+[enum.Platform]
+_doc = "Which app wrote the row. One dataset for both, with a column to tell them apart — 'does iOS behave like Android' is a question you cannot ask of two tables."
+values = ["ios", "android"]
+
+[enum.Env]
+_doc = "Which build wrote the row. A debug or TestFlight/App-Review build reports staging; only a real store install reports production. They share a table so the two can be compared, and every view filters to production so they never silently mix."
+values = ["staging", "production"]
+
+[enum.Competition]
+_doc = "What the match counted for (spec §11): a league matchday, a cup round, a friendly outside a season, or a training drill."
+values = ["league", "cup", "quick", "drill"]
+
+[enum.MatchOutcome]
+_doc = "How it ended for the player."
+values = ["won", "drew", "lost"]
+
+[enum.LoveTriggerKind]
+_doc = "What armed the love dialog (spec §17.2). Mirrors LoveTrigger in both cores."
+values = ["cup", "league", "hardFought"]
+
+[enum.LoveAnswerKind]
+_doc = "How the player answered the panel (spec §17.2). A dismissal is an answer, not a no-op."
+values = ["positive", "negative", "dismissed"]
 
 [record.DeviceRecord]
 _doc = "What this install remembers about itself rather than about a career (spec §17): when it was first seen, how many matches have been played on it, and what the love dialog has already asked and been told. Kept beside the save and never inside it, so starting over and a refused save both leave it alone."
@@ -30,3 +79,67 @@ installed_at = "i64"
 matches_played = "int"
 last_asked_at = "i64?"
 answered_positively = "bool"
+
+# --- What leaves the device (spec §18) -------------------------------------------------------------
+
+[record.Envelope]
+_doc = "What every row carries whatever it is about (spec §18.1): who sent it (an anonymous install id and nothing else), which code, which platform, which build, and when by the device's own clock. Declared once and prepended to every table, so four tables cannot drift apart."
+_envelope = true
+install_id = "uuid"
+commit = "string"
+at = "i64"
+platform = "Platform"
+env = "Env"
+language = "string"
+synthetic = "bool"
+
+[record.MatchRow]
+_doc = "One played match (spec §18.2). Enough to answer how many matches a player gets through, whether they come back, and whether the two platforms behave alike — and deliberately not a per-touch tape: there is no difficulty heatmap here to fill."
+_table = "matches"
+sport = "sport"
+world = "world"
+competition = "Competition"
+season_number = "int?"
+matchday = "int?"
+goals_for = "int"
+goals_against = "int"
+result = "MatchOutcome"
+overtime = "bool"
+forfeit = "bool"
+duration_ms = "int"
+period_seconds = "double"
+formation = "formation"
+matches_played = "int"
+trailed = "bool"
+hard_fought = "bool"
+
+[record.SeasonRow]
+_doc = "One finished season (spec §18.3): where the player came and what they won. This is what 'do they finish a season' and 'what fraction ever win the cup' are read from."
+_table = "seasons"
+season_number = "int"
+position = "int"
+points = "int"
+played = "int"
+won = "int"
+drawn = "int"
+lost = "int"
+goals_for = "int"
+goals_against = "int"
+champion = "bool"
+cup_won = "bool"
+matches_played = "int"
+
+[record.LoveRow]
+_doc = "One love-dialog showing and the answer it got (spec §18.4). Carries no free text — by type: the message has its own record and its own table, so a call site cannot put a player's words into an analytics row."
+_table = "love"
+trigger = "LoveTriggerKind"
+answer = "LoveAnswerKind"
+shown_at = "i64"
+matches_played = "int"
+
+[record.FeedbackRow]
+_doc = "One message a player typed after answering 'Not really' (spec §18.5). **The only row that carries free text, and it is the whole reason this table exists apart from the others**: an analytics row can never hold a player's words, because the type that holds them is not an analytics row."
+_table = "feedback"
+message = "string"
+trigger = "LoveTriggerKind"
+matches_played = "int"

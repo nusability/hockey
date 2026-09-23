@@ -113,5 +113,5 @@ createServer((req, res) => {
     }
   });
 }).listen(PORT, () => {
-  console.log(`smash hockey collector on :${PORT} — tables: ${TABLES.join(', ')} (format ${contract.format})`);
+  console.log(`smash hockey collector on :${PORT} — tables: ${TABLES.join(', ')} (wire contract v${contract.wire})`);
 });

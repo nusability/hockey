@@ -79,6 +79,10 @@ class Family:
     version: int
     records: list
     enums: list
+    # The wire contract's own version (spec §18.6), for a declaration that has tables. Deliberately
+    # NOT `version`: the file format of a record on a phone and the column set four tables are sent
+    # under are two contracts, and a change to one must not be able to move the other.
+    wire_version: int = 0
 
     @property
     def tables(self):
@@ -91,12 +95,16 @@ def load(root, decl):
         raise DataError(f"{path} is missing")
     with open(path, "rb") as f:
         doc = tomllib.load(f)
-    if not {"format", "record"} <= set(doc) or set(doc) - {"format", "record", "enum"}:
-        fail(decl.toml, f"expected [format], [record.*] and optionally [enum.*], got {sorted(doc)}")
+    if not {"format", "record"} <= set(doc) or set(doc) - {"format", "record", "enum", "wire"}:
+        fail(decl.toml, f"expected [format], [record.*] and optionally [enum.*] and [wire], got {sorted(doc)}")
     fmt = doc["format"]
     if set(fmt) != {"version"} or isinstance(fmt["version"], bool) or not isinstance(fmt["version"], int) \
             or fmt["version"] < 1:
         fail(f"{decl.toml} [format]", "expected version = a positive integer")
+    wire = doc.get("wire")
+    if wire is not None and (set(wire) != {"version"} or isinstance(wire["version"], bool)
+                             or not isinstance(wire["version"], int) or wire["version"] < 1):
+        fail(f"{decl.toml} [wire]", "expected version = a positive integer")
     enums = []
     for name, table in doc.get("enum", {}).items():
         w = f"{decl.toml} [enum.{name}]"
@@ -170,12 +178,18 @@ def load(root, decl):
             r.fields = shared + r.fields
     elif any(r.table for r in records):
         fail(decl.toml, "a table needs an envelope record (_envelope = true)")
+    # The wire contract versions itself, separately from the record file the declaration also holds.
+    if any(r.table for r in records):
+        if wire is None:
+            fail(decl.toml, "a declaration with tables needs [wire] version — the columns' own contract (§18.6)")
+    elif wire is not None:
+        fail(decl.toml, "[wire] versions the tables' column contract, and this declaration has none")
 
     root_record = records[0]
     first = root_record.fields[0]
     if first[0] != "version" or first[1] != TypeRef("int", False, False, False, False):
         fail(f"{decl.toml} [record.{root_record.name}]", "the root record's first field is version = \"int\"")
-    return Family(fmt["version"], records, enums)
+    return Family(fmt["version"], records, enums, wire["version"] if wire else 0)
 
 
 def type_ref(text, where, records, enums=frozenset()):

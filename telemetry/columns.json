@@ -1,6 +1,6 @@
 {
   "_generated": "tools/generate-data.py from shared/data/telemetry.toml \u2014 do not edit",
-  "format": 2,
+  "wire": 1,
   "tables": {
     "matches": {
       "doc": "One played match (spec \u00a718.2). Enough to answer how many matches a player gets through, whether they come back, and whether the two platforms behave alike \u2014 and deliberately not a per-touch tape: there is no difficulty heatmap here to fill.",

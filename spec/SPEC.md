@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.23.1
+Spec-Version: 0.23.2
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -1484,6 +1484,12 @@ Every row's columns are declared in one place (`shared/data/telemetry.toml`), an
 declaration are generated: both apps' record types, the collector's schema, and the machine-readable
 column contract the collector builds its statements from. **No hand-kept column list exists on either
 side.** A field reaches all four from one edit, or the build fails.
+
+That one declaration holds **two contracts, and each carries its own version**: the device record's
+file format (§17.1), which lives on a phone and is refused when it does not match, and the tables'
+column contract, which shipped installs hold forever. A change to one may not move the other's
+number — a version that moves for something it does not describe says "this changed" about something
+that did not, at the one moment nobody can check by hand.
 
 This is a rule and not a preference, because the failure it prevents is silent and documented: a
 column that is sent and not stored is not an error at any layer — it is a default quietly standing in

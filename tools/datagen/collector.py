@@ -109,7 +109,9 @@ def contract(family):
         }
     return json.dumps({
         "_generated": "tools/generate-data.py from shared/data/telemetry.toml — do not edit",
-        "format": family.version,
+        # The tables' own version (telemetry.toml [wire]), never the device record's file format:
+        # one moving because the other changed is what this split exists to prevent (spec §18.6).
+        "wire": family.wire_version,
         "tables": tables,
     }, indent=2, sort_keys=False) + "\n"
 

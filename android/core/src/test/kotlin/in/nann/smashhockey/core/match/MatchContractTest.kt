@@ -318,6 +318,112 @@ class MatchContractTest {
         assertFalse(m.shotAboutToScore)
     }
 
+    // §7.10 — the rubberband
+
+    /** The temperament is drawn once, in range, and is the seed's — and a drill has none. */
+    @Test fun aMatchDrawsOneTemperamentAndADrillDrawsNone() {
+        val m = Match(match)
+        val drawn = m.temperament
+        assertTrue(drawn >= 0 && drawn <= Tuning.AI.Balance.temperamentMax)
+        assertEquals(drawn, Match(match).temperament, 0.0)
+        repeat(600) { m.tick() }
+        assertEquals(drawn, m.temperament, 0.0)
+        assertEquals(0.0, drill(Drill.SHOT).temperament, 0.0)
+    }
+
+    /** Level, or one goal in it, and the board's numbers reach §7 untouched — to the bit. */
+    @Test fun aCloseScoreLeavesEveryTacticExactlyAsTheBoardSetIt() {
+        val m = Match(match)
+        for (lead in listOf(0, 1, -1)) {
+            m.score[0] = if (lead > 0) lead else 0
+            m.score[1] = if (lead < 0) -lead else 0
+            m.period = 3
+            m.clock = 0.0
+            m.updateBalance()
+            for (team in 0 until 2) {
+                assertEquals(0.0, m.chase(team), 0.0)
+                assertEquals(0.0, m.hold(team), 0.0)
+                assertEquals(m.tactics[team], m.effectiveTactics(team))
+            }
+        }
+    }
+
+    /** It helps whoever is behind, whichever side that is, by the same amount. */
+    @Test fun theTiltIsSymmetricBetweenTheTwoSides() {
+        val m = Match(match)
+        m.temperament = 1.0
+        m.period = 2
+        m.score[0] = 5
+        m.score[1] = 1
+        m.updateBalance()
+        val chasing = m.chase(1)
+        val holding = m.hold(0)
+        assertTrue(chasing > 0)
+        assertEquals(chasing, holding, 0.0)
+        m.score[0] = 1
+        m.score[1] = 5
+        m.updateBalance()
+        assertEquals(chasing, m.chase(0), 0.0)
+        assertEquals(holding, m.hold(1), 0.0)
+    }
+
+    /** It grows with the lead and with the clock, and never past 1. */
+    @Test fun theTiltGrowsWithTheLeadAndTheClock() {
+        val m = Match(match)
+        m.temperament = 1.0
+        fun tilt(home: Int, away: Int, period: Int, clock: Double): Double {
+            m.score[0] = home
+            m.score[1] = away
+            m.period = period
+            m.clock = clock
+            m.updateBalance()
+            return m.chase(1)
+        }
+        val early2 = tilt(2, 0, 1, 60.0)
+        val late2 = tilt(2, 0, 3, 0.0)
+        val late4 = tilt(4, 0, 3, 0.0)
+        assertTrue(early2 > 0 && early2 < late2 && late2 <= late4)
+        assertTrue(late4 <= Tuning.AI.Balance.tiltMax)
+        m.temperament = Tuning.AI.Balance.temperamentMax
+        assertEquals(Tuning.AI.Balance.tiltMax, tilt(9, 0, 3, 0.0), 0.0)
+    }
+
+    /**
+     * Only ever sharper, never softer (A0): the side ahead keeps its keeper and its marking, and
+     * loses only appetite — pressing, push up, shooting.
+     */
+    @Test fun theSideAheadIsNeverMadeWorseAtDefending() {
+        val m = Match(match)
+        m.temperament = Tuning.AI.Balance.temperamentMax
+        m.score[0] = 6
+        m.score[1] = 0
+        m.period = 3
+        m.clock = 0.0
+        m.updateBalance()
+        val ahead = m.effectiveTactics(0)
+        val behind = m.effectiveTactics(1)
+        assertEquals(m.tactics[0].covering, ahead.covering, 0.0)   // never dulled
+        assertTrue(ahead.pressing < m.tactics[0].pressing)
+        assertTrue(ahead.pushUp < m.tactics[0].pushUp)
+        assertTrue(ahead.shooting < m.tactics[0].shooting)
+        assertTrue(ahead.discipline > m.tactics[0].discipline)
+        assertTrue(behind.covering > m.tactics[1].covering)
+        assertTrue(behind.pressing > m.tactics[1].pressing)
+        assertTrue(behind.pushUp > m.tactics[1].pushUp)
+        assertEquals(m.tactics[1].shooting, behind.shooting, 0.0)
+    }
+
+    /** A drill never tilts, whatever its score (§10). */
+    @Test fun aDrillNeverTilts() {
+        val m = drill(Drill.SHOT)
+        m.score[0] = 5
+        m.updateBalance()
+        assertEquals(0.0, m.chase(0), 0.0)
+        assertEquals(0.0, m.chase(1), 0.0)
+        assertEquals(0.0, m.hold(0), 0.0)
+        assertEquals(0.0, m.hold(1), 0.0)
+    }
+
     // Performance (§4)
 
     @Test fun aFullMatchRunsFarFasterThanRealTime() {

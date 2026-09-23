@@ -29,7 +29,7 @@ extension Match {
         typealias C = Tuning.AI.Carrier
         let me = players[i]
         let team = me.team
-        let t = tactics[team]
+        let t = effectiveTactics(team)
         let goal = Vec(x: 0, z: Pitch.attackGoalZ(team))
         let dGoal = Pitch.distance(me.pos, goal)
         let forced = (threat.map { $0 < C.forcedThreat } ?? false) || me.holdTime > C.forcedHold

@@ -34,7 +34,7 @@ private fun Match.decide(i: Int, threat: Double?): CarrierDecision? {
     val c = Tuning.AI.Carrier
     val me = players[i]
     val team = me.team
-    val t = tactics[team]
+    val t = effectiveTactics(team)
     val goal = Vec(0.0, Pitch.attackGoalZ(team))
     val dGoal = Pitch.distance(me.pos, goal)
     val forced = (threat != null && threat < c.forcedThreat) || me.holdTime > c.forcedHold

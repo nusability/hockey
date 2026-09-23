@@ -172,6 +172,25 @@ public enum Tuning {
             public static let laneAheadMax: Double = 4.5
             public static let laneAheadFraction: Double = 0.35
         }
+        public enum Balance {
+            public static let temperamentBase: Double = 1.05
+            public static let temperamentNoise: Double = 0.8
+            public static let temperamentMax: Double = 1.8
+            public static let leadFree: Double = 1.0
+            public static let leadFull: Double = 2.0
+            public static let rampBase: Double = 0.45
+            public static let rampPerProgress: Double = 0.55
+            public static let tiltMax: Double = 1.0
+            public static let holdPressing: Double = 0.6
+            public static let holdPushUp: Double = 0.8
+            public static let holdShooting: Double = 0.85
+            public static let holdDiscipline: Double = 0.4
+            public static let chasePressing: Double = 0.6
+            public static let chasePushUp: Double = 0.6
+            public static let chaseCovering: Double = 0.45
+            public static let chaseGoalieRead: Double = 0.6
+            public static let chaseAlert: Double = 1.0
+        }
         public enum Defend {
             public static let dangerDepthWeight: Double = 0.6
             public static let markChanceBase: Double = 0.35

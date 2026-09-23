@@ -288,6 +288,99 @@ import Testing
         #expect(!m.shotAboutToScore)
     }
 
+    // MARK: §7.10 — the rubberband
+
+    /// The temperament is drawn once, in range, and is the seed's — and a drill has none.
+    @Test func aMatchDrawsOneTemperamentAndADrillDrawsNone() {
+        var m = Match(Self.match)
+        let drawn = m.temperament
+        #expect(drawn >= 0 && drawn <= Tuning.AI.Balance.temperamentMax)
+        #expect(Match(Self.match).temperament == drawn)
+        for _ in 0..<600 { m.tick() }
+        #expect(m.temperament == drawn)
+        #expect(Self.drill(.shot).temperament == 0)
+    }
+
+    /// Level, or one goal in it, and the board's numbers reach §7 untouched — to the bit.
+    @Test func aCloseScoreLeavesEveryTacticExactlyAsTheBoardSetIt() {
+        var m = Match(Self.match)
+        for lead in [0, 1, -1] {
+            m.score = [lead > 0 ? lead : 0, lead < 0 ? -lead : 0]
+            m.period = 3
+            m.clock = 0
+            m.updateBalance()
+            for team in 0..<2 {
+                #expect(m.chase(team) == 0)
+                #expect(m.hold(team) == 0)
+                #expect(m.effectiveTactics(team) == m.tactics[team])
+            }
+        }
+    }
+
+    /// It helps whoever is behind, whichever side that is, by the same amount.
+    @Test func theTiltIsSymmetricBetweenTheTwoSides() {
+        var m = Match(Self.match)
+        m.temperament = 1.0
+        m.period = 2
+        m.score = [5, 1]
+        m.updateBalance()
+        let chasing = m.chase(1)
+        let holding = m.hold(0)
+        #expect(chasing > 0 && chasing == holding)
+        m.score = [1, 5]
+        m.updateBalance()
+        #expect(m.chase(0) == chasing)
+        #expect(m.hold(1) == holding)
+    }
+
+    /// It grows with the lead and with the clock, and never past 1.
+    @Test func theTiltGrowsWithTheLeadAndTheClock() {
+        var m = Match(Self.match)
+        m.temperament = 1.0
+        func tilt(score: [Int], period: Int, clock: Double) -> Double {
+            m.score = score; m.period = period; m.clock = clock
+            m.updateBalance()
+            return m.chase(1)
+        }
+        let early2 = tilt(score: [2, 0], period: 1, clock: 60)
+        let late2 = tilt(score: [2, 0], period: 3, clock: 0)
+        let late4 = tilt(score: [4, 0], period: 3, clock: 0)
+        #expect(early2 > 0 && early2 < late2 && late2 <= late4)
+        #expect(late4 <= Tuning.AI.Balance.tiltMax)
+        m.temperament = Tuning.AI.Balance.temperamentMax
+        #expect(tilt(score: [9, 0], period: 3, clock: 0) == Tuning.AI.Balance.tiltMax)
+    }
+
+    /// Only ever sharper, never softer (A0): the side ahead keeps its keeper and its marking, and
+    /// loses only appetite — pressing, push up, shooting.
+    @Test func theSideAheadIsNeverMadeWorseAtDefending() {
+        var m = Match(Self.match)
+        m.temperament = Tuning.AI.Balance.temperamentMax
+        m.score = [6, 0]
+        m.period = 3
+        m.clock = 0
+        m.updateBalance()
+        let ahead = m.effectiveTactics(0)
+        let behind = m.effectiveTactics(1)
+        #expect(ahead.covering == m.tactics[0].covering)          // never dulled
+        #expect(ahead.pressing < m.tactics[0].pressing)
+        #expect(ahead.pushUp < m.tactics[0].pushUp)
+        #expect(ahead.shooting < m.tactics[0].shooting)
+        #expect(ahead.discipline > m.tactics[0].discipline)
+        #expect(behind.covering > m.tactics[1].covering)
+        #expect(behind.pressing > m.tactics[1].pressing)
+        #expect(behind.pushUp > m.tactics[1].pushUp)
+        #expect(behind.shooting == m.tactics[1].shooting)
+    }
+
+    /// A drill never tilts, whatever its score (§10).
+    @Test func aDrillNeverTilts() {
+        var m = Self.drill(.shot)
+        m.score = [5, 0]
+        m.updateBalance()
+        #expect(m.chase(0) == 0 && m.chase(1) == 0 && m.hold(0) == 0 && m.hold(1) == 0)
+    }
+
     // MARK: Performance (§4)
 
     @Test func aFullMatchRunsFarFasterThanRealTime() {

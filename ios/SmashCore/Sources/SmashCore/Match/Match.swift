@@ -41,6 +41,12 @@ public struct Match: Sendable {
     var deadTimer = 0.0
     /// Seconds each team is still on alert as the defending side (§7.9).
     var alert = [0.0, 0.0]
+    /// How hard this match tilts back toward whoever is behind (§7.10). Drawn once, at set-up;
+    /// a drill has none. Presentation never shows it — it is exposed for the bench and the tests.
+    public internal(set) var temperament = 0.0
+    /// Each team's tilt (§7.10): positive is *chase* — the side behind — negative is *hold*, the
+    /// side ahead, and both are zero at a level or a one-goal score. Recomputed each step in play.
+    var balance = [0.0, 0.0]
     /// The outfield carrier watched for a crossing of the centre line, and their z last step (§7.9).
     var crossingCarrier: Int?
     var crossingZ = 0.0
@@ -83,6 +89,7 @@ public struct Match: Sendable {
         rosters = Match.rosters(of: roster)
         rng = SplitMix64(seed: setup.seed)
         clock = setup.periodSeconds
+        drawTemperament()
         drawFirstThinks()
         setUpFaceOff(at: Tuning.Pitch.faceoffCenter)
     }
@@ -126,6 +133,13 @@ public struct Match: Sendable {
 
     static func rosters(of players: [Athlete]) -> [[Int]] {
         (0..<2).map { team in players.indices.filter { players[$0].team == team } }
+    }
+
+    /// The match's temperament (§7.10), drawn once at set-up before the first re-thinks (§4.3).
+    /// A drill has none and draws nothing.
+    mutating func drawTemperament() {
+        typealias B = Tuning.AI.Balance
+        temperament = Pitch.clamp(B.temperamentBase + rng.noise(B.temperamentNoise), 0, B.temperamentMax)
     }
 
     /// Each outfield player's first re-think falls at 0.2u, drawn in roster order (§7).
@@ -189,6 +203,7 @@ public struct Match: Sendable {
         let live = state == .play
         if live { runClock(dt) }                             // 3
         if live {                                            // 4
+            updateBalance()
             updateAlert(dt)
             if ball.carrier != nil { looseTimer = 0 } else { looseTimer += dt }
             thinkTeam(0, dt)

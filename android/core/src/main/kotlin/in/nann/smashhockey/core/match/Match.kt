@@ -82,6 +82,19 @@ class Match private constructor(
     /** Seconds each team is still on alert as the defending side (§7.9). */
     internal val alert = doubleArrayOf(0.0, 0.0)
 
+    /**
+     * How hard this match tilts back toward whoever is behind (§7.10). Drawn once, at set-up; a
+     * drill has none. Presentation never shows it — it is exposed for the bench and the tests.
+     */
+    var temperament = 0.0
+        internal set
+
+    /**
+     * Each team's tilt (§7.10): positive is *chase* — the side behind — negative is *hold*, the
+     * side ahead, and both are zero at a level or a one-goal score. Recomputed each step in play.
+     */
+    internal val balance = doubleArrayOf(0.0, 0.0)
+
     /** The outfield carrier watched for a crossing of the centre line, and their z last step (§7.9). */
     internal var crossingCarrier: Int? = null
     internal var crossingZ = 0.0
@@ -99,6 +112,7 @@ class Match private constructor(
     init {
         require(periodSeconds > 0 && orbitPeriod > 0) { "Match: period length and orbit period must be positive" }
         omega = Pitch.TWO_PI / orbitPeriod
+        if (drill == null) drawTemperament()
         drawFirstThinks()
         if (drill == null) setUpFaceOff(Tuning.Pitch.faceoffCenter) else resetDrill()
     }
@@ -118,6 +132,15 @@ class Match private constructor(
     /** Each outfield player's first re-think falls at 0.2u, drawn in roster order (§7). */
     private fun drawFirstThinks() {
         for (p in players) if (p.isOutfield) p.thinkTimer = Tuning.AI.firstThinkSpread * rng.uniform()
+    }
+
+    /**
+     * The match's temperament (§7.10), drawn once at set-up before the first re-thinks (§4.3). A
+     * drill has none and draws nothing.
+     */
+    private fun drawTemperament() {
+        val b = Tuning.AI.Balance
+        temperament = Pitch.clamp(b.temperamentBase + rng.noise(b.temperamentNoise), 0.0, b.temperamentMax)
     }
 
     // Input and time
@@ -171,6 +194,7 @@ class Match private constructor(
         val live = state == MatchState.PLAY
         if (live) runClock(dt)                                // 3
         if (live) {                                           // 4
+            updateBalance()
             updateAlert(dt)
             if (ball.carrier != null) looseTimer = 0.0 else looseTimer += dt
             thinkTeam(0, dt)

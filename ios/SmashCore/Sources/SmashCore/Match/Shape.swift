@@ -10,7 +10,7 @@ extension Match {
         typealias S = Tuning.AI.Support
         let team = players[i].team
         let dir = Pitch.direction(team)
-        let pushUp = tactics[team].pushUp
+        let pushUp = effectiveTactics(team).pushUp
         let reference = ball.carrier.map { players[$0].pos } ?? ball.pos
         let flip: Double = reference.x >= 0 ? -1 : 1
         let gz = Pitch.attackGoalZ(team)
@@ -114,7 +114,7 @@ extension Match {
         let defender = p.role == .defender
         let dir = Pitch.direction(p.team)
         let along = (defender ? S.spotAlongDefender : S.spotAlongForward)
-            * (S.spotPushBase + S.spotPushPerPushUp * tactics[p.team].pushUp) * S.spotPushFactor * k
+            * (S.spotPushBase + S.spotPushPerPushUp * effectiveTactics(p.team).pushUp) * S.spotPushFactor * k
         var z = p.home.z + (ball.pos.z - p.home.z) * Pitch.clamp(along, 0, S.spotMaxFraction)
         let x = p.home.x + (ball.pos.x - p.home.x) * (defender ? S.spotAcrossDefender : S.spotAcrossForward)
         if defender && dir * z > dir * ball.pos.z + S.defenderMaxAhead && dir * ball.pos.z < 0 {
@@ -128,7 +128,7 @@ extension Match {
         typealias S = Tuning.AI.Shape
         let p = players[i]
         let follow = (p.role == .defender ? S.zoneAlongDefender : S.zoneAlongForward)
-            * (S.zonePushBase + S.zonePushPerPushUp * tactics[p.team].pushUp)
+            * (S.zonePushBase + S.zonePushPerPushUp * effectiveTactics(p.team).pushUp)
         return Vec(x: p.home.x + (ball.pos.x - p.home.x) * S.zoneAcross, z: p.home.z + (ball.pos.z - p.home.z) * follow)
     }
 
@@ -136,7 +136,7 @@ extension Match {
     func shaped(_ i: Int, _ target: Vec, possession: Possession) -> Vec {
         typealias S = Tuning.AI.Shape
         let team = players[i].team
-        let discipline = tactics[team].discipline
+        let discipline = effectiveTactics(team).discipline
         let z = zone(i)
         var t = Vec(x: target.x + (z.x - target.x) * discipline, z: target.z + (z.z - target.z) * discipline)
         t = keptClear(t, of: ball.pos, by: possession == .theirs ? S.ballDistanceDefending : S.ballDistance)

@@ -16,6 +16,9 @@ extension Match {
         var aimX = ball.pos.x
         var delay = G.readBase + G.readPerUnskill * (1 - s)
         if alerted { delay = delay * A.goalieReadScale }
+        // §7.10 — a side that is behind has its keeper read sooner. Never the other way round: a
+        // defence is only ever sharpened, never dulled, so no goal is handed to anyone (A0).
+        delay = delay * (1 - Tuning.AI.Balance.chaseGoalieRead * chase(team))
         let reacted = ball.lastReleaseTime.map { time - $0 > delay } ?? true
         let towards = dir * ball.vel.z < -G.readSpeed && reacted
         if towards {

@@ -20,7 +20,7 @@ internal fun Match.supportTarget(i: Int): Support {
     val s = Tuning.AI.Support
     val team = players[i].team
     val dir = Pitch.direction(team)
-    val pushUp = tactics[team].pushUp
+    val pushUp = effectiveTactics(team).pushUp
     val carrier = ball.carrier
     val reference = if (carrier != null) players[carrier].pos else ball.pos
     val flip = if (reference.x >= 0) -1.0 else 1.0
@@ -142,7 +142,7 @@ internal fun Match.formationSpot(i: Int, k: Double): Vec {
     val defender = p.role == Role.DEFENDER
     val dir = Pitch.direction(p.team)
     val along = (if (defender) s.spotAlongDefender else s.spotAlongForward) *
-        (s.spotPushBase + s.spotPushPerPushUp * tactics[p.team].pushUp) * s.spotPushFactor * k
+        (s.spotPushBase + s.spotPushPerPushUp * effectiveTactics(p.team).pushUp) * s.spotPushFactor * k
     var z = p.home.z + (ball.pos.z - p.home.z) * Pitch.clamp(along, 0.0, s.spotMaxFraction)
     val x = p.home.x + (ball.pos.x - p.home.x) * (if (defender) s.spotAcrossDefender else s.spotAcrossForward)
     if (defender && dir * z > dir * ball.pos.z + s.defenderMaxAhead && dir * ball.pos.z < 0) {
@@ -156,7 +156,7 @@ private fun Match.zone(i: Int): Vec {
     val s = Tuning.AI.Shape
     val p = players[i]
     val follow = (if (p.role == Role.DEFENDER) s.zoneAlongDefender else s.zoneAlongForward) *
-        (s.zonePushBase + s.zonePushPerPushUp * tactics[p.team].pushUp)
+        (s.zonePushBase + s.zonePushPerPushUp * effectiveTactics(p.team).pushUp)
     return Vec(p.home.x + (ball.pos.x - p.home.x) * s.zoneAcross, p.home.z + (ball.pos.z - p.home.z) * follow)
 }
 
@@ -164,7 +164,7 @@ private fun Match.zone(i: Int): Vec {
 internal fun Match.shaped(i: Int, target: Vec, possession: Possession): Vec {
     val s = Tuning.AI.Shape
     val team = players[i].team
-    val discipline = tactics[team].discipline
+    val discipline = effectiveTactics(team).discipline
     val z = zone(i)
     var t = Vec(target.x + (z.x - target.x) * discipline, target.z + (z.z - target.z) * discipline)
     t = keptClear(t, ball.pos, if (possession == Possession.THEIRS) s.ballDistanceDefending else s.ballDistance)

@@ -24,6 +24,9 @@ internal fun Match.thinkGoalie(g: Int, dt: Double) {
     val released = ball.lastReleaseTime
     var delay = gl.readBase + gl.readPerUnskill * (1 - s)
     if (alerted) delay *= al.goalieReadScale
+    // §7.10 — a side that is behind has its keeper read sooner. Never the other way round: a
+    // defence is only ever sharpened, never dulled, so no goal is handed to anyone (A0).
+    delay *= (1 - Tuning.AI.Balance.chaseGoalieRead * chase(team))
     val reacted = released == null || time - released > delay
     val towards = dir * ball.vel.z < -gl.readSpeed && reacted
     if (towards) {

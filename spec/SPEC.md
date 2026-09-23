@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.15.0
+Spec-Version: 0.16.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -224,7 +224,9 @@ uniform ← (out >> 11) × 2^−53                  a double in [0, 1)
   seeded when it is created and stored with it (§15), which schedules fixtures and simulates
   results (§11).
 - Draws happen in the order the rules are evaluated: per step, team 0's AI then team 1's; within
-  a team, players in roster order. The draw sites, each where its rule runs: an outfield player's
+  a team, players in roster order. The draw sites, each where its rule runs: **the match's
+  temperament** (§7.10, three draws, at setup, before anything else — a drill draws none); an
+  outfield player's
   first re-think (§7, at setup) and each re-think period; a face-off's drop (§8.2); an AI
   carrier's re-think period, shot chance, `noise(0.8)` per pass candidate in roster order, pass
   chance and shot power (§7.6); a defender's marking chance (§7.3, drawn only when there is
@@ -256,8 +258,8 @@ nothing); a target within 1e-3 of what it keeps clear of is pushed along +x.
 3. In play: the clock counts down; at zero the period, match or drill ends (§8.3, §8.4, §10) —
    the rest of this step still runs as in play, but a goal, a whistle or a drill's interruption
    only happens while the state is play, so none does in that step.
-4. In play: the alert window (§7.9), then the loose-ball timer (§7.1), then team 0's automatic
-   play, then team 1's (§7).
+4. In play: the match's tilt (§7.10), then the alert window (§7.9), then the loose-ball timer
+   (§7.1), then team 0's automatic play, then team 1's (§7).
 5. Every player moves (§3), in roster order; pickup cooldowns count down here, in every state.
 6. Player–player contact (§3), then each player but a dummy is kept inside the boundary and out
    of the nets.
@@ -426,7 +428,9 @@ interrupted instead (§10), the ball left as it is.
 
 ### 7. Automatic play
 Everyone except the player's release decision is automatic, and both teams run the same rules
-with their own tactics (§12) and rating. Outfield players re-think every **0.12 + 0.1u** s
+with their own tactics (§12) and rating. Wherever a rule below reads a tactic it reads the team's
+**effective** tactic — the board's number with §7.10's tilt applied, which is the board's number
+exactly whenever the score is level or within one goal. Outfield players re-think every **0.12 + 0.1u** s
 (u a draw; each outfield player's first re-think falls at `0.2u`, drawn in roster order when the
 match is set up); carriers and goalies think every step. Every player's think timer counts down
 each step in play; a carrier keeps its own (§7.6). Dummies do not think. Wherever §5–§7 pick
@@ -586,7 +590,7 @@ identically**; it is not a tactic and nothing on the coach's board (§12) change
 **The trigger.** While an outfield player carries the ball, the same player carried it at the
 previous step, `direction × z` was `≤ 0` then and is `> 0` now — the carrying player's z crossing
 the centre line toward the goal they attack — the **other** team goes on alert for **3.0 s** of
-match time. A fresh crossing restarts it. A loose ball crossing the line triggers nothing.
+match time — longer when that team is behind (§7.10). A fresh crossing restarts it. A loose ball crossing the line triggers nothing.
 
 **The window closes** early when the alerted team wins the ball (whoever carries clears their own
 team's alert), when the carrier comes within **14** of the goal they attack — from there the attack
@@ -609,6 +613,82 @@ While a team is alerted, three things change for it, all of them defence doing i
 
 Which side is defending on alert is state the core exposes for presentation to read; like everything
 in §8.8 it never changes a tick (§4.2).
+
+#### 7.10 The balance of a match — the rubberband
+A match that runs away from one side is not worth watching and not worth finishing: a 12–2 is
+neither a story nor a test, in either direction. So from a **two-goal** lead on, the match tilts
+gently back — the side in front settles, the side behind commits — and the tilt grows with the
+size of the lead and with the clock. **It is symmetric**: it helps whoever is behind, the player
+included when the player is behind, and the AI when the player is running away with it. A two- to
+four-goal win stays entirely ordinary; what becomes rare is the rout.
+
+**Everything here is a nudge to the odds**, never to the ball. Nothing in this section touches
+the ball's physics, anyone's accuracy or power, or a goal that has already been struck — and
+**nothing at all reaches the player's own release**, which is theirs alone (§5.3, A0).
+
+**The temperament.** Each match draws a **temperament** once, at set-up, before every other draw
+(§4.3): `temperament = clamp(1.05 + noise(0.8), 0, 1.8)`, from three draws. It never changes, and
+nothing shows it. Most matches land near 1.05 and rubberband normally; about one in nine draws
+below 0.55 and barely rubberbands at all — that is where a 7–1 still comes from, and why it feels
+like something happened; about one in nine draws above 1.55 and tilts from the first sign of a
+gap. **A drill has no temperament and no rubberband** (§10), and draws none.
+
+**The tilt.** At the start of §4.5's step 4, in play, both teams' tilt is recomputed from the
+score and the clock:
+
+```
+lead     = this team's score − the other's
+excess   = max(|lead| − 1, 0)                        a one-goal lead is not a lead
+band     = min(excess / 2, 1)                        full from three clear
+elapsed  = (period − 1) × period length + (period length − clock)
+progress = clamp(elapsed / (3 × period length), 0, 1)
+ramp     = 0.45 + 0.55 × progress
+r        = min(temperament × band × ramp, 1)
+```
+
+`r` is one number for the match; the side **behind** uses it as **chase** and the side **ahead**
+as **hold**, and at a level score or a one-goal game both are zero. In overtime the score is level
+by definition, so nothing tilts. The tilt is weather, not an event: at 2–0 halfway through the
+first period it is about 0.3, at 4–1 in the third about 1.0. Between goals it only drifts with the
+clock — about 0.05 a period — and the one time it steps is when a goal changes the band, which is
+always followed by a 3.0 s celebration and a face-off (§8.3), so no player ever sees it move
+during play.
+
+**What the tilt changes.** The effective tactics (§12) both teams' rules read:
+
+| Tactic | The side ahead (hold `h`) | The side behind (chase `c`) |
+|---|---|---|
+| Pressing (§7.1, §7.2) | `× (1 − 0.6 h)` | `+ (1 − pressing) × 0.6 c` |
+| Push up (§7.4, §7.5) | `× (1 − 0.8 h)` | `+ (1 − push up) × 0.6 c` |
+| Discipline (§7.5) | `+ (1 − discipline) × 0.4 h` | unchanged |
+| Shooting (§7.6) | `× (1 − 0.85 h)` | unchanged |
+| Covering (§7.3) | unchanged | `+ (1 − covering) × 0.45 c` |
+
+and two things for the side behind alone:
+
+- **its goalie reads sooner** — the reading delay it would otherwise use (§7.8's, already halved
+  if it is alerted, §7.9) is multiplied by `1 − 0.6 × chase`;
+- **its alert window lasts longer** — §7.9's 3.0 s becomes `3.0 × (1 + chase)` s.
+
+So the side in front sits deeper, presses less, holds its shape, and its AI carriers take the
+safe ball instead of the speculative shot — a side managing a lead, which is a thing a player can
+watch happening. The side behind pushes up, presses, marks tighter, and defends the counter it is
+now exposed to.
+
+**Only ever sharper, never softer.** A defence and a goalie are made *keener* when their side is
+behind; **no defence and no goalie is ever dulled because its side is ahead.** A rubberband that
+softened the leader's keeper would hand out goals nobody earned, and a goal you were given is the
+one thing A0 cannot survive. What the leader loses is appetite, never competence.
+
+**The board is untouched** (§12): the player's settings mean exactly what they say, and the tilt
+is applied on top of them, identically for both sides. Passing and shooting are club tactics only,
+so the shooting nudge never reaches the player's team — every outfield release on their side is
+still the player's own, at the player's own accuracy. Nothing on the coach's board changes the
+rubberband, and nothing sold ever will (monetization ethics 2: the difficulty serves the match,
+not the shop).
+
+**§11.3's simulated results are not affected.** A match the player does not play is still two
+Poisson draws.
 
 ### 8. The match
 
@@ -757,6 +837,8 @@ turn. It never affects progress.
 Eight drills, unlocked in order: a drill is open once the one before it has been won. Each has a
 world, a goal target and a time limit.
 
+- **No rubberband:** a drill is not a match between two scores, so §7.10 never tilts one and a
+  drill draws no temperament.
 - **Setup:** fixed lineups. The ball starts with the player's first player (or the one the drill
   names), orbiting from behind them (the orbit angle π, turning as §5.1 chooses), after a 1.4 s
   "get ready". The drill's clock is its time limit.
@@ -868,6 +950,10 @@ included, and is saved on the device.
 | Discipline | 0–1 | 0 | how strictly the formation is held (§7.5) |
 | Period length | 60–240 s, steps of 30 | 120 s | §8.3 |
 | Ball spin | 1.4–3.2 s per turn, steps of 0.2 | 2.0 s | the orbit period (§5.1): slower is easier |
+
+Every setting here is read through §7.10's tilt: the board says what a team does at a level
+score, and the rubberband bends it from a two-goal gap on, the same way for the player's side and
+the opponent's. The board cannot turn the rubberband off or up.
 
 Passing and shooting (§7.6) are tactics of the clubs only: on the player's team every outfield
 release is the player's, so the board does not offer them. "Reset" restores the defaults. The ball-spin setting sets the orbit period for every

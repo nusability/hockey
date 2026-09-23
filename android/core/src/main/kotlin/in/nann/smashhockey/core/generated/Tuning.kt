@@ -173,6 +173,25 @@ object Tuning {
             const val laneAheadMax: Double = 4.5
             const val laneAheadFraction: Double = 0.35
         }
+        object Balance {
+            const val temperamentBase: Double = 1.05
+            const val temperamentNoise: Double = 0.8
+            const val temperamentMax: Double = 1.8
+            const val leadFree: Double = 1.0
+            const val leadFull: Double = 2.0
+            const val rampBase: Double = 0.45
+            const val rampPerProgress: Double = 0.55
+            const val tiltMax: Double = 1.0
+            const val holdPressing: Double = 0.6
+            const val holdPushUp: Double = 0.8
+            const val holdShooting: Double = 0.85
+            const val holdDiscipline: Double = 0.4
+            const val chasePressing: Double = 0.6
+            const val chasePushUp: Double = 0.6
+            const val chaseCovering: Double = 0.45
+            const val chaseGoalieRead: Double = 0.6
+            const val chaseAlert: Double = 1.0
+        }
         object Defend {
             const val dangerDepthWeight: Double = 0.6
             const val markChanceBase: Double = 0.35

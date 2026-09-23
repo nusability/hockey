@@ -139,6 +139,23 @@ internal object GeneratedConstantBits {
         Triple("Tuning.AI.Alert.closeRange", Tuning.AI.Alert.closeRange, 4624070917402656768L), // 0x402C000000000000
         Triple("Tuning.AI.Alert.laneAheadMax", Tuning.AI.Alert.laneAheadMax, 4616752568008179712L), // 0x4012000000000000
         Triple("Tuning.AI.Alert.laneAheadFraction", Tuning.AI.Alert.laneAheadFraction, 4599976659396224614L), // 0x3FD6666666666666
+        Triple("Tuning.AI.Balance.temperamentBase", Tuning.AI.Balance.temperamentBase, 4607407598781385933L), // 0x3FF0CCCCCCCCCCCD
+        Triple("Tuning.AI.Balance.temperamentNoise", Tuning.AI.Balance.temperamentNoise, 4605380978949069210L), // 0x3FE999999999999A
+        Triple("Tuning.AI.Balance.temperamentMax", Tuning.AI.Balance.temperamentMax, 4610785298501913805L), // 0x3FFCCCCCCCCCCCCD
+        Triple("Tuning.AI.Balance.leadFree", Tuning.AI.Balance.leadFree, 4607182418800017408L), // 0x3FF0000000000000
+        Triple("Tuning.AI.Balance.leadFull", Tuning.AI.Balance.leadFull, 4611686018427387904L), // 0x4000000000000000
+        Triple("Tuning.AI.Balance.rampBase", Tuning.AI.Balance.rampBase, 4601778099247172813L), // 0x3FDCCCCCCCCCCCCD
+        Triple("Tuning.AI.Balance.rampPerProgress", Tuning.AI.Balance.rampPerProgress, 4603129179135383962L), // 0x3FE199999999999A
+        Triple("Tuning.AI.Balance.tiltMax", Tuning.AI.Balance.tiltMax, 4607182418800017408L), // 0x3FF0000000000000
+        Triple("Tuning.AI.Balance.holdPressing", Tuning.AI.Balance.holdPressing, 4603579539098121011L), // 0x3FE3333333333333
+        Triple("Tuning.AI.Balance.holdPushUp", Tuning.AI.Balance.holdPushUp, 4605380978949069210L), // 0x3FE999999999999A
+        Triple("Tuning.AI.Balance.holdShooting", Tuning.AI.Balance.holdShooting, 4605831338911806259L), // 0x3FEB333333333333
+        Triple("Tuning.AI.Balance.holdDiscipline", Tuning.AI.Balance.holdDiscipline, 4600877379321698714L), // 0x3FD999999999999A
+        Triple("Tuning.AI.Balance.chasePressing", Tuning.AI.Balance.chasePressing, 4603579539098121011L), // 0x3FE3333333333333
+        Triple("Tuning.AI.Balance.chasePushUp", Tuning.AI.Balance.chasePushUp, 4603579539098121011L), // 0x3FE3333333333333
+        Triple("Tuning.AI.Balance.chaseCovering", Tuning.AI.Balance.chaseCovering, 4601778099247172813L), // 0x3FDCCCCCCCCCCCCD
+        Triple("Tuning.AI.Balance.chaseGoalieRead", Tuning.AI.Balance.chaseGoalieRead, 4603579539098121011L), // 0x3FE3333333333333
+        Triple("Tuning.AI.Balance.chaseAlert", Tuning.AI.Balance.chaseAlert, 4607182418800017408L), // 0x3FF0000000000000
         Triple("Tuning.AI.Defend.dangerDepthWeight", Tuning.AI.Defend.dangerDepthWeight, 4603579539098121011L), // 0x3FE3333333333333
         Triple("Tuning.AI.Defend.markChanceBase", Tuning.AI.Defend.markChanceBase, 4599976659396224614L), // 0x3FD6666666666666
         Triple("Tuning.AI.Defend.markChancePerCovering", Tuning.AI.Defend.markChancePerCovering, 4603579539098121011L), // 0x3FE3333333333333

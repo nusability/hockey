@@ -1,10 +1,10 @@
 // Measures automatic play over a sweep of seeded matches (spec §7). It writes nothing — it is the
 // bench §7.9's alert window and §7.4's receiving slot were tuned on, and the way to re-measure.
 //
-//     cd ios/SmashCore && swift run -c release MeasureMatches        # the default sweep, 40 + 24 matches
-//     cd ios/SmashCore && swift run -c release MeasureMatches 80 48  # a longer one
+//     cd ios/SmashCore && swift run -c release MeasureMatches            # the default sweep, 40 + 24 + 300 matches
+//     cd ios/SmashCore && swift run -c release MeasureMatches 80 48 600  # a longer one
 //
-// Three benches, because one does not see what the other does:
+// Four benches, because one does not see what the other does:
 //
 //  * **league** — both sides automatic (§9's demo rules). Goals, shots, saves, turnovers and how far
 //    out goals are scored from: the health of the match as a whole.
@@ -13,12 +13,16 @@
 //    exists to punish, measured as conversion per distance band.
 //  * **shape** — while the player's side carries inside the attacking third, how many team-mates
 //    stand in a genuine receiving position (the §7.4 band, an unblocked lane, up the pitch).
+//  * **margins** — the bench §7.10's rubberband was tuned on: over a few hundred seeded league
+//    matches, how the final margin is distributed, how often a match is decided by one goal, and
+//    how often a side is ever five clear. This is the one that says whether a match feels close.
 import Foundation
 import SmashCore
 
 let args = CommandLine.arguments.dropFirst().compactMap { Int($0) }
 let leagueCount = args.first ?? 40
 let soloCount = args.dropFirst().first ?? 24
+let marginCount = args.dropFirst(2).first ?? 300
 let clubs = Club.allCases
 let goalZ = Tuning.Pitch.goalLineZ
 
@@ -223,6 +227,85 @@ for n in 0..<soloCount {
     }
 }
 
+// MARK: The margins bench — how close a match ends up (§7.10)
+
+struct Margins {
+    var matches = 0
+    var goals = 0
+    /// Final margins, bucketed 0, 1, … 6, then 7+.
+    var histogram = [Int](repeating: 0, count: 8)
+    var everFiveClear = 0
+    var draws = 0
+    var marginSum = 0
+    /// Matches whose biggest lead at any point was this many goals or more.
+    var everLead = [Int](repeating: 0, count: 8)
+
+    mutating func record(final: Int, peak: Int, goals: Int) {
+        matches += 1
+        self.goals += goals
+        histogram[min(final, 7)] += 1
+        marginSum += final
+        if final == 0 { draws += 1 }
+        if peak >= 5 { everFiveClear += 1 }
+        for k in 0...min(peak, 7) { everLead[k] += 1 }
+    }
+
+    func table() -> String {
+        var out = "   margin    matches   share\n"
+        for k in histogram.indices {
+            let label = k == 7 ? "  7+ " : String(format: "%4d", k)
+            out += String(format: "   %@ %10d   %@\n", label, histogram[k], share(histogram[k], matches))
+        }
+        return out
+    }
+}
+
+var margins = Margins()
+/// The same, split by how strongly the match's temperament rubberbands it (§7.10): the calm third,
+/// the middle third and the fierce third. A blowout should live almost entirely in the calm third.
+var byTemperament = [Margins(), Margins(), Margins()]
+var temperaments: [Double] = []
+/// The thirds the report splits on, half a temperament either side of §7.10's base.
+let calmBelow = Tuning.AI.Balance.temperamentBase - 0.5
+let fierceFrom = Tuning.AI.Balance.temperamentBase + 0.5
+for n in 0..<marginCount {
+    // A stream of its own, disjoint from the league bench's, so the two do not measure the same matches.
+    var setup = setup(n, control: .automatic)
+    setup.seed = 0x8A1A_0000 &+ UInt64(n)
+    var match = Match(setup)
+    var peak = 0
+    var goals = 0
+    while match.state != .ended && match.ticks < 120_000 {
+        match.tick()
+        for event in match.drainEvents() {
+            if case .goal = event {
+                goals += 1
+                peak = max(peak, abs(match.score[0] - match.score[1]))
+            }
+        }
+    }
+    let final = abs(match.score[0] - match.score[1])
+    margins.record(final: final, peak: peak, goals: goals)
+    let t = match.temperament
+    temperaments.append(t)
+    byTemperament[t < calmBelow ? 0 : (t < fierceFrom ? 1 : 2)].record(final: final, peak: peak, goals: goals)
+}
+
+/// The margin table split by temperament (§7.10): a blowout should live in the calm third.
+let temperamentTable: String = {
+    var out = String(format: "  by temperament (\u{00A7}7.10): calm < %.2f, middling, fierce \u{2265} %.2f\n", calmBelow, fierceFrom)
+    out += "    band       matches   goals   margin   within 3    5+   ever 5 clear\n"
+    for (k, name) in ["calm    ", "middling", "fierce  "].enumerated() {
+        let m = byTemperament[k]
+        let within3 = m.histogram[0] + m.histogram[1] + m.histogram[2] + m.histogram[3]
+        let five = m.histogram[5] + m.histogram[6] + m.histogram[7]
+        out += "    \(name) \(String(format: "%8d", m.matches))   \(per(m.goals, m.matches))"
+        out += "    \(per(m.marginSum, m.matches))     \(share(within3, m.matches))  \(share(five, m.matches))"
+        out += "          \(share(m.everFiveClear, m.matches))\n"
+    }
+    return out
+}()
+
 // MARK: The report
 
 print("""
@@ -250,4 +333,16 @@ SHAPE — sampled while the bot carries inside 20 of the goal it attacks
   receivers on average  \(per(solo.receiverSum, solo.thirdTicks))
   nearest team-mate     \(per(Int(solo.nearestSum.rounded()), solo.thirdTicks)) m
   nearest to the offer  \(per(Int(solo.offerGapSum.rounded()), solo.thirdTicks)) m
+
+MARGINS — \(margins.matches) matches, both sides automatic (§7.10)
+  goals per match       \(per(margins.goals, margins.matches))
+  mean final margin     \(per(margins.marginSum, margins.matches))
+  decided by one goal   \(share(margins.histogram[1], margins.matches))
+  drawn                 \(share(margins.draws, margins.matches))
+  within 3              \(share(margins.histogram[0] + margins.histogram[1] + margins.histogram[2] + margins.histogram[3], margins.matches))
+  5 or more             \(share(margins.histogram[5] + margins.histogram[6] + margins.histogram[7], margins.matches))
+  7 or more             \(share(margins.histogram[7], margins.matches))
+  ever 5 clear          \(share(margins.everFiveClear, margins.matches))
+\(margins.table())
+\(temperamentTable)
 """)

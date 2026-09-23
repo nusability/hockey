@@ -39,7 +39,7 @@ extension Match {
         switch possession {
         case .loose:
             let rank = ranking.firstIndex { $0.index == i } ?? ranking.count
-            let pressing = tactics[players[i].team].pressing
+            let pressing = effectiveTactics(players[i].team).pressing
             let many = pressing > L.twoChasersPressing || (ranking.first?.distance ?? 0) > L.twoChasersDistance
                 || looseTimer > L.twoChasersLooseTime
             if players[i].expectPass > 0 {
@@ -126,7 +126,7 @@ extension Match {
     /// stays committed for 0.7 s.
     mutating func pickChallengers(_ team: Int, carrier: Int) -> [Int] {
         typealias C = Tuning.AI.Challenge
-        let t = tactics[team]
+        let t = effectiveTactics(team)
         let pressRange = (C.pressRangeBase + C.pressRangePerPressing * t.pressing) * (1 - C.pressRangeDiscipline * t.discipline)
         let most = t.pressing > C.pressingThreshold ? C.challengersPressing : C.challengers
         var candidates: [(index: Int, committed: Bool, goalSide: Bool, distance: Double)] = []
@@ -168,6 +168,43 @@ extension Match {
                    z: c.pos.z + r * DetMath.cos(a) + c.vel.z * C.orbitLead)
     }
 
+    // MARK: §7.10 — the balance of a match
+
+    /// Recomputes both teams' tilt from the score and the clock (§7.10). A drill never tilts.
+    mutating func updateBalance() {
+        typealias B = Tuning.AI.Balance
+        guard drill == nil else { return }
+        let lead = Double(score[0] - score[1])
+        let excess = Pitch.greater(lead.magnitude - B.leadFree, 0)
+        let band = Pitch.lesser(excess / B.leadFull, 1)
+        let elapsed = Double(period - 1) * periodSeconds + (periodSeconds - clock)
+        let progress = Pitch.clamp(elapsed / (Double(Tuning.Match.periods) * periodSeconds), 0, 1)
+        let r = Pitch.lesser(temperament * band * (B.rampBase + B.rampPerProgress * progress), B.tiltMax)
+        balance[0] = lead > 0 ? -r : (lead < 0 ? r : 0)
+        balance[1] = lead < 0 ? -r : (lead > 0 ? r : 0)
+    }
+
+    /// How hard this team chases — it is behind. Zero when level or ahead (§7.10).
+    func chase(_ team: Int) -> Double { Pitch.greater(balance[team], 0) }
+
+    /// How hard this team holds a lead — it is ahead. Zero when level or behind (§7.10).
+    func hold(_ team: Int) -> Double { Pitch.greater(0 - balance[team], 0) }
+
+    /// The team's tactics (§12) with §7.10's tilt applied — the only tactics §7 ever reads. At a
+    /// level or one-goal score both tilts are zero and this is the board's own numbers, exactly.
+    func effectiveTactics(_ team: Int) -> Tactics {
+        typealias B = Tuning.AI.Balance
+        var t = tactics[team]
+        let c = chase(team)
+        let h = hold(team)
+        t.pressing = t.pressing * (1 - B.holdPressing * h) + (1 - t.pressing) * (B.chasePressing * c)
+        t.pushUp = t.pushUp * (1 - B.holdPushUp * h) + (1 - t.pushUp) * (B.chasePushUp * c)
+        t.covering = t.covering + (1 - t.covering) * (B.chaseCovering * c)
+        t.shooting = t.shooting * (1 - B.holdShooting * h)
+        t.discipline = t.discipline + (1 - t.discipline) * (B.holdDiscipline * h)
+        return t
+    }
+
     // MARK: §7.9 — the alert window
 
     /// Counts the alert down, ends it when the alerted team wins the ball, and opens a new one when
@@ -191,7 +228,8 @@ extension Match {
         let dir = Pitch.direction(players[c].team)
         let z = players[c].pos.z
         if crossingCarrier == c && dir * crossingZ <= 0 && dir * z > 0 {
-            alert[1 - players[c].team] = Tuning.AI.Alert.seconds
+            let other = 1 - players[c].team
+            alert[other] = Tuning.AI.Alert.seconds * (1 + Tuning.AI.Balance.chaseAlert * chase(other))
         }
         crossingCarrier = c
         crossingZ = z
@@ -228,7 +266,7 @@ extension Match {
         typealias D = Tuning.AI.Defend
         let team = players[i].team
         let dir = Pitch.direction(team)
-        let covering = tactics[team].covering
+        let covering = effectiveTactics(team).covering
         var taken: [Int] = []
         for q in rosters[team] where q != i { if let m = players[q].mark { taken.append(m) } }
         var mark: Int?

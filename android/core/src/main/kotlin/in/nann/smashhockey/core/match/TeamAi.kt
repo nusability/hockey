@@ -1,5 +1,6 @@
 package `in`.nann.smashhockey.core.match
 
+import `in`.nann.smashhockey.core.generated.Tactics
 import `in`.nann.smashhockey.core.generated.Tuning
 import `in`.nann.smashhockey.core.math.DetMath
 import kotlin.math.abs
@@ -61,7 +62,7 @@ private fun Match.rethink(
         Possession.LOOSE -> {
             val found = ranking.indexOfFirst { it.index == i }
             val rank = if (found >= 0) found else ranking.size
-            val pressing = tactics[p.team].pressing
+            val pressing = effectiveTactics(p.team).pressing
             val many = pressing > l.twoChasersPressing || (ranking.firstOrNull()?.distance ?: 0.0) > l.twoChasersDistance ||
                 looseTimer > l.twoChasersLooseTime
             if (p.expectPass > 0) {
@@ -156,7 +157,7 @@ private class Candidate(val index: Int, val committed: Boolean, val goalSide: Bo
 /** Who goes in for the ball: the committed, then the goal-side, then the nearest; committed 0.7 s. */
 private fun Match.pickChallengers(team: Int, carrier: Int): List<Int> {
     val c = Tuning.AI.Challenge
-    val t = tactics[team]
+    val t = effectiveTactics(team)
     val pressRange = (c.pressRangeBase + c.pressRangePerPressing * t.pressing) * (1 - c.pressRangeDiscipline * t.discipline)
     val most = if (t.pressing > c.pressingThreshold) c.challengersPressing else c.challengers
     val candidates = ArrayList<Candidate>()
@@ -201,6 +202,46 @@ private fun Match.challengePoint(): Vec {
     )
 }
 
+// §7.10 — the balance of a match
+
+/** Recomputes both teams' tilt from the score and the clock (§7.10). A drill never tilts. */
+internal fun Match.updateBalance() {
+    if (drill != null) return
+    val b = Tuning.AI.Balance
+    val lead = (score[0] - score[1]).toDouble()
+    val excess = Pitch.greater(abs(lead) - b.leadFree, 0.0)
+    val band = Pitch.lesser(excess / b.leadFull, 1.0)
+    val elapsed = (period - 1).toDouble() * periodSeconds + (periodSeconds - clock)
+    val progress = Pitch.clamp(elapsed / (Tuning.Match.periods.toDouble() * periodSeconds), 0.0, 1.0)
+    val r = Pitch.lesser(temperament * band * (b.rampBase + b.rampPerProgress * progress), b.tiltMax)
+    balance[0] = if (lead > 0) -r else if (lead < 0) r else 0.0
+    balance[1] = if (lead < 0) -r else if (lead > 0) r else 0.0
+}
+
+/** How hard this team chases — it is behind. Zero when level or ahead (§7.10). */
+internal fun Match.chase(team: Int): Double = Pitch.greater(balance[team], 0.0)
+
+/** How hard this team holds a lead — it is ahead. Zero when level or behind (§7.10). */
+internal fun Match.hold(team: Int): Double = Pitch.greater(0.0 - balance[team], 0.0)
+
+/**
+ * The team's tactics (§12) with §7.10's tilt applied — the only tactics §7 ever reads. At a level
+ * or one-goal score both tilts are zero and this is the board's own numbers, exactly.
+ */
+internal fun Match.effectiveTactics(team: Int): Tactics {
+    val b = Tuning.AI.Balance
+    val t = tactics[team]
+    val c = chase(team)
+    val h = hold(team)
+    return t.copy(
+        pressing = t.pressing * (1 - b.holdPressing * h) + (1 - t.pressing) * (b.chasePressing * c),
+        pushUp = t.pushUp * (1 - b.holdPushUp * h) + (1 - t.pushUp) * (b.chasePushUp * c),
+        covering = t.covering + (1 - t.covering) * (b.chaseCovering * c),
+        shooting = t.shooting * (1 - b.holdShooting * h),
+        discipline = t.discipline + (1 - t.discipline) * (b.holdDiscipline * h),
+    )
+}
+
 // §7.9 — the alert window
 
 /**
@@ -229,7 +270,8 @@ internal fun Match.updateAlert(dt: Double) {
     val dir = Pitch.direction(players[c].team)
     val z = players[c].pos.z
     if (crossingCarrier == c && dir * crossingZ <= 0 && dir * z > 0) {
-        alert[1 - players[c].team] = Tuning.AI.Alert.seconds
+        val other = 1 - players[c].team
+        alert[other] = Tuning.AI.Alert.seconds * (1 + Tuning.AI.Balance.chaseAlert * chase(other))
     }
     crossingCarrier = c
     crossingZ = z
@@ -274,7 +316,7 @@ private fun Match.defendTarget(i: Int): Vec {
     val df = Tuning.AI.Defend
     val team = players[i].team
     val dir = Pitch.direction(team)
-    val covering = tactics[team].covering
+    val covering = effectiveTactics(team).covering
     val taken = ArrayList<Int>()
     for (q in rosters[team]) {
         if (q == i) continue

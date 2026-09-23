@@ -41,7 +41,6 @@ import `in`.nann.smashhockey.engine.FilamentHost
 import `in`.nann.smashhockey.generated.AtmosphereData
 import `in`.nann.smashhockey.generated.Presentation
 import `in`.nann.smashhockey.generated.look
-import `in`.nann.smashhockey.scene.TeamColours
 import `in`.nann.smashhockey.screens.CoachScreen
 import `in`.nann.smashhockey.screens.DetailScreen
 import `in`.nann.smashhockey.screens.HelpScreen
@@ -442,59 +441,5 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         const val TAG = "SmashGame"
         fun pose(eye: List<Double>, target: List<Double>) =
             CameraPose(eye[0].toFloat(), eye[1].toFloat(), eye[2].toFloat(), target[0].toFloat(), target[1].toFloat(), target[2].toFloat())
-    }
-}
-
-/** How a match or drill ended, for the result screen (§16.5). */
-data class Outcome(
-    val plan: MatchPlan,
-    val score: List<Int>,
-    val overtime: Boolean,
-    val result: MatchResult,
-    val codes: List<String>?,
-    /** The two sides' full names, the player's first — shown under the codes (§16.5); null in a drill. */
-    val names: List<String>?,
-    val colours: List<TeamColours>,
-    val drillGoals: Int?,
-)
-
-/**
- * The system keyboard for the create screen's name and code (§16.1) — the twin of iOS's
- * `Keyboard`: what is being typed, into which field, read by the hidden text field in the Compose
- * layer.
- */
-class Keyboard {
-    enum class Field { NAME, CODE }
-    val field = mutableStateOf<Field?>(null)
-    val text = mutableStateOf("")
-    private var onChange: ((String) -> Unit)? = null
-    private var onEnd: (() -> Unit)? = null
-
-    fun begin(f: Field, initial: String, onChange: (String) -> Unit, onEnd: () -> Unit) {
-        val previous = this.onEnd
-        this.onChange = null
-        this.onEnd = null
-        previous?.invoke()
-        text.value = initial
-        this.onChange = onChange
-        this.onEnd = onEnd
-        field.value = f
-    }
-
-    /** The hidden field typed: the screen hears of it. */
-    fun typed(value: String) {
-        if (field.value == null || value == text.value) return
-        text.value = value
-        onChange?.invoke(value)
-    }
-
-    /** Typing is over (done, the keyboard dismissed, or the screen left). */
-    fun end() {
-        if (field.value == null) return
-        field.value = null
-        onChange = null
-        val done = onEnd
-        onEnd = null
-        done?.invoke()
     }
 }

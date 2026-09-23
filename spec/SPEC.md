@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.19.0
+Spec-Version: 0.19.1
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -823,15 +823,11 @@ never a banner, a sound or a haptic.
   colour. They hang **still** until the ball strikes them: a net that billows on
   its own reads as wind on a pitch that has none, and it pulls the eye away from the play. The
   cloth's only motion is the ball's (below).
-- **The net answers the ball, not the referee.** Every time the ball meets the cloth it dents where
-  it struck and the dent spreads outward across that goal's sheets and dies away — a goal, the ball
-  rebounding off the back from inside the net, a shot into the side netting from behind the goal, a
-  ball driven into the side of the net in open play. It is the **contact** that ripples the net, not
-  the whistle, so it happens on every one of them and never on a goal that has not reached the cloth
-  yet. How deep the dent is follows the ball's speed **into** that sheet: a hard shot punches the
-  net about a third of the goal's depth, a dribbled ball nudges it, and a ball merely leaning on it
-  does nothing. The dent is bound by the same bell as the breath, so the laced edges stay still and
-  the four sheets hold together as one skin; Reduce Motion keeps the same calmed share of it.
+- **The net does not move.** It is cloth — four laced sheets of cords over a film, drawn by the
+  apps (above) — but nothing makes it billow or dent: neither idle wind nor the ball. Both were
+  built and neither could be seen on a phone, and a motion nobody can see is not worth the frames.
+  The contact the ball makes with each sheet is still computed and tested, so this is a number to
+  turn back up rather than a mechanism to rebuild.
 - **Goals.** Confetti bursts from the scored-in net at real speed — 160 cards in the scoring side's
   primary, secondary and white, thrown sideways and high, falling, bouncing and tumbling; the net
   ripples as the ball reaches its cloth, like any other contact (above); the camera shakes (a kick

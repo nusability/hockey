@@ -187,7 +187,7 @@ object Presentation {
         const val depth: Int = 4
         const val cord: Double = 0.05
         const val cordLift: Double = 0.012
-        const val amplitude: Double = 0.55
+        const val amplitude: Double = 0.0
         const val hitSpeed: Double = 22.0
         const val hitLeast: Double = 2.0
         const val decay: Double = 3.2

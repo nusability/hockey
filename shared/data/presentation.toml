@@ -246,21 +246,15 @@ block = "#fdba74"
 # `cord_lift` off its film so the two never fight. The film is `colour` at `opacity`; the cords take
 # the world's own net colour (teams.toml [[world]] `net`).
 #
-# The ball ripples the cloth wherever it meets it — a goal, a rebound off the back from inside, a
-# shot into the side netting from behind the goal. The wave spreads from the contact point across
-# every sheet of that goal and decays: displacement = amplitude × strength × bell × e^(−decay·t) ×
-# sin(frequency·t − k·r) × e^(−r/reach), r the distance from the contact, t real seconds since it,
-# for `seconds`; `bell` is the sway's, so the laced edges stay put and the four sheets hold together.
-# `strength` is the ball's speed **into** the sheet over `hit_speed`, capped at 1: a hard shot punches
-# the net, a dribbled ball nudges it. Slower than `hit_least` the ball is leaning on the net, not
-# striking it, and nothing happens.
+# **The net does not move.** The owner could not see the cloth answer the ball on either phone, and
+# rather than keep a mechanism nobody can see, both motions are off: the idle sway (below) and the
+# ball's dent are both zero amplitude. The machinery is kept and tested — contact detection, the
+# wave's shape, the lacing that holds the four sheets together — so turning it back on is a number,
+# not a rewrite. SMASH-44 carries the open question of why it never read on a device.
 #
-# `amplitude` is what the play camera can read: 36 m up and 20 m back (§8.6), where a metre at the far
-# goal is ~50 px. A full-speed shot into the middle of the back sheet dents it 0.55 m — three times
-# the sway, ~28 px at the far goal and ~43 at the near one, and about a third of the goal's depth, so
-# the net bellies out without the ball appearing to pass through it. A ball on the ice strikes the
-# cloth just above the lacing, where `bell` is about 0.6, which is still ~17 px of dent at the far
-# goal. `hit_speed` is a shot from a good player (§7.6's shot power, 20 + 6 per skill).
+# The shape the dent would take: displacement = amplitude × strength × bell × e^(−decay·t) ×
+# sin(frequency·t − k·r) × e^(−r/reach), r the distance from the contact, t real seconds since it,
+# for `seconds`. `strength` is the ball's speed **into** the sheet over `hit_speed`, capped at 1.
 [net]
 colour = "#f8fafc"
 height = 1.9               # the goal's height (the worlds' goal frames)
@@ -270,7 +264,7 @@ rows = 5
 depth = 4
 cord = 0.05
 cord_lift = 0.012
-amplitude = 0.55
+amplitude = 0.0            # still: the net does not answer the ball for now (SMASH-44)
 hit_speed = 22.0           # m/s into a sheet for the full dent
 hit_least = 2.0            # slower than this and the cloth does not answer
 decay = 3.2
@@ -284,7 +278,7 @@ seconds = 1.6
 # sin(π·u)·sin(π·v) over the sheet's own grid — nothing at the edges the net is laced to, most in
 # the middle — and it shapes the ball's dent, which is now the only thing that moves the net.
 [net.sway]
-amplitude = 0.0            # still: only the ball moves the cloth (§8.8)
+amplitude = 0.0            # still: no idle cloth (§8.8)
 seconds = 3.6
 wave = 1.1                 # radians of phase per metre
 reduce_motion = 0.4

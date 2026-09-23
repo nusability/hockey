@@ -186,7 +186,7 @@ enum Presentation {
         static let depth: Int = 4
         static let cord: Double = 0.05
         static let cordLift: Double = 0.012
-        static let amplitude: Double = 0.55
+        static let amplitude: Double = 0.0
         static let hitSpeed: Double = 22.0
         static let hitLeast: Double = 2.0
         static let decay: Double = 3.2

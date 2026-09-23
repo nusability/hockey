@@ -1,0 +1,16 @@
+# Refused device records (spec §17.1): <file in invalid/> <the typed refusal: kind, then offset | version | path [rule]>.
+# Decoding must fail with exactly this error on both platforms — the record is then replaced, never read, and never a screen.
+# Recorded by ios/SmashCore RecordTelemetryVectors (macOS, arm64). Replayed exactly by SmashCoreTests and android/core.
+empty.json malformedJSON 0
+array-root.json wrongType $
+no-version.json missingField $.version
+version-2.json unknownVersion 2
+missing-field.json missingField $.last_asked_at
+unknown-field.json unknownField $.install_id
+duplicate-field.json duplicateField $.matches_played
+instant-string.json wrongType $.installed_at
+instant-fraction.json wrongType $.installed_at
+instant-too-large.json badValue $.installed_at
+negative-instant.json brokenRule $.installed_at negativeInstant
+negative-count.json brokenRule $.matches_played negativeCount
+answered-without-asking.json brokenRule $.answered_positively answeredWithoutAsking

@@ -9,11 +9,13 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.20.0
+Spec-Version: 0.21.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
-the save on the device (see the platform-delta table for what still differs). What this file holds is the complete
+the save on the device (see the platform-delta table for what still differs). **§17 is the one
+section with no screen yet:** when the game may ask the player whether they like it is decided in
+both cores and pinned by a corpus, and nothing shows it. What this file holds is the complete
 gameplay contract taken from the web prototype — the pitch, the one-touch control, the ball, the
 automatic play, the match, the drills, the season and the coach's board, with every number the
 prototype was tuned to — plus the one thing the prototype never had: **a career**, in which the
@@ -71,8 +73,8 @@ deletes it — the goal for these is zero).
 **The golden vectors** (`shared/vectors/`) are the one place the two simulations are checked
 against each other rather than merely written to the same text (§4.7). Live: the math (§4.3–§4.4), the
 match — drills, full matches on both sports, a scripted player tape, a cup match into sudden-death
-(§4–§8, §10) — and the season, career and save (§2.2, §11, §15). iOS recorded all of them; Android
-replays every one exactly.
+(§4–§8, §10) — the season, career and save (§2.2, §11, §15), and the love dialog's timing and the
+device record (§17). iOS recorded all of them; Android replays every one exactly.
 
 ---
 
@@ -302,6 +304,14 @@ when it is applied. Every double is written as the hex of its bits. Both platfor
 vector and must reproduce every sample and every event exactly. A vector is recorded by the first
 platform to implement a rule, checked against this spec and by playing it, and **re-recording one
 requires a spec change in the same commit**. The corpus is `shared/vectors/match/`.
+
+**A vector is not always a match.** The paragraph above defines the shape the *match* corpus uses;
+every other corpus declares its own shape in its own files' headers, and the rules that matter are
+the same for all of them — one corpus, replayed by both platforms, reproduced line for line and byte
+for byte, re-recorded only with a spec change in the same commit. Live besides the match: the maths
+(`math/`), the season, career and save (`season/`, §2.2, §11, §15), and the love dialog's timing and
+the device record (`telemetry/`, §17), whose script carries **the clock** as an input so that a rule
+measured in days can be checked in a millisecond.
 
 ### 5. One-touch control
 
@@ -1126,6 +1136,11 @@ every career change, and every change on the coach's board — before the next s
 untouched beside a new one, and offers exactly one way on: start over. It never opens as if the
 player were new.
 
+**Beside it, and not part of it, the device keeps a record of its own** (§17.1): what this install
+has done, rather than what a career holds. It has its own version and will have its own file, so
+that the refusal above and starting over cannot reach it, and it will stay out of device backup
+while the save stays in it.
+
 Nothing leaves the device. Until the first store submission, these shapes may change without
 migration (`conventions.md`, greenfield); from then on they are migrated, never reset.
 
@@ -1315,6 +1330,92 @@ changed (§16.1). It is there only once a team exists.
 The prototype's six lessons (the copy's `help.*`), each a card, the one-touch control shown by a
 disk with a ball circling it and an aim line.
 
+### 17. Asking the player whether they like it
+The game will, one day, ask **"Enjoying Smash Hockey?"** — and the answer to that decides whether
+anyone ever finds the game, so *when* it is asked is a rule of the game and not a detail of a
+screen.
+
+**What exists today is the decision and nothing else:** the device record's shape, its rules, its
+canonical bytes, and both cores' answer to "may the question be put, at this instant?" — all of it
+pinned by `shared/vectors/telemetry/`, which both suites replay. **Nothing writes the record to a
+file yet and no screen shows the question**, so the game asks nothing at all (§16 names every screen
+there is). The rules below therefore bind the decision now and the file and the panel the day they
+are built; each names which it is.
+
+Nothing here reads a clock of its own — the instant is always given to it — which is what lets a
+headless test pin ninety days of rationing in a millisecond, instead of ninety days on a phone.
+
+#### 17.1 The device record
+Beside the save (§15), and **never inside it**, the device keeps a record of its own: when this
+install was first seen, how many matches have been played on it, when the question was last put,
+and whether it has been answered with a yes. Instants are **epoch milliseconds**; elapsed time is
+their difference, never a count of calendar days.
+
+Its shape is declared once (`shared/data/telemetry.toml`) and written as canonical JSON by the same
+writer as the save, with its own format **version** — the same state writes the same bytes on both
+platforms, which is what the corpus pins. **It will be a separate file** (nothing writes it to disk
+yet), for three reasons, each of which is a rule of the store the day there is one:
+
+- **A refused save cannot reach it.** §15's refusal screen moves the save aside and starting over
+  (§2.2) ends a career; this record survives both. A player who has said yes is never asked again,
+  whatever becomes of their career — which is also why the lifetime match count lives here and not
+  in the save.
+- **A refused device record is never a screen.** Asking the player a question may not stand between
+  them and the game. A record that is not well-formed, breaks a rule below, or has another version
+  is refused with a typed error, moved aside and replaced — and **the replacement is stamped as if
+  the question had just been put** (`installed_at` and `last_asked_at` both now). A record we lost
+  must read as brand new and serving a full cooldown, never as long-ago-and-eligible: otherwise one
+  corrupt byte re-asks someone who has already answered.
+- **It is excluded from device backup**, on both platforms. Nothing in it may be restored onto a
+  second phone and counted twice. The save stays backed up — player data is sacred.
+
+Its rules: counts and instants are never negative, and a yes without a recorded showing is
+impossible (the showing is stamped first, the answer follows it). A `last_asked_at` *earlier* than
+`installed_at` is legitimate and deliberately not a rule — a device clock that has been corrected
+backwards produces exactly that.
+
+#### 17.2 What earns the question, and how often
+A finished player match **arms** the question when any of these holds:
+
+- the **cup** was won (§11.2), or
+- the **league** was won (§11.1), or
+- at least **20 matches** have been played on this device *and* the match was a **hard-fought win**:
+  won by exactly one goal with the **winning goal in the final third** of the match, **or** won
+  after having **trailed at any point**.
+
+A trophy arms it at any match count — winning either *is* the habit that twenty matches stands in
+for. A trophy also outranks a good game: a cup final that was hard-fought reports the cup. The
+winning goal is the winner's `(loser's goals + 1)`-th — the one that gave them a lead they never
+gave back — and "the final third" is exact integer arithmetic on the match's whole length
+(`3 × elapsed ≥ 2 × duration`), not a rounded fraction. A draw and a defeat arm nothing, whatever
+the count; so does a stroll.
+
+**The question is put at most once every 90 days, forever, until a yes ends it.** There is no
+maximum count, no version gate, no "ask me later" and no "never ask again" — **a dismissal *is* the
+later and a yes *is* the never.** The cooldown runs from the **showing**, not from the answer: a
+player who is shown the panel and walks away has been asked. Ninety days is absolute time
+(90 × 86 400 000 ms), never ninety calendar days, so a clock change cannot shorten or lengthen it
+and the rule does not vary by timezone. A clock that has gone **backwards** reads as no time passed
+at all, never as a long time — so it holds the question rather than spending it.
+
+#### 17.3 Armed now, asked later
+The question is **armed** at the moment that earns it and **put** only on a screen the player has
+already come to rest on. It may never stand between a result and the next face-off, or between a
+failed drill and its retry (A2, Constraints) — which is why arming and asking are two decisions and
+not one. An armed question that is never reached is simply earned again by the next match that
+earns it: arming is not kept on the device.
+
+#### 17.4 The kill switch
+One remote flag governs the question. **Nothing reads it yet**, so the only part of this that is
+decided today is what the decision does with each of its three states — unread, on, off — and that
+is pinned by the corpus. **Until the flag has been read once the game says nothing**, rather than
+racing it: an unread flag is silence, not a default.
+
+The rules of the reader, the day there is one: the flag **defaults to on**, so a backend outage can
+never disable a working feature — only a deliberate flip can. **A failed read is a read, and
+resolves to on**, never to unread; otherwise an unreachable server would silence the question
+forever instead of for one launch.
+
 ---
 
 ## Out of scope
@@ -1329,7 +1430,9 @@ disk with a ball circling it and an aim line.
 - **A0 before everything:** nothing may add latency between a finger and the ball, or make the
   aim line disagree with where the ball goes.
 - **Nothing blocks the next match** (principle A2): no load, fetch, ad or dialog between a result
-  and the next face-off, or between a failed drill and its retry.
+  and the next face-off, or between a failed drill and its retry. **A question for the player is a
+  dialog**: it is armed at the moment it is earned and put only on a screen already come to rest on
+  (§17.3).
 - **Frame-rate independence:** a match is the same sequence of ticks at 60 Hz, 120 Hz and any time
   scale (§4).
 - **Determinism:** same seed, teams, settings and input ⇒ the same match, bit for bit, on both

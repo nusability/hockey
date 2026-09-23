@@ -407,6 +407,10 @@ object Tuning {
         const val homeBonus: Double = 0.15
         const val formMatches: Int = 3
     }
+    object Love {
+        const val hardFoughtMatches: Int = 20
+        const val cooldownDays: Int = 90
+    }
     object Board {
         const val tacticMin: Double = 0.0
         const val tacticMax: Double = 1.0

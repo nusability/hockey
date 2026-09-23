@@ -406,6 +406,10 @@ public enum Tuning {
         public static let homeBonus: Double = 0.15
         public static let formMatches: Int = 3
     }
+    public enum Love {
+        public static let hardFoughtMatches: Int = 20
+        public static let cooldownDays: Int = 90
+    }
     public enum Board {
         public static let tacticMin: Double = 0.0
         public static let tacticMax: Double = 1.0

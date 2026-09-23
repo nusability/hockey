@@ -1,0 +1,196 @@
+# Love-dialog golden vector (spec §17, §4.7): the arming rule and the rationing, step by step, with
+# the clock as an input. Both platforms recompute every output line from the input lines.
+# Input lines:
+#   launch <now> <fresh|lost>                        — the record was read, or lost and replaced (§17.1)
+#   match <now> <duration> <cup|league|-> <goal…>    — a finished match; a goal is f@<ms> or a@<ms>, in order
+#   settle <now> <unread|on|off>                     — a settled screen (§17.3), the kill switch in that state
+#   answer <now> <positive|negative|dismissed>       — the answer to the panel that is up
+#   bytes <file>                                     — the record's canonical JSON is that file, byte for byte
+# Output lines:
+#   result <for>-<against> <won|drew|lost> <trailed|-> <winning goal ms|-> <late|-> <hard|->
+#   trigger <cup|league|hardFought|->                — what the match armed
+#   verdict <ask|saidYes|switchOff|switchUnread|notArmed|cooldown>
+#   state <matches> <installed at> <last asked at|-> <yes|no> <armed|->
+# Recorded by ios/SmashCore RecordTelemetryVectors (macOS, arm64). Replayed exactly by SmashCoreTests and android/core.
+launch 1772366400000 fresh
+  state 0 1772366400000 - no -
+match 1772366460000 480000 - f@100000 f@200000 f@300000
+  result 3-0 won - 100000 - -
+  trigger -
+  state 1 1772366400000 - no -
+settle 1772366520000 on
+  verdict notArmed
+  state 1 1772366400000 - no -
+match 1772367000000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 2 1772366400000 - no -
+settle 1772367060000 on
+  verdict notArmed
+  state 2 1772366400000 - no -
+match 1772367600000 480000 cup a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger cup
+  state 3 1772366400000 - no cup
+settle 1772367660000 unread
+  verdict switchUnread
+  state 3 1772366400000 - no cup
+settle 1772367720000 off
+  verdict switchOff
+  state 3 1772366400000 - no cup
+settle 1772367780000 on
+  verdict ask
+  state 3 1772366400000 1772367780000 no -
+bytes asked.json
+answer 1772367840000 dismissed
+  state 3 1772366400000 1772367780000 no -
+match 1772454180000 480000 league f@400000
+  result 1-0 won - 400000 late hard
+  trigger league
+  state 4 1772366400000 1772367780000 no league
+settle 1780143779999 on
+  verdict cooldown
+  state 4 1772366400000 1772367780000 no league
+settle 1780143780000 on
+  verdict ask
+  state 4 1772366400000 1780143780000 no -
+answer 1780143781000 negative
+  state 4 1772366400000 1780143780000 no -
+bytes refused.json
+match 1780143782000 480000 cup f@400000
+  result 1-0 won - 400000 late hard
+  trigger cup
+  state 5 1772366400000 1780143780000 no cup
+settle 1772366400000 on
+  verdict cooldown
+  state 5 1772366400000 1780143780000 no cup
+match 1780143783000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 6 1772366400000 1780143780000 no cup
+match 1780143843000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 7 1772366400000 1780143780000 no cup
+match 1780143903000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 8 1772366400000 1780143780000 no cup
+match 1780143963000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 9 1772366400000 1780143780000 no cup
+match 1780144023000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 10 1772366400000 1780143780000 no cup
+match 1780144083000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 11 1772366400000 1780143780000 no cup
+match 1780144143000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 12 1772366400000 1780143780000 no cup
+match 1780144203000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 13 1772366400000 1780143780000 no cup
+match 1780144263000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 14 1772366400000 1780143780000 no cup
+match 1780144323000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 15 1772366400000 1780143780000 no cup
+match 1780144383000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 16 1772366400000 1780143780000 no cup
+match 1780144443000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 17 1772366400000 1780143780000 no cup
+match 1780144503000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 18 1772366400000 1780143780000 no cup
+match 1780144563000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger -
+  state 19 1772366400000 1780143780000 no cup
+match 1780144623000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger hardFought
+  state 20 1772366400000 1780143780000 no hardFought
+match 1780144683000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger hardFought
+  state 21 1772366400000 1780143780000 no hardFought
+match 1780144743000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger hardFought
+  state 22 1772366400000 1780143780000 no hardFought
+match 1780144803000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger hardFought
+  state 23 1772366400000 1780143780000 no hardFought
+match 1780144863000 480000 - a@100000 f@200000 f@400000
+  result 2-1 won trailed 400000 late hard
+  trigger hardFought
+  state 24 1772366400000 1780143780000 no hardFought
+match 1780145460000 480000 - f@100000 a@200000 f@319999
+  result 2-1 won - 319999 - -
+  trigger -
+  state 25 1772366400000 1780143780000 no hardFought
+match 1780145520000 480000 - f@100000 a@200000 f@320000
+  result 2-1 won - 320000 late hard
+  trigger hardFought
+  state 26 1772366400000 1780143780000 no hardFought
+match 1780145580000 480000 - a@100000 f@200000 f@319999
+  result 2-1 won trailed 319999 - hard
+  trigger hardFought
+  state 27 1772366400000 1780143780000 no hardFought
+match 1780145640000 480000 - a@100000 f@200000 f@320000
+  result 2-1 won trailed 320000 late hard
+  trigger hardFought
+  state 28 1772366400000 1780143780000 no hardFought
+match 1780145700000 480000 - a@100000 a@120000 f@200000 f@300000 f@400000 f@460000 f@470000
+  result 5-2 won trailed 400000 late hard
+  trigger hardFought
+  state 29 1772366400000 1780143780000 no hardFought
+match 1780145760000 480000 - a@200000 a@300000 f@400000
+  result 1-2 lost trailed - - -
+  trigger -
+  state 30 1772366400000 1780143780000 no hardFought
+match 1780145820000 480000 - a@200000 f@400000
+  result 1-1 drew trailed - - -
+  trigger -
+  state 31 1772366400000 1780143780000 no hardFought
+settle 1787919780000 on
+  verdict ask
+  state 31 1772366400000 1787919780000 no -
+answer 1787919781000 positive
+  state 31 1772366400000 1787919780000 yes -
+bytes loved.json
+match 1795695780000 480000 cup f@400000
+  result 1-0 won - 400000 late hard
+  trigger cup
+  state 32 1772366400000 1787919780000 yes cup
+settle 1803471780000 on
+  verdict saidYes
+  state 32 1772366400000 1787919780000 yes cup
+launch 1811247780000 lost
+  state 0 1811247780000 1811247780000 no -
+bytes lost.json
+match 1811247781000 480000 cup f@400000
+  result 1-0 won - 400000 late hard
+  trigger cup
+  state 1 1811247780000 1811247780000 no cup
+settle 1811247782000 on
+  verdict cooldown
+  state 1 1811247780000 1811247780000 no cup
+settle 1819023780000 on
+  verdict ask
+  state 1 1811247780000 1819023780000 no -

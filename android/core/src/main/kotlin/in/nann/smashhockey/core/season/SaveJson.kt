@@ -12,6 +12,9 @@ import java.nio.charset.StandardCharsets
  * `Season/SaveJSON.swift`; both write the same bytes for the same state
  * (shared/vectors/season/save/).
  *
+ * The device record (spec §17, shared/data/telemetry.toml) is declared the same way and written by
+ * the same runtime; everything here that says "save" holds for it too.
+ *
  * Hand-written rather than on a JSON library: the bytes are a cross-platform contract, and :core
  * stays a dependency-free JVM module.
  */
@@ -117,7 +120,10 @@ sealed interface SaveDecodeError {
 /** Thrown by decoding with the typed [error]; never caught into an empty save. */
 class SaveDecodeException(val error: SaveDecodeError) : Exception(error.toString())
 
-/** The rules a decoded save is checked against (the records' `validate`). Keys match iOS. */
+/**
+ * The rules a decoded record is checked against (the records' `validate`) — the save's (§15) and the
+ * device record's (§17), which share this runtime. Keys match iOS.
+ */
 enum class SaveRule(val key: String) {
     CREATED_TEAM_INVALID("createdTeamInvalid"),
     NEGATIVE_COUNT("negativeCount"),
@@ -131,6 +137,8 @@ enum class SaveRule(val key: String) {
     CUP_SCORE_LEVEL("cupScoreLevel"),
     OVERTIME_OUTSIDE_CUP("overtimeOutsideCup"),
     SEASON_NUMBER("seasonNumber"),
+    NEGATIVE_INSTANT("negativeInstant"),
+    ANSWERED_WITHOUT_ASKING("answeredWithoutAsking"),
 }
 
 internal fun refuse(error: SaveDecodeError): Nothing = throw SaveDecodeException(error)
@@ -156,6 +164,21 @@ object SaveJson {
         if (n < Int.MIN_VALUE || n > Int.MAX_VALUE) refuse(SaveDecodeError.BadValue(path))
         return n.toInt()
     }
+
+    /** An instant, as epoch milliseconds (telemetry.toml): a plain JSON integer, written as itself. */
+    fun i64(v: Long): JsonValue = JsonValue.Num(v)
+
+    /**
+     * Anything beyond 2^53 is refused: a JSON number that large is not exact everywhere it will be
+     * read, and no instant we write is anywhere near it.
+     */
+    fun i64(v: JsonValue, path: String): Long {
+        val n = (v as? JsonValue.Num)?.value ?: refuse(SaveDecodeError.WrongType(path))
+        if (n < -EXACT_INTEGER || n > EXACT_INTEGER) refuse(SaveDecodeError.BadValue(path))
+        return n
+    }
+
+    const val EXACT_INTEGER: Long = 1L shl 53
 
     fun bool(v: JsonValue, path: String): Boolean = (v as? JsonValue.Bool)?.value ?: refuse(SaveDecodeError.WrongType(path))
 

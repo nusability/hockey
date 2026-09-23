@@ -12,7 +12,8 @@ write the same bytes. Writes:
   android/core/src/main/kotlin/in/nann/smashhockey/core/generated/*.kt    …/src/test/…/generated/
   ios/Sources/Localizable.xcstrings    android/app/src/main/res/values{,-de}/strings.xml
 
-including the save records (shared/data/save.toml → SaveRecords.swift / SaveRecords.kt), and the
+including the save records (shared/data/save.toml → SaveRecords.swift / SaveRecords.kt) and the device
+record beside them (shared/data/telemetry.toml → TelemetryRecords.swift / TelemetryRecords.kt), and the
 apps' presentation (shared/data/presentation.toml and each world's look → ios/Sources/Scene/Generated/
 Presentation.swift, android/app/…/smashhockey/generated/Presentation.kt — app targets, never the core),
 and what is alive in each world (shared/data/effects.toml → ios/Sources/Effects/Generated/Effects.swift,
@@ -25,7 +26,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from datagen import atmosphere, copyout, design, effects, font, kotlin, presentation, save, sounds, swift  # noqa: E402
+from datagen import (atmosphere, copyout, design, effects, font, kotlin, presentation, save,  # noqa: E402
+                     sounds, swift, telemetry)
 from datagen.common import Bits  # noqa: E402
 from datagen.model import DataError, camel, load, upper_snake  # noqa: E402
 
@@ -45,7 +47,8 @@ def render():
     files.update(kotlin.emit(model, kbits))
     files[swift.TEST + "GeneratedConstantBits.swift"] = swift.bits_test(sbits)
     files[kotlin.TEST + "GeneratedConstantBits.kt"] = kotlin.bits_test(kbits)
-    files.update(save.emit(save.load(ROOT)))
+    files.update(save.emit(ROOT))
+    files.update(telemetry.emit(ROOT))
     files.update(copyout.emit(model))
     files.update(presentation.emit(ROOT, model))
     files.update(design.emit(ROOT))

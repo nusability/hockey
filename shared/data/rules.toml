@@ -395,6 +395,11 @@ goal_mean_scale = 22.0
 home_bonus = 0.15
 form_matches = 3                # §16.3a — how many recent results a team's detail shows
 
+[love] # §17.2 — when the game may ask "Enjoying Smash Hockey?"
+hard_fought_matches = 20        # the hard-fought-win branch arms nothing before this many matches
+cooldown_days = 90              # one showing per this many days, counted from the presentation and
+                                # in absolute time (a day is 86 400 000 ms, never a calendar day)
+
 # §11.1 — the matchday plan, in order: league rounds (1-based, inclusive) and cup rounds.
 [[matchday_block]]
 league = [1, 4]

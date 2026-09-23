@@ -4,6 +4,9 @@
 /// `core/season/SaveJson.kt`; both write the same bytes for the same state
 /// (shared/vectors/season/save/).
 ///
+/// The device record (spec §17, shared/data/telemetry.toml) is declared the same way and written by
+/// the same runtime; everything here that says "save" holds for it too.
+///
 /// Written by hand rather than on Foundation's JSON: the bytes are a cross-platform contract, and
 /// the decoder has to tell an integer from a boolean and a missing key from a null — neither of
 /// which `JSONSerialization` promises.
@@ -45,7 +48,8 @@ public enum SaveDecodeError: Error, Sendable, Equatable {
     case brokenRule(path: String, SaveRule)
 }
 
-/// The rules a decoded save is checked against (the records' `validate(at:)`).
+/// The rules a decoded record is checked against (the records' `validate(at:)`) — the save's (§15)
+/// and the device record's (§17), which share this runtime.
 public enum SaveRule: String, Sendable, CaseIterable {
     case createdTeamInvalid                 // §2.2: name, short code or kit
     case negativeCount                      // trophies, goals
@@ -59,6 +63,8 @@ public enum SaveRule: String, Sendable, CaseIterable {
     case cupScoreLevel                      // §11.3: a cup match always has a winner
     case overtimeOutsideCup
     case seasonNumber                       // §15: a season's number is 1 or more
+    case negativeInstant                    // §17: an instant is epoch milliseconds, never before 1970
+    case answeredWithoutAsking              // §17: the dialog cannot have been answered before it was shown
 }
 
 // MARK: - The helpers the generated code calls
@@ -91,6 +97,19 @@ enum SaveJSON {
         guard Int(Int32.min)...Int(Int32.max) ~= n else { throw .badValue(path: path) }
         return n
     }
+
+    /// An instant, as epoch milliseconds (telemetry.toml): a plain JSON integer, written as itself.
+    static func i64(_ v: Int64) -> JSONValue { .int(Int(v)) }
+
+    /// Anything beyond 2^53 is refused: a JSON number that large is not exact everywhere it will be
+    /// read, and no instant we write is anywhere near it.
+    static func i64(_ v: JSONValue, at path: String) throws(SaveDecodeError) -> Int64 {
+        guard case .int(let n) = v else { throw .wrongType(path: path) }
+        guard -exactInteger...exactInteger ~= n else { throw .badValue(path: path) }
+        return Int64(n)
+    }
+
+    static let exactInteger = 1 << 53
 
     static func bool(_ v: JSONValue, at path: String) throws(SaveDecodeError) -> Bool {
         guard case .bool(let b) = v else { throw .wrongType(path: path) }

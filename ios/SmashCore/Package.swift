@@ -18,6 +18,8 @@ let package = Package(
         .executableTarget(name: "RecordSeasonVectors", dependencies: ["SmashCore"]),
         // Records shared/vectors/match/ (spec §4.7) with scripted and bot-played input tapes.
         .executableTarget(name: "RecordMatchVectors", dependencies: ["SmashCore"]),
+        // Records shared/vectors/telemetry/ (spec §17). Not linked by the app.
+        .executableTarget(name: "RecordTelemetryVectors", dependencies: ["SmashCore"]),
         // Measures automatic play over a sweep of seeded matches (spec §7). Not linked by the app.
         .executableTarget(name: "MeasureMatches", dependencies: ["SmashCore"]),
         .testTarget(name: "SmashCoreTests", dependencies: ["SmashCore"]),

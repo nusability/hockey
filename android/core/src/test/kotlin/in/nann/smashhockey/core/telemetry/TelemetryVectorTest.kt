@@ -56,7 +56,7 @@ class TelemetryVectorTest {
     /** Every refused record is refused with exactly the recorded, typed error — never read. */
     @Test fun brokenDeviceRecordsAreRefusedTyped() {
         val cases = lines("invalid.txt")
-        assertEquals(13, cases.size)
+        assertEquals(15, cases.size)
         for (line in cases) {
             val name = line.substringBefore(' ')
             val expected = line.substringAfter(' ')

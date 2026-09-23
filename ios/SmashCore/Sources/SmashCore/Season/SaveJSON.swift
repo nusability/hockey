@@ -65,6 +65,7 @@ public enum SaveRule: String, Sendable, CaseIterable {
     case seasonNumber                       // §15: a season's number is 1 or more
     case negativeInstant                    // §17: an instant is epoch milliseconds, never before 1970
     case answeredWithoutAsking              // §17: the dialog cannot have been answered before it was shown
+    case zeroInstallId                      // §17: the all-zero UUID is a mint that failed, not an id
 }
 
 // MARK: - The helpers the generated code calls

@@ -15,9 +15,10 @@ public struct LoveScript: Sendable {
 
     /// One input line. Everything else in the file is output.
     public enum Step: Sendable {
-        /// `launch <now> <fresh|lost>` — the app started and read the device record, or failed to and
-        /// replaced it (§17.1).
-        case launch(now: Int64, lost: Bool)
+        /// `launch <now> <fresh|lost> <install id>` — the app started and read the device record, or
+        /// failed to and replaced it (§17.1). The id is an input like the clock: the platform mints it
+        /// and hands it in, so the corpus pins a chosen one rather than a random one.
+        case launch(now: Int64, lost: Bool, installId: String)
         /// `match <now> <duration> <cup|league|-> <goal…>` — a finished player match; a goal is
         /// `f@<ms>` (the player's) or `a@<ms>` (the opponent's), in the order they were scored.
         case match(now: Int64, match: LoveMatch)
@@ -46,10 +47,10 @@ public struct LoveScript: Sendable {
             }
             switch w[0] {
             case "launch":
-                guard w.count == 3, w[2] == "fresh" || w[2] == "lost" else {
+                guard w.count == 4, w[2] == "fresh" || w[2] == "lost" else {
                     throw Failure(description: "bad launch line: \(line)")
                 }
-                steps.append(.launch(now: try now(), lost: w[2] == "lost"))
+                steps.append(.launch(now: try now(), lost: w[2] == "lost", installId: w[3]))
             case "match":
                 guard w.count >= 4, let duration = Int(w[2]) else {
                     throw Failure(description: "bad match line: \(line)")
@@ -97,7 +98,14 @@ public struct LoveScript: Sendable {
     /// trigger a moment armed, held until a settled screen shows it. Deliberately **not** durable —
     /// arming is a session fact, so a prompt earned and not reached is simply earned again.
     public func run(pinning: (String, DeviceRecord) throws -> Void) throws -> [String] {
-        var record = DeviceRecord.fresh(at: 0)
+        // A script starts with a launch, so the record the replay begins from is the one that line
+        // describes — there is no record before the app has read one, and nothing to invent an install
+        // id for. The loop then re-derives it as its first step.
+        guard case .launch(let first, let lostFirst, let idFirst) = steps.first else {
+            throw Failure(description: "a script starts with a launch line")
+        }
+        var record = lostFirst ? DeviceRecord.replacement(at: first, installId: idFirst)
+                               : DeviceRecord.fresh(at: first, installId: idFirst)
         var armed: LoveTrigger?
         var up = false
         var lines: [String] = []
@@ -110,9 +118,10 @@ public struct LoveScript: Sendable {
 
         for step in steps {
             switch step {
-            case .launch(let now, let lost):
-                lines.append("launch \(now) \(lost ? "lost" : "fresh")")
-                record = lost ? .replacement(at: now) : .fresh(at: now)
+            case .launch(let now, let lost, let installId):
+                lines.append("launch \(now) \(lost ? "lost" : "fresh") \(installId)")
+                record = lost ? .replacement(at: now, installId: installId)
+                              : .fresh(at: now, installId: installId)
                 armed = nil
                 up = false
                 lines.append(state())

@@ -139,6 +139,7 @@ enum class SaveRule(val key: String) {
     SEASON_NUMBER("seasonNumber"),
     NEGATIVE_INSTANT("negativeInstant"),
     ANSWERED_WITHOUT_ASKING("answeredWithoutAsking"),
+    ZERO_INSTALL_ID("zeroInstallId"),
 }
 
 internal fun refuse(error: SaveDecodeError): Nothing = throw SaveDecodeException(error)

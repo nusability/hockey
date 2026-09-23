@@ -1,7 +1,8 @@
 # Love-dialog golden vector (spec §17, §4.7): the arming rule and the rationing, step by step, with
 # the clock as an input. Both platforms recompute every output line from the input lines.
 # Input lines:
-#   launch <now> <fresh|lost>                        — the record was read, or lost and replaced (§17.1)
+#   launch <now> <fresh|lost> <install id>           — the record was read, or lost and replaced (§17.1),
+#                                                    with the id the platform minted for a new install
 #   match <now> <duration> <cup|league|-> <goal…>    — a finished match; a goal is f@<ms> or a@<ms>, in order
 #   settle <now> <unread|on|off>                     — a settled screen (§17.3), the kill switch in that state
 #   answer <now> <positive|negative|dismissed>       — the answer to the panel that is up
@@ -12,7 +13,7 @@
 #   verdict <ask|saidYes|switchOff|switchUnread|notArmed|cooldown>
 #   state <matches> <installed at> <last asked at|-> <yes|no> <armed|->
 # Recorded by ios/SmashCore RecordTelemetryVectors (macOS, arm64). Replayed exactly by SmashCoreTests and android/core.
-launch 1772366400000 fresh
+launch 1772366400000 fresh 7c9e6f81-3b4a-4d2e-8a15-0f6b5c2d9e13
   state 0 1772366400000 - no -
 match 1772366460000 480000 - f@100000 f@200000 f@300000
   result 3-0 won - 100000 - -
@@ -181,7 +182,7 @@ match 1795695780000 480000 cup f@400000
 settle 1803471780000 on
   verdict saidYes
   state 32 1772366400000 1787919780000 yes cup
-launch 1811247780000 lost
+launch 1811247780000 lost b41d8a27-5e6c-4f19-9d03-2a7b6c4e8f50
   state 0 1811247780000 1811247780000 no -
 bytes lost.json
 match 1811247781000 480000 cup f@400000

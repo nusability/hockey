@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What Auto Backup may carry off this phone, on API 26–30 (spec §17.1, ADR 0009).
+
+  An exclude-only list, so everything the app writes is backed up **except** what is named here.
+  save.json is therefore backed up and stays backed up: player progress is sacred (principle 13).
+
+  device.json is not. It holds the anonymous install id, and an install id restored onto a second
+  phone is one install counted as two, forever — and it would carry a "already asked / already said
+  yes" stamp to a device that was never asked. The iOS twin is isExcludedFromBackup in DeviceStore.
+-->
+<full-backup-content>
+    <exclude domain="file" path="device.json" />
+    <exclude domain="file" path="device.json.tmp" />
+</full-backup-content>

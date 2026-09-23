@@ -4,9 +4,11 @@
 empty.json malformedJSON 0
 array-root.json wrongType $
 no-version.json missingField $.version
-version-2.json unknownVersion 2
+version-3.json unknownVersion 3
 missing-field.json missingField $.last_asked_at
-unknown-field.json unknownField $.install_id
+unknown-field.json unknownField $.times_asked
+install-id-uppercase.json badValue $.install_id
+install-id-zero.json brokenRule $.install_id zeroInstallId
 duplicate-field.json duplicateField $.matches_played
 instant-string.json wrongType $.installed_at
 instant-fraction.json wrongType $.installed_at

@@ -57,7 +57,7 @@ import Testing
     /// Every refused record is refused with exactly the recorded, typed error — never read.
     @Test func brokenDeviceRecordsAreRefusedTyped() throws {
         let cases = try Self.lines("invalid.txt")
-        #expect(cases.count == 13)
+        #expect(cases.count == 15)
         for line in cases {
             let file = String(line.prefix { $0 != " " })
             let expected = String(line.dropFirst(file.count + 1))

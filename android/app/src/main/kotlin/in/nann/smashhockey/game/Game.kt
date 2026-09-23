@@ -15,6 +15,7 @@ import com.google.android.filament.ColorGrading
 import com.google.android.filament.ToneMapper
 import com.google.android.filament.View
 import `in`.nann.smashhockey.core.generated.BoardRecord
+import `in`.nann.smashhockey.core.generated.DeviceRecord
 import `in`.nann.smashhockey.core.generated.SaveRecord
 import `in`.nann.smashhockey.core.generated.World
 import `in`.nann.smashhockey.audio.Haptics
@@ -33,6 +34,8 @@ import `in`.nann.smashhockey.core.season.recordPlayed
 import `in`.nann.smashhockey.core.season.table
 import `in`.nann.smashhockey.core.season.withBoard
 import `in`.nann.smashhockey.core.season.won
+import `in`.nann.smashhockey.core.telemetry.DeviceStore
+import `in`.nann.smashhockey.core.telemetry.replacement
 import `in`.nann.smashhockey.engine.Assets
 import `in`.nann.smashhockey.engine.FilamentHost
 import `in`.nann.smashhockey.generated.AtmosphereData
@@ -106,6 +109,9 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
     private val store = SaveStore(context.filesDir)
     var save: SaveRecord; private set
     private val refusal: String?
+    // The device's own record (§17.1): its own file beside the save, out of backup, its refusal silent.
+    private val devices = DeviceStore(context.filesDir)
+    var device: DeviceRecord; private set
     private val stageState = mutableStateOf<UIStage?>(null)
     /** The stage, once built — the semantics overlay reads it. */
     val stageRef: State<UIStage?> get() = stageState
@@ -138,6 +144,17 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
             is SaveStore.Loaded.New -> { save = loaded.record; refusal = null }
             is SaveStore.Loaded.Found -> { save = loaded.record; refusal = null }
             is SaveStore.Loaded.Refused -> { save = SaveRecord.fresh(); refusal = loaded.why }
+        }
+        // The install id is minted here, never in the core (§17.1) — the core holds no randomness.
+        val now = System.currentTimeMillis()
+        val installId = java.util.UUID.randomUUID().toString()
+        device = try {
+            val (record, why) = devices.loadOrCreate(now, installId)
+            if (why != null) Log.e(TAG, "device record refused, moved aside and replaced: $why")
+            record
+        } catch (e: Exception) {
+            Log.e(TAG, "the device record could not be written", e)
+            DeviceRecord.replacement(now, installId) // never a fresh: what we cannot store must not read as eligible
         }
     }
 

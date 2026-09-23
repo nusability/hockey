@@ -5,10 +5,20 @@
 /// platform layer's job (a `DeviceStore` twinned on `SaveStore`), and the deciding is the core's. A
 /// value is also the only shape a golden vector can pin byte for byte.
 extension DeviceRecord {
+    /// The all-zero UUID: never an install id, and the one string `installId` may not be. A mint
+    /// that failed is refused rather than stored, because an install id every phone shares is worse
+    /// than none at all.
+    public static let noInstallId = "00000000-0000-0000-0000-000000000000"
+
     /// A device seen for the first time: never asked, nothing played.
-    public static func fresh(at now: Int64) -> DeviceRecord {
-        DeviceRecord(version: TelemetryFormat.version, installedAt: now, matchesPlayed: 0,
-                     lastAskedAt: nil, answeredPositively: false)
+    ///
+    /// **`installId` is minted by the platform and passed in** — `UUID().uuidString.lowercased()` on
+    /// iOS, `java.util.UUID.randomUUID()` on Android. The core mints nothing: it holds no `Foundation`
+    /// randomness, no clock and no ambient state, which is what lets one corpus pin it (§4 and
+    /// ADR 0009).
+    public static func fresh(at now: Int64, installId: String) -> DeviceRecord {
+        DeviceRecord(version: TelemetryFormat.version, installId: installId, installedAt: now,
+                     matchesPlayed: 0, lastAskedAt: nil, answeredPositively: false)
     }
 
     /// What replaces a record we could not read (§17.1).
@@ -18,8 +28,11 @@ extension DeviceRecord {
     /// long-ago-and-eligible. Otherwise a single corrupt byte re-arms the prompt for someone who has
     /// already answered it — the exact outcome the rationing exists to prevent. A refused device
     /// record is never a screen: telemetry may not block the game.
-    public static func replacement(at now: Int64) -> DeviceRecord {
-        var record = fresh(at: now)
+    ///
+    /// The replaced record is a **new install** and carries a newly minted id: the one it lost cannot
+    /// be recovered, and reusing anything would either invent an id or share one.
+    public static func replacement(at now: Int64, installId: String) -> DeviceRecord {
+        var record = fresh(at: now, installId: installId)
         record.lastAskedAt = now
         return record
     }
@@ -30,7 +43,7 @@ extension DeviceRecord {
     public func encoded() -> String { json().canonicalText() }
 
     /// Reads a device record. Fails, typed, on anything but a well-formed record of this version —
-    /// the caller replaces it with `replacement(at:)` and carries on.
+    /// the caller replaces it with `replacement(at:installId:)` and carries on.
     public static func decode(_ bytes: [UInt8]) throws(SaveDecodeError) -> DeviceRecord {
         let json = try JSONValue.parse(bytes)
         guard case .object(let members) = json else { throw .wrongType(path: "$") }
@@ -93,6 +106,11 @@ public enum LoveAnswer: String, Sendable, Hashable, CaseIterable {
 
 extension DeviceRecord {
     func validate(at path: String) throws(SaveDecodeError) {
+        // The all-zero UUID is what a mint that failed looks like, and it would make every phone one
+        // install. Refused rather than stored, and the record then replaced like any other refusal.
+        guard installId != DeviceRecord.noInstallId else {
+            throw .brokenRule(path: path + ".install_id", .zeroInstallId)
+        }
         guard matchesPlayed >= 0 else { throw .brokenRule(path: path + ".matches_played", .negativeCount) }
         guard installedAt >= 0 else { throw .brokenRule(path: path + ".installed_at", .negativeInstant) }
         if let lastAskedAt {

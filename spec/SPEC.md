@@ -9,15 +9,16 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.22.0
+Spec-Version: 0.23.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
 the save on the device (see the platform-delta table for what still differs). **§17 and §18 are the
 two sections no build has reached yet:** when the game may ask the player whether they like it is
-decided in both cores and pinned by a corpus, but nothing shows it — and what would leave the device
-is declared, with a live collector to receive it, but nothing sends it. What this file holds is the complete
-gameplay contract taken from the web prototype — the pitch, the one-touch control, the ball, the
+decided in both cores and pinned by a corpus, and each install now keeps its own record on the device
+(§17.1), but nothing shows the question — and what would leave the device is declared, with a live
+collector to receive it, but nothing sends it. What this file holds is the complete gameplay
+contract taken from the web prototype — the pitch, the one-touch control, the ball, the
 automatic play, the match, the drills, the season and the coach's board, with every number the
 prototype was tuned to — plus the one thing the prototype never had: **a career**, in which the
 player creates their own team, once. From this version on the prototype is not
@@ -1137,14 +1138,17 @@ every career change, and every change on the coach's board — before the next s
 untouched beside a new one, and offers exactly one way on: start over. It never opens as if the
 player were new.
 
-**Beside it, and not part of it, the device keeps a record of its own** (§17.1): what this install
-has done, rather than what a career holds. It has its own version and will have its own file, so
-that the refusal above and starting over cannot reach it, and it will stay out of device backup
-while the save stays in it.
+**Beside it, and not part of it, the device keeps a record of its own** (§17.1): the anonymous
+install id this phone was given on its first launch, and what this install has done rather than what
+a career holds. It is a **second file**, `device.json`, in the same directory, with its own version
+and its own three rules: the refusal above and starting over cannot reach it, it is kept **out of
+device backup** while the save stays in it, and **its own refusal is silent** — moved aside and
+replaced where a refused save stops the game. Telemetry may not stand between the player and the
+game; player data is sacred. Anyone touching either file has to know which is which.
 
-Nothing leaves the device — **today, and by the plain fact that no build sends anything.** §18
-declares what will, and retires this sentence on the day a build carries it. Until the first store
-submission, these shapes may change without migration (`conventions.md`, greenfield); from then on
+Nothing leaves the device — **today, and by the plain fact that no build sends anything.** The
+install id is minted on the phone and, today, goes nowhere. §18 declares what will, and retires this
+sentence on the day a build carries it. Until the first store submission, these shapes may change without migration (`conventions.md`, greenfield); from then on
 they are migrated, never reset.
 
 ### 16. The screens
@@ -1338,39 +1342,49 @@ The game will, one day, ask **"Enjoying Smash Hockey?"** — and the answer to t
 anyone ever finds the game, so *when* it is asked is a rule of the game and not a detail of a
 screen.
 
-**What exists today is the decision and nothing else:** the device record's shape, its rules, its
-canonical bytes, and both cores' answer to "may the question be put, at this instant?" — all of it
-pinned by `shared/vectors/telemetry/`, which both suites replay. **Nothing writes the record to a
-file yet and no screen shows the question**, so the game asks nothing at all (§16 names every screen
-there is). The rules below therefore bind the decision now and the file and the panel the day they
-are built; each names which it is.
+**What exists today is the decision and the record, and nothing else:** the device record's shape,
+its rules, its canonical bytes and its file, and both cores' answer to "may the question be put, at
+this instant?" — the deciding all pinned by `shared/vectors/telemetry/`, which both suites replay.
+Every launch reads the record or begins one, so an install has an id and a history from its first
+second. **No screen shows the question**, so the game asks nothing at all (§16 names every screen
+there is). The rules below therefore bind the decision and the file now, and the panel the day it is
+built; each names which it is.
 
 Nothing here reads a clock of its own — the instant is always given to it — which is what lets a
 headless test pin ninety days of rationing in a millisecond, instead of ninety days on a phone.
 
 #### 17.1 The device record
-Beside the save (§15), and **never inside it**, the device keeps a record of its own: when this
-install was first seen, how many matches have been played on it, when the question was last put,
-and whether it has been answered with a yes. Instants are **epoch milliseconds**; elapsed time is
-their difference, never a count of calendar days.
+Beside the save (§15), and **never inside it**, the device keeps a record of its own: the anonymous
+install id (§18.1), when this install was first seen, how many matches have been played on it, when
+the question was last put, and whether it has been answered with a yes. Instants are **epoch
+milliseconds**; elapsed time is their difference, never a count of calendar days.
+
+**The install id is a random UUID, minted once by the app on the launch that begins the record** and
+kept unchanged for as long as the record survives. It is never derived from the device and never
+read from one: the platform mints it and hands it to the core, which has no randomness and no clock
+of its own — the same reason one corpus can pin every rule below. The all-zero UUID is not an id: a
+mint that failed is refused like any other broken record, never stored.
 
 Its shape is declared once (`shared/data/telemetry.toml`) and written as canonical JSON by the same
 writer as the save, with its own format **version** — the same state writes the same bytes on both
-platforms, which is what the corpus pins. **It will be a separate file** (nothing writes it to disk
-yet), for three reasons, each of which is a rule of the store the day there is one:
+platforms, which is what the corpus pins. **It is a separate file**, `device.json`, in the same
+directory as the save and written the same way (whole, to a temporary file, renamed over the old
+one), for three reasons, each of which is a rule of its store:
 
 - **A refused save cannot reach it.** §15's refusal screen moves the save aside and starting over
-  (§2.2) ends a career; this record survives both. A player who has said yes is never asked again,
-  whatever becomes of their career — which is also why the lifetime match count lives here and not
-  in the save.
+  (§2.2) ends a career; neither names this file, and this record survives both. A player who has
+  said yes is never asked again, whatever becomes of their career — which is also why the lifetime
+  match count lives here and not in the save.
 - **A refused device record is never a screen.** Asking the player a question may not stand between
   them and the game. A record that is not well-formed, breaks a rule below, or has another version
   is refused with a typed error, moved aside and replaced — and **the replacement is stamped as if
   the question had just been put** (`installed_at` and `last_asked_at` both now). A record we lost
   must read as brand new and serving a full cooldown, never as long-ago-and-eligible: otherwise one
   corrupt byte re-asks someone who has already answered.
-- **It is excluded from device backup**, on both platforms. Nothing in it may be restored onto a
-  second phone and counted twice. The save stays backed up — player data is sacred.
+- **It is excluded from device backup**, on both platforms — from a cloud backup and from a
+  device-to-device transfer alike. Nothing in it may be restored onto a second phone and counted
+  twice: an install id that rode to a new phone would be one install counted as two, forever. The
+  save stays backed up — player data is sacred.
 
 Its rules: counts and instants are never negative, and a yes without a recorded showing is
 impossible (the showing is stamped first, the answer follows it). A `last_asked_at` *earlier* than
@@ -1437,9 +1451,10 @@ person id. Beside it: the commit the build came from, the platform, the language
 device's own clock, whether the build is a staging or a production one, and whether a debug toggle
 made the row not worth counting.
 
-**The id is the opt-out.** Resetting progress discards it (§17.1), and a fresh id is a fresh install
-as far as anything here can tell. There is no consent gate and no in-app switch: the basis is GDPR
-Art. 6(1)(f) legitimate interest, disclosed in a privacy policy.
+**The id is the opt-out.** Deleting the app discards it for good, and a reinstall is a fresh install
+as far as anything here can tell. Starting over is *not*: the record outlives a career (§17.1), so a
+player who has said yes is never asked again. There is no consent gate and no in-app switch: the
+basis is GDPR Art. 6(1)(f) legitimate interest, disclosed in a privacy policy.
 
 **Free text never rides one of these rows.** A message a player types has its own record and its own
 table (§18.5), so a call site cannot put a player's words into an analytics row — enforced by the

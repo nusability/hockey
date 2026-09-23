@@ -35,6 +35,9 @@ final class Game {
     /// The sounds and haptics (§8.8).
     private let feedback: Feedback
     private(set) var save: SaveRecord
+    /// The device's own record (§17.1): its own file beside the save, out of backup, its refusal silent.
+    private let devices: DeviceStore
+    private(set) var device: DeviceRecord
     private var screen: Screen?
     private var hud: MatchHud?
     /// The player's match in progress — nil while the demo plays.
@@ -57,11 +60,14 @@ final class Game {
         }
     }
 
-    private init(stage: UIStage, pitch: Pitch, store: SaveStore, save: SaveRecord, feedback: Feedback) {
+    private init(stage: UIStage, pitch: Pitch, store: SaveStore, save: SaveRecord,
+                 devices: DeviceStore, device: DeviceRecord, feedback: Feedback) {
         self.stage = stage
         self.pitch = pitch
         self.store = store
         self.save = save
+        self.devices = devices
+        self.device = device
         self.feedback = feedback
         root.addChild(pitch.root)
         root.addChild(stage.root)
@@ -93,7 +99,25 @@ final class Game {
         case .new(let s), .loaded(let s): save = s
         case .refused: save = .fresh
         }
-        let game = Game(stage: stage, pitch: pitch, store: store, save: save, feedback: feedback)
+        // The install id is minted here, never in the core (§17.1) — the core holds no randomness.
+        let devices = DeviceStore(directory: directory)
+        let now = Int64((Date().timeIntervalSince1970 * 1000).rounded())
+        let installId = UUID().uuidString.lowercased()
+        let device: DeviceRecord
+        var deviceRefused: String?
+        do {
+            let read = try devices.loadOrCreate(at: now, installId: installId)
+            device = read.record
+            deviceRefused = read.refused
+        } catch {
+            device = .replacement(at: now, installId: installId) // never a fresh: see DeviceStore
+            deviceRefused = "unwritable \(error.localizedDescription)"
+        }
+        let game = Game(stage: stage, pitch: pitch, store: store, save: save,
+                        devices: devices, device: device, feedback: feedback)
+        if let deviceRefused {
+            game.log.error("device record refused, moved aside and replaced: \(deviceRefused, privacy: .public)")
+        }
         if case .refused(let why) = loaded {
             game.log.error("save refused: \(why, privacy: .public)")
             game.go(.refused(why))

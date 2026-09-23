@@ -4,7 +4,7 @@
 
 /// The device record's format (telemetry.toml [format]). A record of any other version is refused, never read.
 public enum TelemetryFormat {
-    public static let version: Int = 1
+    public static let version: Int = 2
 }
 
 /// Which app wrote the row. One dataset for both, with a column to tell them apart — 'does iOS behave like Android' is a question you cannot ask of two tables.
@@ -48,16 +48,18 @@ public enum LoveAnswerKind: String, Sendable, Hashable, CaseIterable {
     case dismissed
 }
 
-/// What this install remembers about itself rather than about a career (spec §17): when it was first seen, how many matches have been played on it, and what the love dialog has already asked and been told. Kept beside the save and never inside it, so starting over and a refused save both leave it alone.
+/// What this install remembers about itself rather than about a career (spec §17): the anonymous install id it was given on its first launch, when it was first seen, how many matches have been played on it, and what the love dialog has already asked and been told. Kept beside the save and never inside it, so starting over and a refused save both leave it alone — and out of device backup, so the id cannot ride to a second phone. The id is minted by the platform and passed in: the core has no randomness of its own.
 public struct DeviceRecord: Sendable, Hashable {
     public var version: Int
+    public var installId: String
     public var installedAt: Int64
     public var matchesPlayed: Int
     public var lastAskedAt: Int64?
     public var answeredPositively: Bool
 
-    public init(version: Int, installedAt: Int64, matchesPlayed: Int, lastAskedAt: Int64?, answeredPositively: Bool) {
+    public init(version: Int, installId: String, installedAt: Int64, matchesPlayed: Int, lastAskedAt: Int64?, answeredPositively: Bool) {
         self.version = version
+        self.installId = installId
         self.installedAt = installedAt
         self.matchesPlayed = matchesPlayed
         self.lastAskedAt = lastAskedAt
@@ -70,6 +72,7 @@ extension DeviceRecord {
     func json() -> JSONValue {
         .object([
             ("version", .int(version)),
+            ("install_id", SaveJSON.uuid(installId)),
             ("installed_at", SaveJSON.i64(installedAt)),
             ("matches_played", .int(matchesPlayed)),
             ("last_asked_at", lastAskedAt.map { SaveJSON.i64($0) } ?? .null),
@@ -79,12 +82,13 @@ extension DeviceRecord {
 
     /// Decodes the record at `path` ("$" for the file's root), failing on anything but its exact shape.
     init(json: JSONValue, at path: String) throws(SaveDecodeError) {
-        let o = try SaveJSON.fields(json, at: path, ["version", "installed_at", "matches_played", "last_asked_at", "answered_positively"])
+        let o = try SaveJSON.fields(json, at: path, ["version", "install_id", "installed_at", "matches_played", "last_asked_at", "answered_positively"])
         self.version = try SaveJSON.int(o[0], at: path + ".version")
-        self.installedAt = try SaveJSON.i64(o[1], at: path + ".installed_at")
-        self.matchesPlayed = try SaveJSON.int(o[2], at: path + ".matches_played")
-        if case .null = o[3] { self.lastAskedAt = nil } else { self.lastAskedAt = try SaveJSON.i64(o[3], at: path + ".last_asked_at") }
-        self.answeredPositively = try SaveJSON.bool(o[4], at: path + ".answered_positively")
+        self.installId = try SaveJSON.uuid(o[1], at: path + ".install_id")
+        self.installedAt = try SaveJSON.i64(o[2], at: path + ".installed_at")
+        self.matchesPlayed = try SaveJSON.int(o[3], at: path + ".matches_played")
+        if case .null = o[4] { self.lastAskedAt = nil } else { self.lastAskedAt = try SaveJSON.i64(o[4], at: path + ".last_asked_at") }
+        self.answeredPositively = try SaveJSON.bool(o[5], at: path + ".answered_positively")
         try validate(at: path)
     }
 }

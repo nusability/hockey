@@ -17,9 +17,22 @@ import `in`.nann.smashhockey.core.season.refuse
  * also the only shape a golden vector can pin byte for byte.
  */
 
-/** A device seen for the first time: never asked, nothing played. */
-fun DeviceRecord.Companion.fresh(now: Long): DeviceRecord =
-    DeviceRecord(TelemetryFormat.version, now, 0, null, false)
+/**
+ * The all-zero UUID: never an install id, and the one string `installId` may not be. A mint that
+ * failed is refused rather than stored, because an install id every phone shares is worse than none
+ * at all.
+ */
+const val NO_INSTALL_ID = "00000000-0000-0000-0000-000000000000"
+
+/**
+ * A device seen for the first time: never asked, nothing played.
+ *
+ * **[installId] is minted by the platform and passed in** — `java.util.UUID.randomUUID()` on Android,
+ * `UUID().uuidString.lowercased()` on iOS. The core mints nothing: it holds no randomness of its own,
+ * no clock and no ambient state, which is what lets one corpus pin it (§4 and ADR 0009).
+ */
+fun DeviceRecord.Companion.fresh(now: Long, installId: String): DeviceRecord =
+    DeviceRecord(TelemetryFormat.version, installId, now, 0, null, false)
 
 /**
  * What replaces a record we could not read (§17.1).
@@ -29,8 +42,12 @@ fun DeviceRecord.Companion.fresh(now: Long): DeviceRecord =
  * Otherwise a single corrupt byte re-arms the prompt for someone who has already answered it — the
  * exact outcome the rationing exists to prevent. A refused device record is never a screen: telemetry
  * may not block the game.
+ *
+ * The replaced record is a **new install** and carries a newly minted id: the one it lost cannot be
+ * recovered, and reusing anything would either invent an id or share one.
  */
-fun DeviceRecord.Companion.replacement(now: Long): DeviceRecord = fresh(now).copy(lastAskedAt = now)
+fun DeviceRecord.Companion.replacement(now: Long, installId: String): DeviceRecord =
+    fresh(now, installId).copy(lastAskedAt = now)
 
 // --- The file ------------------------------------------------------------------------------------
 
@@ -96,6 +113,9 @@ enum class LoveAnswer(val key: String) {
 // --- The rules a decoded record is checked against -----------------------------------------------
 
 internal fun DeviceRecord.validate(path: String) {
+    // The all-zero UUID is what a mint that failed looks like, and it would make every phone one
+    // install. Refused rather than stored, and the record then replaced like any other refusal.
+    if (installId == NO_INSTALL_ID) refuse(SaveDecodeError.BrokenRule("$path.install_id", SaveRule.ZERO_INSTALL_ID))
     if (matchesPlayed < 0) refuse(SaveDecodeError.BrokenRule("$path.matches_played", SaveRule.NEGATIVE_COUNT))
     if (installedAt < 0) refuse(SaveDecodeError.BrokenRule("$path.installed_at", SaveRule.NEGATIVE_INSTANT))
     if (lastAskedAt != null) {

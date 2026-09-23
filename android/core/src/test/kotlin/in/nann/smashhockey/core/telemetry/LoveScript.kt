@@ -20,8 +20,12 @@ class LoveScript(val steps: List<Step>) {
 
     /** One input line. Everything else in the file is output. */
     sealed interface Step {
-        /** `launch <now> <fresh|lost>` — the record was read, or lost and replaced (§17.1). */
-        data class Launch(val now: Long, val lost: Boolean) : Step
+        /**
+         * `launch <now> <fresh|lost> <install id>` — the record was read, or lost and replaced
+         * (§17.1). The id is an input like the clock: the platform mints it and hands it in, so the
+         * corpus pins a chosen one rather than a random one.
+         */
+        data class Launch(val now: Long, val lost: Boolean, val installId: String) : Step
 
         /** `match <now> <duration> <cup|league|-> <goal…>` — a finished player match. */
         data class Match(val now: Long, val match: LoveMatch) : Step
@@ -46,8 +50,8 @@ class LoveScript(val steps: List<Step>) {
                 fun now(): Long = w.getOrNull(1)?.toLongOrNull() ?: throw Failure("bad instant: $line")
                 when (w[0]) {
                     "launch" -> {
-                        if (w.size != 3 || (w[2] != "fresh" && w[2] != "lost")) throw Failure("bad launch line: $line")
-                        steps.add(Step.Launch(now(), w[2] == "lost"))
+                        if (w.size != 4 || (w[2] != "fresh" && w[2] != "lost")) throw Failure("bad launch line: $line")
+                        steps.add(Step.Launch(now(), w[2] == "lost", w[3]))
                     }
                     "match" -> {
                         val duration = w.getOrNull(2)?.toIntOrNull() ?: throw Failure("bad match line: $line")
@@ -92,7 +96,12 @@ class LoveScript(val steps: List<Step>) {
      * arming is a session fact, so a prompt earned and not reached is simply earned again.
      */
     fun run(pinning: (String, DeviceRecord) -> Unit): List<String> {
-        var record = DeviceRecord.fresh(0)
+        // A script starts with a launch, so the record the replay begins from is the one that line
+        // describes — there is no record before the app has read one, and nothing to invent an install
+        // id for. The loop then re-derives it as its first step.
+        val first = steps.firstOrNull() as? Step.Launch ?: throw Failure("a script starts with a launch line")
+        var record = if (first.lost) DeviceRecord.replacement(first.now, first.installId)
+        else DeviceRecord.fresh(first.now, first.installId)
         var armed: LoveTrigger? = null
         var up = false
         val lines = mutableListOf<String>()
@@ -103,8 +112,9 @@ class LoveScript(val steps: List<Step>) {
         for (step in steps) {
             when (step) {
                 is Step.Launch -> {
-                    lines.add("launch ${step.now} ${if (step.lost) "lost" else "fresh"}")
-                    record = if (step.lost) DeviceRecord.replacement(step.now) else DeviceRecord.fresh(step.now)
+                    lines.add("launch ${step.now} ${if (step.lost) "lost" else "fresh"} ${step.installId}")
+                    record = if (step.lost) DeviceRecord.replacement(step.now, step.installId)
+                    else DeviceRecord.fresh(step.now, step.installId)
                     armed = null
                     up = false
                     lines.add(state())

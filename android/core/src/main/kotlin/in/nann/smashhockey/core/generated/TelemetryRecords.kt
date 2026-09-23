@@ -9,7 +9,7 @@ import `in`.nann.smashhockey.core.telemetry.validate
 
 /** The device record's format (telemetry.toml [format]). A record of any other version is refused, never read. */
 object TelemetryFormat {
-    const val version: Int = 1
+    const val version: Int = 2
 }
 
 /** Which app wrote the row. One dataset for both, with a column to tell them apart — 'does iOS behave like Android' is a question you cannot ask of two tables. */
@@ -53,9 +53,10 @@ enum class LoveAnswerKind(val key: String) {
     DISMISSED("dismissed"),
 }
 
-/** What this install remembers about itself rather than about a career (spec §17): when it was first seen, how many matches have been played on it, and what the love dialog has already asked and been told. Kept beside the save and never inside it, so starting over and a refused save both leave it alone. */
+/** What this install remembers about itself rather than about a career (spec §17): the anonymous install id it was given on its first launch, when it was first seen, how many matches have been played on it, and what the love dialog has already asked and been told. Kept beside the save and never inside it, so starting over and a refused save both leave it alone — and out of device backup, so the id cannot ride to a second phone. The id is minted by the platform and passed in: the core has no randomness of its own. */
 data class DeviceRecord(
     val version: Int,
+    val installId: String,
     val installedAt: Long,
     val matchesPlayed: Int,
     val lastAskedAt: Long?,
@@ -65,6 +66,7 @@ data class DeviceRecord(
     fun toJson(): JsonValue = JsonValue.Obj(
         listOf(
             "version" to JsonValue.Num(version.toLong()),
+            "install_id" to SaveJson.uuid(installId),
             "installed_at" to SaveJson.i64(installedAt),
             "matches_played" to JsonValue.Num(matchesPlayed.toLong()),
             "last_asked_at" to (lastAskedAt?.let { SaveJson.i64(it) } ?: JsonValue.Null),
@@ -75,13 +77,14 @@ data class DeviceRecord(
     companion object {
         /** Decodes the record at [path] ("$" for the file's root), failing on anything but its exact shape. */
         fun fromJson(json: JsonValue, path: String): DeviceRecord {
-            val o = SaveJson.fields(json, path, listOf("version", "installed_at", "matches_played", "last_asked_at", "answered_positively"))
+            val o = SaveJson.fields(json, path, listOf("version", "install_id", "installed_at", "matches_played", "last_asked_at", "answered_positively"))
             val record = DeviceRecord(
                 version = SaveJson.int(o[0], "$path.version"),
-                installedAt = SaveJson.i64(o[1], "$path.installed_at"),
-                matchesPlayed = SaveJson.int(o[2], "$path.matches_played"),
-                lastAskedAt = o[3].let { if (it is JsonValue.Null) null else SaveJson.i64(it, "$path.last_asked_at") },
-                answeredPositively = SaveJson.bool(o[4], "$path.answered_positively"),
+                installId = SaveJson.uuid(o[1], "$path.install_id"),
+                installedAt = SaveJson.i64(o[2], "$path.installed_at"),
+                matchesPlayed = SaveJson.int(o[3], "$path.matches_played"),
+                lastAskedAt = o[4].let { if (it is JsonValue.Null) null else SaveJson.i64(it, "$path.last_asked_at") },
+                answeredPositively = SaveJson.bool(o[5], "$path.answered_positively"),
             )
             record.validate(path)
             return record

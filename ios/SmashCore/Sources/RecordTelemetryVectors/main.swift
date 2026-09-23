@@ -37,6 +37,14 @@ var failures = 0
 // numbers in the file should be recognisable as instants rather than as small integers.
 let start: Int64 = 1_772_366_400_000
 let day: Int64 = 86_400_000
+
+// The install ids. Minted by the platform on a real launch (§17.1) and therefore an *input* to the
+// script, like the clock: chosen and fixed here so the corpus's bytes are stable. A random one would
+// make every re-recording a diff.
+let installId = "7c9e6f81-3b4a-4d2e-8a15-0f6b5c2d9e13"
+// A record we could not read is replaced, and the replacement is a new install with a new id: the
+// lost one cannot be recovered, and reusing it would be a guess.
+let mintedAgain = "b41d8a27-5e6c-4f19-9d03-2a7b6c4e8f50"
 let cooldown = LovePolicy.cooldownMillis
 
 // A match is 4 × 120 s by default (§12): 480 000 ms. The last third begins at 320 000.
@@ -69,7 +77,7 @@ func oneGoalWin(_ winner: Int) -> LoveMatch {
 
 // 1. A brand-new device. A three-goal stroll is not a story, and a settled screen stays quiet.
 let installed = start
-steps.append(.launch(now: installed, lost: false))
+steps.append(.launch(now: installed, lost: false, installId: installId))
 steps.append(.match(now: installed + minute, match: LoveMatch(goals: goals("f@\(early),f@200000,f@300000"),
                                                              durationMillis: matchMillis)))
 steps.append(.settle(now: installed + 2 * minute, remote: .on))
@@ -152,7 +160,7 @@ steps.append(.settle(now: asked3 + 2 * cooldown, remote: .on))
 //     with the bytes — nothing can bring it back — so what matters is that the replacement serves a
 //     full cooldown before the game says a word.
 let lost = asked3 + 3 * cooldown
-steps.append(.launch(now: lost, lost: true))
+steps.append(.launch(now: lost, lost: true, installId: mintedAgain))
 steps.append(.bytes(file: "lost.json"))
 steps.append(.match(now: lost + 1000, match: LoveMatch(goals: goals("f@\(late)"), durationMillis: matchMillis,
                                                        wonCup: true)))
@@ -165,7 +173,8 @@ let header = """
 # Love-dialog golden vector (spec §17, §4.7): the arming rule and the rationing, step by step, with
 # the clock as an input. Both platforms recompute every output line from the input lines.
 # Input lines:
-#   launch <now> <fresh|lost>                        — the record was read, or lost and replaced (§17.1)
+#   launch <now> <fresh|lost> <install id>           — the record was read, or lost and replaced (§17.1),
+#                                                    with the id the platform minted for a new install
 #   match <now> <duration> <cup|league|-> <goal…>    — a finished match; a goal is f@<ms> or a@<ms>, in order
 #   settle <now> <unread|on|off>                     — a settled screen (§17.3), the kill switch in that state
 #   answer <now> <positive|negative|dismissed>       — the answer to the panel that is up
@@ -203,10 +212,14 @@ func edit(_ s: String, _ from: String, _ to: String) -> String {
 let invalid: [(String, [UInt8])] = [
     ("empty.json", []),
     ("array-root.json", Array("[]\n".utf8)),
-    ("no-version.json", Array(edit(asked, "  \"version\": 1,\n", "").utf8)),
-    ("version-2.json", Array(edit(asked, "\"version\": 1,", "\"version\": 2,").utf8)),
+    ("no-version.json", Array(edit(asked, "  \"version\": 2,\n", "").utf8)),
+    ("version-3.json", Array(edit(asked, "\"version\": 2,", "\"version\": 3,").utf8)),
     ("missing-field.json", Array(edit(asked, "  \"last_asked_at\": 1772367780000,\n", "").utf8)),
-    ("unknown-field.json", Array(edit(asked, "  \"answered_positively\"", "  \"install_id\": \"x\",\n  \"answered_positively\"").utf8)),
+    ("unknown-field.json", Array(edit(asked, "  \"answered_positively\"", "  \"times_asked\": 1,\n  \"answered_positively\"").utf8)),
+    // The id's own two refusals: a form that is not the canonical lowercase 8-4-4-4-12 one, and the
+    // all-zero UUID, which is what a mint that failed looks like and would make every phone one install.
+    ("install-id-uppercase.json", Array(edit(asked, "\"\(installId)\"", "\"\(installId.uppercased())\"").utf8)),
+    ("install-id-zero.json", Array(edit(asked, "\"\(installId)\"", "\"\(DeviceRecord.noInstallId)\"").utf8)),
     ("duplicate-field.json", Array(edit(asked, "  \"matches_played\": 3,\n", "  \"matches_played\": 3,\n  \"matches_played\": 3,\n").utf8)),
     ("instant-string.json", Array(edit(asked, "\"installed_at\": 1772366400000", "\"installed_at\": \"1772366400000\"").utf8)),
     ("instant-fraction.json", Array(edit(asked, "\"installed_at\": 1772366400000", "\"installed_at\": 1772366400000.5").utf8)),

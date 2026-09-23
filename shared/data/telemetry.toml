@@ -42,7 +42,7 @@
 # hold them forever (../flashybird's `fb.nann.in` is the standing proof).
 
 [format]
-version = 1
+version = 2
 
 # Enumerated columns: a declared set of values, generated as a real enum on both platforms and as a
 # CHECK constraint in the DDL, so neither a call site nor a row can hold a value nobody declared.
@@ -72,9 +72,10 @@ _doc = "How the player answered the panel (spec §17.2). A dismissal is an answe
 values = ["positive", "negative", "dismissed"]
 
 [record.DeviceRecord]
-_doc = "What this install remembers about itself rather than about a career (spec §17): when it was first seen, how many matches have been played on it, and what the love dialog has already asked and been told. Kept beside the save and never inside it, so starting over and a refused save both leave it alone."
+_doc = "What this install remembers about itself rather than about a career (spec §17): the anonymous install id it was given on its first launch, when it was first seen, how many matches have been played on it, and what the love dialog has already asked and been told. Kept beside the save and never inside it, so starting over and a refused save both leave it alone — and out of device backup, so the id cannot ride to a second phone. The id is minted by the platform and passed in: the core has no randomness of its own."
 _validate = true
 version = "int"
+install_id = "uuid"
 installed_at = "i64"
 matches_played = "int"
 last_asked_at = "i64?"

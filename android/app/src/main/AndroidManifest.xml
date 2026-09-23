@@ -4,8 +4,14 @@
     <!-- The match's haptics (spec §8.8). -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!--
+      The save is backed up; the device record is not (spec §17.1). Both routes off the phone are
+      named: dataExtractionRules for API 31+, fullBackupContent for the releases below it.
+    -->
     <application
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:label="@string/app_name"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <activity

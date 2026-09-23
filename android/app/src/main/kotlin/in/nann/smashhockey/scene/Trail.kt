@@ -3,6 +3,7 @@ package `in`.nann.smashhockey.scene
 import com.google.android.filament.Box
 import com.google.android.filament.Engine
 import com.google.android.filament.Scene
+import `in`.nann.smashhockey.core.feel.SceneMarks
 import `in`.nann.smashhockey.engine.DynamicMesh
 import `in`.nann.smashhockey.engine.Materials
 import `in`.nann.smashhockey.generated.Presentation
@@ -23,12 +24,22 @@ class Trail(engine: Engine, private val scene: Scene, private val materials: Mat
     private val mesh = DynamicMesh(engine, n * 2, IntArray((n - 1) * 6) { i ->
         val seg = i / 6; val a = seg * 2
         intArrayOf(a, a + 1, a + 2, a + 1, a + 3, a + 2)[i % 6]
-    }, material, withUv = true, bounds = Box(0f, 0f, 0f, 40f, 5f, 40f))
+    }, material, withUv = true, bounds = bounds())
     private val xyz = FloatArray(n * 6)
     private val uv = FloatArray(n * 4)
     private var visible = false
 
     init { mesh.draw(0) }
+
+    /**
+     * Every vertex is a place the ball has been, half the ribbon's width to either side: the pitch's
+     * own reach grown by that, and never the box of a frame that moves (SMASH-33). A test walks a
+     * whole match against it.
+     */
+    private fun bounds(): Box {
+        val e = SceneMarks.trailExtent(Presentation.Trail.width)
+        return Box(0f, 0.5f, 0f, e.x.toFloat(), 2.5f, e.z.toFloat())
+    }
 
     /**
      * One frame: the ball drawn at (x, z) at match [time], moving at [speed]; [loose] false (carried)

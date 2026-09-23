@@ -182,6 +182,9 @@ object Presentation {
         const val opacity: Double = 0.22
         const val columns: Int = 12
         const val rows: Int = 5
+        const val depth: Int = 4
+        const val cord: Double = 0.05
+        const val cordLift: Double = 0.012
         const val amplitude: Double = 0.35
         const val decay: Double = 3.2
         const val frequency: Double = 18.0
@@ -189,7 +192,7 @@ object Presentation {
         const val reach: Double = 2.5
         const val seconds: Double = 1.6
         object Sway {
-            const val amplitude: Double = 0.06
+            const val amplitude: Double = 0.18
             const val seconds: Double = 3.6
             const val wave: Double = 1.1
             const val reduceMotion: Double = 0.4
@@ -307,4 +310,17 @@ val World.look: WorldLook
         World.OASIS -> WorldLook(0xFFD9A8, 0xB27A4C, 0.2865, 0xFFC98A, 0.7958, listOf(-40.0, 30.0, 14.0), 0.7)
         World.HIMALAYA -> WorldLook(0xD6E9FF, 0x9FB6CC, 0.3024, 0xFFE4BF, 0.6366, listOf(-35.0, 46.0, -26.0), 0.7)
         World.OCEAN -> WorldLook(0xB8F1FA, 0x2A7A8A, 0.4138, 0xF2FEFF, 0.573, listOf(14.0, 60.0, -10.0), 0.7)
+    }
+
+/**
+ * The world's goal-net cords (teams.toml [[world]] `net`), sRGB 0xRRGGBB: the net is the apps'
+ * own — the asset carries the frame alone (spec §8.8).
+ */
+val World.netColour: Int
+    get() = when (this) {
+        World.MAGICWOOD -> 0xE2E8F0
+        World.SPACE -> 0xBAE6FD
+        World.OASIS -> 0xFFF1D6
+        World.HIMALAYA -> 0xFFFFFF
+        World.OCEAN -> 0xE0FBFF
     }

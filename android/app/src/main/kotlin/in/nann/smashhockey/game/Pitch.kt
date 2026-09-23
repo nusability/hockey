@@ -92,6 +92,7 @@ class Pitch(context: Context, private val engine: Engine, private val scene: Sce
         val first = kickoff.match.snapshot
         actors = Actors(engine, scene, root.entity, first, kickoff.colours, kickoff.world.sport, kickoff.orbitPeriod, materials, w.look)
         confetti = Confetti(engine, scene, root.entity, materials, w.look, kickoff.colours)
+        nets.paint(kickoff.world)           // the net's cords are the world's own colour (§8.8)
         cues = MatchCues(Feel.params, drill = plan is MatchPlan.Practice, audible = !plan.isDemo)
         this.plan = plan
         this.kickoff = kickoff

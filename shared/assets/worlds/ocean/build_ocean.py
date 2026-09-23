@@ -35,7 +35,7 @@ SKY = [(0.0, '#b8f6ff'), (0.06, '#4cc8e6'), (0.15, '#1a8aab'), (0.30, '#0f6f8e')
 LIGHT = dict(hemi_sky='#b8f1fa', hemi_ground='#2a7a8a', hemi=1.3, sun='#f2feff', sun_i=1.8, sun_pos=(14, 60, -10))
 SURFACE = dict(base='#2ea393', stripe='#289685', lines='#f0fdfa')
 BORDER = dict(color='#ffa4c1', top='#fff8fc', height=1.1, base='#d2b985')
-GOAL = dict(post='#ffb020', net='#e0fbff')
+GOAL = dict(post='#ffb020')
 
 rng = random.Random(31)
 R = rng.uniform

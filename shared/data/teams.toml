@@ -11,6 +11,7 @@
 [[world]]
 id = "magicwood"
 sport = "field"
+net = "#e2e8f0"            # the goal net's cords — the apps draw and move the net (§8.8)
 name = { en = "Magic Wood", de = "Zauberwald" }
 [world.look] # dusk in the wood: violet sky light over dark moss, a peach sun
 hemi_sky = "#9fb2ff"
@@ -24,6 +25,7 @@ shade = 0.7             # the toon band's dark side; the worlds keep the prototy
 [[world]]
 id = "space"
 sport = "field"
+net = "#bae6fd"            # the goal net's cords — the apps draw and move the net (§8.8)
 name = { en = "Deep Space", de = "Tiefer Weltraum" }
 [world.look] # cool starlight from above, deep violet from below
 hemi_sky = "#9fd0ff"
@@ -37,6 +39,7 @@ shade = 0.7             # the toon band's dark side; the worlds keep the prototy
 [[world]]
 id = "oasis"
 sport = "field"
+net = "#fff1d6"            # the goal net's cords — the apps draw and move the net (§8.8)
 name = { en = "Desert Oasis", de = "Wüstenoase" }
 [world.look] # golden hour: warm sky, sand bounce, a low orange sun
 hemi_sky = "#ffd9a8"
@@ -50,6 +53,7 @@ shade = 0.7             # the toon band's dark side; the worlds keep the prototy
 [[world]]
 id = "himalaya"
 sport = "ice"
+net = "#ffffff"            # the goal net's cords — the apps draw and move the net (§8.8)
 name = { en = "Himalaya", de = "Himalaya" }
 [world.look] # thin bright air: pale blue sky light, cold grey-blue shade, a warm sun
 hemi_sky = "#d6e9ff"
@@ -63,6 +67,7 @@ shade = 0.7             # the toon band's dark side; the worlds keep the prototy
 [[world]]
 id = "ocean"
 sport = "field"
+net = "#e0fbff"            # the goal net's cords — the apps draw and move the net (§8.8)
 name = { en = "Ocean World", de = "Ozeanwelt" }
 [world.look] # under the waves: aqua light from above, deep teal below, a white sun overhead
 hemi_sky = "#b8f1fa"

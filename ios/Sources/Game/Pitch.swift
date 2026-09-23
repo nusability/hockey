@@ -53,7 +53,7 @@ final class Pitch {
     init(materials: Materials, feel: FeelMaterials.Set) throws {
         self.materials = materials
         self.feel = feel
-        pops = try Pops()
+        pops = try Pops(feel: feel)
         nets = try NetRipple()
         root.addChild(pops.root)
         root.addChild(nets.root)
@@ -113,6 +113,7 @@ final class Pitch {
             self.confetti?.root.removeFromParent()
             root.addChild(actors.root)
             root.addChild(confetti.root)
+            nets.paint(kickoff.world)           // the net's cords are the world's own colour (§8.8)
             (self.actors, self.confetti) = (actors, confetti)
             self.plan = plan
             self.kickoff = kickoff

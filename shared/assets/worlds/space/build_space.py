@@ -35,7 +35,7 @@ from worldkit import T, R as Rot, S, euler, mix, clamp  # noqa: E402
 WORLD, SPORT = 'space', 'field'
 LIGHT = dict(hemi_sky='#9fd0ff', hemi_ground='#1a1240', hemi=1.05, sun='#fff1d8', sun_i=1.9, sun_pos=(18, 60, -20))
 BORDER = dict(color='#0369a1', top='#67e8f9', height=1.1, base='#121a38')
-GOAL = dict(post='#f472b6', net='#bae6fd')
+GOAL = dict(post='#f472b6')
 BASE, STRIPE, CYAN = '#151c33', '#121829', '#7df9ff'
 HW, HL, CORNER = wk.HW, wk.HL, 2.0
 

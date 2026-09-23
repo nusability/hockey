@@ -33,7 +33,7 @@ SKY = [(0.0, '#2a67cc'), (0.28, '#5b9fe6'), (0.52, '#a9d3f4'), (0.72, '#e3f1fb')
 LIGHT = dict(hemi_sky='#d6e9ff', hemi_ground='#9fb6cc', hemi=0.95, sun='#ffe4bf', sun_i=2.0, sun_pos=(-35, 46, -26))
 SURFACE = dict(base='#eef6fd', stripe='#e3eef9', lines='#1d4ed8')
 BORDER = dict(color='#f8fafc', top='#dc2626', height=1.1, glass=True, base='#9fb4c8', frame='#c9e6f7')
-GOAL = dict(post='#ef4444', net='#ffffff')
+GOAL = dict(post='#ef4444')
 
 PI = math.pi
 rng = random.Random(4242)

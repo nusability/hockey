@@ -73,13 +73,12 @@ final class AimArrowView {
         FeelMaterials.set(&targetMaterial, "Opacity", Presentation.Player.targetOpacity)
         FeelMaterials.colour(&dotMaterial, A.pass)
         FeelMaterials.set(&dotMaterial, "Opacity", L.dotOpacity)
-        let sort = ModelSortGroup(depthPass: nil)
         func model(_ kit: MeshKit, _ m: RealityKit.Material, order: Int32) throws -> ModelEntity {
             let e = ModelEntity(mesh: try kit.resource(), materials: [m])
-            e.components.set(ModelSortGroupComponent(group: sort, order: order))
+            DrawOrder.set(e, order)
             return e
         }
-        glow = try model(Self.ribbon(A.glowNear, A.glowFar), glowMaterial, order: 0)
+        glow = try model(Self.ribbon(A.glowNear, A.glowFar), glowMaterial, order: DrawOrder.arrowGlow)
         // The chevron ribbon is the one part whose shape changes every frame, so it is a low-level
         // mesh written in place — as the ball's trail is — rather than a scaled one whose chevron
         // count would have to be told to its material (SMASH-24).
@@ -91,9 +90,9 @@ final class AimArrowView {
         ribbonMesh = try DynamicMesh(vertexCount: 2 * (Self.ribbonSteps + 1), triangles: strips,
                                      bounds: Self.pitchBounds)
         ribbon = ModelEntity(mesh: ribbonMesh.resource, materials: [chevron])
-        ribbon.components.set(ModelSortGroupComponent(group: sort, order: 1))
-        headGlow = try model(Self.head(), headGlowMaterial, order: 2)
-        head = try model(Self.head(), headMaterial, order: 3)
+        DrawOrder.set(ribbon, DrawOrder.arrow)
+        headGlow = try model(Self.head(), headGlowMaterial, order: DrawOrder.headGlow)
+        head = try model(Self.head(), headMaterial, order: DrawOrder.head)
         let start = Float(Tuning.Orbit.radius + A.start)
         glow.position = [0, Float(A.lift) - 0.005, start]
         for e in [glow, headGlow, head] { arrow.addChild(e) }
@@ -108,7 +107,7 @@ final class AimArrowView {
         targetMesh = try DynamicMesh(vertexCount: 2 * (Self.ringSteps + 1), triangles: ringTris,
                                      bounds: Self.pitchBounds)
         target = ModelEntity(mesh: targetMesh.resource, materials: [targetMaterial])
-        target.components.set(ModelSortGroupComponent(group: sort, order: 0))
+        DrawOrder.set(target, DrawOrder.lock)
         root.addChild(target)
         // One mesh for all the dots, not one entity each: the line is redrawn into its vertices.
         var dotTris: [UInt16] = []
@@ -121,15 +120,15 @@ final class AimArrowView {
         dotsMesh = try DynamicMesh(vertexCount: Self.dotCount * (Self.dotSteps + 1), triangles: dotTris,
                                    bounds: Self.pitchBounds)
         dotted = ModelEntity(mesh: dotsMesh.resource, materials: [dotMaterial])
-        dotted.components.set(ModelSortGroupComponent(group: sort, order: 0))
+        DrawOrder.set(dotted, DrawOrder.lock)
         root.addChild(dotted)
         let half = Float(Tuning.Pitch.goalMouthWidth / 2)
         var sheet = MeshKit()
         sheet.quad([-half, 0, 0], [half, 0, 0], [half, Float(L.mouthHeight), 0], [-half, Float(L.mouthHeight), 0])
-        mouth = try model(sheet, mouthMaterial, order: 0)
+        mouth = try model(sheet, mouthMaterial, order: DrawOrder.lock)
         var ground = MeshKit()
         ground.quad([-half, 0, 0], [-half, 0, 1], [half, 0, 1], [half, 0, 0])
-        strip = try model(ground, stripMaterial, order: 0)
+        strip = try model(ground, stripMaterial, order: DrawOrder.lock)
         for e in [mouth, strip] { root.addChild(e) }
         hide()
     }

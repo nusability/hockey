@@ -780,9 +780,18 @@ never a banner, a sound or a haptic.
 
 - **The ball.** A field ball rolls along its travel; a puck spins. A loose ball faster than 6 draws
   a tapered, fading ribbon behind it in the ball's yellow, through where it was over the last 0.16 s.
-- **The nets are cloth.** Both goals' sheets always breathe — a slow wave travelling across them,
-  strongest in the middle and nothing at the edges the net is laced to — whatever the ball is doing.
-  Reduce Motion calms the wave; it never stops it. A goal's ripple (below) rides on top of it.
+- **The flat marks are drawn everywhere.** The discs under the players and the ball, the ring the
+  ball circles on, the pops and the aim's own marks (§5.2) lie on the pitch and are drawn over it
+  wherever the play is, in one stated order that never depends on where the play or the camera has
+  got to. Half the pitch is not a place where a mark stops being drawn.
+- **The nets are cloth, and the apps own them.** A world carries the goal *frame* — the two posts
+  and the crossbar — and nothing else; everything laced to it, the cords and the film under them, is
+  drawn by the apps, so the whole net moves and not a film behind it. Each goal is four sheets: the
+  back, the roof and the two sides, each a cord grid over a translucent film in the world's own net
+  colour. They always breathe — a slow wave travelling across every sheet, strongest in the middle
+  and nothing at the edges the net is laced to — whatever the ball is doing, and far enough to be
+  seen from the play camera 36 m up. Reduce Motion calms the wave once; it never stops it. A goal's
+  ripple (below) rides on top of it.
 - **Goals.** Confetti bursts from the scored-in net at real speed — 160 cards in the scoring side's
   primary, secondary and white, thrown sideways and high, falling, bouncing and tumbling; the net's
   sheets ripple out from where the ball struck; the camera shakes (a kick of 1.2 falling off by 2.5 a

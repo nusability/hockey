@@ -23,11 +23,15 @@ final class BallTrail {
             let a = UInt16(2 * i)
             tris += [a, a + 1, a + 2, a + 1, a + 3, a + 2]
         }
-        let bounds = BoundingBox(min: [-40, -1, -40], max: [40, 2, 40])
+        // Every vertex is a place the ball has been, half the ribbon's width to either side: the
+        // pitch's own reach grown by that, and never the box of a frame that moves (SMASH-33).
+        let e = SceneMarks.trailExtent(width: T.width)
+        let bounds = BoundingBox(min: [Float(-e.x), -1, Float(-e.z)], max: [Float(e.x), 2, Float(e.z)])
         mesh = try DynamicMesh(vertexCount: 2 * n, triangles: tris, bounds: bounds)
         material = feel.trail
         FeelMaterials.colour(&material, T.colour)
         entity = ModelEntity(mesh: mesh.resource, materials: [material])
+        DrawOrder.set(entity, DrawOrder.trail)
         entity.isEnabled = false
         height = Float(ballRadius)
     }

@@ -670,8 +670,8 @@ def rink(turf, scen, sport, surface, border, goal, decorate=None, rng=None, skir
     their coloured rail (ice: a glass frame above them), the rim the pitch stands on, the goals.
 
     surface: base, stripe, lines (colours) — and optionally `paint`: (fn(x, z, band colour) ->
-    colour, cell size), the surface painted cell by cell (edge haze, glows); border: color, top, height, glass, base; goal: post,
-    net. `decorate(turf, paint)` adds a world's own paint before the markings. `skirt`: how far
+    colour, cell size), the surface painted cell by cell (edge haze, glows); border: color, top, height, glass, base; goal:
+    post (the frame alone — the apps draw the net, ADR 0008). `decorate(turf, paint)` adds a world's own paint before the markings. `skirt`: how far
     the rim's outer face reaches down (the ground meets it)."""
     corner = CORNER[sport]
     per = 8 if sport == 'field' else 12
@@ -796,38 +796,20 @@ def rink(turf, scen, sport, surface, border, goal, decorate=None, rng=None, skir
     scen.ring_band(WALL_T, SLAB_W, skirt, 0.0, corner, border['base'], per=per, inner=False)
     # ---- the goals
     for sgn in (-1, 1):
-        goal_frame(scen, sgn, goal['post'], goal['net'])
+        goal_frame(scen, sgn, goal['post'])
     return paint
 
 
-def goal_frame(m, sgn, post, net):
-    """render.js's goal: two posts and a crossbar, a net of cords over a box 1.6 deep. The
-    prototype's net is a 35 % sheet under a cord grid; opaque cords alone keep the ball visible."""
+def goal_frame(m, sgn, post):
+    """render.js's goal, its rigid half: two posts and a crossbar. The net laced to them is **not**
+    in the asset (ADR 0008) — both apps draw and move the whole net themselves (spec §8.8), because a
+    goal's ripple answers a moment in the match and nothing baked into a world can. What stayed here
+    is what never moves; the net's cords take the world's own colour (teams.toml [[world]] `net`)."""
     gz = sgn * GOAL_Z
-    hw, d, h = GOAL_W / 2, GOAL_D, GOAL_H
+    hw, h = GOAL_W / 2, GOAL_H
     for sx in (-1, 1):
         m.frustum((sx * hw, 0, gz), (sx * hw, h, gz), 0.13, 0.13, 10, post, cap=post)
     m.frustum((-hw - 0.13, h, gz), (hw + 0.13, h, gz), 0.12, 0.12, 10, post, cap=post, bottom=post)
-    zb, w = gz + sgn * d, 0.05
-    k = 0
-    x = -hw
-    while x <= hw + 0.01:
-        m.bar((x, 0, zb), (x, h, zb), w, net)                        # back, vertical
-        m.bar((x, h, gz + sgn * 0.12), (x, h, zb), w, net)           # roof, along
-        x += 0.4
-        k += 1
-    y = 0.4
-    while y <= h + 0.01:
-        m.bar((-hw, y, zb), (hw, y, zb), w, net)                     # back, across
-        for sx in (-1, 1):
-            m.bar((sx * hw, y, gz + sgn * 0.13), (sx * hw, y, zb), w, net)  # sides, along
-        y += 0.4
-    zz = gz + sgn * 0.4
-    while abs(zz - gz) <= d + 0.01:
-        m.bar((-hw, h, zz), (hw, h, zz), w, net)                     # roof, across
-        for sx in (-1, 1):
-            m.bar((sx * hw, 0, zz), (sx * hw, h, zz), w, net)        # sides, vertical
-        zz += sgn * 0.4
 
 
 class Paint:

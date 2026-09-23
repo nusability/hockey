@@ -5,10 +5,16 @@ import `in`.nann.smashhockey.core.generated.Tuning
 import `in`.nann.smashhockey.core.generated.Role
 import `in`.nann.smashhockey.core.generated.SoundCue
 import `in`.nann.smashhockey.core.generated.Spot
+import `in`.nann.smashhockey.core.generated.Club
+import `in`.nann.smashhockey.core.generated.World
 import `in`.nann.smashhockey.core.match.DrillInterruption
+import `in`.nann.smashhockey.core.match.Match
+import `in`.nann.smashhockey.core.match.MatchSetup
+import `in`.nann.smashhockey.core.match.SideSetup
 import `in`.nann.smashhockey.core.match.MatchEvent
 import `in`.nann.smashhockey.core.match.MatchResult
 import `in`.nann.smashhockey.core.match.MatchSnapshot
+import `in`.nann.smashhockey.core.match.snapshot
 import `in`.nann.smashhockey.core.match.MatchState
 import `in`.nann.smashhockey.core.match.ReleaseKind
 import kotlin.math.PI
@@ -70,6 +76,139 @@ class FeelTest {
         val field = AimArrow.boards(10.0, 20.0, PI / 4, 2.0, arrow)
         val ice = AimArrow.boards(10.0, 20.0, PI / 4, 8.5, arrow)
         assertTrue(ice < field)
+    }
+
+    // ---- the flat marks — the trail and the pops (§8.8)
+
+    /**
+     * The trail and the pops are written in place too, so their boxes have to hold everywhere the ball
+     * and the players can take them. A whole match is walked against the reach they are built from: a
+     * mark outside it would be culled and stop being drawn (SMASH-33).
+     */
+    @Test fun everyMarkAMatchDrawsStaysInsideItsBounds() {
+        val reach = SceneMarks.reach
+        val m = Match(MatchSetup.demo(5, World.MAGICWOOD, SideSetup.club(Club.MOSSFOXES), SideSetup.club(Club.NEBULA), 30.0))
+        var ticks = 0
+        while (m.state != MatchState.ENDED) {
+            m.tick()
+            val s = m.snapshot
+            assertTrue("the ball at (${s.ball.x}, ${s.ball.z})",
+                abs(s.ball.x) <= reach.x && abs(s.ball.z) <= reach.z)
+            for (p in s.players) {
+                assertTrue("a player at (${p.x}, ${p.z})", abs(p.x) <= reach.x && abs(p.z) <= reach.z)
+            }
+            ticks++
+        }
+        assertTrue(ticks > 1000)
+        val trail = SceneMarks.trailExtent(0.5)     // `[trail] width`
+        val pop = SceneMarks.popExtent(2.0)         // `[pop] radius_to`
+        assertTrue(trail.x > reach.x && trail.z > reach.z)
+        assertTrue(pop.x >= reach.x + 2 && pop.z >= reach.z + 2)
+    }
+
+    // ---- the nets (§8.8)
+
+    /** `presentation.toml [net]` and `[net.sway]` as the app hands them in. */
+    private val net = GoalNet.Params(
+        height = 1.9, columns = 12, rows = 5, depth = 4, cord = 0.05, cordLift = 0.012,
+        sway = 0.18, swaySeconds = 3.6, wave = 1.1, calm = 0.4, ripple = 0.35, decay = 3.2,
+        frequency = 18.0, k = 4.0, reach = 2.5, seconds = 1.6,
+    )
+
+    /**
+     * The net is four sheets a goal, every one laced all the way round — the ground, the posts, the
+     * crossbar and the sheet next door — so the four move as one skin.
+     */
+    @Test fun everyNetSheetIsLacedAlongEveryEdge() {
+        for (sign in listOf(-1.0, 1.0)) {
+            val sheets = GoalNet.sheets(sign, net)
+            assertEquals(4, sheets.size)
+            for (s in sheets) {
+                for (i in 0..s.columns) {
+                    assertEquals(0.0, s.bell(i, 0), 0.0)
+                    assertEquals(0.0, s.bell(i, s.rows), 0.0)
+                }
+                for (j in 0..s.rows) {
+                    assertEquals(0.0, s.bell(0, j), 0.0)
+                    assertEquals(0.0, s.bell(s.columns, j), 0.0)
+                }
+                assertTrue(s.bell(s.columns / 2, s.rows / 2) > 0.5)
+            }
+            near(sign * (Tuning.Pitch.goalLineZ + Tuning.Pitch.goalDepth), sheets[0].point(0, 0).z)
+            near(net.height, sheets[1].point(0, 0).y)
+        }
+    }
+
+    /**
+     * The nets' bounds have to hold what the app writes into them: the films, the cords either side of
+     * every grid line and lifted off the film, at every moment of the cloth's sway and of a goal's
+     * ripple, at both goals, with and without Reduce Motion. A box that misses a vertex is culled away
+     * and the nets stop being drawn (SMASH-33, the aim arrow's old fault).
+     */
+    @Test fun theNetsBoundsHoldEveryVertexItEverWrites() {
+        val box = GoalNet.extent(net)
+        val half = net.cord / 2
+        var checked = 0
+        for (sign in listOf(-1.0, 1.0)) {
+            val s = GoalNet.strike(sign * Tuning.Pitch.goalLineZ, 2.4)
+            for (sheet in GoalNet.sheets(sign, net)) {
+                val a = sheet.acrossUnit
+                val u = sheet.upUnit
+                val n = sheet.normal
+                for (i in 0..sheet.columns) for (j in 0..sheet.rows) {
+                    val node = sheet.point(i, j)
+                    val bell = sheet.bell(i, j)
+                    for (step in 0..120) {
+                        val t = step / 60.0
+                        for (calm in listOf(false, true)) for (age in listOf(-1.0, t, t - 0.4)) {
+                            val d = GoalNet.offset(node.x, node.y, node.z, bell, t, calm, s.x, s.y, s.z, age, net)
+                            val places = listOf(
+                                GoalNet.Point(0.0, 0.0, 0.0) to 0.0,
+                                u * half to net.cordLift, u * -half to net.cordLift,
+                                a * half to net.cordLift, a * -half to net.cordLift,
+                            )
+                            for ((shift, off) in places) {
+                                val v = node + shift + n * (d + off)
+                                assertTrue("x ${v.x} outside ${box.x}", abs(v.x) <= box.x)
+                                assertTrue("y ${v.y} outside the box", v.y >= box.yLow && v.y <= box.yHigh)
+                                assertTrue("z ${v.z} outside ${box.z}", abs(v.z) <= box.z)
+                                checked++
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assertTrue(checked > 100_000)
+        assertTrue(box.z < Tuning.Pitch.goalLineZ + Tuning.Pitch.goalDepth + 1)
+    }
+
+    /**
+     * The cloth never stands still — with or without a ball, and under Reduce Motion, which calms it
+     * once and never freezes it. A goal's ripple rides on top and is gone by `seconds`.
+     */
+    @Test fun theNetBreathesAlwaysAndRipplesOnlyForAWhile() {
+        val sheet = GoalNet.sheets(1.0, net)[0]
+        val node = sheet.point(net.columns / 2, net.rows / 2)
+        val bell = sheet.bell(net.columns / 2, net.rows / 2)
+        val s = GoalNet.strike(Tuning.Pitch.goalLineZ, 0.0)
+        fun offset(t: Double, calm: Boolean = false, age: Double = -1.0) =
+            GoalNet.offset(node.x, node.y, node.z, bell, t, calm, s.x, s.y, s.z, age, net)
+        var lo = 0.0
+        var hi = 0.0
+        for (step in 0..360) {
+            val d = offset(step / 100.0)
+            lo = minOf(lo, d)
+            hi = maxOf(hi, d)
+        }
+        assertTrue(hi > 0.9 * net.sway * bell && lo < -0.9 * net.sway * bell)
+        for (step in 0..360) {
+            val t = step / 100.0
+            assertTrue(abs(offset(t, calm = true) - offset(t) * net.calm) < 1e-12)
+        }
+        assertTrue((0..360).any { abs(offset(it / 100.0, calm = true)) > 0.2 * net.sway })
+        assertTrue(abs(offset(0.0, age = 0.02)) > net.sway)
+        assertEquals(offset(0.5), offset(0.5, age = net.seconds), 0.0)
     }
 
     // ---- the scoreboard, 0:0 to 99:99 (§16.4)

@@ -65,6 +65,7 @@ final class Actors {
             }
             let rest = Materials.flat(primary, opacity: P.shadowOpacity)
             let shadow = model(try mesh("shadow\(r)", Shapes.shadow(radius: r)), rest)
+            DrawOrder.set(shadow, DrawOrder.disc)
             group.addChild(shadow)
             shadows.append((shadow, rest, Materials.flat(primary, opacity: P.carrierShadowOpacity)))
             root.addChild(group)
@@ -80,6 +81,7 @@ final class Actors {
         }
         ballDisc = model(try Shapes.disc().resource(), Materials.flat(B.disc, opacity: B.discOpacity))
         ballDisc.scale = SIMD3(repeating: Float(B.discRadius))
+        DrawOrder.set(ballDisc, DrawOrder.disc)
         root.addChild(ballDisc)
         root.addChild(ball)
 
@@ -87,6 +89,7 @@ final class Actors {
         let orbitRadius = Float(Tuning.Orbit.radius), half = Float(A.orbitWidth) / 2
         orbit = model(try Shapes.ring(inner: orbitRadius - half, outer: orbitRadius + half, segments: 48).resource(),
                       Materials.flat(A.orbit, opacity: A.orbitOpacity))
+        DrawOrder.set(orbit, DrawOrder.orbit)
         orbit.isEnabled = false
         aim = try AimArrowView(sport: sport, feel: feel)
         trail = try BallTrail(ballRadius: s.ball.radius, feel: feel)

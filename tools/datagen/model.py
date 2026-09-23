@@ -236,11 +236,12 @@ def load(root: Path) -> Model:
     worlds = []
     for i, wd in enumerate(need_list(teams, "world", "teams.toml")):
         w = f"teams.toml [[world]] #{i + 1}"
-        expect_keys(wd, {"id", "sport", "name", "look"}, w)
+        expect_keys(wd, {"id", "sport", "name", "net", "look"}, w)
         ident = need_str(wd["id"], w)
         if wd["sport"] not in sport_ids:
             fail(w, f"sport {wd['sport']!r} is not one of {sport_ids}")
         worlds.append({"id": ident, "sport": wd["sport"], "name": localized(wd, "world", ident, "name", w, copy),
+                       "net": colour(wd["net"], f"{w}.net"),
                        "look": world_look(wd["look"], f"{w}.look")})
     world_ids = [x["id"] for x in worlds]
 

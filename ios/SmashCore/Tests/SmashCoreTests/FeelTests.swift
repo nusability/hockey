@@ -105,6 +105,141 @@ import Testing
         #expect(Tuning.Pitch.halfLength - r + Self.drawing.lock <= box.z)
     }
 
+    // MARK: the flat marks — the trail and the pops (§8.8)
+
+    /// The trail and the pops are written in place too, so their boxes have to hold everywhere the
+    /// ball and the players can take them. A whole match is walked against the reach they are built
+    /// from: a mark outside it would be culled and stop being drawn (SMASH-33).
+    @Test func everyMarkAMatchDrawsStaysInsideItsBounds() {
+        let reach = SceneMarks.reach
+        var m = Match(MatchSetup.demo(seed: 5, world: .magicwood, home: .club(.mossfoxes),
+                                      away: .club(.nebula), periodSeconds: 30))
+        var ticks = 0
+        while m.state != .ended {
+            m.tick()
+            let s = m.snapshot
+            #expect(abs(s.ball.x) <= reach.x, "the ball at x \(s.ball.x)")
+            #expect(abs(s.ball.z) <= reach.z, "the ball at z \(s.ball.z)")
+            for p in s.players {
+                #expect(abs(p.x) <= reach.x && abs(p.z) <= reach.z, "a player at (\(p.x), \(p.z))")
+            }
+            ticks += 1
+        }
+        #expect(ticks > 1000)
+        // Both marks are drawn round a point inside that reach, so both boxes are wider than it.
+        let trail = SceneMarks.trailExtent(width: 0.5)      // `[trail] width`
+        let pop = SceneMarks.popExtent(radius: 2.0)         // `[pop] radius_to`
+        #expect(trail.x > reach.x && trail.z > reach.z)
+        #expect(pop.x >= reach.x + 2 && pop.z >= reach.z + 2)
+    }
+
+    // MARK: the nets (§8.8)
+
+    /// `presentation.toml [net]` and `[net.sway]` as the apps hand them in.
+    static let net = GoalNet.Params(height: 1.9, columns: 12, rows: 5, depth: 4, cord: 0.05, cordLift: 0.012,
+                                    sway: 0.18, swaySeconds: 3.6, wave: 1.1, calm: 0.4, ripple: 0.35,
+                                    decay: 3.2, frequency: 18.0, k: 4.0, reach: 2.5, seconds: 1.6)
+
+    /// The net is four sheets a goal, and every one of them is laced all the way round: the ground,
+    /// the posts, the crossbar and the sheet next door. A node on an edge never moves, so the four
+    /// sheets stay one skin however hard the cloth breathes.
+    @Test func everyNetSheetIsLacedAlongEveryEdge() {
+        for sign in [Double(-1), 1] {
+            let sheets = GoalNet.sheets(sign, Self.net)
+            #expect(sheets.count == 4)
+            for s in sheets {
+                for i in 0...s.columns {
+                    #expect(s.bell(i, 0) == 0 && s.bell(i, s.rows) == 0)
+                }
+                for j in 0...s.rows {
+                    #expect(s.bell(0, j) == 0 && s.bell(s.columns, j) == 0)
+                }
+                #expect(s.bell(s.columns / 2, s.rows / 2) > 0.5)
+            }
+            // The back sheet stands a goal's depth behind the line; the roof sits at the net's height.
+            #expect(abs(sheets[0].point(0, 0).z - sign * (Tuning.Pitch.goalLineZ + Tuning.Pitch.goalDepth)) < 1e-9)
+            #expect(abs(sheets[1].point(0, 0).y - Self.net.height) < 1e-9)
+        }
+    }
+
+    /// The nets' bounds have to hold what the apps write into them: the films, the cords either side
+    /// of every grid line and lifted off the film, at every moment of the cloth's sway and of a
+    /// goal's ripple, at both goals, with and without Reduce Motion. A box that misses a vertex is
+    /// culled away and the nets stop being drawn (SMASH-33, the aim arrow's old fault).
+    @Test func theNetsBoundsHoldEveryVertexItEverWrites() {
+        let p = Self.net
+        let box = GoalNet.extent(p)
+        let lift = p.cordLift, half = p.cord / 2
+        var checked = 0
+        for sign in [Double(-1), 1] {
+            let strike = GoalNet.strike(goalZ: sign * Tuning.Pitch.goalLineZ, ballX: 2.4, p)
+            for sheet in GoalNet.sheets(sign, p) {
+                let (a, u, n) = (sheet.acrossUnit, sheet.upUnit, sheet.normal)
+                for i in 0...sheet.columns {
+                    for j in 0...sheet.rows {
+                        let node = sheet.point(i, j)
+                        let bell = sheet.bell(i, j)
+                        for step in 0...120 {                       // two seconds of frames, and a goal
+                            let t = Double(step) / 60
+                            for calm in [false, true] {
+                                for age in [-1.0, t, t - 0.4] {
+                                    let d = GoalNet.offset(x: node.x, y: node.y, z: node.z, bell: bell, t: t,
+                                                           reduceMotion: calm, strikeX: strike.x,
+                                                           strikeY: strike.y, strikeZ: strike.z, age: age, p)
+                                    // The film's vertex, and the four a cord's two ribbons put here.
+                                    for (shift, off) in [(GoalNet.Point(0, 0, 0), 0.0),
+                                                         (u * half, lift), (u * -half, lift),
+                                                         (a * half, lift), (a * -half, lift)] {
+                                        let v = node + shift + n * (d + off)
+                                        #expect(abs(v.x) <= box.x, "x \(v.x) outside \(box.x)")
+                                        #expect(v.y >= box.yLow && v.y <= box.yHigh, "y \(v.y) outside the box")
+                                        #expect(abs(v.z) <= box.z, "z \(v.z) outside \(box.z)")
+                                        checked += 1
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        #expect(checked > 100_000)
+        // And the box is no bigger than it has to be: the goal, grown by everything that moves.
+        #expect(box.z < Tuning.Pitch.goalLineZ + Tuning.Pitch.goalDepth + 1)
+    }
+
+    /// The cloth never stands still — with or without a ball, and under Reduce Motion, which calms
+    /// it once and never freezes it. A goal's ripple rides on top, bigger than the sway, and is gone
+    /// by `seconds`.
+    @Test func theNetBreathesAlwaysAndRipplesOnlyForAWhile() {
+        let p = Self.net
+        let sheet = GoalNet.sheets(1, p)[0]
+        let node = sheet.point(p.columns / 2, p.rows / 2)
+        let bell = sheet.bell(p.columns / 2, p.rows / 2)
+        func offset(_ t: Double, calm: Bool = false, age: Double = -1) -> Double {
+            let s = GoalNet.strike(goalZ: Tuning.Pitch.goalLineZ, ballX: 0, p)
+            return GoalNet.offset(x: node.x, y: node.y, z: node.z, bell: bell, t: t, reduceMotion: calm,
+                                  strikeX: s.x, strikeY: s.y, strikeZ: s.z, age: age, p)
+        }
+        // Over one period the middle of the back sheet swings the full amplitude, both ways.
+        var lo = 0.0, hi = 0.0
+        for step in 0...360 {
+            let d = offset(Double(step) / 100)
+            lo = min(lo, d)
+            hi = max(hi, d)
+        }
+        #expect(hi > 0.9 * p.sway * bell && lo < -0.9 * p.sway * bell)
+        // Reduce Motion keeps `calm` of it — once, and never nothing.
+        for step in 0...360 {
+            let t = Double(step) / 100
+            #expect(abs(offset(t, calm: true) - offset(t) * p.calm) < 1e-12)
+        }
+        #expect((0...360).contains { abs(offset(Double($0) / 100, calm: true)) > 0.2 * p.sway })
+        // A goal is felt at once and forgotten on time.
+        #expect(abs(offset(0, age: 0.02)) > p.sway)
+        #expect(offset(0.5, age: p.seconds) == offset(0.5))
+    }
+
     // MARK: the scoreboard, 0:0 to 99:99 (§16.4)
 
     static let board = Scoreboard.metrics(card: 0.14, gap: 0.0112, colon: 0.084, chip: 0.30, margin: 0.03)

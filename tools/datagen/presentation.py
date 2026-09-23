@@ -125,6 +125,12 @@ def swift(t, worlds):
     for w in worlds:
         args = ", ".join(f"{camel(key)}: " + look_value(w["look"][key], k, True) for key, k in LOOK_FIELDS)
         out.append(f"        case .{w['id']}: WorldLook({args})\n")
+    out.append("        }\n    }\n\n")
+    out.append("    /// The world's goal-net cords (teams.toml [[world]] `net`), sRGB 0xRRGGBB: the net is the\n"
+               "    /// apps' own — the asset carries the frame alone (spec §8.8).\n"
+               "    var netColour: UInt32 {\n        switch self {\n")
+    for w in worlds:
+        out.append(f"        case .{w['id']}: 0x{w['net']:06X}\n")
     out.append("        }\n    }\n}\n")
     return "".join(out)
 
@@ -171,5 +177,11 @@ def kotlin(t, worlds):
     for w in worlds:
         args = ", ".join(look_value(w["look"][key], k, False) for key, k in LOOK_FIELDS)
         out.append(f"        World.{upper_snake(w['id'])} -> WorldLook({args})\n")
+    out.append("    }\n\n")
+    out.append("/**\n * The world's goal-net cords (teams.toml [[world]] `net`), sRGB 0xRRGGBB: the net is the apps'\n"
+               " * own — the asset carries the frame alone (spec §8.8).\n */\n"
+               "val World.netColour: Int\n    get() = when (this) {\n")
+    for w in worlds:
+        out.append(f"        World.{upper_snake(w['id'])} -> 0x{w['net']:06X}\n")
     out.append("    }\n")
     return "".join(out)

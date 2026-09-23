@@ -181,6 +181,9 @@ enum Presentation {
         static let opacity: Double = 0.22
         static let columns: Int = 12
         static let rows: Int = 5
+        static let depth: Int = 4
+        static let cord: Double = 0.05
+        static let cordLift: Double = 0.012
         static let amplitude: Double = 0.35
         static let decay: Double = 3.2
         static let frequency: Double = 18.0
@@ -188,7 +191,7 @@ enum Presentation {
         static let reach: Double = 2.5
         static let seconds: Double = 1.6
         enum Sway {
-            static let amplitude: Double = 0.06
+            static let amplitude: Double = 0.18
             static let seconds: Double = 3.6
             static let wave: Double = 1.1
             static let reduceMotion: Double = 0.4
@@ -307,6 +310,18 @@ extension World {
         case .oasis: WorldLook(hemiSky: 0xFFD9A8, hemiGround: 0xB27A4C, hemiStrength: 0.2865, sun: 0xFFC98A, sunStrength: 0.7958, sunDirection: [-40.0, 30.0, 14.0], shade: 0.7)
         case .himalaya: WorldLook(hemiSky: 0xD6E9FF, hemiGround: 0x9FB6CC, hemiStrength: 0.3024, sun: 0xFFE4BF, sunStrength: 0.6366, sunDirection: [-35.0, 46.0, -26.0], shade: 0.7)
         case .ocean: WorldLook(hemiSky: 0xB8F1FA, hemiGround: 0x2A7A8A, hemiStrength: 0.4138, sun: 0xF2FEFF, sunStrength: 0.573, sunDirection: [14.0, 60.0, -10.0], shade: 0.7)
+        }
+    }
+
+    /// The world's goal-net cords (teams.toml [[world]] `net`), sRGB 0xRRGGBB: the net is the
+    /// apps' own — the asset carries the frame alone (spec §8.8).
+    var netColour: UInt32 {
+        switch self {
+        case .magicwood: 0xE2E8F0
+        case .space: 0xBAE6FD
+        case .oasis: 0xFFF1D6
+        case .himalaya: 0xFFFFFF
+        case .ocean: 0xE0FBFF
         }
     }
 }

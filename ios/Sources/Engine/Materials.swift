@@ -27,6 +27,16 @@ import UIKit
 /// so the linear result is encoded to sRGB once, by the view, exactly like Filament's unlit
 /// materials under its linear tone mapper. (A `CustomMaterial` could compute the same colour but
 /// cannot opt out of RealityKit's tone mapper before iOS 27.)
+///
+/// **A noise in the simulator's log that is not ours** (checked 2026-09-23, iOS 26.5): every
+/// transparent material logs `REMaterialBuilderErrorDomain Code=50 — Program
+/// "realitykit::fsSurfacePbr" failed ... Constant buffer count [16] exceeds limit [14]`, once per
+/// material, followed at once by `PSO compilation completed for **specialized** technique
+/// SurfaceShaderTransparent`. The program that fails is RealityKit's own generic fallback, not a
+/// graph of ours: the count stays at exactly 16 however many inputs our material declares (folding
+/// eleven of FxSoft's into six moved it not at all), the limit of 14 is the simulator's Metal, and
+/// the specialized pipeline that actually draws the part compiles every time. Nothing is dropped
+/// and nothing falls back. Don't go looking for a material to slim down.
 @MainActor
 final class Materials {
     private let worldGraph: ShaderGraphMaterial

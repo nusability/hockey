@@ -107,6 +107,12 @@ extension CareerRecord {
     /// The player's team: always the one they created (§2.2) — there is no picking a club.
     public var team: TeamKey { .created }
 
+    /// The created team as a draft, for the screen that edits it (§16.1).
+    public var draft: TeamDraft {
+        TeamDraft(name: created.name, short: created.short, primary: created.primary,
+                  secondary: created.secondary, world: created.world)
+    }
+
     /// The league's eight teams in their canonical order (§11.1): the clubs as declared, the
     /// player's team in the place of the club it replaces.
     public var league: [TeamKey] {

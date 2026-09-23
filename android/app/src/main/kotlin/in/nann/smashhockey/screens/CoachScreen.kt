@@ -63,11 +63,20 @@ class CoachScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Coach.eye,
         period.onChange = { changed() }
         spin.onChange = { changed() }
 
-        part(BlockButton(kit, L(CopyKey.COACH_RESET), "coach_reset_button", BlockButton.Style.QUIET, 0.78f, 0.32f, 0.1f) { reset() },
-            at(-0.46f, bottom + 0.3f))
-        part(BlockButton(kit, L(CopyKey.COMMON_BACK), "coach_back_button", BlockButton.Style.PRIMARY, 0.78f, 0.32f, 0.1f) {
+        // The board is where the player tunes their own team, so it is also where they change its
+        // name and kit (§16.1, §16.7) — one tap from the title.
+        val team = game.save.career != null
+        val wide = if (team) 0.56f else 0.78f
+        part(BlockButton(kit, L(CopyKey.COACH_RESET), "coach_reset_button", BlockButton.Style.QUIET, wide, 0.32f, 0.1f) { reset() },
+            at(if (team) -0.6f else -0.46f, bottom + 0.3f))
+        if (team) {
+            part(BlockButton(kit, L(CopyKey.TEAM_EDIT_BUTTON), "coach_team_button", BlockButton.Style.SECONDARY, wide, 0.32f, 0.09f) {
+                game.go(Game.Place.Team(editing = true))
+            }, at(0f, bottom + 0.3f))
+        }
+        part(BlockButton(kit, L(CopyKey.COMMON_BACK), "coach_back_button", BlockButton.Style.PRIMARY, wide, 0.32f, 0.1f) {
             game.go(game.home)
-        }, at(0.46f, bottom + 0.3f))
+        }, at(if (team) 0.6f else 0.46f, bottom + 0.3f))
     }
 
     /** A formation as its six disks on a little pitch, attacking up (§3). */

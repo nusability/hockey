@@ -28,6 +28,7 @@ import `in`.nann.smashhockey.ui.Label3D
 import `in`.nann.smashhockey.ui.Panel
 import `in`.nann.smashhockey.ui.Presentable
 import `in`.nann.smashhockey.ui.TableRow
+import `in`.nann.smashhockey.ui.KitSound
 import `in`.nann.smashhockey.ui.Tile
 import `in`.nann.smashhockey.core.season.TableRow as Standing
 
@@ -45,6 +46,8 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
     private val cupTab: Tile
     private var showingCup = false
     private val card: Panel
+    /** The team detail standing in front of the table (§16.3a); nothing behind it takes a tap. */
+    private var detail: TeamDetailPanel? = null
 
     init {
         val career = checkNotNull(game.save.career) { "the hub is reached only with a career" }
@@ -54,7 +57,7 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
         val header = L(CopyKey.HUB_SEASON, season.number) + " · " +
             (if (over) L(CopyKey.HUB_OVER) else L(CopyKey.HUB_HEADER, season.matchday + 1, Season.plan.size))
         part(Label3D(kit, header, 0.1f, C.PAPER, maxWidth = 1.7f, entrance = Entrance.Drop), at(0f, top - 0.14f))
-        card = part(Panel(kit, 1.72f, 0.62f, S.SLAB_DEPTH, C.PAPER, Entrance.Tumble), at(0f, top - 0.62f, tilt = -0.02f))
+        card = part(Panel(kit, 1.72f, 0.74f, S.SLAB_DEPTH, C.PAPER, Entrance.Tumble), at(0f, top - 0.62f, tilt = -0.02f))
         val f = game.save.playerFixture
         if (over) seasonOver(career, season) else if (f != null) fixture(career, season, f)
 
@@ -92,14 +95,17 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
     private fun fixture(career: CareerRecord, season: SeasonRecord, f: Fixture) {
         for ((team, x) in listOf(f.home to -0.5f, f.away to 0.5f)) {
             val k = career.kit(team)
-            val chip = child(Panel(kit, 0.56f, 0.36f, 0.08f, k.first, Entrance.Pop), at(x, 0.05f), card.content)
+            val chip = child(Panel(kit, 0.56f, 0.36f, 0.08f, k.first, Entrance.Pop), at(x, 0.11f), card.content)
             chip.presence.show(0.0)
             kit.slab(0.1f, 0.37f, 0.085f, k.second, chip.body, corner = 0.01f).setPosition(-0.2f, 0f, 0f)
             child(Label3D(kit, career.short(team), 0.13f, k.second, maxWidth = 0.36f), at(0.05f, 0f), chip.content).show(0.0)
+            // Both clubs by their full names, not only their codes (§16.3).
+            letters(Names.team(team, career), 0.048f, if (team == career.team) C.PINK_INK else C.INK, maxWidth = 0.78f,
+                x = x, y = -0.12f, z = 0.01f, parent = card.content)
         }
-        child(Label3D(kit, L(CopyKey.HUB_VS), 0.12f, C.PINK_INK, maxWidth = 0.36f), parent = card.content).show(0.0)
+        child(Label3D(kit, L(CopyKey.HUB_VS), 0.12f, C.PINK_INK, maxWidth = 0.36f), at(0f, 0.11f), card.content).show(0.0)
         val line = "${Names.matchday(Season.plan[season.matchday])} · ${Names.world(career.homeWorld(f.home))}"
-        child(Label3D(kit, line, S.TEXT_SMALL, C.INK, maxWidth = 1.6f), at(0f, -0.225f), card.content).show(0.0)
+        child(Label3D(kit, line, S.TEXT_SMALL, C.INK, maxWidth = 1.6f), at(0f, -0.28f), card.content).show(0.0)
     }
 
     private fun seasonOver(career: CareerRecord, season: SeasonRecord) {
@@ -145,7 +151,8 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
             val shown = before?.get(start) ?: r
             val row = child(TableRow(kit, texts(start, shown), cols, width, S.ROW_HEIGHT + 0.02f, "hub_table_row_${r.team.key}",
                 if (mine) C.ROW_HIGHLIGHT else if (start % 2 == 0) C.ROW_LIGHT else C.ROW_DARK,
-                chip = TableRow.KitColours(k.first, k.second), y = rowY[start], entrance = Entrance.Slide(fromLeft = i % 2 == 0)),
+                chip = TableRow.KitColours(k.first, k.second), y = rowY[start], entrance = Entrance.Slide(fromLeft = i % 2 == 0),
+                hint = "${Names.team(r.team, career)}, ${L(CopyKey.DETAIL_OPEN)}", action = { openDetail(r.team) }),
                 at(0f, rowY[start]), layer)
             tableParts += row
             if (before == null) continue
@@ -190,6 +197,23 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
         }
     }
 
+    // ---------------------------------------------------------------- the team detail (§16.3a)
+
+    /** Tapping a row tips its team's detail up in front of the table; the rows behind take no taps. */
+    private fun openDetail(team: TeamKey) {
+        if (detail != null) return
+        val career = game.save.career ?: return
+        val season = game.save.season ?: return
+        KitSound.sweep()
+        detail = TeamDetailPanel(this, team, career, season, onEdit = { game.go(Game.Place.Team(editing = true)) },
+            onClose = { closeDetail() })
+    }
+
+    private fun closeDetail() {
+        detail?.leave()
+        detail = null
+    }
+
     private fun switchTo(cup: Boolean) {
         if (cup == showingCup) return
         showingCup = cup
@@ -207,7 +231,8 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
     }
 
     override fun leave() {
-        for (p in tableParts + cupParts) p.hide(0.0)
+        for (p in (detail?.parts ?: emptyList()) + tableParts + cupParts) p.hide(0.0)
+        detail = null
         super.leave()
     }
 

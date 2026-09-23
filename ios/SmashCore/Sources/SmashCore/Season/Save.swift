@@ -47,6 +47,19 @@ extension SaveRecord {
         board.adoptTactics(.defaults)
     }
 
+    /// Renames, re-kits or re-homes the team the player created (§2.2, §16.1). The rules are the
+    /// ones creation is held to, and nothing else of the career moves: the season's fixtures name
+    /// the team, never its name or its colours, so a change mid-season keeps every draw and every
+    /// result exactly as it stood.
+    public mutating func editTeam(_ draft: TeamDraft) throws(GameError) {
+        guard var career else { throw .noCareer }
+        let issues = CreatedTeamRules.issues(draft)
+        guard issues.isEmpty else { throw .invalidTeam(issues) }
+        career.created = CreatedTeam(name: CreatedTeamRules.trimmedName(draft.name), short: draft.short,
+                                     primary: draft.primary, secondary: draft.secondary, world: draft.world)
+        self.career = career
+    }
+
     /// Ends the career, its season and its trophies. Training progress survives (§2.2).
     public mutating func startOver() {
         career = nil

@@ -22,7 +22,7 @@ import `in`.nann.smashhockey.ui.UiNode
  * draft breaks is named under it. The whole of the team screen (§16.1): there is nothing else to
  * choose.
  */
-class TeamForm(private val screen: Screen, top: Float, private val changed: () -> Unit) {
+class TeamForm(private val screen: Screen, top: Float, existing: TeamDraft? = null, private val changed: () -> Unit) {
     var draft: TeamDraft
         private set
     /** Everything of the form, in arrival order; the screen shows and hides it with itself. */
@@ -43,7 +43,9 @@ class TeamForm(private val screen: Screen, top: Float, private val changed: () -
 
     init {
         val pair = Career.kitPalette[9]
-        draft = TeamDraft("", "", pair.primary, pair.secondary, World.MAGICWOOD)
+        draft = existing ?: TeamDraft("", "", pair.primary, pair.secondary, World.MAGICWOOD)
+        // A team that already has a code keeps it: it no longer follows the name.
+        codeEdited = existing != null
         var y = top - 0.13f
 
         nameField = add(Tile(kit, 1.72f, 0.24f, C.PAPER, C.PAPER, id = "team_name_field", label = L(CopyKey.TEAM_NAME)) { editName() }, y = y)

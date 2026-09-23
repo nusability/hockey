@@ -93,11 +93,15 @@ protocol Interactive: Semantic {
     func touchUp(_ ray: TouchRay, inside: Bool)
     func activate()
     func adjust(by steps: Int)
+    /// Whether it takes fingers at all. A table row is plain lettering until it is given
+    /// something to do (§16.3a); one that does nothing never swallows a tap.
+    var takesTouches: Bool { get }
 }
 
 extension Interactive {
     func touchMoved(_ ray: TouchRay) {}
     func adjust(by steps: Int) {}
+    var takesTouches: Bool { true }
 }
 
 /// The UI's building blocks: rounded slabs and lettering, their meshes and materials made once.

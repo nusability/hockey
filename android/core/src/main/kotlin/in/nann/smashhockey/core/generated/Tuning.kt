@@ -405,6 +405,7 @@ object Tuning {
         const val goalMean: Double = 2.3
         const val goalMeanScale: Double = 22.0
         const val homeBonus: Double = 0.15
+        const val formMatches: Int = 3
     }
     object Board {
         const val tacticMin: Double = 0.0

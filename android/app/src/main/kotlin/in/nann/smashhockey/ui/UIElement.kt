@@ -62,4 +62,9 @@ interface Interactive : Semantic {
     fun touchUp(ray: TouchRay, inside: Boolean)
     fun activate()
     fun adjust(steps: Int) {}
+    /**
+     * Whether it takes fingers at all. A table row is plain lettering until it is given something
+     * to do (§16.3a); one that does nothing never swallows a tap.
+     */
+    val takesTouches: Boolean get() = true
 }

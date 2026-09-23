@@ -15,7 +15,8 @@ final class Game {
     /// Where the player can be. Each is a screen of §16.
     enum Place: Equatable {
         case refused(String)
-        case team
+        /// Creating the team, or changing it later (§16.1, §2.2).
+        case team(editing: Bool)
         case title
         case hub
         case training(intro: Drill?)
@@ -104,7 +105,7 @@ final class Game {
     }
 
     /// The menu the game comes back to: the title, or the team choice until there is a career.
-    var home: Place { save.career == nil ? .team : .title }
+    var home: Place { save.career == nil ? .team(editing: false) : .title }
 
     // MARK: - Screens
 
@@ -130,7 +131,7 @@ final class Game {
     private func build(_ place: Place) -> Screen {
         switch place {
         case .refused(let why): RefusedScreen(game: self, why: why)
-        case .team: TeamScreen(game: self)
+        case .team(let editing): TeamScreen(game: self, editing: editing)
         case .title: TitleScreen(game: self)
         case .hub: HubScreen(game: self)
         case .training(let intro): TrainingScreen(game: self, intro: intro)
@@ -183,6 +184,10 @@ final class Game {
         }
     }
 
+    /// The player's team was changed (§2.2, §16.1): the demo behind the menus is started again on
+    /// the next screen, so the new kit is worn at once wherever the team is drawn.
+    func teamChanged() { demoOn = false }
+
     /// The refusal's one way on (§15): the refused file moved aside, untouched; a new one begun.
     func startOver() {
         do {
@@ -191,7 +196,7 @@ final class Game {
             log.fault("starting over failed: \(error, privacy: .public)")
             return
         }
-        go(.team)
+        go(.team(editing: false))
     }
 
     // MARK: - The match
@@ -264,8 +269,8 @@ final class Game {
         if let s = pitch.snapshot { feedback.hear(e, s) }
         guard case .end(let result) = e, let s = pitch.snapshot else { return }
         let outcome = Outcome(plan: plan, score: s.score, overtime: s.overtime, result: result,
-                              codes: pitch.kickoff?.codes, colours: pitch.kickoff?.colours ?? [],
-                              drillGoals: pitch.kickoff?.drillGoals)
+                              codes: pitch.kickoff?.codes, names: pitch.kickoff?.sideNames,
+                              colours: pitch.kickoff?.colours ?? [], drillGoals: pitch.kickoff?.drillGoals)
         // Recorded now, before anything else can happen (§15); shown once the banner has had its moment.
         switch plan {
         case .season:
@@ -330,6 +335,8 @@ struct Outcome: Equatable {
     let overtime: Bool
     let result: MatchResult
     let codes: [String]?
+    /// The two sides' full names, home first — shown under the codes (§16.5); nil in a drill.
+    let names: [String]?
     let colours: [TeamColours]
     let drillGoals: Int?
 }

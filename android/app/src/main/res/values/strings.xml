@@ -31,6 +31,9 @@
     <string name="team_issue_shortCodeIsAClubs">CODE: A CLUB HAS IT</string>
     <string name="team_issue_primaryNotInPalette">PICK A SHIRT</string>
     <string name="team_issue_secondaryNotInPalette">PICK A TRIM</string>
+    <string name="team_edit">CHANGE YOUR TEAM</string>
+    <string name="team_editButton">EDIT TEAM</string>
+    <string name="team_save">SAVE</string>
     <string name="hub_season">SEASON %1$s</string>
     <string name="hub_header">MATCHDAY %1$s OF %2$s</string>
     <string name="hub_league">LEAGUE · ROUND %1$s</string>
@@ -55,6 +58,23 @@
     <string name="ord_2">2ND</string>
     <string name="ord_3">3RD</string>
     <string name="ord_n">%1$sTH</string>
+    <!-- Accessibility: a table row opens its team's detail. -->
+    <string name="detail_open">Table detail</string>
+    <string name="detail_record">%1$s W · %2$s D · %3$s L</string>
+    <string name="detail_goals">GOALS %1$s:%2$s</string>
+    <string name="detail_place">%1$s · %2$s PTS</string>
+    <string name="detail_played">%1$s PLAYED</string>
+    <string name="detail_form">LAST MATCHES</string>
+    <string name="detail_none">NOTHING PLAYED YET</string>
+    <string name="detail_next">NEXT</string>
+    <string name="detail_noNext">SEASON OVER</string>
+    <!-- A form entry played at home. -->
+    <string name="detail_home">H</string>
+    <!-- A form entry played away. -->
+    <string name="detail_away">A</string>
+    <string name="detail_won">W</string>
+    <string name="detail_drawn">D</string>
+    <string name="detail_lost">L</string>
     <string name="hud_ot">OT</string>
     <!-- Accessibility: the HUD's period pips. -->
     <string name="hud_period">Period %1$s</string>

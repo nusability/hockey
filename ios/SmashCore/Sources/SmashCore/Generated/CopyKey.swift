@@ -32,6 +32,9 @@ public enum CopyKey: String, Sendable, CaseIterable {
     case teamIssueShortCodeIsAClubs = "team.issue.shortCodeIsAClubs"
     case teamIssuePrimaryNotInPalette = "team.issue.primaryNotInPalette"
     case teamIssueSecondaryNotInPalette = "team.issue.secondaryNotInPalette"
+    case teamEdit = "team.edit"
+    case teamEditButton = "team.editButton"
+    case teamSave = "team.save"
     case hubSeason = "hub.season"
     case hubHeader = "hub.header"
     case hubLeague = "hub.league"
@@ -56,6 +59,20 @@ public enum CopyKey: String, Sendable, CaseIterable {
     case ord2 = "ord.2"
     case ord3 = "ord.3"
     case ordN = "ord.n"
+    case detailOpen = "detail.open"
+    case detailRecord = "detail.record"
+    case detailGoals = "detail.goals"
+    case detailPlace = "detail.place"
+    case detailPlayed = "detail.played"
+    case detailForm = "detail.form"
+    case detailNone = "detail.none"
+    case detailNext = "detail.next"
+    case detailNoNext = "detail.noNext"
+    case detailHome = "detail.home"
+    case detailAway = "detail.away"
+    case detailWon = "detail.won"
+    case detailDrawn = "detail.drawn"
+    case detailLost = "detail.lost"
     case hudOt = "hud.ot"
     case hudPeriod = "hud.period"
     case hudPause = "hud.pause"
@@ -207,6 +224,10 @@ public enum CopyKey: String, Sendable, CaseIterable {
         case .hubCup: ["round"]
         case .hubPlace: ["pos"]
         case .ordN: ["n"]
+        case .detailRecord: ["won", "drawn", "lost"]
+        case .detailGoals: ["gf", "ga"]
+        case .detailPlace: ["pos", "points"]
+        case .detailPlayed: ["n"]
         case .hudPeriod: ["n"]
         case .trainingProgress: ["done", "total"]
         case .trainingDrill: ["n"]

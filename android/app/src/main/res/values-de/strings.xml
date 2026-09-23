@@ -31,6 +31,9 @@
     <string name="team_issue_shortCodeIsAClubs">KÜRZEL: SCHON VERGEBEN</string>
     <string name="team_issue_primaryNotInPalette">WÄHLE EIN TRIKOT</string>
     <string name="team_issue_secondaryNotInPalette">WÄHLE EINEN BESATZ</string>
+    <string name="team_edit">ÄNDERE DEIN TEAM</string>
+    <string name="team_editButton">TEAM ÄNDERN</string>
+    <string name="team_save">SPEICHERN</string>
     <string name="hub_season">SAISON %1$s</string>
     <string name="hub_header">SPIELTAG %1$s VON %2$s</string>
     <string name="hub_league">LIGA · RUNDE %1$s</string>
@@ -55,6 +58,23 @@
     <string name="ord_2">ZWEITER</string>
     <string name="ord_3">DRITTER</string>
     <string name="ord_n">%1$s.</string>
+    <!-- Accessibility: a table row opens its team's detail. -->
+    <string name="detail_open">Tabellendetail</string>
+    <string name="detail_record">%1$s S · %2$s U · %3$s N</string>
+    <string name="detail_goals">TORE %1$s:%2$s</string>
+    <string name="detail_place">%1$s · %2$s PKT</string>
+    <string name="detail_played">%1$s GESPIELT</string>
+    <string name="detail_form">LETZTE SPIELE</string>
+    <string name="detail_none">NOCH NICHTS GESPIELT</string>
+    <string name="detail_next">NÄCHSTES</string>
+    <string name="detail_noNext">SAISON VORBEI</string>
+    <!-- A form entry played at home. -->
+    <string name="detail_home">H</string>
+    <!-- A form entry played away. -->
+    <string name="detail_away">A</string>
+    <string name="detail_won">S</string>
+    <string name="detail_drawn">U</string>
+    <string name="detail_lost">N</string>
     <string name="hud_ot">VL</string>
     <!-- Accessibility: the HUD's period pips. -->
     <string name="hud_period">Drittel %1$s</string>

@@ -58,6 +58,20 @@ fun SaveRecord.createTeam(draft: TeamDraft): SaveRecord {
     return copy(career = CareerRecord(team, 0, 0), board = board.withTactics(Tactics.defaults))
 }
 
+/**
+ * Renames, re-kits or re-homes the team the player created (§2.2, §16.1). The rules are the ones
+ * creation is held to, and nothing else of the career moves: the season's fixtures name the team,
+ * never its name or its colours, so a change mid-season keeps every draw and every result exactly
+ * as it stood.
+ */
+fun SaveRecord.editTeam(draft: TeamDraft): SaveRecord {
+    val career = career ?: refuse(GameError.NoCareer)
+    val issues = CreatedTeamRules.issues(draft)
+    if (issues.isNotEmpty()) refuse(GameError.InvalidTeam(issues))
+    val team = CreatedTeam(CreatedTeamRules.trimmedName(draft.name), draft.short, draft.primary, draft.secondary, draft.world)
+    return copy(career = career.copy(created = team))
+}
+
 /** Ends the career, its season and its trophies. Training progress survives (§2.2). */
 fun SaveRecord.startOver(): SaveRecord = copy(career = null, season = null)
 

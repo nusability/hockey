@@ -63,12 +63,14 @@ sealed interface MatchPlan {
                 val them = if (f.home == c.team) f.away else f.home
                 val k = c.kit(them)
                 Kickoff(Match(setup), setup.orbitPeriod, c.homeWorld(f.home), dress(me, TeamColours(k.first, k.second)),
-                    listOf(myCode, c.short(them)), null, listOf(Names.team(f.home, c), Names.team(f.away, c)))
+                    listOf(myCode, c.short(them)), null, listOf(Names.team(f.home, c), Names.team(f.away, c)),
+                    listOf(myName, Names.team(them, c)))
             }
             is Quick -> {
                 val setup = save.quickMatch(draw, seed)
                 Kickoff(Match(setup), setup.orbitPeriod, draw.world, dress(me, kit(draw.opponent)),
-                    listOf(myCode, draw.opponent.short), null, listOf(myName, name(draw.opponent)))
+                    listOf(myCode, draw.opponent.short), null, listOf(myName, name(draw.opponent)),
+                    listOf(myName, name(draw.opponent)))
             }
             is Practice -> {
                 val setup = save.drill(drill, seed)
@@ -84,7 +86,7 @@ sealed interface MatchPlan {
                 val setup = MatchSetup(seed, world.sport, SideSetup.club(home), SideSetup.club(away), save.board.periodSeconds,
                     save.board.ballSpinSeconds, false, Control.PLAYER)
                 Kickoff(Match(setup), setup.orbitPeriod, world, dress(kit(home), kit(away)), listOf(home.short, away.short), null,
-                    listOf(name(home), name(away)))
+                    listOf(name(home), name(away)), listOf(name(home), name(away)))
             }
         }
     }
@@ -123,6 +125,11 @@ class Kickoff(
     val drillGoals: Int?,
     /** The home and the away side's names, for the intro banner (§16.4); null in a drill and the demo. */
     val names: List<String>? = null,
+    /**
+     * The same names in the order the HUD and the result stand them in — the player's side first
+     * (§16.5); null in a drill and the demo.
+     */
+    val sideNames: List<String>? = null,
 )
 
 /**

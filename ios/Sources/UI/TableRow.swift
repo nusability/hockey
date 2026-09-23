@@ -5,7 +5,7 @@ import SmashCore
 /// out by column, an optional kit chip, and a slot it springs to: re-rank the table and the rows
 /// hop past each other into their new places.
 @MainActor
-final class TableRow: Semantic, Presentable {
+final class TableRow: Interactive, Presentable {
     struct Column {
         /// The column's centre, as a share of the row width from its left edge (0…1).
         let at: Float
@@ -29,11 +29,23 @@ final class TableRow: Semantic, Presentable {
     private let textHeight: Float
     private let motion: MotionTokens
 
+    /// What a tap on the row does (§16.3a); nil leaves it plain lettering that takes no fingers.
+    private let action: (() -> Void)?
+    /// Said after the row's cells, so VoiceOver names what opening it gives.
+    private let hint: String?
+    private var held = false
+
+    private static func spoken(_ texts: [String], _ hint: String?) -> String {
+        (texts + (hint.map { [$0] } ?? [])).joined(separator: ", ")
+    }
+
     init(_ texts: [String], columns: [Column], size: SIMD2<Float>, id: String,
          colour: Int, ink: Int = DesignTokens.Colour.ink, kit: Kit? = nil, kitAt: Float = 0.13,
          textHeight: Float = DesignTokens.Size.textBody, y: Float = 0,
-         entrance: Entrance = .slide(fromLeft: true), motion: MotionTokens) {
+         entrance: Entrance = .slide(fromLeft: true), motion: MotionTokens,
+         hint: String? = nil, action: (() -> Void)? = nil) {
         precondition(texts.count == columns.count, "one text per column")
+        self.action = action
         self.columns = columns
         self.size = size
         self.textHeight = textHeight
@@ -41,7 +53,8 @@ final class TableRow: Semantic, Presentable {
         presence = Presence(entrance, motion: motion)
         slot = Spring(motion.spring(.pop), initial: Double(y))
         hop = Jiggle(motion.spring(.wobbly))
-        semantics = Semantics(id: id, label: texts.joined(separator: ", "), trait: .staticText)
+        self.hint = hint
+        semantics = Semantics(id: id, label: Self.spoken(texts, hint), trait: action == nil ? .staticText : .button)
         let depth = DesignTokens.Size.slabDepth * 0.6
         slab = Blocks.slab([size.x, size.y, depth], colour, corner: size.y * 0.3)
         entity.addChild(body)
@@ -81,17 +94,44 @@ final class TableRow: Semantic, Presentable {
     var isPresent: Bool { presence.isSettledIn }
 
     func show(after delay: Double) { presence.show(after: delay) }
-    func hide(after delay: Double) { presence.hide(after: delay) }
+    func hide(after delay: Double) {
+        held = false
+        presence.hide(after: delay)
+    }
 
     func set(_ texts: [String]) {
         for i in cells.indices where i < texts.count {
             Blocks.retext(cells[i], texts[i], height: textHeight)
             place(cellNodes[i], cells[i], columns[i])
         }
-        semantics.label = texts.joined(separator: ", ")
+        semantics.label = Self.spoken(texts, hint)
     }
 
     func recolour(_ rgb: Int) { Blocks.recolour(slab, rgb) }
+
+    // MARK: taps (§16.3a) — a row with something to do sinks under the finger and opens on the lift
+
+    var takesTouches: Bool { action != nil }
+
+    func touchDown(_ ray: TouchRay) {
+        guard action != nil else { return }
+        held = true
+        hop.kick(twist: 0, swell: -motion.kick(.celebrate) * 0.2)
+        KitSound.press()
+    }
+
+    func touchUp(_ ray: TouchRay, inside: Bool) {
+        guard held else { return }
+        held = false
+        if inside { action?() }
+    }
+
+    func activate() {
+        guard let action else { return }
+        hop.kick(twist: 0, swell: motion.kick(.celebrate) * 0.2)
+        KitSound.press()
+        action()
+    }
 
     /// Springs to a new vertical slot, with a hop if it moved.
     func move(toY y: Float) {

@@ -147,7 +147,7 @@ class UIStage(
         var bestDistance = Float.MAX_VALUE
         for (i in 0 until interactive.size) {
             val e = interactive[i]
-            if (!e.isPresent) continue
+            if (!e.isPresent || !e.takesTouches) continue
             val local = ray.local(e.boundsNode)
             val t = local.hit(e.bounds) ?: continue
             // Compare in world distance: local t is scaled by the node's scale.

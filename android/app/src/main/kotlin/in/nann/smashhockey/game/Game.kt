@@ -71,7 +71,8 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
     /** Where the player can be. Each is a screen of §16. */
     sealed interface Place {
         data class Refused(val why: String) : Place
-        data object Team : Place
+        /** Creating the team, or changing it later (§16.1, §2.2). */
+        data class Team(val editing: Boolean = false) : Place
         data object Title : Place
         data object Hub : Place
         data class Training(val intro: Drill?) : Place
@@ -136,8 +137,14 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         }
     }
 
+    /**
+     * The player's team was changed (§2.2, §16.1): the demo behind the menus is started again on
+     * the next screen, so the new kit is worn at once wherever the team is drawn.
+     */
+    fun teamChanged() { demoOn = false }
+
     /** The menu the game comes back to: the title, or the team choice until there is a career. */
-    val home: Place get() = if (save.career == null) Place.Team else Place.Title
+    val home: Place get() = if (save.career == null) Place.Team() else Place.Title
 
     private fun build() {
         val insets = ViewCompat.getRootWindowInsets(surfaceView)
@@ -167,7 +174,7 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         screen?.leave()
         val s = when (next) {
             is Place.Refused -> RefusedScreen(this, next.why)
-            Place.Team -> TeamScreen(this)
+            is Place.Team -> TeamScreen(this, next.editing)
             Place.Title -> TitleScreen(this)
             Place.Hub -> HubScreen(this)
             is Place.Training -> TrainingScreen(this, next.intro)
@@ -224,7 +231,7 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
             Log.wtf(TAG, "starting over failed", e)
             return
         }
-        go(Place.Team)
+        go(Place.Team())
     }
 
     // ---------------------------------------------------------------- the match
@@ -286,7 +293,7 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         if (e !is MatchEvent.End) return
         val s = pitch.snapshot ?: return
         val k = pitch.kickoff
-        val outcome = Outcome(plan, s.score, s.overtime, e.result, k?.codes, k?.colours ?: emptyList(), k?.drillGoals)
+        val outcome = Outcome(plan, s.score, s.overtime, e.result, k?.codes, k?.sideNames, k?.colours ?: emptyList(), k?.drillGoals)
         // Recorded now, before anything else can happen (§15); shown once the banner has had its moment.
         when {
             plan == MatchPlan.Season -> {
@@ -423,6 +430,8 @@ data class Outcome(
     val overtime: Boolean,
     val result: MatchResult,
     val codes: List<String>?,
+    /** The two sides' full names, the player's first — shown under the codes (§16.5); null in a drill. */
+    val names: List<String>?,
     val colours: List<TeamColours>,
     val drillGoals: Int?,
 )

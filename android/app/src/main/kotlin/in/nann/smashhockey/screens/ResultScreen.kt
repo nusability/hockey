@@ -42,9 +42,11 @@ class ResultScreen(game: Game, private val outcome: Outcome) :
         } else {
             for ((i, x) in listOf(-0.52f, 0.52f).withIndex()) {
                 val colours = outcome.colours[i]
-                val chip = child(Panel(kit, 0.44f, 0.2f, 0.06f, colours.primary, Entrance.Pop), at(x, 0.34f), slab.content)
+                val chip = child(Panel(kit, 0.44f, 0.2f, 0.06f, colours.primary, Entrance.Pop), at(x, 0.38f), slab.content)
                 chip.show(0.0)
                 child(Label3D(kit, outcome.codes?.get(i) ?: "", 0.09f, colours.secondary, maxWidth = 0.4f), parent = chip.content).show(0.0)
+                // Both sides by name, not only by code (§16.5).
+                outcome.names?.getOrNull(i)?.let { letters(it, 0.045f, C.INK, maxWidth = 0.72f, x = x, y = 0.2f, z = 0.01f, parent = slab.content) }
             }
             digits = child(FlipDigits(kit, Scoreboard.score(0, 0), CARD_W, CARD_H, "result_score", L(CopyKey.RESULT_SCORE)),
                 at(0f, -0.1f, z = 0.06f), slab.content)

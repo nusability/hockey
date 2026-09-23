@@ -14,6 +14,8 @@ final class HubScreen: Screen {
     private var cupTab: Tile!
     private var showingCup = false
     private var card: Panel!
+    /// The team detail standing in front of the table (§16.3a); nothing behind it takes a tap.
+    private var detail: TeamDetailPanel?
 
     init(game: Game) {
         super.init(pose: CameraPose(Presentation.Screens.Hub.eye, Presentation.Screens.Hub.target), game: game)
@@ -25,7 +27,7 @@ final class HubScreen: Screen {
         // Which season of the career this is (§15, §16.3), then the matchday.
         let header = L(.hubSeason, season.number) + " · " + (over ? L(.hubOver) : L(.hubHeader, season.matchday + 1, Season.plan.count))
         part(Label3D(header, height: 0.1, colour: C.paper, maxWidth: 1.7, entrance: .drop, motion: m), at: at(0, top - 0.14))
-        card = part(Panel(size: [1.72, 0.62, S.slabDepth], colour: C.paper, entrance: .tumble, motion: m),
+        card = part(Panel(size: [1.72, 0.74, S.slabDepth], colour: C.paper, entrance: .tumble, motion: m),
                     at: at(0, top - 0.62, tilt: -0.02))
         if over { seasonOver(career, season) } else if let f = game.save.playerFixture { fixture(career, season, f) }
 
@@ -69,18 +71,22 @@ final class HubScreen: Screen {
         for (team, x) in [(f.home, Float(-0.5)), (f.away, Float(0.5))] {
             let kit = career.kit(of: team)
             let chip = child(Panel(size: [0.56, 0.36, 0.08], colour: Int(kit.primary), entrance: .pop, motion: motion),
-                             at: at(x, 0.05), on: card.content)
+                             at: at(x, 0.11), on: card.content)
             chip.presence.show(after: 0)
             let stripe = Blocks.slab([0.1, 0.37, 0.085], Int(kit.secondary), corner: 0.01)
             stripe.position.x = -0.2
             chip.body.addChild(stripe)
             child(Label3D(career.short(of: team), height: 0.13, colour: Int(kit.secondary), maxWidth: 0.36, motion: motion),
                   at: at(0.05, 0), on: chip.content).show(after: 0)
+            // Both clubs by their full names, not only their codes (§16.3).
+            letters(Names.team(team, career), height: 0.048, colour: team == career.team ? C.pinkInk : C.ink,
+                    maxWidth: 0.78, at: [x, -0.12, 0.01], on: card.content)
         }
-        child(Label3D(L(.hubVs), height: 0.12, colour: C.pinkInk, maxWidth: 0.36, motion: motion), on: card.content).show(after: 0)
+        child(Label3D(L(.hubVs), height: 0.12, colour: C.pinkInk, maxWidth: 0.36, motion: motion), at: at(0, 0.11),
+              on: card.content).show(after: 0)
         let step = Season.plan[season.matchday]
         let line = "\(Names.matchday(step)) · \(Names.world(career.homeWorld(of: f.home)))"
-        child(Label3D(line, height: S.textSmall, colour: C.ink, maxWidth: 1.6, motion: motion), at: at(0, -0.225),
+        child(Label3D(line, height: S.textSmall, colour: C.ink, maxWidth: 1.6, motion: motion), at: at(0, -0.28),
               on: card.content).show(after: 0)
     }
 
@@ -138,7 +144,10 @@ final class HubScreen: Screen {
                                      id: "hub_table_row_\(r.team.rawValue)",
                                      colour: mine ? C.rowHighlight : (start % 2 == 0 ? C.rowLight : C.rowDark),
                                      kit: .init(primary: Int(kit.primary), secondary: Int(kit.secondary)),
-                                     y: rowY[start], entrance: .slide(fromLeft: i % 2 == 0), motion: motion),
+                                     y: rowY[start], entrance: .slide(fromLeft: i % 2 == 0), motion: motion,
+                                     hint: "\(Names.team(r.team, career)), \(L(.detailOpen))") { [weak self] in
+                                         self?.openDetail(r.team)
+                                     },
                             at: at(0, rowY[start]), on: layer)
             tableParts.append(row)
             guard before != nil else { continue }
@@ -186,6 +195,24 @@ final class HubScreen: Screen {
         }
     }
 
+    // MARK: the team detail (§16.3a)
+
+    /// Tapping a row tips its team's detail up in front of the table; the rows behind take no taps.
+    private func openDetail(_ team: TeamKey) {
+        guard detail == nil, let career = game.save.career, let season = game.save.season else { return }
+        KitSound.sweep()
+        detail = TeamDetailPanel(screen: self, team: team, career: career, season: season) { [weak game] in
+            game?.go(.team(editing: true))
+        } onClose: { [weak self] in
+            self?.closeDetail()
+        }
+    }
+
+    private func closeDetail() {
+        detail?.leave()
+        detail = nil
+    }
+
     private func switchTo(cup: Bool) {
         guard cup != showingCup else { return }
         showingCup = cup
@@ -203,7 +230,8 @@ final class HubScreen: Screen {
     }
 
     override func leave() {
-        for p in tableParts + cupParts { p.hide(after: 0) }
+        for p in (detail?.parts ?? []) + tableParts + cupParts { p.hide(after: 0) }
+        detail = nil
         super.leave()
     }
 }

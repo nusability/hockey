@@ -24,11 +24,16 @@ final class TeamForm {
     private var worlds: [World: Tile] = [:]
     private var issues: Label3D!
 
-    init(screen: Screen, top: Float, changed: @escaping () -> Void) {
+    /// `existing` seeds the form with a team that already has one — changing it, rather than
+    /// creating one (§16.1); nil starts from an empty name and the default kit.
+    init(screen: Screen, top: Float, existing: TeamDraft? = nil, changed: @escaping () -> Void) {
         self.screen = screen
         self.changed = changed
         let kit = Career.kitPalette[9]
-        draft = TeamDraft(name: "", short: "", primary: kit.primary, secondary: kit.secondary, world: .magicwood)
+        draft = existing ?? TeamDraft(name: "", short: "", primary: kit.primary, secondary: kit.secondary,
+                                      world: .magicwood)
+        // A team that already has a code keeps it: it no longer follows the name.
+        codeEdited = existing != nil
         let m = screen.motion
         var y = top - 0.13
 

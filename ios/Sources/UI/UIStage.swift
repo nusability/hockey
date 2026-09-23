@@ -134,7 +134,7 @@ final class UIStage {
     /// they can say no.
     private func pick(_ ray: TouchRay) -> Interactive? {
         var best: (Interactive, Float)?
-        for i in interactive where i.isPresent {
+        for i in interactive where i.isPresent && i.takesTouches {
             let local = ray.local(to: i.boundsEntity)
             guard let t = local.hit(i.bounds) else { continue }
             // Compare in world distance: local t is scaled by the node's scale.

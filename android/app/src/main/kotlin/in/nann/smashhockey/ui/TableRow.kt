@@ -26,11 +26,20 @@ class TableRow(
     private val textHeight: Float = Size.TEXT_BODY,
     y: Float = 0f,
     entrance: Entrance = Entrance.Slide(fromLeft = true),
-) : Semantic, Presentable {
+    /** Said after the row's cells, so TalkBack names what opening it gives. */
+    private val hint: String? = null,
+    /** What a tap on the row does (§16.3a); null leaves it lettering that takes no fingers. */
+    private val action: (() -> Unit)? = null,
+) : Interactive, Presentable {
     /** A column's centre, as a share of the row width from its left edge (0…1). */
     class Column(val at: Float, val align: Label3D.Align)
 
     class KitColours(val primary: Int, val secondary: Int)
+
+    companion object {
+        private fun spoken(texts: List<String>, hint: String?) =
+            (if (hint == null) texts else texts + hint).joinToString(", ")
+    }
 
     override val node = kit.node(null)
     private val body = kit.node(node)
@@ -39,7 +48,11 @@ class TableRow(
     private val cellNodes = ArrayList<UiNode>()
     override val rest = Xform()
     val presence = Presence(entrance, kit.motion)
-    override val semantics = Semantics(id, texts.joinToString(", "), trait = Semantics.Trait.STATIC_TEXT)
+    override val semantics = Semantics(
+        id, spoken(texts, hint),
+        trait = if (action == null) Semantics.Trait.STATIC_TEXT else Semantics.Trait.BUTTON,
+    )
+    private var held = false
     private val slot = Spring(kit.motion.spring(SpringName.POP), y.toDouble())
     private val hop = Jiggle(kit.motion.spring(SpringName.WOBBLY))
     private val motion = kit.motion
@@ -77,7 +90,10 @@ class TableRow(
     override val isPresent get() = presence.isSettledIn
 
     override fun show(after: Double) = presence.show(after)
-    override fun hide(after: Double) = presence.hide(after)
+    override fun hide(after: Double) {
+        held = false
+        presence.hide(after)
+    }
 
     fun set(texts: List<String>) {
         for (i in cells.indices) {
@@ -85,10 +101,34 @@ class TableRow(
             kit.retext(cells[i], texts[i], textHeight)
             place(cellNodes[i], cells[i], columns[i])
         }
-        semantics.label = texts.joinToString(", ")
+        semantics.label = spoken(texts, hint)
     }
 
     fun recolour(rgb: Int) = slab.recolour(rgb)
+
+    // ------ taps (§16.3a): a row with something to do sinks under the finger and opens on the lift
+
+    override val takesTouches get() = action != null
+
+    override fun touchDown(ray: TouchRay) {
+        if (action == null) return
+        held = true
+        hop.kick(0.0, -motion.kick(KickName.CELEBRATE) * 0.2)
+        KitSound.press()
+    }
+
+    override fun touchUp(ray: TouchRay, inside: Boolean) {
+        if (!held) return
+        held = false
+        if (inside) action?.invoke()
+    }
+
+    override fun activate() {
+        val a = action ?: return
+        hop.kick(0.0, motion.kick(KickName.CELEBRATE) * 0.2)
+        KitSound.press()
+        a()
+    }
 
     /** Springs to a new vertical slot, with a hop if it moved. */
     fun move(toY: Float) {

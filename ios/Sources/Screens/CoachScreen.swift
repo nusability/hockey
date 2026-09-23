@@ -50,10 +50,19 @@ final class CoachScreen: Screen {
         period.onChange = { [weak self] _ in self?.changed() }
         spin.onChange = { [weak self] _ in self?.changed() }
 
-        part(BlockButton(L(.coachReset), id: "coach_reset_button", style: .quiet, size: [0.78, 0.32], textHeight: 0.1,
-                         motion: m) { [weak self] in self?.reset() }, at: at(-0.46, bottom + 0.3))
-        part(BlockButton(L(.commonBack), id: "coach_back_button", style: .primary, size: [0.78, 0.32], textHeight: 0.1,
-                         motion: m) { [weak game] in game.map { $0.go($0.home) } }, at: at(0.46, bottom + 0.3))
+        // The board is where the player tunes their own team, so it is also where they change its
+        // name and kit (§16.1, §16.7) — one tap from the title.
+        let team = game.save.career != nil
+        let wide: Float = team ? 0.56 : 0.78
+        part(BlockButton(L(.coachReset), id: "coach_reset_button", style: .quiet, size: [wide, 0.32], textHeight: 0.1,
+                         motion: m) { [weak self] in self?.reset() }, at: at(team ? -0.6 : -0.46, bottom + 0.3))
+        if team {
+            part(BlockButton(L(.teamEditButton), id: "coach_team_button", style: .secondary, size: [wide, 0.32],
+                             textHeight: 0.09, motion: m) { [weak game] in game?.go(.team(editing: true)) },
+                 at: at(0, bottom + 0.3))
+        }
+        part(BlockButton(L(.commonBack), id: "coach_back_button", style: .primary, size: [wide, 0.32], textHeight: 0.1,
+                         motion: m) { [weak game] in game.map { $0.go($0.home) } }, at: at(team ? 0.6 : 0.46, bottom + 0.3))
     }
 
     /// A choice's place along its stepped slider (0…1), and back.

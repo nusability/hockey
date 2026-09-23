@@ -10,23 +10,35 @@ import SmashCore
 final class TeamScreen: Screen {
     private var confirm: BlockButton!
     private var form: TeamForm!
+    /// Changing the team the career already has, rather than creating one (§16.1, §2.2).
+    private let editing: Bool
 
-    init(game: Game) {
+    init(game: Game, editing: Bool = false) {
+        self.editing = editing && game.save.career != nil
         super.init(pose: CameraPose(Presentation.Screens.Team.eye, Presentation.Screens.Team.target), game: game)
         let m = motion
         part(WaveText(L(.teamTitle), height: 0.17, colour: C.paper, bob: 0.6, id: "team_title_header", motion: m),
              at: at(0, top - 0.2))
-        part(Label3D(L(.teamCreate), height: 0.06, colour: C.sun, maxWidth: 1.72, motion: m), at: at(0, top - 0.42))
+        part(Label3D(L(self.editing ? .teamEdit : .teamCreate), height: 0.06, colour: C.sun, maxWidth: 1.72, motion: m),
+             at: at(0, top - 0.42))
 
-        form = TeamForm(screen: self, top: top - 0.62) { [weak self] in self?.refresh() }
+        form = TeamForm(screen: self, top: top - 0.62, existing: self.editing ? game.save.career?.draft : nil) {
+            [weak self] in self?.refresh()
+        }
 
         confirm = part(BlockButton(L(.teamChoose), id: "team_confirm_button", style: .primary, size: [1.5, 0.36],
                                    textHeight: 0.13, motion: m) { [weak self] in self?.confirmed() },
                        at: at(0, bottom + 0.72))
-        part(BlockButton(L(.titleTraining), id: "team_training_button", style: .quiet, size: [0.84, 0.28], textHeight: 0.09,
-                         motion: m) { [weak game] in game?.go(.training(intro: nil)) }, at: at(-0.45, bottom + 0.3))
-        part(BlockButton(L(.titleQuick), id: "team_quick_button", style: .quiet, size: [0.84, 0.28], textHeight: 0.09,
-                         motion: m) { [weak game] in game?.playQuick() }, at: at(0.45, bottom + 0.3))
+        if self.editing {
+            // Changing the team is a detour from the hub: one way on, one way back (§16.1).
+            part(BlockButton(L(.commonBack), id: "team_cancel_button", style: .quiet, size: [0.84, 0.28],
+                             textHeight: 0.09, motion: m) { [weak self] in self?.done() }, at: at(0, bottom + 0.3))
+        } else {
+            part(BlockButton(L(.titleTraining), id: "team_training_button", style: .quiet, size: [0.84, 0.28], textHeight: 0.09,
+                             motion: m) { [weak game] in game?.go(.training(intro: nil)) }, at: at(-0.45, bottom + 0.3))
+            part(BlockButton(L(.titleQuick), id: "team_quick_button", style: .quiet, size: [0.84, 0.28], textHeight: 0.09,
+                             motion: m) { [weak game] in game?.playQuick() }, at: at(0.45, bottom + 0.3))
+        }
         refresh()
     }
 
@@ -44,15 +56,28 @@ final class TeamScreen: Screen {
     /// The confirm button says what it would do, and can only do it when the draft breaks no rule.
     private func refresh() {
         let name = CreatedTeamRules.trimmedName(form.draft.name).uppercased()
-        confirm.retitle(name.isEmpty ? L(.teamChoose) : L(.teamConfirm, name))
+        confirm.retitle(editing ? L(.teamSave) : name.isEmpty ? L(.teamChoose) : L(.teamConfirm, name))
         confirm.isEnabled = CreatedTeamRules.issues(form.draft).isEmpty
         confirm.bobs = confirm.isEnabled
     }
 
-    /// Starts the career and its first season (§2.2), saved before the hub appears (§15).
+    /// Starts the career and its first season (§2.2), or writes the changed team (§16.1) — saved
+    /// before the next screen appears (§15).
     private func confirmed() {
         let seed = MatchPlan.seed()
         let draft = form.draft
-        if game.commit({ try $0.createTeam(draft); try $0.startSeason(seed: seed) }) { game.go(.hub) }
+        if editing {
+            if game.commit({ try $0.editTeam(draft) }) {
+                game.teamChanged()
+                done()
+            }
+        } else if game.commit({ try $0.createTeam(draft); try $0.startSeason(seed: seed) }) {
+            game.go(.hub)
+        }
+    }
+
+    /// Where changing the team leads back to: the season it was changed from, or the title.
+    private func done() {
+        game.go(game.save.season == nil ? .title : .hub)
     }
 }

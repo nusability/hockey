@@ -404,6 +404,7 @@ public enum Tuning {
         public static let goalMean: Double = 2.3
         public static let goalMeanScale: Double = 22.0
         public static let homeBonus: Double = 0.15
+        public static let formMatches: Int = 3
     }
     public enum Board {
         public static let tacticMin: Double = 0.0

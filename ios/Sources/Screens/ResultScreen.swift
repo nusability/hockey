@@ -29,10 +29,14 @@ final class ResultScreen: Screen {
             for (i, x) in [Float(-0.52), 0.52].enumerated() {
                 let colours = outcome.colours[i]
                 let chip = child(Panel(size: [0.44, 0.2, 0.06], colour: Int(colours.primary), entrance: .pop, motion: m),
-                                 at: at(x, 0.34), on: slab.content)
+                                 at: at(x, 0.38), on: slab.content)
                 chip.show(after: 0)
                 child(Label3D(outcome.codes?[i] ?? "", height: 0.09, colour: Int(colours.secondary), maxWidth: 0.4, motion: m),
                       on: chip.content).show(after: 0)
+                // Both sides by name, not only by code (§16.5).
+                if let name = outcome.names?[i] {
+                    letters(name, height: 0.045, colour: C.ink, maxWidth: 0.72, at: [x, 0.2, 0.01], on: slab.content)
+                }
             }
             digits = child(FlipDigits(Scoreboard.score(0, 0), cardSize: Self.card, id: "result_score",
                                       label: L(.resultScore), motion: m), at: at(0, -0.1, z: 0.06), on: slab.content)

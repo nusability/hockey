@@ -106,6 +106,10 @@ val CareerRecord.team: TeamKey get() = TeamKey.CREATED
 val CareerRecord.league: List<TeamKey>
     get() = Club.entries.map { club -> if (club == Career.createdReplaces) TeamKey.CREATED else TeamKey.of(club) }
 
+/** The created team as a draft, for the screen that edits it (§16.1). */
+val CareerRecord.draft: TeamDraft
+    get() = TeamDraft(created.name, created.short, created.primary, created.secondary, created.world)
+
 /** A team's short code — the player's team's own, or a club's. */
 fun CareerRecord.short(of: TeamKey): String = of.club?.short ?: created.short
 

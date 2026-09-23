@@ -158,6 +158,15 @@ stay as the player set them — and "Reset" there restores the defaults. **It re
 league and cup**, which keep eight teams. Glacier Wolves still exist as an opponent outside the
 season (quick match, §11.5).
 
+**The team can be changed, but never swapped.** Its name, short code, kit and home world are
+editable for as long as the career lasts (§16.1), under exactly the rules above — a change that
+breaks one of them cannot be confirmed. What a change never touches is *which* team it is: the
+season's fixtures, results, table and cup name the team, not its name or its colours, so renaming
+or re-kitting mid-season moves nothing in it, and the trophy counts stay. A new kit is worn at
+once wherever the team is drawn — the table row's chip, the fixture card, the result, the players
+on the pitch — and a new home world is where its next home fixture is played. Its rating does not
+change (it never does, §"Out of scope").
+
 The team holds for every season that follows. There is no switching and no second team:
 **starting over** is a deliberate, confirmed act that ends the career, its season and its
 trophies. Training progress (§10) survives it, because it records the player's skill rather than
@@ -1187,6 +1196,15 @@ season; Glacier Wolves are replaced (§2.2).
 
 Training and quick match are reachable from here too (§2.2) before the team exists.
 
+**Changing it later.** The same screen, with the team's own name, code, kit and world already in
+it, is how the team is changed once it exists (§2.2). It is reached from the **coach's board**
+(§16.7) — the one place the player's own team is set up, one tap from the title — and from the
+player's own row in the league table (§16.3a), where a player looking at their team already is.
+The heading says it is a change rather than a creation and the confirm button reads **Save**; the
+short code no longer follows the name, because the team already has one. The same rules are
+named the same way, and **Back** leaves without changing anything. Saving writes the record (§15)
+and returns to where the player came from — the season, or the title when there is no season.
+
 #### 16.2 The title
 The logo, and: **Season** (continue, or start the next one — §11.4), **Training**, **Quick match**,
 **Coach**, **How to play**. The trophy counts are shown when there are any. Settings live on the
@@ -1194,10 +1212,33 @@ coach's board; there is no other settings screen.
 
 #### 16.3 The season hub
 - **Which season:** "Season n" (§15) heads the hub, with the matchday.
-- **Next fixture:** both teams' kits, league round or cup round, the world it is played in, and
-  **Play**, which starts the match in one tap (A2).
-- **League table** (§11.4), the player's row marked; **the cup** bracket with results so far.
+- **Next fixture:** both teams' kits, **both clubs' full names** under their codes, league round or
+  cup round, the world it is played in, and **Play**, which starts the match in one tap (A2).
+- **League table** (§11.4), the player's row marked; **the cup** bracket with results so far. A
+  table row is tappable and opens its team's detail (§16.3a).
 - **Season over:** champion, cup winner, the player's place and trophies, and **Next season**.
+
+#### 16.3a The team detail
+Tapping a row of the league table tips a panel up in front of it, the way a drill's intro card
+does (§16.6), and **Back** dismisses it the same way; while it stands, the rows behind it take no
+taps. It is about the row's team and shows, read off the season's fixtures (§15):
+
+- the team's **full name** beside its kit and short code — the player's own in the accent colour;
+- where it stands: its **place** in the table and its **points**;
+- **played**, **won**, **drawn**, **lost**, **goals for and against** and **goal difference** —
+  the league only, counted exactly as the table counts them (§11.4);
+- its **last three matches**, most recent first — won, drawn or lost as a coloured badge, whether
+  it was at home or away, the opponent's full name, the score, and a mark when it was a cup tie or
+  went to overtime. Early in a season there are fewer, and before a team has played, the panel
+  says so. A forfeit (§8.7) is one of these like any other result: a 0–3 loss.
+- the **fixture it plays next**, league or cup, with where and against whom; once it has none
+  left, that the season is over for it.
+
+The panel is the same for every team, and **the player's own team gets one thing more**: the way
+to change its name, code, kit and home world (§16.1).
+
+Played, won, drawn, lost, the last three and the next fixture are **one computation in the core**,
+the same on both platforms, from the season record alone — no screen counts them itself.
 
 #### 16.4 The match
 The HUD: both teams' short codes on their kit colours, the score and the clock as flip digits, the
@@ -1241,7 +1282,8 @@ frame wraps to two centred lines rather than shrinking (§16): "END OF PERIOD 1"
 Good is the sun yellow and pops in big; bad the pink; warn orange; info cyan.
 
 #### 16.5 The result
-The final score, win/draw/loss, overtime if it happened, and the way on: back to the hub (season);
+The final score, **both sides by their full names** under their codes and kits (a drill has
+neither), win/draw/loss, overtime if it happened, and the way on: back to the hub (season);
 after a failed drill **Again** (one tap — A2) and **Training** (back to the drills); **Next drill**
 when won; back to the title (quick match).
 
@@ -1253,7 +1295,9 @@ intro (the hint) and **Start**; while the intro stands, the cards behind it take
 #### 16.7 The coach's board
 Sliders for pressing, covering, push up and discipline (§12), the five formations as a picker
 drawn as disks on a small pitch, period length and ball spin as stepped sliders, and **Reset**
-(§12). Changes save as they are made (§15).
+(§12). Changes save as they are made (§15). **Edit team** stands beside them: the board is where
+the player's own team is set up, so it is also where its name, code, kit and home world are
+changed (§16.1). It is there only once a team exists.
 
 #### 16.8 How to play
 The prototype's six lessons (the copy's `help.*`), each a card, the one-touch control shown by a

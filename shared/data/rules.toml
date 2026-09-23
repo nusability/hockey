@@ -393,6 +393,7 @@ points_draw = 1
 goal_mean = 2.3                 # 2.3 × exp((home − away) / 22) + 0.15
 goal_mean_scale = 22.0
 home_bonus = 0.15
+form_matches = 3                # §16.3a — how many recent results a team's detail shows
 
 # §11.1 — the matchday plan, in order: league rounds (1-based, inclusive) and cup rounds.
 [[matchday_block]]

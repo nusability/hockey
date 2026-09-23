@@ -49,6 +49,11 @@
 "team.issue.primaryNotInPalette" = { en = "PICK A SHIRT", de = "WÄHLE EIN TRIKOT" }
 "team.issue.secondaryNotInPalette" = { en = "PICK A TRIM", de = "WÄHLE EINEN BESATZ" }
 
+# Changing the team later (§16.1, §2.2): the same screen, the same rules
+"team.edit" = { en = "CHANGE YOUR TEAM", de = "ÄNDERE DEIN TEAM" }
+"team.editButton" = { en = "EDIT TEAM", de = "TEAM ÄNDERN" }
+"team.save" = { en = "SAVE", de = "SPEICHERN" }
+
 # The season hub (§16.3)
 "hub.season" = { en = "SEASON {n}", de = "SAISON {n}" }
 "hub.header" = { en = "MATCHDAY {m} OF {total}", de = "SPIELTAG {m} VON {total}" }
@@ -74,6 +79,22 @@
 "ord.2" = { en = "2ND", de = "ZWEITER" }
 "ord.3" = { en = "3RD", de = "DRITTER" }
 "ord.n" = { en = "{n}TH", de = "{n}." }
+
+# A team's detail behind its table row (§16.3a)
+"detail.open" = { en = "Table detail", de = "Tabellendetail", comment = "Accessibility: a table row opens its team's detail." }
+"detail.record" = { en = "{won} W · {drawn} D · {lost} L", de = "{won} S · {drawn} U · {lost} N" }
+"detail.goals" = { en = "GOALS {gf}:{ga}", de = "TORE {gf}:{ga}" }
+"detail.place" = { en = "{pos} · {points} PTS", de = "{pos} · {points} PKT" }
+"detail.played" = { en = "{n} PLAYED", de = "{n} GESPIELT" }
+"detail.form" = { en = "LAST MATCHES", de = "LETZTE SPIELE" }
+"detail.none" = { en = "NOTHING PLAYED YET", de = "NOCH NICHTS GESPIELT" }
+"detail.next" = { en = "NEXT", de = "NÄCHSTES" }
+"detail.noNext" = { en = "SEASON OVER", de = "SAISON VORBEI" }
+"detail.home" = { en = "H", de = "H", comment = "A form entry played at home." }
+"detail.away" = { en = "A", de = "A", comment = "A form entry played away." }
+"detail.won" = { en = "W", de = "S" }
+"detail.drawn" = { en = "D", de = "U" }
+"detail.lost" = { en = "L", de = "N" }
 
 # The match (§16.4)
 "hud.ot" = { en = "OT", de = "VL" }

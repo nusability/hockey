@@ -3,5 +3,5 @@
 # Each platform builds the state and must write the file byte for byte, and read it back to the same state.
 # Recorded by ios/SmashCore RecordSeasonVectors (macOS, arm64). Replayed exactly by SmashCoreTests and android/core.
 fresh.json - - - -
-club-midseason.json season-club.txt 6 shot,pass 0.7 0.35 0.6 0.25 diamond 150.0 2.4
-created-finished.json season-created.txt end shot,pass,goalie,cones,moving,sleepy,press,scrimmage -
+midseason.json season-cup-run.txt 6 shot,pass 0.7 0.35 0.6 0.25 diamond 150.0 2.4
+finished.json season-cup-exit.txt end shot,pass,goalie,cones,moving,sleepy,press,scrimmage -

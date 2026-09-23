@@ -46,18 +46,16 @@ fun SaveRecord.Companion.decode(text: String): SaveRecord = decode(text.toByteAr
 /** The player's team in league, cup and every match they play. */
 val SaveRecord.playerTeam: TeamKey? get() = career?.team
 
-fun SaveRecord.chooseClub(club: Club): SaveRecord {
-    if (career != null) refuse(GameError.CareerExists)
-    return copy(career = CareerRecord.picked(club), board = board.withTactics(club.tactics))
-}
-
-/** Confirms a created team; the name is kept without its leading and trailing spaces. */
+/**
+ * Confirms the team the player created — there is no other way into a career (§2.2); the name is
+ * kept without its leading and trailing spaces.
+ */
 fun SaveRecord.createTeam(draft: TeamDraft): SaveRecord {
     if (career != null) refuse(GameError.CareerExists)
     val issues = CreatedTeamRules.issues(draft)
     if (issues.isNotEmpty()) refuse(GameError.InvalidTeam(issues))
     val team = CreatedTeam(CreatedTeamRules.trimmedName(draft.name), draft.short, draft.primary, draft.secondary, draft.world)
-    return copy(career = CareerRecord(TeamKey.CREATED, team, 0, 0), board = board.withTactics(Tactics.defaults))
+    return copy(career = CareerRecord(team, 0, 0), board = board.withTactics(Tactics.defaults))
 }
 
 /** Ends the career, its season and its trophies. Training progress survives (§2.2). */
@@ -112,9 +110,8 @@ internal fun SaveRecord.validate(path: String) {
 }
 
 internal fun CareerRecord.validate(path: String) {
-    if ((team == TeamKey.CREATED) != (created != null)) refuse(SaveDecodeError.BrokenRule(path, SaveRule.CAREER_TEAM_AND_CREATED_DISAGREE))
     if (leagueTitles < 0 || cups < 0) refuse(SaveDecodeError.BrokenRule(path, SaveRule.NEGATIVE_COUNT))
-    val c = created ?: return
+    val c = created
     val draft = TeamDraft(c.name, c.short, c.primary, c.secondary, c.world)
     if (CreatedTeamRules.issues(draft).isNotEmpty() || CreatedTeamRules.trimmedName(c.name) != c.name) {
         refuse(SaveDecodeError.BrokenRule("$path.created", SaveRule.CREATED_TEAM_INVALID))

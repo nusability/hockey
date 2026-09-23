@@ -32,17 +32,15 @@
 
 # First launch: choosing the team (§16.1, §2.2)
 "team.title" = { en = "YOUR TEAM", de = "DEIN TEAM" }
-"team.pick" = { en = "PICK A CLUB", de = "VEREIN WÄHLEN" }
-"team.create" = { en = "CREATE A TEAM", de = "TEAM GRÜNDEN" }
+"team.create" = { en = "CREATE YOUR TEAM", de = "GRÜNDE DEIN TEAM" }
 "team.confirm" = { en = "PLAY FOR {team}", de = "SPIELE FÜR {team}" }
-"team.choose" = { en = "TAP A CLUB", de = "TIPP EINEN VEREIN AN" }
+"team.choose" = { en = "NAME YOUR TEAM", de = "BENENNE DEIN TEAM" }
 "team.name" = { en = "NAME", de = "NAME" }
 "team.nameEmpty" = { en = "TAP TO TYPE", de = "ZUM TIPPEN" }
 "team.code" = { en = "CODE", de = "KÜRZEL" }
 "team.shirt" = { en = "SHIRT", de = "TRIKOT" }
 "team.trim" = { en = "TRIM", de = "BESATZ" }
 "team.home" = { en = "HOME", de = "HEIMAT" }
-"team.strength" = { en = "Strength {rating}", de = "Stärke {rating}", comment = "Accessibility: a club card's strength bar." }
 "team.preview" = { en = "Your kit", de = "Dein Trikot", comment = "Accessibility: the preview disk wearing the kit." }
 "team.issue.nameTooShort" = { en = "NAME: 2 LETTERS AT LEAST", de = "NAME: MINDESTENS 2 ZEICHEN" }
 "team.issue.nameTooLong" = { en = "NAME: 16 AT MOST", de = "NAME: HÖCHSTENS 16 ZEICHEN" }

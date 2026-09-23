@@ -17,7 +17,7 @@ the save on the device (see the platform-delta table for what still differs). Wh
 gameplay contract taken from the web prototype — the pitch, the one-touch control, the ball, the
 automatic play, the match, the drills, the season and the coach's board, with every number the
 prototype was tuned to — plus the one thing the prototype never had: **a career**, in which the
-player picks a club or creates their own team, once. From this version on the prototype is not
+player creates their own team, once. From this version on the prototype is not
 consulted for rules or numbers; this file is.
 
 # Smash Hockey 3D (iOS · Android) — Specification
@@ -25,7 +25,7 @@ consulted for rules or numbers; this file is.
 ## Overview
 Smash Hockey 3D is a stylised, colourful 3D field-hockey game for phones — with one ice-hockey
 world — played with **one touch**. Your players run on their own; you decide only **when to let
-go of the ball**. A career with one club, a season of league and cup matches, eight training
+go of the ball**. A career with a team of your own, a season of league and cup matches, eight training
 drills that teach the control, and five worlds to play them in. The menus and scoreboards are
 part of the 3D world too.
 
@@ -118,46 +118,48 @@ Eight fictional clubs, each with a home world, a rating and its own tactics (§1
 | Glacier Wolves | GLW | Himalaya | 70 | covering 0.85, push up 0.3, pressing 0.3 |
 | Coral Kraken | COR | Ocean World | 75 | passing 0.7, covering 0.4 |
 
-Names are localized (English/German, §14). Each club has a primary and secondary kit colour.
+Names are localized (English/German, §14). Each club has a primary and secondary kit colour. The
+clubs are the career's opponents: the player never plays as one of them (§2.2).
 
 **A rating is the team's skill.** It sets outfield top speed (§3) and `skill = clamp((rating −
 60) / 30, 0, 1)`, which scales AI release accuracy, shot power and goalie play (§7), and it
 drives simulated results (§11).
 
-#### 2.2 The career — one team, for good
-The player's first act is to choose their team, **once**:
+#### 2.2 The career — the player's own team, for good
+The player's first act is to **create their team**, once. The eight clubs are opponents only:
+picking one of them would be no choice at all, because one of them is always the strongest.
 
-- **Pick a club** — any of the eight. Its name, kit, home world and rating become the player's.
-  The coach's board (§12) starts from that club's tactics: pressing, covering, push up and
-  discipline take the club's values; formation, period length and ball spin stay as the player
-  set them.
-- **Create a team** — the player enters:
-  - a **name**, 2–16 characters, counted as Unicode code points once leading and trailing spaces
-    are dropped (the name is kept without them);
-  - a **short code**, three capital letters A–Z, never equal to a club's (Glacier Wolves'
-    included). It is derived from the name and editable. The derivation takes the name's letters
-    A–Z (accents dropped, case ignored, anything else skipped): the first, the second and the first
-    later letter that makes a code no club has; failing that, the first two letters — as many as
-    there are — padded with X (no club's code has one);
-  - a **kit**: a primary and secondary colour from a curated palette of twelve pairs
-    (`shared/data/`) — the primary chosen from the pairs' primaries, the secondary from their
-    secondaries. No palette primary equals a club's primary, so a created team never clashes with
-    an opponent;
-  - a **home world**, one of the five (§13).
+The player enters:
 
-  A draft that breaks any of these rules cannot be confirmed; every rule it breaks is named.
+- a **name**, 2–16 characters, counted as Unicode code points once leading and trailing spaces
+  are dropped (the name is kept without them);
+- a **short code**, three capital letters A–Z, never equal to a club's (Glacier Wolves'
+  included). It is derived from the name and editable. The derivation takes the name's letters
+  A–Z (accents dropped, case ignored, anything else skipped): the first, the second and the first
+  later letter that makes a code no club has; failing that, the first two letters — as many as
+  there are — padded with X (no club's code has one);
+- a **kit**: a primary and secondary colour from a curated palette of twelve pairs
+  (`shared/data/`) — the primary chosen from the pairs' primaries, the secondary from their
+  secondaries. No palette primary equals a club's primary, so the player's team never clashes with
+  an opponent;
+- a **home world**, one of the five (§13).
 
-  A created team's **rating is fixed at 77**, the league average (the mean of the eight clubs'
-  ratings, rounded). Its tactics start from the defaults (§12), in the same way. **It replaces the weakest club,
-  Glacier Wolves, in the league and cup**, which keep eight teams. Glacier Wolves still exist as
-  an opponent outside the season (quick match, §11.5).
+A draft that breaks any of these rules cannot be confirmed; every rule it breaks is named.
 
-The choice holds for every season that follows. There is no switching: **starting over** is a
-deliberate, confirmed act that ends the career, its season and its trophies. Training progress
-(§10) survives it, because it records the player's skill rather than the team's.
+The team's **rating is fixed at 77**, the league average (the mean of the eight clubs' ratings,
+rounded). Its tactics are the defaults (§12): creating the team sets the coach's board's pressing,
+covering, push up and discipline to the default values — formation, period length and ball spin
+stay as the player set them — and "Reset" there restores the defaults. **It replaces the weakest club, Glacier Wolves, in the
+league and cup**, which keep eight teams. Glacier Wolves still exist as an opponent outside the
+season (quick match, §11.5).
 
-Choosing a team or confirming a created one is the step before the first season; the rest of the
-game (training, quick match) is available before it.
+The team holds for every season that follows. There is no switching and no second team:
+**starting over** is a deliberate, confirmed act that ends the career, its season and its
+trophies. Training progress (§10) survives it, because it records the player's skill rather than
+the team's.
+
+Creating the team is the step before the first season; the rest of the game (training, quick
+match) is available before it.
 
 ### 3. Players and formations
 | Player | Value |
@@ -755,10 +757,10 @@ on the device.
 ### 11. The season
 
 #### 11.1 Fixtures
-The career's league — the eight clubs, or seven plus the created team (§2.2) — plays a **double
+The career's league — seven clubs and the player's own team in the eighth place (§2.2) — plays a **double
 round-robin**: 14 rounds.
 
-- The league's teams in their canonical order — the clubs as §2.1 lists them, the created team
+- The league's teams in their canonical order — the clubs as §2.1 lists them, the player's team
   in the place of the club it replaces — are shuffled from the season stream (Fisher–Yates from
   the last position down to position 1: for i = 7 … 1, `j = floor(u × (i + 1))`, swap i and j).
   The cup order is shuffled the same way, from the same canonical order, after it.
@@ -805,12 +807,12 @@ overtime draw.
   and a new season can start, keeping the career and its trophies.
 
 #### 11.5 Quick match
-A friendly against a random club other than the player's, in a random world, outside the
-season. Both are drawn from a stream of the quick match's own, seeded when it is chosen — never
-the season's, whose position a friendly does not move: first the opponent, `floor(u × n)` into
-the clubs in §2.1's order less the player's club (all eight against a created team), then the
-world, `floor(u × 5)` into §13's order. Before a career exists the player's side is the Moss
-Foxes, as in the demo (§9).
+A friendly against a random club, in a random world, outside the season. Both are drawn from a
+stream of the quick match's own, seeded when it is chosen — never the season's, whose position a
+friendly does not move: first the opponent, `floor(u × n)` into the clubs in §2.1's order less the
+player's side's own club, if it is one — so all eight clubs are drawn for the player's created
+team, Glacier Wolves included. Then the world, `floor(u × 5)` into §13's order. Before a career
+exists the player's side is the Moss Foxes, as in the demo (§9).
 
 ### 12. The coach's board
 The player tunes their own team's automatic play. It applies to every match they play, drills
@@ -827,8 +829,7 @@ included, and is saved on the device.
 | Ball spin | 1.4–3.2 s per turn, steps of 0.2 | 2.0 s | the orbit period (§5.1): slower is easier |
 
 Passing and shooting (§7.6) are tactics of the clubs only: on the player's team every outfield
-release is the player's, so the board does not offer them. "Reset" restores the defaults — or,
-with a picked club, that club's tactics. The ball-spin setting sets the orbit period for every
+release is the player's, so the board does not offer them. "Reset" restores the defaults. The ball-spin setting sets the orbit period for every
 carrier in the player's matches (§5.1), so it slows the opponents' releases too.
 
 ### 13. Worlds
@@ -868,8 +869,8 @@ German on devices set to German, English otherwise. Every user-facing string, cl
 name and drill text exists in both.
 
 ### 15. What is kept on the device
-- **The career:** the chosen club, or the created team's name, short code, kit and home world;
-  and the trophy counts.
+- **The career:** the player's team — its name, short code, kit and home world — and the trophy
+  counts.
 - **The season in progress:** its number in the career (the first is 1, each next one more;
   starting over begins again at 1), its seed and stream position, its teams, every fixture drawn so
   far with its result, and the matchday. The table and the cup bracket follow from the results.
@@ -932,16 +933,15 @@ ends hidden, and is only then taken off the screen. This holds however the motio
 the whimsical springs, or Reduce Motion's plain fades — including when the system's Reduce Motion
 setting changes in the middle of one. Nothing is ever left part-way, hanging where it should not be.
 
-#### 16.1 First launch — choosing the team
-With no career saved, the game opens here, once (§2.2). Two ways:
-- **Pick a club:** the eight clubs as cards — name, kit, home world, rating as a strength bar.
-  Choosing one and confirming starts the career.
-- **Create a team:** name (the system keyboard; 2–16 characters), short code (derived, editable,
-  refused when it equals a club's), kit (primary and secondary from the 12 palette pairs), home
-  world (the five). A live preview disk wears the kit. Confirming starts the career; Glacier
-  Wolves are replaced (§2.2).
+#### 16.1 First launch — creating the team
+With no career saved, the game opens here, once (§2.2): the create form, and nothing else to
+choose from. Name (the system keyboard; 2–16 characters), short code (derived, editable, refused
+when it equals a club's), kit (primary and secondary from the 12 palette pairs), home world (the
+five). A live preview disk wears the kit; every rule the draft breaks is named under it, and the
+confirm button can only be tapped when there is none. Confirming starts the career and its first
+season; Glacier Wolves are replaced (§2.2).
 
-Training and quick match are reachable from here too (§2.2) without choosing.
+Training and quick match are reachable from here too (§2.2) before the team exists.
 
 #### 16.2 The title
 The logo, and: **Season** (continue, or start the next one — §11.4), **Training**, **Quick match**,
@@ -1010,8 +1010,9 @@ disk with a ball circling it and an aim line.
 ## Out of scope
 - Steering players, aiming by drag, charging a shot: the player's only input is hold and release.
 - Offside and icing.
-- More than eight teams in a season; switching teams within a career.
-- A created team's rating changing over time.
+- More than eight teams in a season; playing as one of the eight clubs; switching teams within a
+  career.
+- The player's team's rating changing over time.
 - Online play, accounts, leaderboards.
 
 ## Constraints & invariants

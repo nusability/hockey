@@ -20,6 +20,7 @@ import `in`.nann.smashhockey.core.season.quickMatch
 import `in`.nann.smashhockey.core.season.seasonMatch
 import `in`.nann.smashhockey.core.season.short
 import `in`.nann.smashhockey.core.season.sideTeam
+import `in`.nann.smashhockey.core.season.team
 import `in`.nann.smashhockey.generated.Presentation
 import `in`.nann.smashhockey.scene.TeamColours
 import kotlin.math.sqrt

@@ -18,14 +18,14 @@ func L(_ key: CopyKey, arguments: [String]) -> String {
 
 /// Names the screens show, from the career or the declarations.
 enum Names {
-    /// A team's name in capitals: a club's localized name, or the created team's own.
+    /// A team's name in capitals: a club's localized name, or the player's own team's.
     static func team(_ key: TeamKey, _ career: CareerRecord?) -> String {
         if let club = key.club { return L(club.nameKey).uppercased() }
-        return career?.created?.name.uppercased() ?? ""
+        return career?.created.name.uppercased() ?? ""
     }
 
     static func short(_ key: TeamKey, _ career: CareerRecord?) -> String {
-        key.club?.short ?? career?.created?.short ?? ""
+        key.club?.short ?? career?.created.short ?? ""
     }
 
     static func world(_ w: World) -> String { L(w.nameKey).uppercased() }

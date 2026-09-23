@@ -48,15 +48,13 @@ extension SaveRecord {
     }
 }
 
-/// The career (spec §2.2): the picked club — or `created` with its created team — and the trophy counts (§11.4).
+/// The career (spec §2.2): the team the player created — there is no other — and the trophy counts (§11.4).
 public struct CareerRecord: Sendable, Hashable {
-    public var team: TeamKey
-    public var created: CreatedTeam?
+    public var created: CreatedTeam
     public var leagueTitles: Int
     public var cups: Int
 
-    public init(team: TeamKey, created: CreatedTeam?, leagueTitles: Int, cups: Int) {
-        self.team = team
+    public init(created: CreatedTeam, leagueTitles: Int, cups: Int) {
         self.created = created
         self.leagueTitles = leagueTitles
         self.cups = cups
@@ -67,8 +65,7 @@ extension CareerRecord {
     /// This record as its canonical JSON value.
     func json() -> JSONValue {
         .object([
-            ("team", .string(team.rawValue)),
-            ("created", created.map { $0.json() } ?? .null),
+            ("created", created.json()),
             ("league_titles", .int(leagueTitles)),
             ("cups", .int(cups)),
         ])
@@ -76,16 +73,15 @@ extension CareerRecord {
 
     /// Decodes the record at `path` ("$" for the file's root), failing on anything but its exact shape.
     init(json: JSONValue, at path: String) throws(SaveDecodeError) {
-        let o = try SaveJSON.fields(json, at: path, ["team", "created", "league_titles", "cups"])
-        self.team = try SaveJSON.key(o[0], at: path + ".team") as TeamKey
-        if case .null = o[1] { self.created = nil } else { self.created = try CreatedTeam(json: o[1], at: path + ".created") }
-        self.leagueTitles = try SaveJSON.int(o[2], at: path + ".league_titles")
-        self.cups = try SaveJSON.int(o[3], at: path + ".cups")
+        let o = try SaveJSON.fields(json, at: path, ["created", "league_titles", "cups"])
+        self.created = try CreatedTeam(json: o[0], at: path + ".created")
+        self.leagueTitles = try SaveJSON.int(o[1], at: path + ".league_titles")
+        self.cups = try SaveJSON.int(o[2], at: path + ".cups")
         try validate(at: path)
     }
 }
 
-/// A created team (spec §2.2): name, short code, kit and home world. Its rating is fixed (Career.createdRating).
+/// The player's own team (spec §2.2): name, short code, kit and home world. Its rating is fixed (Career.createdRating).
 public struct CreatedTeam: Sendable, Hashable {
     public var name: String
     public var short: String

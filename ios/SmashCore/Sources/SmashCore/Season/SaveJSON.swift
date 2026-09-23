@@ -47,7 +47,6 @@ public enum SaveDecodeError: Error, Sendable, Equatable {
 
 /// The rules a decoded save is checked against (the records' `validate(at:)`).
 public enum SaveRule: String, Sendable, CaseIterable {
-    case careerTeamAndCreatedDisagree       // `created` is set exactly when the team is the created one
     case createdTeamInvalid                 // §2.2: name, short code or kit
     case negativeCount                      // trophies, goals
     case tacticOutOfRange                   // §12: 0–1

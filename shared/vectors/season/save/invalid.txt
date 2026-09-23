@@ -4,7 +4,7 @@
 empty.json malformedJSON 0
 truncated.json malformedJSON 40
 trailing-comma.json malformedJSON 377
-not-utf8.json malformedJSON 55
+not-utf8.json malformedJSON 103
 array-root.json wrongType $
 no-version.json missingField $.version
 version-2.json unknownVersion 2
@@ -15,11 +15,11 @@ unknown-field.json unknownField $.board.coins
 duplicate-field.json duplicateField $.season
 wrong-type.json wrongType $.career.cups
 fraction.json wrongType $.career.cups
-unknown-club.json badValue $.career.team
+unknown-team.json badValue $.season.teams[0]
 bad-seed.json badValue $.season.seed
 tactic-out-of-range.json brokenRule $.board.pressing tacticOutOfRange
 period-not-a-choice.json brokenRule $.board.period_seconds notABoardChoice
 season-without-career.json brokenRule $.season seasonWithoutCareer
-career-created-missing.json brokenRule $.career careerTeamAndCreatedDisagree
+created-team-invalid.json brokenRule $.career.created createdTeamInvalid
 drill-won-twice.json brokenRule $.training.won drillWonTwice
 season-zero.json brokenRule $.season.number seasonNumber

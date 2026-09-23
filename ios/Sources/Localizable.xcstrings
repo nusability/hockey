@@ -2527,13 +2527,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "TIPP EINEN VEREIN AN"
+            "value" : "BENENNE DEIN TEAM"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "TAP A CLUB"
+            "value" : "NAME YOUR TEAM"
           }
         }
       }
@@ -2578,13 +2578,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "TEAM GRÜNDEN"
+            "value" : "GRÜNDE DEIN TEAM"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CREATE A TEAM"
+            "value" : "CREATE YOUR TEAM"
           }
         }
       }
@@ -2742,23 +2742,6 @@
         }
       }
     },
-    "team.pick" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "VEREIN WÄHLEN"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PICK A CLUB"
-          }
-        }
-      }
-    },
     "team.preview" : {
       "comment" : "Accessibility: the preview disk wearing the kit.",
       "extractionState" : "manual",
@@ -2790,24 +2773,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SHIRT"
-          }
-        }
-      }
-    },
-    "team.strength" : {
-      "comment" : "Accessibility: a club card's strength bar.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stärke %1$@"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Strength %1$@"
           }
         }
       }

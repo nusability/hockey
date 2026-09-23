@@ -119,7 +119,6 @@ class SaveDecodeException(val error: SaveDecodeError) : Exception(error.toString
 
 /** The rules a decoded save is checked against (the records' `validate`). Keys match iOS. */
 enum class SaveRule(val key: String) {
-    CAREER_TEAM_AND_CREATED_DISAGREE("careerTeamAndCreatedDisagree"),
     CREATED_TEAM_INVALID("createdTeamInvalid"),
     NEGATIVE_COUNT("negativeCount"),
     TACTIC_OUT_OF_RANGE("tacticOutOfRange"),

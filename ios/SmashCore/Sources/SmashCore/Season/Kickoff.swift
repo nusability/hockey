@@ -11,7 +11,7 @@ extension SaveRecord {
     /// pressing, covering, push up, discipline and formation. Passing and shooting are not the
     /// board's (§12) — they stay the team's own.
     public var playerSide: SideSetup {
-        let own = career?.startingTactics ?? Career.demoClub.tactics
+        let own = career == nil ? Career.demoClub.tactics : Tactics.defaults
         let tactics = Tactics(pressing: board.pressing, covering: board.covering, pushUp: board.pushUp,
                               passing: own.passing, shooting: own.shooting, discipline: board.discipline)
         let rating = career.map { $0.rating(of: $0.team) } ?? Career.demoClub.rating
@@ -68,24 +68,24 @@ extension SaveRecord {
         board = next
     }
 
-    /// "Reset" on the coach's board (§12): the defaults, or the picked club's tactics.
-    public mutating func resetBoard() { board = .reset(for: career) }
+    /// "Reset" on the coach's board (§12): the defaults.
+    public mutating func resetBoard() { board = .defaults }
 }
 
 extension CareerRecord {
-    /// A team's kit, sRGB 0xRRGGBB: a club's, or the created team's.
+    /// A team's kit, sRGB 0xRRGGBB: a club's, or the player's team's.
     public func kit(of key: TeamKey) -> (primary: UInt32, secondary: UInt32) {
         if let club = key.club { return (club.primary, club.secondary) }
-        return (created!.primary, created!.secondary)
+        return (created.primary, created.secondary)
     }
 
     /// A team's home world (§2.1, §2.2): where its home fixtures are played (§11.1).
-    public func homeWorld(of key: TeamKey) -> World { key.club?.world ?? created!.world }
+    public func homeWorld(of key: TeamKey) -> World { key.club?.world ?? created.world }
 
     /// An opponent as an AI side: a club's rating and tactics, the balanced formation (§3). The
-    /// created team is never the opponent — it is always the player's.
+    /// player's own team is never the opponent.
     func side(of key: TeamKey) -> SideSetup {
-        guard let club = key.club else { preconditionFailure("the created team is the player's, never the opponent") }
+        guard let club = key.club else { preconditionFailure("the player's own team is never the opponent") }
         return .club(club)
     }
 }

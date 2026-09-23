@@ -51,25 +51,29 @@ func hex(_ v: UInt32) -> String {
 
 // MARK: - Two whole seasons
 
-// (a) A picked club, the weakest-but-one (Mirage Falcons, 72): a forfeit in the league, the
-// quarter-final and the final won in overtime, the cup won.
-let clubScript = SeasonScript(seed: 0x5EA5_0200_2026_0922, career: "club falcons", entries: entries(
+// Every career is the player's own team in Glacier Wolves' place (spec §2.2), so both seasons are
+// played by a created team; their short codes are derived from their names (MOS is Moss Foxes').
+let jet = Career.kitPalette[0], navy = Career.kitPalette[9], coral = Career.kitPalette[4]
+
+// (a) A forfeit in the league, the quarter-final and the final won in overtime, the cup won.
+let runName = "Rocket Rangers"
+let runCareer = "created \(CreatedTeamRules.suggestedShortCode(for: runName)) \(hex(coral.primary)) "
+    + "\(hex(navy.secondary)) magicwood \(runName)"
+let runScript = SeasonScript(seed: 0x5EA5_0200_2026_0922, career: runCareer, entries: entries(
     "2 1 -,0 0 -,1 3 -,3 0 -,3 2 ot,0 3 forfeit,4 2 -,1 1 -,2 0 -,0 1 -,2 1 -,3 3 -,1 0 -,2 2 -,5 1 -,0 2 -,1 0 ot"))
 
-// (b) A created team in Glacier Wolves' place, its short code derived from its name (MOS is Moss
-// Foxes'): the quarter-final forfeited, so the semi-finals and the final are simulated straight
-// through.
-let jet = Career.kitPalette[0], navy = Career.kitPalette[9]
-let createdName = "Moss Giants"
-let createdCareer = "created \(CreatedTeamRules.suggestedShortCode(for: createdName)) \(hex(navy.primary)) "
-    + "\(hex(jet.secondary)) himalaya \(createdName)"
-let createdScript = SeasonScript(seed: 0x0000_0000_0000_002A, career: createdCareer, entries: entries(
+// (b) The quarter-final forfeited, so the semi-finals and the final are simulated straight through.
+let exitName = "Moss Giants"
+let exitCareer = "created \(CreatedTeamRules.suggestedShortCode(for: exitName)) \(hex(navy.primary)) "
+    + "\(hex(jet.secondary)) himalaya \(exitName)"
+let exitScript = SeasonScript(seed: 0x0000_0000_0000_002A, career: exitCareer, entries: entries(
     "1 0 -,2 2 -,0 1 -,3 1 -,0 3 forfeit,2 0 -,1 1 -,0 2 -,4 0 -,1 0 -,2 3 -,3 0 -,0 0 -,2 1 -,1 2 -"))
 
-for (name, script, about) in [("season-club.txt", clubScript, "a picked club"), ("season-created.txt", createdScript, "a created team")] {
+for (name, script, about) in [("season-cup-run.txt", runScript, "the player to the cup final"),
+                              ("season-cup-exit.txt", exitScript, "the player out of the cup")] {
     let lines = try script.run().lines
     write(name, text([
-        "Season golden vector (spec §11, §2.2): \(about), a whole season from a fixed seed through the save's API.",
+        "Season golden vector (spec §11, §2.2): a whole season from a fixed seed through the save's API — \(about).",
         "Inputs: seed, career, and one script line per player match (goals for, against, - | ot | forfeit).",
         "Outputs: league (canonical order), every drawn fixture (matchday, label, home, away), the stream after",
         "the start and after every player match, and per closed matchday its results (home away hg ag ot|- player|sim),",
@@ -142,7 +146,7 @@ write("career.txt", text([
 // MARK: - Quick match
 
 var quick: [String] = []
-for player in [TeamKey.mossfoxes, .wolves, .created] {
+for player in [TeamKey.mossfoxes, .created] {
     for seed in UInt64(0)..<16 {
         let q = QuickMatch(seed: seed &* 0x9E37_79B9 &+ 7, player: player)
         quick.append("quick 0x\(String(format: "%016llX", seed &* 0x9E37_79B9 &+ 7)) \(player.rawValue) \(q.opponent.rawValue) \(q.world.rawValue)")
@@ -157,8 +161,8 @@ write("quickmatch.txt", text([
 
 let manifest = [
     "fresh.json - - - -",
-    "club-midseason.json season-club.txt 6 shot,pass 0.7 0.35 0.6 0.25 diamond 150.0 2.4",
-    "created-finished.json season-created.txt end shot,pass,goalie,cones,moving,sleepy,press,scrimmage -",
+    "midseason.json season-cup-run.txt 6 shot,pass 0.7 0.35 0.6 0.25 diamond 150.0 2.4",
+    "finished.json season-cup-exit.txt end shot,pass,goalie,cones,moving,sleepy,press,scrimmage -",
 ]
 var saves: [String: String] = [:]
 for line in manifest {
@@ -176,34 +180,41 @@ write("save/manifest.txt", text([
 ], manifest))
 
 // Refused saves: each a small edit of a valid one, and the refusal expected.
-let fresh = saves["fresh.json"]!, club = saves["club-midseason.json"]!
+let fresh = saves["fresh.json"]!, mid = saves["midseason.json"]!
 func edit(_ s: String, _ from: String, _ to: String) -> String {
     precondition(s.contains(from), "the edit's anchor \(from) is not in the save")
     return s.replacingOccurrences(of: from, with: to)
+}
+
+/// The whole `career` member of a save, as written — the anchor for taking the career away.
+func careerBlock(_ s: String) -> String {
+    let start = s.range(of: "  \"career\": {")!.lowerBound
+    let end = s.range(of: "\n  },", range: start..<s.endIndex)!.upperBound
+    return String(s[start..<end])
 }
 let invalid: [(String, [UInt8])] = [
     ("empty.json", []),
     ("truncated.json", Array(fresh.prefix(40).utf8)),
     ("trailing-comma.json", Array(edit(fresh, "\"ball_spin_seconds\": \"0x4000000000000000\"\n", "\"ball_spin_seconds\": \"0x4000000000000000\",\n").utf8)),
-    ("not-utf8.json", Array(edit(club, "\"falcons\"", "\"falc\u{FFFF}ons\"").utf8).map { $0 == 0xEF ? 0xFF : $0 }),
+    ("not-utf8.json", Array(edit(mid, "\"short\": \"ROK\"", "\"short\": \"R\u{FFFF}OK\"").utf8).map { $0 == 0xEF ? 0xFF : $0 }),
     ("array-root.json", Array("[]\n".utf8)),
     ("no-version.json", Array(edit(fresh, "  \"version\": 1,\n", "").utf8)),
     ("version-2.json", Array(edit(fresh, "\"version\": 1,", "\"version\": 2,").utf8)),
-    ("version-0.json", Array(edit(club, "\"version\": 1,", "\"version\": 0,").utf8)),
+    ("version-0.json", Array(edit(mid, "\"version\": 1,", "\"version\": 0,").utf8)),
     ("version-string.json", Array(edit(fresh, "\"version\": 1,", "\"version\": \"1\",").utf8)),
     ("missing-field.json", Array(edit(fresh, "  \"season\": null,\n", "").utf8)),
     ("unknown-field.json", Array(edit(fresh, "\"discipline\":", "\"coins\": 5,\n    \"discipline\":").utf8)),
     ("duplicate-field.json", Array(edit(fresh, "  \"season\": null,\n", "  \"season\": null,\n  \"season\": null,\n").utf8)),
-    ("wrong-type.json", Array(edit(club, "\"cups\": 0", "\"cups\": \"0\"").utf8)),
-    ("fraction.json", Array(edit(club, "\"cups\": 0", "\"cups\": 0.5").utf8)),
-    ("unknown-club.json", Array(edit(club, "\"team\": \"falcons\"", "\"team\": \"unicorns\"").utf8)),
-    ("bad-seed.json", Array(edit(club, "\"seed\": \"0x5EA5020020260922\"", "\"seed\": \"0x5EA5\"").utf8)),
-    ("tactic-out-of-range.json", Array(edit(club, "\"pressing\": \"0x3FE6666666666666\"", "\"pressing\": \"0x3FF8000000000000\"").utf8)),
-    ("period-not-a-choice.json", Array(edit(club, "\"period_seconds\": \"0x4062C00000000000\"", "\"period_seconds\": \"0x4062A00000000000\"").utf8)),
-    ("season-without-career.json", Array(edit(club, "\"career\": {\n    \"team\": \"falcons\",\n    \"created\": null,\n    \"league_titles\": 0,\n    \"cups\": 0\n  },", "\"career\": null,").utf8)),
-    ("career-created-missing.json", Array(edit(club, "\"team\": \"falcons\"", "\"team\": \"created\"").utf8)),
-    ("drill-won-twice.json", Array(edit(club, "\"shot\",\n      \"pass\"", "\"shot\",\n      \"shot\"").utf8)),
-    ("season-zero.json", Array(edit(club, "\"number\": 1,", "\"number\": 0,").utf8)),
+    ("wrong-type.json", Array(edit(mid, "\"cups\": 0", "\"cups\": \"0\"").utf8)),
+    ("fraction.json", Array(edit(mid, "\"cups\": 0", "\"cups\": 0.5").utf8)),
+    ("unknown-team.json", Array(edit(mid, "\"teams\": [\n      \"mossfoxes\",", "\"teams\": [\n      \"unicorns\",").utf8)),
+    ("bad-seed.json", Array(edit(mid, "\"seed\": \"0x5EA5020020260922\"", "\"seed\": \"0x5EA5\"").utf8)),
+    ("tactic-out-of-range.json", Array(edit(mid, "\"pressing\": \"0x3FE6666666666666\"", "\"pressing\": \"0x3FF8000000000000\"").utf8)),
+    ("period-not-a-choice.json", Array(edit(mid, "\"period_seconds\": \"0x4062C00000000000\"", "\"period_seconds\": \"0x4062A00000000000\"").utf8)),
+    ("season-without-career.json", Array(edit(mid, careerBlock(mid), "  \"career\": null,").utf8)),
+    ("created-team-invalid.json", Array(edit(mid, "\"short\": \"ROK\"", "\"short\": \"MOS\"").utf8)),
+    ("drill-won-twice.json", Array(edit(mid, "\"shot\",\n      \"pass\"", "\"shot\",\n      \"shot\"").utf8)),
+    ("season-zero.json", Array(edit(mid, "\"number\": 1,", "\"number\": 0,").utf8)),
 ]
 var invalidLines: [String] = []
 for (name, bytes) in invalid {

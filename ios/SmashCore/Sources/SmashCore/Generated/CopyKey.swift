@@ -16,7 +16,6 @@ public enum CopyKey: String, Sendable, CaseIterable {
     case titleHelp = "title.help"
     case titleTrophies = "title.trophies"
     case teamTitle = "team.title"
-    case teamPick = "team.pick"
     case teamCreate = "team.create"
     case teamConfirm = "team.confirm"
     case teamChoose = "team.choose"
@@ -26,7 +25,6 @@ public enum CopyKey: String, Sendable, CaseIterable {
     case teamShirt = "team.shirt"
     case teamTrim = "team.trim"
     case teamHome = "team.home"
-    case teamStrength = "team.strength"
     case teamPreview = "team.preview"
     case teamIssueNameTooShort = "team.issue.nameTooShort"
     case teamIssueNameTooLong = "team.issue.nameTooLong"
@@ -202,7 +200,6 @@ public enum CopyKey: String, Sendable, CaseIterable {
         switch self {
         case .titleTrophies: ["league", "cups"]
         case .teamConfirm: ["team"]
-        case .teamStrength: ["rating"]
         case .hubSeason: ["n"]
         case .hubHeader: ["m", "total"]
         case .hubLeague: ["n"]

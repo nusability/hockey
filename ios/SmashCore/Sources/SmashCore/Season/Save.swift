@@ -35,20 +35,15 @@ extension SaveRecord {
     /// The player's team in league, cup and every match they play.
     public var playerTeam: TeamKey? { career?.team }
 
-    public mutating func chooseClub(_ club: Club) throws(GameError) {
-        guard career == nil else { throw .careerExists }
-        career = .picked(club)
-        board.adoptTactics(club.tactics)
-    }
-
-    /// Confirms a created team; the name is kept without its leading and trailing spaces.
+    /// Confirms the team the player created — there is no other way into a career (§2.2); the name
+    /// is kept without its leading and trailing spaces.
     public mutating func createTeam(_ draft: TeamDraft) throws(GameError) {
         guard career == nil else { throw .careerExists }
         let issues = CreatedTeamRules.issues(draft)
         guard issues.isEmpty else { throw .invalidTeam(issues) }
         let team = CreatedTeam(name: CreatedTeamRules.trimmedName(draft.name), short: draft.short,
                                primary: draft.primary, secondary: draft.secondary, world: draft.world)
-        career = CareerRecord(team: .created, created: team, leagueTitles: 0, cups: 0)
+        career = CareerRecord(created: team, leagueTitles: 0, cups: 0)
         board.adoptTactics(.defaults)
     }
 
@@ -121,13 +116,11 @@ extension SaveRecord {
 
 extension CareerRecord {
     func validate(at path: String) throws(SaveDecodeError) {
-        guard (team == .created) == (created != nil) else { throw .brokenRule(path: path, .careerTeamAndCreatedDisagree) }
         guard leagueTitles >= 0, cups >= 0 else { throw .brokenRule(path: path, .negativeCount) }
-        if let c = created {
-            let draft = TeamDraft(name: c.name, short: c.short, primary: c.primary, secondary: c.secondary, world: c.world)
-            guard CreatedTeamRules.issues(draft).isEmpty, CreatedTeamRules.trimmedName(c.name) == c.name else {
-                throw .brokenRule(path: path + ".created", .createdTeamInvalid)
-            }
+        let c = created
+        let draft = TeamDraft(name: c.name, short: c.short, primary: c.primary, secondary: c.secondary, world: c.world)
+        guard CreatedTeamRules.issues(draft).isEmpty, CreatedTeamRules.trimmedName(c.name) == c.name else {
+            throw .brokenRule(path: path + ".created", .createdTeamInvalid)
         }
     }
 }

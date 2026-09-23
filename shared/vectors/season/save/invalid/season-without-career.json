@@ -4,7 +4,7 @@
   "season": {
     "number": 1,
     "seed": "0x5EA5020020260922",
-    "stream": "0xA88C9FFEBE4CEC74",
+    "stream": "0x9A486DCAB8A0CD1C",
     "teams": [
       "mossfoxes",
       "glowowls",
@@ -12,7 +12,7 @@
       "rocketlynx",
       "scorpions",
       "falcons",
-      "wolves",
+      "created",
       "kraken"
     ],
     "matchday": 6,
@@ -42,18 +42,18 @@
         "away": "mossfoxes",
         "matchday": 0,
         "score": {
-          "home": 2,
-          "away": 1,
+          "home": 1,
+          "away": 0,
           "overtime": false
         }
       },
       {
         "home": "nebula",
-        "away": "wolves",
+        "away": "created",
         "matchday": 0,
         "score": {
-          "home": 2,
-          "away": 1,
+          "home": 1,
+          "away": 2,
           "overtime": false
         }
       },
@@ -62,7 +62,7 @@
         "away": "kraken",
         "matchday": 1,
         "score": {
-          "home": 5,
+          "home": 4,
           "away": 2,
           "overtime": false
         }
@@ -72,24 +72,14 @@
         "away": "scorpions",
         "matchday": 1,
         "score": {
-          "home": 3,
-          "away": 1,
+          "home": 2,
+          "away": 3,
           "overtime": false
         }
       },
       {
-        "home": "wolves",
+        "home": "created",
         "away": "rocketlynx",
-        "matchday": 1,
-        "score": {
-          "home": 1,
-          "away": 5,
-          "overtime": false
-        }
-      },
-      {
-        "home": "nebula",
-        "away": "falcons",
         "matchday": 1,
         "score": {
           "home": 0,
@@ -98,22 +88,32 @@
         }
       },
       {
+        "home": "nebula",
+        "away": "falcons",
+        "matchday": 1,
+        "score": {
+          "home": 3,
+          "away": 2,
+          "overtime": false
+        }
+      },
+      {
         "home": "kraken",
         "away": "mossfoxes",
         "matchday": 2,
         "score": {
-          "home": 3,
-          "away": 4,
+          "home": 1,
+          "away": 2,
           "overtime": false
         }
       },
       {
         "home": "glowowls",
-        "away": "wolves",
+        "away": "created",
         "matchday": 2,
         "score": {
           "home": 3,
-          "away": 3,
+          "away": 1,
           "overtime": false
         }
       },
@@ -122,8 +122,8 @@
         "away": "nebula",
         "matchday": 2,
         "score": {
-          "home": 2,
-          "away": 2,
+          "home": 4,
+          "away": 3,
           "overtime": false
         }
       },
@@ -131,76 +131,6 @@
         "home": "rocketlynx",
         "away": "falcons",
         "matchday": 2,
-        "score": {
-          "home": 3,
-          "away": 1,
-          "overtime": false
-        }
-      },
-      {
-        "home": "wolves",
-        "away": "kraken",
-        "matchday": 3,
-        "score": {
-          "home": 2,
-          "away": 2,
-          "overtime": false
-        }
-      },
-      {
-        "home": "nebula",
-        "away": "mossfoxes",
-        "matchday": 3,
-        "score": {
-          "home": 3,
-          "away": 2,
-          "overtime": false
-        }
-      },
-      {
-        "home": "falcons",
-        "away": "glowowls",
-        "matchday": 3,
-        "score": {
-          "home": 3,
-          "away": 0,
-          "overtime": false
-        }
-      },
-      {
-        "home": "rocketlynx",
-        "away": "scorpions",
-        "matchday": 3,
-        "score": {
-          "home": 2,
-          "away": 4,
-          "overtime": false
-        }
-      },
-      {
-        "home": "falcons",
-        "away": "scorpions",
-        "matchday": 4,
-        "score": {
-          "home": 3,
-          "away": 2,
-          "overtime": true
-        }
-      },
-      {
-        "home": "kraken",
-        "away": "rocketlynx",
-        "matchday": 4,
-        "score": {
-          "home": 0,
-          "away": 6,
-          "overtime": false
-        }
-      },
-      {
-        "home": "nebula",
-        "away": "wolves",
-        "matchday": 4,
         "score": {
           "home": 8,
           "away": 1,
@@ -208,12 +138,82 @@
         }
       },
       {
+        "home": "created",
+        "away": "kraken",
+        "matchday": 3,
+        "score": {
+          "home": 3,
+          "away": 0,
+          "overtime": false
+        }
+      },
+      {
+        "home": "nebula",
+        "away": "mossfoxes",
+        "matchday": 3,
+        "score": {
+          "home": 5,
+          "away": 1,
+          "overtime": false
+        }
+      },
+      {
+        "home": "falcons",
+        "away": "glowowls",
+        "matchday": 3,
+        "score": {
+          "home": 0,
+          "away": 5,
+          "overtime": false
+        }
+      },
+      {
+        "home": "rocketlynx",
+        "away": "scorpions",
+        "matchday": 3,
+        "score": {
+          "home": 7,
+          "away": 5,
+          "overtime": false
+        }
+      },
+      {
+        "home": "falcons",
+        "away": "scorpions",
+        "matchday": 4,
+        "score": {
+          "home": 0,
+          "away": 7,
+          "overtime": false
+        }
+      },
+      {
+        "home": "kraken",
+        "away": "rocketlynx",
+        "matchday": 4,
+        "score": {
+          "home": 1,
+          "away": 2,
+          "overtime": true
+        }
+      },
+      {
+        "home": "nebula",
+        "away": "created",
+        "matchday": 4,
+        "score": {
+          "home": 2,
+          "away": 3,
+          "overtime": true
+        }
+      },
+      {
         "home": "glowowls",
         "away": "mossfoxes",
         "matchday": 4,
         "score": {
-          "home": 0,
-          "away": 3,
+          "home": 3,
+          "away": 5,
           "overtime": false
         }
       },
@@ -223,23 +223,13 @@
         "matchday": 5,
         "score": {
           "home": 1,
-          "away": 6,
+          "away": 2,
           "overtime": false
         }
       },
       {
-        "home": "wolves",
+        "home": "created",
         "away": "falcons",
-        "matchday": 5,
-        "score": {
-          "home": 3,
-          "away": 0,
-          "overtime": false
-        }
-      },
-      {
-        "home": "mossfoxes",
-        "away": "rocketlynx",
         "matchday": 5,
         "score": {
           "home": 0,
@@ -248,11 +238,21 @@
         }
       },
       {
+        "home": "mossfoxes",
+        "away": "rocketlynx",
+        "matchday": 5,
+        "score": {
+          "home": 1,
+          "away": 4,
+          "overtime": false
+        }
+      },
+      {
         "home": "glowowls",
         "away": "scorpions",
         "matchday": 5,
         "score": {
-          "home": 3,
+          "home": 6,
           "away": 1,
           "overtime": false
         }
@@ -271,7 +271,7 @@
       },
       {
         "home": "scorpions",
-        "away": "wolves",
+        "away": "created",
         "matchday": 6,
         "score": null
       },
@@ -300,7 +300,7 @@
         "score": null
       },
       {
-        "home": "wolves",
+        "home": "created",
         "away": "mossfoxes",
         "matchday": 7,
         "score": null
@@ -324,7 +324,7 @@
         "score": null
       },
       {
-        "home": "wolves",
+        "home": "created",
         "away": "nebula",
         "matchday": 8,
         "score": null
@@ -343,7 +343,7 @@
       },
       {
         "home": "rocketlynx",
-        "away": "wolves",
+        "away": "created",
         "matchday": 9,
         "score": null
       },
@@ -360,7 +360,7 @@
         "score": null
       },
       {
-        "home": "wolves",
+        "home": "created",
         "away": "glowowls",
         "matchday": 11,
         "score": null
@@ -379,7 +379,7 @@
       },
       {
         "home": "kraken",
-        "away": "wolves",
+        "away": "created",
         "matchday": 12,
         "score": null
       },
@@ -409,7 +409,7 @@
       },
       {
         "home": "falcons",
-        "away": "wolves",
+        "away": "created",
         "matchday": 13,
         "score": null
       },
@@ -438,7 +438,7 @@
         "score": null
       },
       {
-        "home": "wolves",
+        "home": "created",
         "away": "scorpions",
         "matchday": 14,
         "score": null
@@ -469,18 +469,18 @@
       },
       {
         "home": "mossfoxes",
-        "away": "wolves",
+        "away": "created",
         "matchday": 15,
         "score": null
       },
       {
-        "home": "falcons",
+        "home": "scorpions",
         "away": "rocketlynx",
         "matchday": 10,
         "score": null
       },
       {
-        "home": "nebula",
+        "home": "created",
         "away": "mossfoxes",
         "matchday": 10,
         "score": null

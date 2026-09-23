@@ -96,28 +96,23 @@ object CreatedTeamRules {
     }
 }
 
-/** A new career with a picked club (§2.2). */
-fun CareerRecord.Companion.picked(club: Club): CareerRecord = CareerRecord(TeamKey.of(club), null, 0, 0)
+/** The player's team: always the one they created (§2.2) — there is no picking a club. */
+val CareerRecord.team: TeamKey get() = TeamKey.CREATED
 
 /**
- * The league's eight teams in their canonical order (§11.1): the clubs as declared, the created
+ * The league's eight teams in their canonical order (§11.1): the clubs as declared, the player's
  * team in the place of the club it replaces.
  */
 val CareerRecord.league: List<TeamKey>
-    get() = Club.entries.map { club ->
-        if (team == TeamKey.CREATED && club == Career.createdReplaces) TeamKey.CREATED else TeamKey.of(club)
-    }
+    get() = Club.entries.map { club -> if (club == Career.createdReplaces) TeamKey.CREATED else TeamKey.of(club) }
 
-/** A team's short code — the created team's own, or a club's. */
-fun CareerRecord.short(of: TeamKey): String = of.club?.short ?: created!!.short
+/** A team's short code — the player's team's own, or a club's. */
+fun CareerRecord.short(of: TeamKey): String = of.club?.short ?: created.short
 
-/** A team's rating (§2.1); the created team's is fixed (§2.2). */
+/** A team's rating (§2.1); the player's team's is fixed (§2.2). */
 fun CareerRecord.rating(of: TeamKey): Int = of.club?.rating ?: Career.createdRating
 
-/** The tactics the career's team starts from (§2.2): the club's, or the defaults. */
-val CareerRecord.startingTactics: Tactics get() = team.club?.tactics ?: Tactics.defaults
-
-/** The coach's board (§12): its defaults, "Reset", and the tactics a chosen team starts it from. */
+/** The coach's board (§12): its defaults and the tactics a created team starts it from. */
 object Board {
     val defaults: BoardRecord = BoardRecord(
         pressing = Tactics.defaults.pressing, covering = Tactics.defaults.covering, pushUp = Tactics.defaults.pushUp,
@@ -125,14 +120,11 @@ object Board {
         periodSeconds = Tuning.Board.periodSecondsDefault, ballSpinSeconds = Tuning.Board.ballSpinSecondsDefault,
     )
 
-    /** "Reset" (§12): the defaults — or, with a picked club, the defaults with that club's tactics. */
-    fun reset(career: CareerRecord?): BoardRecord =
-        if (career == null) defaults else defaults.withTactics(career.startingTactics)
 }
 
 /**
- * The board with [t]'s tactics — the choosing of a team starts the board from its tactics (§2.2)
- * and keeps the formation, period length and ball spin the player set.
+ * The board with [t]'s tactics — creating a team starts the board from its tactics (§2.2) and
+ * keeps the formation, period length and ball spin the player set.
  */
 fun BoardRecord.withTactics(t: Tactics): BoardRecord =
     copy(pressing = t.pressing, covering = t.covering, pushUp = t.pushUp, discipline = t.discipline)

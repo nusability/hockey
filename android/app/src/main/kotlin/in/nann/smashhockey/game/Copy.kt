@@ -36,9 +36,9 @@ fun L(key: CopyKey, vararg args: Any): String = Copy.text(key, *args)
 
 /** Names the screens show, from the career or the declarations — the twin of iOS's `Names`. */
 object Names {
-    /** A team's name in capitals: a club's localized name, or the created team's own. */
+    /** A team's name in capitals: a club's localized name, or the player's own team's. */
     fun team(key: TeamKey, career: CareerRecord?): String =
-        key.club?.let { L(it.nameKey).uppercase() } ?: career?.created?.name?.uppercase() ?: ""
+        key.club?.let { L(it.nameKey).uppercase() } ?: career?.let { it.created.name.uppercase() } ?: ""
 
     fun world(w: World): String = L(w.nameKey).uppercase()
 

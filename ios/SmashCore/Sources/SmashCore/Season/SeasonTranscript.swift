@@ -26,7 +26,7 @@ public struct SeasonScript: Sendable {
     }
 
     public var seed: UInt64
-    /// `club <key>` or `created <short> <#primary> <#secondary> <world> <name…>`.
+    /// `created <short> <#primary> <#secondary> <world> <name…>` — the team the player created (§2.2).
     public var career: String
     public var entries: [Entry]
 
@@ -61,22 +61,16 @@ public struct SeasonScript: Sendable {
         return SeasonScript(seed: seed, career: career, entries: entries)
     }
 
-    /// The save at the season's start: the career chosen or created through the save's API.
+    /// The save at the season's start: the team created through the save's API (§2.2).
     public func startingSave() throws(Failure) -> SaveRecord {
         var save = SaveRecord.fresh
         let w = career.split(separator: " ", maxSplits: 5).map(String.init)
         do {
-            switch w.first {
-            case "club":
-                guard w.count == 2, let club = Club(rawValue: w[1]) else { throw Failure(description: "bad career: \(career)") }
-                try save.chooseClub(club)
-            case "created":
-                guard w.count == 6, let p = UInt32(w[2].dropFirst(), radix: 16), let s = UInt32(w[3].dropFirst(), radix: 16),
-                      let world = World(rawValue: w[4]) else { throw Failure(description: "bad career: \(career)") }
-                try save.createTeam(TeamDraft(name: w[5], short: w[1], primary: p, secondary: s, world: world))
-            default:
+            guard w.first == "created", w.count == 6, let p = UInt32(w[2].dropFirst(), radix: 16),
+                  let s = UInt32(w[3].dropFirst(), radix: 16), let world = World(rawValue: w[4]) else {
                 throw Failure(description: "bad career: \(career)")
             }
+            try save.createTeam(TeamDraft(name: w[5], short: w[1], primary: p, secondary: s, world: world))
             try save.startSeason(seed: seed)
         } catch let e as GameError {
             throw Failure(description: "\(e)")

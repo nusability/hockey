@@ -14,18 +14,15 @@
     <string name="title_help">SO GEHT\'S</string>
     <string name="title_trophies">%1$s TITEL · %2$s POKALE</string>
     <string name="team_title">DEIN TEAM</string>
-    <string name="team_pick">VEREIN WÄHLEN</string>
-    <string name="team_create">TEAM GRÜNDEN</string>
+    <string name="team_create">GRÜNDE DEIN TEAM</string>
     <string name="team_confirm">SPIELE FÜR %1$s</string>
-    <string name="team_choose">TIPP EINEN VEREIN AN</string>
+    <string name="team_choose">BENENNE DEIN TEAM</string>
     <string name="team_name">NAME</string>
     <string name="team_nameEmpty">ZUM TIPPEN</string>
     <string name="team_code">KÜRZEL</string>
     <string name="team_shirt">TRIKOT</string>
     <string name="team_trim">BESATZ</string>
     <string name="team_home">HEIMAT</string>
-    <!-- Accessibility: a club card's strength bar. -->
-    <string name="team_strength">Stärke %1$s</string>
     <!-- Accessibility: the preview disk wearing the kit. -->
     <string name="team_preview">Dein Trikot</string>
     <string name="team_issue_nameTooShort">NAME: MINDESTENS 2 ZEICHEN</string>

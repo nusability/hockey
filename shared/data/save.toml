@@ -38,15 +38,14 @@ training = "TrainingRecord"
 board = "BoardRecord"
 
 [record.CareerRecord]
-_doc = "The career (spec §2.2): the picked club — or `created` with its created team — and the trophy counts (§11.4)."
+_doc = "The career (spec §2.2): the team the player created — there is no other — and the trophy counts (§11.4)."
 _validate = true
-team = "team"
-created = "CreatedTeam?"
+created = "CreatedTeam"
 league_titles = "int"
 cups = "int"
 
 [record.CreatedTeam]
-_doc = "A created team (spec §2.2): name, short code, kit and home world. Its rating is fixed (Career.createdRating)."
+_doc = "The player's own team (spec §2.2): name, short code, kit and home world. Its rating is fixed (Career.createdRating)."
 name = "string"
 short = "string"
 primary = "rgb"

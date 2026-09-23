@@ -31,7 +31,7 @@ import Testing
         return nil
     }
 
-    @Test(arguments: ["season-club.txt", "season-created.txt"])
+    @Test(arguments: ["season-cup-run.txt", "season-cup-exit.txt"])
     func aWholeSeasonReplays(_ name: String) throws {
         let expected = try Self.lines(name)
         let got = try SeasonScript.parse(try Self.text(name)).run().lines
@@ -40,7 +40,7 @@ import Testing
 
     /// A season written to the save and read back after any player match goes on with exactly the
     /// draws it would have made (§15: the stream position is kept).
-    @Test(arguments: ["season-club.txt", "season-created.txt"])
+    @Test(arguments: ["season-cup-run.txt", "season-cup-exit.txt"])
     func aReloadedSeasonContinuesTheSameDraws(_ name: String) throws {
         let expected = try Self.lines(name)
         let script = try SeasonScript.parse(try Self.text(name))
@@ -86,7 +86,7 @@ import Testing
 
     @Test func quickMatchesReplay() throws {
         let lines = try Self.lines("quickmatch.txt")
-        #expect(lines.count == 48)
+        #expect(lines.count == 32)
         for line in lines {
             let w = line.split(separator: " ").map(String.init)
             let q = QuickMatch(seed: UInt64(w[1].dropFirst(2), radix: 16)!, player: TeamKey(rawValue: w[2])!)

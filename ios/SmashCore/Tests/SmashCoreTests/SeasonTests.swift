@@ -9,9 +9,15 @@ import Testing
         TeamDraft(name: name, short: short, primary: jet.primary, secondary: jet.secondary, world: .ocean)
     }
 
-    static func clubSeason(_ club: Club = .falcons, seed: UInt64 = 7) throws -> SaveRecord {
+    static func career(_ name: String = "Moss Giants", short: String = "MOG") -> CareerRecord {
+        CareerRecord(created: CreatedTeam(name: name, short: short, primary: jet.primary, secondary: jet.secondary,
+                                          world: .ocean), leagueTitles: 0, cups: 0)
+    }
+
+    /// A season played by the player's own team — the only career there is (§2.2).
+    static func season(seed: UInt64 = 7) throws -> SaveRecord {
         var save = SaveRecord.fresh
-        try save.chooseClub(club)
+        try save.createTeam(draft())
         try save.startSeason(seed: seed)
         return save
     }
@@ -20,9 +26,7 @@ import Testing
 
     @Test(arguments: [UInt64(0), 1, 42, 0xDEAD_BEEF])
     func everyTeamPlaysEveryOtherTwiceWithSwappedVenues(_ seed: UInt64) throws {
-        for career in [CareerRecord.picked(.nebula), CareerRecord(team: .created, created: CreatedTeam(
-            name: "Moss Giants", short: "MOG", primary: Self.jet.primary, secondary: Self.jet.secondary, world: .ocean),
-            leagueTitles: 0, cups: 0)] {
+        for career in [Self.career(), Self.career("Rocket Rangers", short: "ROK")] {
             let s = SeasonRecord.start(seed: seed, career: career)
             let league = s.fixtures.filter { if case .league = Season.plan[$0.matchday] { true } else { false } }
             #expect(league.count == 56)
@@ -44,28 +48,36 @@ import Testing
         }
     }
 
-    @Test func aCreatedTeamReplacesGlacierWolvesInTheirPlace() throws {
+    /// §2.2: creating the team is the only way into a career, and it always takes Glacier Wolves'
+    /// place at the league average.
+    @Test func thePlayersOwnTeamReplacesGlacierWolvesInTheirPlace() throws {
         var save = SaveRecord.fresh
+        #expect(save.career == nil && save.playerTeam == nil)
         try save.createTeam(Self.draft())
-        let league = save.career!.league
+        let career = save.career!
+        #expect(career.team == .created && save.playerTeam == .created)
+        let league = career.league
         #expect(league.count == 8 && !league.contains(.wolves) && league[6] == .created)
-        #expect(save.career!.rating(of: .created) == 77)
+        #expect(career.rating(of: .created) == 77 && Career.createdRating == 77)
+        #expect(career.short(of: .created) == "MOG" && career.created.name == "Moss Giants")
+        // Glacier Wolves stay in the game outside the season (§11.5).
+        #expect(Club.wolves.rating == 70 && career.rating(of: .wolves) == 70)
     }
 
     @Test func theCircleMethodAsSpecified() {
-        let order: [TeamKey] = [.mossfoxes, .glowowls, .nebula, .rocketlynx, .scorpions, .falcons, .wolves, .kraken]
+        let order: [TeamKey] = [.mossfoxes, .glowowls, .nebula, .rocketlynx, .scorpions, .falcons, .created, .kraken]
         let rounds = SeasonRecord.leagueRounds(order)
         #expect(rounds.count == 14)
         // Round 0: order[i] at home against order[7 − i].
-        #expect(rounds[0].map { [$0.0, $0.1] } == [[.mossfoxes, .kraken], [.glowowls, .wolves], [.nebula, .falcons], [.rocketlynx, .scorpions]])
+        #expect(rounds[0].map { [$0.0, $0.1] } == [[.mossfoxes, .kraken], [.glowowls, .created], [.nebula, .falcons], [.rocketlynx, .scorpions]])
         // Round 1: rotated (kraken to position 1), order[7 − i] at home.
-        #expect(rounds[1].map { [$0.0, $0.1] } == [[.wolves, .mossfoxes], [.falcons, .kraken], [.scorpions, .glowowls], [.rocketlynx, .nebula]])
+        #expect(rounds[1].map { [$0.0, $0.1] } == [[.created, .mossfoxes], [.falcons, .kraken], [.scorpions, .glowowls], [.rocketlynx, .nebula]])
     }
 
     // MARK: - §11.2–11.4 playing
 
     @Test func theCupAdvancesWinnersInBracketOrder() throws {
-        var save = try Self.clubSeason()
+        var save = try Self.season()
         while !save.season!.isFinished {
             let cup: Bool
             if case .cup = save.season!.step! { cup = true } else { cup = false }
@@ -77,34 +89,34 @@ import Testing
         let qfWinners = qf.map { SeasonRecord.winner($0)! }
         #expect(sf.map { [$0.home, $0.away] } == [[qfWinners[0], qfWinners[1]], [qfWinners[2], qfWinners[3]]])
         #expect([f[0].home, f[0].away] == sf.map { SeasonRecord.winner($0)! })
-        #expect(s.cupWinner == .falcons && save.career!.cups == 1)
+        #expect(s.cupWinner == .created && save.career!.cups == 1)
         for tie in qf + sf + f { #expect(tie.score!.home != tie.score!.away) }
     }
 
     @Test func afterACupExitTheRestIsSimulatedStraightThrough() throws {
-        var save = try Self.clubSeason()
+        var save = try Self.season()
         var played = 0
         while !save.season!.isFinished {
             if case .cup = save.season!.step! { try save.forfeit() } else { try save.recordPlayed(goalsFor: 1, goalsAgainst: 1) }
             played += 1
         }
         #expect(played == 15)   // 14 league matches and the quarter-final
-        let qf = save.season!.cupTies(.quarterFinal).first { $0.home == .falcons || $0.away == .falcons }!
-        #expect(qf.score == (qf.home == .falcons ? Score(home: 0, away: 3, overtime: false) : Score(home: 3, away: 0, overtime: false)))
+        let qf = save.season!.cupTies(.quarterFinal).first { $0.home == .created || $0.away == .created }!
+        #expect(qf.score == (qf.home == .created ? Score(home: 0, away: 3, overtime: false) : Score(home: 3, away: 0, overtime: false)))
     }
 
     @Test func theTableBreaksTiesByGoalDifferenceGoalsForThenShortCode() {
-        let career = CareerRecord.picked(.mossfoxes)
+        let career = Self.career()
         let teams = career.league
         var s = SeasonRecord(number: 1, seed: 0, stream: 0, teams: teams, matchday: 1, fixtures: [
             Fixture(home: .rocketlynx, away: .glowowls, matchday: 0, score: Score(home: 3, away: 1, overtime: false)),
             Fixture(home: .nebula, away: .kraken, matchday: 0, score: Score(home: 2, away: 0, overtime: false)),
             Fixture(home: .mossfoxes, away: .falcons, matchday: 0, score: Score(home: 2, away: 0, overtime: false)),
-            Fixture(home: .scorpions, away: .wolves, matchday: 0, score: Score(home: 1, away: 1, overtime: false)),
+            Fixture(home: .scorpions, away: .created, matchday: 0, score: Score(home: 1, away: 1, overtime: false)),
         ])
         // ROC, MOS and NEB on 3 points and +2: ROC ahead on goals for, MOS before NEB on short code;
-        // DUN before GLW, and COR before MIR, on short code alone.
-        let expected: [TeamKey] = [.rocketlynx, .mossfoxes, .nebula, .scorpions, .wolves, .glowowls, .kraken, .falcons]
+        // DUN before MOG, and COR before MIR, on short code alone.
+        let expected: [TeamKey] = [.rocketlynx, .mossfoxes, .nebula, .scorpions, .created, .glowowls, .kraken, .falcons]
         #expect(s.table(career).map(\.team) == expected)
         #expect(s.table(career)[0].points == 3 && s.table(career)[3].points == 1 && s.table(career)[3].drawn == 1)
         // A cup result never counts in the table.
@@ -113,13 +125,13 @@ import Testing
     }
 
     @Test func thePlayersScoreIsCheckedAndForfeitIsNilThree() throws {
-        var save = try Self.clubSeason()
+        var save = try Self.season()
         #expect(throws: GameError.negativeGoals) { try save.recordPlayed(goalsFor: -1, goalsAgainst: 0) }
         #expect(throws: GameError.overtimeOutsideCup) { try save.recordPlayed(goalsFor: 2, goalsAgainst: 1, overtime: true) }
         let f = save.playerFixture!
         try save.forfeit()
         let recorded = save.season!.fixtures.first { $0.home == f.home && $0.away == f.away && $0.matchday == f.matchday }!
-        #expect(recorded.score == (f.home == .falcons ? Score(home: 0, away: 3, overtime: false) : Score(home: 3, away: 0, overtime: false)))
+        #expect(recorded.score == (f.home == .created ? Score(home: 0, away: 3, overtime: false) : Score(home: 3, away: 0, overtime: false)))
         while case .league = save.season!.step! { try save.recordPlayed(goalsFor: 0, goalsAgainst: 0) }
         #expect(throws: GameError.cupScoreLevel) { try save.recordPlayed(goalsFor: 1, goalsAgainst: 1) }
         #expect(throws: GameError.overtimeNotByOneGoal) { try save.recordPlayed(goalsFor: 3, goalsAgainst: 1, overtime: true) }
@@ -127,7 +139,7 @@ import Testing
     }
 
     @Test func aNewSeasonKeepsTheCareerAndItsTrophies() throws {
-        var save = try Self.clubSeason(.rocketlynx, seed: 3)
+        var save = try Self.season(seed: 3)
         #expect(throws: GameError.seasonInProgress) { try save.startSeason(seed: 4) }
         while !save.season!.isFinished {
             if case .cup = save.season!.step! { try save.recordPlayed(goalsFor: 9, goalsAgainst: 0) }
@@ -137,18 +149,17 @@ import Testing
         #expect(throws: GameError.seasonFinished) { try save.recordPlayed(goalsFor: 1, goalsAgainst: 0) }
         try save.startSeason(seed: 4)
         #expect(save.season!.matchday == 0 && save.season!.seed == 4)
-        #expect(save.career!.leagueTitles == 1 && save.career!.cups == 1 && save.career!.team == .rocketlynx)
+        #expect(save.career!.leagueTitles == 1 && save.career!.cups == 1 && save.career!.team == .created)
     }
 
     // MARK: - §2.2 the career
 
-    @Test func aCareerIsChosenOnceAndStartingOverKeepsTraining() throws {
+    @Test func aCareerIsCreatedOnceAndStartingOverKeepsTraining() throws {
         var save = SaveRecord.fresh
         #expect(throws: GameError.noCareer) { try save.startSeason(seed: 1) }
-        try save.chooseClub(.glowowls)
-        #expect(save.board.pressing == 0.65 && save.board.covering == 0.65)   // the club's tactics (§2.2)
-        #expect(throws: GameError.careerExists) { try save.chooseClub(.nebula) }
-        #expect(throws: GameError.careerExists) { try save.createTeam(Self.draft()) }
+        try save.createTeam(Self.draft())
+        #expect(save.board.pressing == Tactics.defaults.pressing)   // the defaults (§2.2, §12)
+        #expect(throws: GameError.careerExists) { try save.createTeam(Self.draft("Rocket Rangers", short: "ROK")) }
         try save.startSeason(seed: 1)
         try save.recordPlayed(goalsFor: 1, goalsAgainst: 0)
         save.won(.shot)
@@ -158,7 +169,7 @@ import Testing
         #expect(save.career == nil && save.season == nil)
         #expect(save.training.won == [.shot, .pass])
         try save.createTeam(Self.draft("  Moss Giants "))
-        #expect(save.career!.created!.name == "Moss Giants")
+        #expect(save.career!.created.name == "Moss Giants")
         #expect(save.board.pressing == Tactics.defaults.pressing)
     }
 
@@ -179,18 +190,26 @@ import Testing
 
     // MARK: - §12 the board, §11.5 quick match
 
-    @Test func resetRestoresTheDefaultsOrThePickedClubsTactics() {
-        #expect(BoardRecord.reset(for: nil) == .defaults)
-        let rocket = BoardRecord.reset(for: .picked(.rocketlynx))
-        #expect(rocket.pressing == 0.7 && rocket.pushUp == 0.75 && rocket.formation == .balanced && rocket.periodSeconds == 120)
+    @Test func resetRestoresTheDefaults() throws {
+        var save = try Self.season()
+        save.board.pressing = 0.9
+        save.board.formation = .diamond
+        save.board.periodSeconds = 150
+        save.resetBoard()
+        #expect(save.board == .defaults)
+        #expect(save.board.pressing == Tactics.defaults.pressing && save.board.formation == .balanced
+                && save.board.periodSeconds == 120)
     }
 
-    @Test func aQuickMatchNeverDrawsThePlayersClubNorTouchesTheSeason() throws {
-        let save = try Self.clubSeason(.kraken)
+    /// §11.5: before a career the player's side is the demo's club, which is never drawn against
+    /// itself; the player's own team draws all eight clubs, Glacier Wolves included.
+    @Test func aQuickMatchDrawsEveryClubForThePlayersOwnTeam() throws {
+        let save = try Self.season()
         for seed in UInt64(0)..<200 {
-            #expect(QuickMatch(seed: seed, player: .kraken).opponent != .kraken)
+            #expect(QuickMatch(seed: seed, player: TeamKey(Career.demoClub)).opponent != Career.demoClub)
         }
-        #expect(Set((UInt64(0)..<200).map { QuickMatch(seed: $0, player: .created).opponent }).contains(.wolves))
-        #expect(try Self.clubSeason(.kraken) == save)
+        let drawn = Set((UInt64(0)..<200).map { QuickMatch(seed: $0, player: .created).opponent })
+        #expect(drawn == Set(Club.allCases) && drawn.contains(.wolves))
+        #expect(try Self.season() == save)
     }
 }

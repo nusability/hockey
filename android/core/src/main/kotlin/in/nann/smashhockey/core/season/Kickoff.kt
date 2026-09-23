@@ -35,7 +35,7 @@ val SaveRecord.sideTeam: TeamKey get() = career?.team ?: TeamKey.of(Career.demoC
  */
 val SaveRecord.playerSide: SideSetup
     get() {
-        val own = career?.startingTactics ?: Career.demoClub.tactics
+        val own = if (career == null) Career.demoClub.tactics else Tactics.defaults
         val tactics = Tactics(board.pressing, board.covering, board.pushUp, own.passing, own.shooting, board.discipline)
         val rating = career?.let { it.rating(it.team) } ?: Career.demoClub.rating
         return SideSetup(rating, tactics, board.formation)
@@ -92,16 +92,16 @@ fun SaveRecord.withBoard(next: BoardRecord): SaveRecord {
     return copy(board = next)
 }
 
-/** "Reset" on the coach's board (§12): the defaults, or the picked club's tactics. */
-fun SaveRecord.resetBoard(): SaveRecord = copy(board = Board.reset(career))
+/** "Reset" on the coach's board (§12): the defaults. */
+fun SaveRecord.resetBoard(): SaveRecord = copy(board = Board.defaults)
 
-/** A team's kit, sRGB 0xRRGGBB, primary then secondary: a club's, or the created team's. */
+/** A team's kit, sRGB 0xRRGGBB, primary then secondary: a club's, or the player's team's. */
 fun CareerRecord.kit(of: TeamKey): Pair<Int, Int> =
-    (of.club?.let { it.primary to it.secondary }) ?: created!!.let { it.primary to it.secondary }
+    (of.club?.let { it.primary to it.secondary }) ?: created.let { it.primary to it.secondary }
 
 /** A team's home world (§2.1, §2.2): where its home fixtures are played (§11.1). */
-fun CareerRecord.homeWorld(of: TeamKey): World = of.club?.world ?: created!!.world
+fun CareerRecord.homeWorld(of: TeamKey): World = of.club?.world ?: created.world
 
-/** An opponent as an AI side. The created team is never the opponent — it is always the player's. */
+/** An opponent as an AI side. The player's own team is never the opponent. */
 internal fun CareerRecord.side(of: TeamKey): SideSetup =
-    SideSetup.club(of.club ?: error("the created team is the player's, never the opponent"))
+    SideSetup.club(of.club ?: error("the player's own team is never the opponent"))

@@ -1,4 +1,4 @@
-# Season golden vector (spec §11, §2.2): a created team, a whole season from a fixed seed through the save's API.
+# Season golden vector (spec §11, §2.2): a whole season from a fixed seed through the save's API — the player out of the cup.
 # Inputs: seed, career, and one script line per player match (goals for, against, - | ot | forfeit).
 # Outputs: league (canonical order), every drawn fixture (matchday, label, home, away), the stream after
 # the start and after every player match, and per closed matchday its results (home away hg ag ot|- player|sim),

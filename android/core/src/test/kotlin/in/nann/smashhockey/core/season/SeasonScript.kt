@@ -20,14 +20,10 @@ class SeasonScript(val seed: Long, val career: String, val entries: List<Entry>)
 
     fun startingSave(): SaveRecord {
         val w = career.split(" ", limit = 6)
-        val save = when (w[0]) {
-            "club" -> SaveRecord.fresh().chooseClub(Club.of(w[1]))
-            "created" -> SaveRecord.fresh().createTeam(
-                TeamDraft(w[5], w[1], w[2].substring(1).toInt(16), w[3].substring(1).toInt(16), World.of(w[4])),
-            )
-            else -> error("bad career: $career")
-        }
-        return save.startSeason(seed)
+        check(w[0] == "created") { "bad career: $career" }
+        return SaveRecord.fresh().createTeam(
+            TeamDraft(w[5], w[1], w[2].substring(1).toInt(16), w[3].substring(1).toInt(16), World.of(w[4])),
+        ).startSeason(seed)
     }
 
     /** The transcript and the last save; see SmashCore's `SeasonScript.run` for [reloadAfter] and [stopAfter]. */

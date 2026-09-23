@@ -16,6 +16,7 @@ import `in`.nann.smashhockey.core.season.playerFixture
 import `in`.nann.smashhockey.core.season.short
 import `in`.nann.smashhockey.core.season.startSeason
 import `in`.nann.smashhockey.core.season.table
+import `in`.nann.smashhockey.core.season.team
 import `in`.nann.smashhockey.game.Game
 import `in`.nann.smashhockey.game.L
 import `in`.nann.smashhockey.game.MatchPlan

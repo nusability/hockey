@@ -14,18 +14,15 @@
     <string name="title_help">HOW TO PLAY</string>
     <string name="title_trophies">%1$s TITLES · %2$s CUPS</string>
     <string name="team_title">YOUR TEAM</string>
-    <string name="team_pick">PICK A CLUB</string>
-    <string name="team_create">CREATE A TEAM</string>
+    <string name="team_create">CREATE YOUR TEAM</string>
     <string name="team_confirm">PLAY FOR %1$s</string>
-    <string name="team_choose">TAP A CLUB</string>
+    <string name="team_choose">NAME YOUR TEAM</string>
     <string name="team_name">NAME</string>
     <string name="team_nameEmpty">TAP TO TYPE</string>
     <string name="team_code">CODE</string>
     <string name="team_shirt">SHIRT</string>
     <string name="team_trim">TRIM</string>
     <string name="team_home">HOME</string>
-    <!-- Accessibility: a club card's strength bar. -->
-    <string name="team_strength">Strength %1$s</string>
     <!-- Accessibility: the preview disk wearing the kit. -->
     <string name="team_preview">Your kit</string>
     <string name="team_issue_nameTooShort">NAME: 2 LETTERS AT LEAST</string>

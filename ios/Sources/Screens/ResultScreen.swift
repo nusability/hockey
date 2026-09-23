@@ -21,7 +21,6 @@ final class ResultScreen: Screen {
         let header: CopyKey = drill == nil ? .resultFulltime : won ? .resultDrillWon : .resultTimeUp
         part(WaveText(L(header), height: 0.2, colour: C.paper, id: "result_title_header", motion: m), at: at(0, top - 0.3))
         slab = part(Panel(size: [1.66, 1.0, 0.18], colour: C.sun, entrance: .tumble, motion: m), at: at(0, top - 1.05, tilt: 0.03))
-        let s = outcome.score
         if let goals = outcome.drillGoals {
             digits = child(FlipDigits(Scoreboard.drill(scored: 0, target: goals), cardSize: Self.card,
                                       id: "result_score", label: L(.resultScore), motion: m),

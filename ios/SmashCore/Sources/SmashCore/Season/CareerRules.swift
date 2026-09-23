@@ -104,32 +104,23 @@ public enum CreatedTeamRules {
 }
 
 extension CareerRecord {
-    /// A new career with a picked club (§2.2).
-    public static func picked(_ club: Club) -> CareerRecord {
-        CareerRecord(team: TeamKey(club), created: nil, leagueTitles: 0, cups: 0)
-    }
+    /// The player's team: always the one they created (§2.2) — there is no picking a club.
+    public var team: TeamKey { .created }
 
     /// The league's eight teams in their canonical order (§11.1): the clubs as declared, the
-    /// created team in the place of the club it replaces.
+    /// player's team in the place of the club it replaces.
     public var league: [TeamKey] {
-        Club.allCases.map { club in
-            team == .created && club == Career.createdReplaces ? .created : TeamKey(club)
-        }
+        Club.allCases.map { club in club == Career.createdReplaces ? .created : TeamKey(club) }
     }
 
-    /// A team's short code — the created team's own, or a club's.
+    /// A team's short code — the player's team's own, or a club's.
     public func short(of key: TeamKey) -> String {
-        key.club?.short ?? created!.short
+        key.club?.short ?? created.short
     }
 
-    /// A team's rating (§2.1); the created team's is fixed (§2.2).
+    /// A team's rating (§2.1); the player's team's is fixed (§2.2).
     public func rating(of key: TeamKey) -> Int {
         key.club?.rating ?? Career.createdRating
-    }
-
-    /// The tactics the career's team starts from (§2.2): the club's, or the defaults.
-    public var startingTactics: Tactics {
-        team.club?.tactics ?? .defaults
     }
 }
 
@@ -140,14 +131,7 @@ extension BoardRecord {
         discipline: Tactics.defaults.discipline, formation: Formation.allCases[0],
         periodSeconds: Tuning.Board.periodSecondsDefault, ballSpinSeconds: Tuning.Board.ballSpinSecondsDefault)
 
-    /// "Reset" (§12): the defaults — or, with a picked club, the defaults with that club's tactics.
-    public static func reset(for career: CareerRecord?) -> BoardRecord {
-        var board = BoardRecord.defaults
-        if let career { board.adoptTactics(career.startingTactics) }
-        return board
-    }
-
-    /// Sets the board's tactics — the choosing of a team starts the board from its tactics (§2.2)
+    /// Sets the board's tactics — creating a team starts the board from its tactics (§2.2)
     /// and keeps the formation, period length and ball spin the player set.
     public mutating func adoptTactics(_ t: Tactics) {
         pressing = t.pressing

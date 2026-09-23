@@ -19,12 +19,13 @@ import `in`.nann.smashhockey.ui.UiNode
  * Creating a team (spec §16.1, §2.2) — the twin of iOS's TeamForm.swift: the name through the
  * system keyboard, the short code derived from it and editable, the kit's shirt and trim from the
  * twelve palette pairs, the home world, and a live preview disk wearing the kit. Every rule the
- * draft breaks is named under it. Part of the team screen, shown on its "create" tab.
+ * draft breaks is named under it. The whole of the team screen (§16.1): there is nothing else to
+ * choose.
  */
 class TeamForm(private val screen: Screen, top: Float, private val changed: () -> Unit) {
     var draft: TeamDraft
         private set
-    /** Everything of the form, in arrival order; the screen shows and hides it with its tab. */
+    /** Everything of the form, in arrival order; the screen shows and hides it with itself. */
     val parts = ArrayList<Presentable>()
     private val kit = screen.kit
     private val keyboard = screen.game.keyboard

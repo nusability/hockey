@@ -40,14 +40,14 @@ class SeasonVectorTest {
     }
 
     @Test fun aWholeSeasonReplays() {
-        for (name in listOf("season-club.txt", "season-created.txt")) {
+        for (name in listOf("season-cup-run.txt", "season-cup-exit.txt")) {
             assertSameLines(name, lines(name), SeasonScript.parse(text(name)).run().first)
         }
     }
 
     /** A season written to the save and read back after any player match goes on with exactly the draws it would have made. */
     @Test fun aReloadedSeasonContinuesTheSameDraws() {
-        for (name in listOf("season-club.txt", "season-created.txt")) {
+        for (name in listOf("season-cup-run.txt", "season-cup-exit.txt")) {
             val script = SeasonScript.parse(text(name))
             for (k in 1..script.entries.size) {
                 assertSameLines("$name reloaded after $k", lines(name), script.run(reloadAfter = k).first)
@@ -88,7 +88,7 @@ class SeasonVectorTest {
 
     @Test fun quickMatchesReplay() {
         val rows = lines("quickmatch.txt")
-        assertEquals(48, rows.size)
+        assertEquals(32, rows.size)
         for (line in rows) {
             val w = line.split(" ")
             val q = QuickMatch.draw(java.lang.Long.parseUnsignedLong(w[1].substring(2), 16), TeamKey.of(w[2]))

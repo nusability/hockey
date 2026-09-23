@@ -7,6 +7,7 @@ import `in`.nann.smashhockey.core.generated.Formation
 import `in`.nann.smashhockey.core.generated.MatchdayStep
 import `in`.nann.smashhockey.core.generated.SaveRecord
 import `in`.nann.smashhockey.core.generated.Season
+import `in`.nann.smashhockey.core.generated.Tactics
 import `in`.nann.smashhockey.core.generated.TeamKey
 import `in`.nann.smashhockey.core.generated.Tuning
 import `in`.nann.smashhockey.core.generated.World
@@ -26,7 +27,11 @@ import java.nio.file.Files
  * (§15). The twin of KickoffTests.swift.
  */
 class KickoffTest {
-    private fun season(club: Club = Club.FALCONS) = SaveRecord.fresh().chooseClub(club).startSeason(11)
+    private val jet = Career.kitPalette[0]
+
+    private fun draft() = TeamDraft("Moss Giants", "MOG", jet.primary, jet.secondary, World.OCEAN)
+
+    private fun season() = SaveRecord.fresh().createTeam(draft()).startSeason(11)
 
     @Test fun theSeasonMatchIsTheFixtureInTheHomeTeamsWorldWithTheBoard() {
         val base = season()
@@ -34,17 +39,17 @@ class KickoffTest {
             ballSpinSeconds = Tuning.Board.ballSpinSeconds[0]))
         val fixture = save.playerFixture!!
         val setup = save.seasonMatch(5)!!
-        val opponent = if (fixture.home == TeamKey.FALCONS) fixture.away else fixture.home
+        val opponent = if (fixture.home == TeamKey.CREATED) fixture.away else fixture.home
         assertEquals(save.career!!.homeWorld(fixture.home).sport, setup.sport)
         assertEquals(Formation.DIAMOND, setup.home.formation)
-        assertEquals(Club.FALCONS.rating, setup.home.rating)
+        assertEquals(Career.createdRating, setup.home.rating)
         assertEquals(SideSetup.club(opponent.club!!), setup.away)
         assertEquals(90.0, setup.periodSeconds, 0.0)
         assertEquals(Tuning.Board.ballSpinSeconds[0], setup.orbitPeriod, 0.0)
         assertFalse(setup.cup)
         assertEquals(Control.PLAYER, setup.control)
-        // Passing and shooting stay the club's; the rest is the board's (§12).
-        assertEquals(Club.FALCONS.tactics.passing, setup.home.tactics.passing, 0.0)
+        // Passing and shooting stay the team's own — the defaults (§2.2); the rest is the board's (§12).
+        assertEquals(Tactics.defaults.passing, setup.home.tactics.passing, 0.0)
         assertEquals(save.board.pressing, setup.home.tactics.pressing, 0.0)
     }
 
@@ -66,9 +71,8 @@ class KickoffTest {
         assertFalse(setup.cup)
     }
 
-    @Test fun aCreatedTeamPlaysAtItsFixedRating() {
-        val jet = Career.kitPalette[0]
-        val save = SaveRecord.fresh().createTeam(TeamDraft("Moss Giants", "MOG", jet.primary, jet.secondary, World.OCEAN))
+    @Test fun thePlayersTeamPlaysAtItsFixedRating() {
+        val save = SaveRecord.fresh().createTeam(draft())
         assertEquals(Career.createdRating, save.playerSide.rating)
         assertEquals(World.OCEAN, save.career!!.homeWorld(TeamKey.CREATED))
         assertEquals(jet.primary, save.career!!.kit(TeamKey.CREATED).first)
@@ -90,8 +94,8 @@ class KickoffTest {
         assertEquals(GameError.NotABoardValue, assertThrows(GameException::class.java) { save.withBoard(bad) }.error)
         save = save.withBoard(save.board.copy(periodSeconds = 150.0, pressing = 0.9))
         assertEquals(0.9, save.board.pressing, 0.0)
-        save = save.chooseClub(Club.GLOWOWLS).resetBoard()
-        assertEquals(Club.GLOWOWLS.tactics.pressing, save.board.pressing, 0.0)
+        save = save.createTeam(draft()).resetBoard()
+        assertEquals(Tactics.defaults.pressing, save.board.pressing, 0.0)
         assertEquals(Tuning.Board.periodSecondsDefault, save.board.periodSeconds, 0.0)
     }
 

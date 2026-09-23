@@ -48,18 +48,16 @@ data class SaveRecord(
     }
 }
 
-/** The career (spec §2.2): the picked club — or `created` with its created team — and the trophy counts (§11.4). */
+/** The career (spec §2.2): the team the player created — there is no other — and the trophy counts (§11.4). */
 data class CareerRecord(
-    val team: TeamKey,
-    val created: CreatedTeam?,
+    val created: CreatedTeam,
     val leagueTitles: Int,
     val cups: Int,
 ) {
     /** This record as its canonical JSON value. */
     fun toJson(): JsonValue = JsonValue.Obj(
         listOf(
-            "team" to JsonValue.Str(team.key),
-            "created" to (created?.let { it.toJson() } ?: JsonValue.Null),
+            "created" to created.toJson(),
             "league_titles" to JsonValue.Num(leagueTitles.toLong()),
             "cups" to JsonValue.Num(cups.toLong()),
         ),
@@ -68,12 +66,11 @@ data class CareerRecord(
     companion object {
         /** Decodes the record at [path] ("$" for the file's root), failing on anything but its exact shape. */
         fun fromJson(json: JsonValue, path: String): CareerRecord {
-            val o = SaveJson.fields(json, path, listOf("team", "created", "league_titles", "cups"))
+            val o = SaveJson.fields(json, path, listOf("created", "league_titles", "cups"))
             val record = CareerRecord(
-                team = SaveJson.key(o[0], "$path.team", TeamKey.entries) { it.key },
-                created = o[1].let { if (it is JsonValue.Null) null else CreatedTeam.fromJson(it, "$path.created") },
-                leagueTitles = SaveJson.int(o[2], "$path.league_titles"),
-                cups = SaveJson.int(o[3], "$path.cups"),
+                created = CreatedTeam.fromJson(o[0], "$path.created"),
+                leagueTitles = SaveJson.int(o[1], "$path.league_titles"),
+                cups = SaveJson.int(o[2], "$path.cups"),
             )
             record.validate(path)
             return record
@@ -81,7 +78,7 @@ data class CareerRecord(
     }
 }
 
-/** A created team (spec §2.2): name, short code, kit and home world. Its rating is fixed (Career.createdRating). */
+/** The player's own team (spec §2.2): name, short code, kit and home world. Its rating is fixed (Career.createdRating). */
 data class CreatedTeam(
     val name: String,
     val short: String,

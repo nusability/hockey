@@ -29,6 +29,7 @@ import Testing
         }
         let ball = MatchSnapshot.Ball(x: 0, z: z, vx: 0, vz: 0, radius: 0.36, carrier: nil, orbit: 0, orbitDirection: 1)
         return MatchSnapshot(state: state, players: players, ball: ball, aim: nil, playerCarrier: false,
+                             offside: players.map { _ in false },
                              clock: clock, score: [0, 0], period: 1, overtime: overtime, time: 0, result: nil)
     }
 

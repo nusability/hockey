@@ -114,6 +114,9 @@ public enum MatchEvent: Sendable, Hashable {
     case board(speed: Double)
     case goal(team: Int, scorer: Int?, assist: Int?, ownGoal: Bool)
     case whistle
+    /// Play whistled dead for offside (§8.9, the ice sport only): the offending team and the first
+    /// of its players, in roster order, who was in the zone before the puck.
+    case offside(team: Int, player: Int)
     case periodEnd(period: Int)
     case drillInterrupted(DrillInterruption)
     case end(result: MatchResult)

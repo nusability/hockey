@@ -13,6 +13,10 @@
 //    exists to punish, measured as conversion per distance band.
 //  * **shape** — while the player's side carries inside the attacking third, how many team-mates
 //    stand in a genuine receiving position (the §7.4 band, an unblocked lane, up the pitch).
+//  * **sports** — the same league fixtures played out on ice and on the field, side by side: the
+//    bench §8.9's offside was tuned on. Offside whistles, how often the rule takes possession away,
+//    the share of zone entries that stray offside and the share of those the referee misses — and
+//    goals per match on each sport, because the rule must not wreck the ice world's flow.
 //  * **margins** — the bench §7.10's rubberband was tuned on: over a few hundred seeded league
 //    matches, how the final margin is distributed, how often a match is decided by one goal, and
 //    how often a side is ever five clear. This is the one that says whether a match feels close.
@@ -227,6 +231,73 @@ for n in 0..<soloCount {
     }
 }
 
+// MARK: The sports bench — ice against field, and the offside rule (§8.9)
+
+struct SportBench {
+    var matches = 0
+    var goals = 0
+    var whistles = 0
+    var entries = 0
+    var strays = 0
+    var missed = 0
+    /// Offside whistles that took the puck off an attack that was carrying it.
+    var tookPossession = 0
+    /// Offside restarts whose first touch went to the side that had been defending.
+    var turnedOver = 0
+    var restarts = 0
+}
+
+func runSport(_ sport: Sport, _ count: Int) -> SportBench {
+    var b = SportBench()
+    for n in 0..<count {
+        var s = setup(n, control: .automatic)
+        s.sport = sport
+        // A stream of its own, so this bench does not measure the league bench's matches.
+        s.seed = 0x0FF5_0000 &+ UInt64(n)
+        var match = Match(s)
+        b.matches += 1
+        var offendingTeam: Int?
+        while match.state != .ended && match.ticks < 120_000 {
+            let carried = match.snapshot.ball.carrier != nil
+            match.tick()
+            for event in match.drainEvents() {
+                switch event {
+                case .goal: b.goals += 1
+                case .offside(let team, _):
+                    b.whistles += 1
+                    if carried { b.tookPossession += 1 }
+                    offendingTeam = team
+                case .pickup(let p), .steal(by: let p, from: _):
+                    if let t = offendingTeam {
+                        b.restarts += 1
+                        if match.snapshot.players[p].team != t { b.turnedOver += 1 }
+                        offendingTeam = nil
+                    }
+                default: break
+                }
+            }
+        }
+        b.entries += match.offsideEntries
+        b.strays += match.offsideStrays
+        b.missed += match.offsideMissed
+    }
+    return b
+}
+
+let sportCount = args.dropFirst(3).first ?? 120
+let sportBenches = [(name: "field", bench: runSport(.field, sportCount)),
+                    (name: "ice  ", bench: runSport(.ice, sportCount))]
+let sportsTable: String = {
+    var out = "    sport   matches   goals   offside   took puck   turned over   entries   strayed   missed\n"
+    for (name, b) in sportBenches {
+        out += "    \(name) \(String(format: "%9d", b.matches))    \(per(b.goals, b.matches))"
+        out += "      \(per(b.whistles, b.matches))       \(share(b.tookPossession, b.whistles))"
+        out += "          \(share(b.turnedOver, b.restarts))    \(per(b.entries, b.matches))"
+        out += "      \(share(b.strays, b.entries))     \(share(b.missed, b.strays))\n"
+    }
+    return out
+}()
+
 // MARK: The margins bench — how close a match ends up (§7.10)
 
 struct Margins {
@@ -334,6 +405,11 @@ SHAPE — sampled while the bot carries inside 20 of the goal it attacks
   nearest team-mate     \(per(Int(solo.nearestSum.rounded()), solo.thirdTicks)) m
   nearest to the offer  \(per(Int(solo.offerGapSum.rounded()), solo.thirdTicks)) m
 
+SPORTS — \(sportCount) matches each, the same fixtures on both sports, both sides automatic (§8.9)
+  "entries" is the zone entries an attack made per match, "strayed" the share of those that were
+  offside, "missed" the share of those the referee let go; "turned over" is the share of offside
+  restarts whose first touch went to the side that had been defending.
+\(sportsTable)
 MARGINS — \(margins.matches) matches, both sides automatic (§7.10)
   goals per match       \(per(margins.goals, margins.matches))
   mean final margin     \(per(margins.marginSum, margins.matches))

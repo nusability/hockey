@@ -94,6 +94,12 @@ sealed interface MatchEvent {
     data class Board(val speed: Double) : MatchEvent
     data class Goal(val team: Int, val scorer: Int?, val assist: Int?, val ownGoal: Boolean) : MatchEvent
     data object Whistle : MatchEvent
+
+    /**
+     * Play whistled dead for offside (§8.9, the ice sport only): the offending team and the first
+     * of its players, in roster order, who was in the zone before the puck.
+     */
+    data class Offside(val team: Int, val player: Int) : MatchEvent
     data class PeriodEnd(val period: Int) : MatchEvent
     data class DrillInterrupted(val reason: DrillInterruption) : MatchEvent
     data class End(val result: MatchResult) : MatchEvent

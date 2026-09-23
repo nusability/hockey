@@ -94,6 +94,7 @@ private fun Match.rethink(
         }
     }
     if (!defending) p.mark = null
+    if (possession != Possession.THEIRS) target = heldAtLine(i, target)
     if (!chasing) target = shaped(i, target, possession)
     p.target = clampToPlay(target)
 }

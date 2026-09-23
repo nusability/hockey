@@ -381,6 +381,139 @@ import Testing
         #expect(m.chase(0) == 0 && m.chase(1) == 0 && m.hold(0) == 0 && m.hold(1) == 0)
     }
 
+    // MARK: §8.9 — offside, the ice sport only
+
+    static let iceMatch = MatchSetup(seed: 42, sport: .ice, home: .club(.wolves), away: .club(.nebula),
+                                     periodSeconds: 60, orbitPeriod: 2.0, cup: false, control: .player)
+
+    /// An ice match in play, the puck loose just outside the zone team 0 attacks, last touched by
+    /// team 0, with `deep` moved past the blue line by `beyond`.
+    static func aboutToEnter(deep: Int, beyond: Double, sport: Sport = .ice, setup: MatchSetup? = nil) -> Match {
+        var s = setup ?? Self.iceMatch
+        s.sport = sport
+        var m = Match(s)
+        while m.state != .play { m.tick() }
+        _ = m.drainEvents()
+        m.ball.carrier = nil
+        m.ball.pos = Vec(x: 0, z: Tuning.Pitch.blueLineZ - 1)
+        m.ball.vel = .zero
+        m.ball.lastTouch = m.outfield(0).first!
+        m.inZone = [false, false]
+        m.players[deep].pos = Vec(x: 4, z: Tuning.Pitch.blueLineZ + beyond)
+        return m
+    }
+
+    /// Moves the puck into the zone and runs the rule once. Returns the events it emitted.
+    static func enterZone(_ m: inout Match) -> [MatchEvent] {
+        m.ball.pos = Vec(x: m.ball.pos.x, z: Tuning.Pitch.blueLineZ + 0.5)
+        m.checkOffside()
+        return m.drainEvents()
+    }
+
+    /// The deep player is neither the carrier nor the last touch, and is clear of the margin: every
+    /// such entry is offside, and each one is either whistled or — rarely — one the referee missed.
+    @Test func aPlayerInTheZoneBeforeThePuckIsWhistledOffside() {
+        var whistled = 0
+        var missed = 0
+        for seed in 0..<40 as Range<UInt64> {
+            var s = Self.iceMatch
+            s.seed = seed
+            var m = Self.aboutToEnter(deep: 3, beyond: Tuning.Offside.playerMargin + 0.5, setup: s)
+            let events = Self.enterZone(&m)
+            #expect(m.offsideStrays == 1)
+            if events.contains(where: { if case .offside(let t, let p) = $0 { t == 0 && p == 3 } else { false } }) {
+                whistled += 1
+                #expect(m.state == .whistle)
+                #expect(m.offsideMissed == 0)
+                // The restart is a neutral spot, on the side of centre the puck entered (§1, §8.9).
+                #expect(Tuning.Pitch.faceoffNeutral.contains { $0.x == m.restartSpot.x && $0.z == m.restartSpot.z })
+                #expect(m.restartSpot.z == Tuning.Offside.faceoffReferenceZ)
+            } else {
+                missed += 1
+                #expect(m.state == .play && m.offsideMissed == 1)
+            }
+        }
+        #expect(whistled + missed == 40)
+        #expect(whistled > 30)      // the miss is rare: the player learns the rule as a consistent one
+        #expect(missed > 0)         // and it does happen
+    }
+
+    @Test func aPlayerOnTheLineIsOnside() {
+        var m = Self.aboutToEnter(deep: 3, beyond: Tuning.Offside.playerMargin - 0.1)
+        #expect(Self.enterZone(&m).isEmpty)
+        #expect(m.state == .play)
+    }
+
+    @Test func theCarrierAndTheLastTouchAreNeverOffside() {
+        for deep in [3, 4] {
+            var m = Self.aboutToEnter(deep: deep, beyond: 3)
+            if deep == 3 { m.ball.lastTouch = 3 } else { m.ball.carrier = 4; m.ball.lastTouch = nil }
+            // With a carrier there is no entry to judge by last touch, so give it back to the team.
+            if deep == 4 { m.ball.lastTouch = 4 }
+            #expect(Self.enterZone(&m).isEmpty)
+        }
+    }
+
+    @Test func aFieldMatchAndADrillAreNeverWhistledOffside() {
+        var field = Self.aboutToEnter(deep: 3, beyond: 3, sport: .field)
+        #expect(Self.enterZone(&field).isEmpty)
+        var drill = Self.drill(.moving)                   // drill 5 — the ice world (§10)
+        #expect(!drill.offsideApplies)
+        #expect(drill.offsidePlayers.allSatisfy { !$0 })
+    }
+
+    /// The zone, once entered, is not clear again until the puck is 4.0 back out (§8.9): a puck
+    /// rattling on the line is one entry, not twenty.
+    @Test func aPuckRattlingOnTheLineIsOneEntry() {
+        var m = Self.aboutToEnter(deep: 3, beyond: 3)
+        _ = Self.enterZone(&m)
+        let after = m.offsideEntries
+        for z in [Tuning.Pitch.blueLineZ - 1, Tuning.Pitch.blueLineZ + 1, Tuning.Pitch.blueLineZ - 2] {
+            m.state = .play
+            m.ball.pos = Vec(x: 0, z: z)
+            m.checkOffside()
+        }
+        #expect(m.offsideEntries == after)
+        m.state = .play
+        m.ball.pos = Vec(x: 0, z: Tuning.Pitch.blueLineZ - Tuning.Offside.clearDepth - 0.1)
+        m.checkOffside()
+        m.ball.pos = Vec(x: 0, z: Tuning.Pitch.blueLineZ + 0.5)
+        m.checkOffside()
+        #expect(m.offsideEntries == after + 1)
+    }
+
+    /// §5.2: the aim never snaps to a team-mate the whistle would punish, and the AI's pass score
+    /// reads the same predicate (§7.6).
+    @Test func theAimNeverSnapsToAnOffsideTeamMate() {
+        var m = Self.aboutToEnter(deep: 1, beyond: 3)
+        m.ball.carrier = 3
+        m.players[3].pos = Vec(x: 0, z: 0)
+        m.players[1].pos = Vec(x: 0, z: Tuning.Pitch.blueLineZ + 3)
+        m.players[1].vel = .zero
+        m.ball.pos = Vec(x: 0, z: 0)
+        #expect(m.isOffsideReceiver(1))
+        let straightUp = 0.0                                   // the orbit angle pointing along +Z, at team-mate 1
+        if case .pass? = m.snap(3, orbit: straightUp) { Issue.record("the aim snapped to an offside team-mate") }
+        // The same player, with the puck already in the zone, is an ordinary receiver again.
+        m.ball.pos = Vec(x: 0, z: Tuning.Pitch.blueLineZ + 1)
+        #expect(!m.isOffsideReceiver(1))
+    }
+
+    /// §7.4: a supporter's target is held short of the line while the puck is short of it.
+    @Test func theAttackHoldsTheBlueLineWhileThePuckIsShortOfIt() {
+        var m = Self.aboutToEnter(deep: 3, beyond: 3)
+        m.ball.pos = Vec(x: 0, z: 0)
+        let wanted = Vec(x: 2, z: Tuning.Pitch.blueLineZ + 5)
+        #expect(m.heldAtLine(3, wanted).z == Tuning.Pitch.blueLineZ - Tuning.Offside.holdBack)
+        // Once the puck is in, nobody is held.
+        m.ball.pos = Vec(x: 0, z: Tuning.Pitch.blueLineZ + 1)
+        #expect(m.heldAtLine(3, wanted).z == wanted.z)
+        // And the carrier is never held.
+        m.ball.pos = Vec(x: 0, z: 0)
+        m.ball.carrier = 3
+        #expect(m.heldAtLine(3, wanted).z == wanted.z)
+    }
+
     // MARK: Performance (§4)
 
     @Test func aFullMatchRunsFarFasterThanRealTime() {

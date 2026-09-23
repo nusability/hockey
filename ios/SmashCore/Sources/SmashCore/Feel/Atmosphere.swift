@@ -106,7 +106,7 @@ public struct Atmosphere: Sendable {
             push(home: g.post, away: g.post)
         case .play:
             push(home: g.kickoff, away: g.kickoff)
-        case .whistle, .drillInterrupted:
+        case .whistle, .offside, .drillInterrupted:
             push(home: g.whistle, away: g.whistle)
         case .periodEnd:
             push(home: g.periodEnd, away: g.periodEnd)

@@ -51,7 +51,10 @@ class FeelTest {
             MatchSnapshot.Player(if (i < 6) 0 else 1, if (i % 6 == 0) Role.GOALIE else Role.FORWARD, 1.0, i.toDouble(), -i.toDouble(), 0.0, 0.0, 0.0)
         }
         val b = MatchSnapshot.Ball(ballX, 0.0, ballVx, 0.0, 0.36, carrier, 0.0, 1.0)
-        return MatchSnapshot(state, players, b, aim, playerCarrier, clock, listOf(0, 0), period, overtime, 0.0, null)
+        return MatchSnapshot(
+            state, players, b, aim, playerCarrier, players.map { false },
+            clock, listOf(0, 0), period, overtime, 0.0, null,
+        )
     }
 
     private fun banners(cues: List<Cue>) = cues.filterIsInstance<Cue.Show>().map { it.banner }

@@ -13,6 +13,7 @@ internal object GeneratedConstantBits {
         Triple("Tuning.Pitch.halfWidth", Tuning.Pitch.halfWidth, 4624633867356078080L), // 0x402E000000000000
         Triple("Tuning.Pitch.halfLength", Tuning.Pitch.halfLength, 4629137466983448576L), // 0x403E000000000000
         Triple("Tuning.Pitch.goalLineZ", Tuning.Pitch.goalLineZ, 4628011567076605952L), // 0x403A000000000000
+        Triple("Tuning.Pitch.blueLineZ", Tuning.Pitch.blueLineZ, 4621537642612260864L), // 0x4023000000000000
         Triple("Tuning.Pitch.goalMouthWidth", Tuning.Pitch.goalMouthWidth, 4618441417868443648L), // 0x4018000000000000
         Triple("Tuning.Pitch.goalDepth", Tuning.Pitch.goalDepth, 4609884578576439706L), // 0x3FF999999999999A
         Triple("Tuning.Pitch.netFrameMargin", Tuning.Pitch.netFrameMargin, 4594572339843380019L), // 0x3FC3333333333333
@@ -230,6 +231,7 @@ internal object GeneratedConstantBits {
         Triple("Tuning.AI.Carrier.passLong", Tuning.AI.Carrier.passLong, 4625759767262920704L), // 0x4032000000000000
         Triple("Tuning.AI.Carrier.passLongWeight", Tuning.AI.Carrier.passLongWeight, 4600877379321698714L), // 0x3FD999999999999A
         Triple("Tuning.AI.Carrier.passNoise", Tuning.AI.Carrier.passNoise, 4605380978949069210L), // 0x3FE999999999999A
+        Triple("Tuning.AI.Carrier.passOffsidePenalty", Tuning.AI.Carrier.passOffsidePenalty, 4620693217682128896L), // 0x4020000000000000
         Triple("Tuning.AI.Carrier.passThreshold", Tuning.AI.Carrier.passThreshold, 4615063718147915776L), // 0x400C000000000000
         Triple("Tuning.AI.Carrier.passChancePerPassing", Tuning.AI.Carrier.passChancePerPassing, 4599075939470750515L), // 0x3FD3333333333333
         Triple("Tuning.AI.Carrier.passChanceThreat", Tuning.AI.Carrier.passChanceThreat, 4601778099247172813L), // 0x3FDCCCCCCCCCCCCD
@@ -285,6 +287,12 @@ internal object GeneratedConstantBits {
         Triple("Tuning.AI.Goalie.releaseWindow", Tuning.AI.Goalie.releaseWindow, 4599976659396224614L), // 0x3FD6666666666666
         Triple("Tuning.AI.Goalie.releaseTimeout", Tuning.AI.Goalie.releaseTimeout, 4612811918334230528L), // 0x4004000000000000
         Triple("Tuning.AI.Goalie.passAccuracy", Tuning.AI.Goalie.passAccuracy, 4606281698874543309L), // 0x3FECCCCCCCCCCCCD
+        Triple("Tuning.Offside.clearDepth", Tuning.Offside.clearDepth, 4616189618054758400L), // 0x4010000000000000
+        Triple("Tuning.Offside.playerMargin", Tuning.Offside.playerMargin, 4603579539098121011L), // 0x3FE3333333333333
+        Triple("Tuning.Offside.puckMargin", Tuning.Offside.puckMargin, 4596373779694328218L), // 0x3FC999999999999A
+        Triple("Tuning.Offside.holdBack", Tuning.Offside.holdBack, 4605380978949069210L), // 0x3FE999999999999A
+        Triple("Tuning.Offside.missChance", Tuning.Offside.missChance, 4591870180066957722L), // 0x3FB999999999999A
+        Triple("Tuning.Offside.faceoffReferenceZ", Tuning.Offside.faceoffReferenceZ, 4619567317775286272L), // 0x401C000000000000
         Triple("Tuning.Match.easeFactor", Tuning.Match.easeFactor, 4605380978949069210L), // 0x3FE999999999999A
         Triple("Tuning.Match.faceoffTime", Tuning.Match.faceoffTime, 4608533498688228557L), // 0x3FF4CCCCCCCCCCCD
         Triple("Tuning.Match.faceoffGoalieOut", Tuning.Match.faceoffGoalieOut, 4608533498688228557L), // 0x3FF4CCCCCCCCCCCD

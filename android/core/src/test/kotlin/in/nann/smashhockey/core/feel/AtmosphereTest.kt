@@ -40,7 +40,10 @@ class AtmosphereTest {
             MatchSnapshot.Player(if (i < 6) 0 else 1, if (i % 6 == 0) Role.GOALIE else Role.FORWARD, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         }
         val ball = MatchSnapshot.Ball(0.0, z, 0.0, 0.0, 0.36, null, 0.0, 1.0)
-        return MatchSnapshot(MatchState.PLAY, players, ball, null, false, clock, listOf(0, 0), 1, overtime, 0.0, null)
+        return MatchSnapshot(
+            MatchState.PLAY, players, ball, null, false, players.map { false },
+            clock, listOf(0, 0), 1, overtime, 0.0, null,
+        )
     }
 
     /** Runs [seconds] of frames at 1/60 and returns where the levels end up. */

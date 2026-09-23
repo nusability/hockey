@@ -95,6 +95,20 @@ class Match private constructor(
      */
     internal val balance = doubleArrayOf(0.0, 0.0)
 
+    /** Whether the ball was inside each team's attacking zone last step (§8.9, the ice sport only). */
+    internal val inZone = booleanArrayOf(false, false)
+
+    /**
+     * Offside (§8.9), counted for the bench and the tests and read by no rule: the zone entries an
+     * attack made, those that were offside, and those of those the referee let go.
+     */
+    var offsideEntries = 0
+        internal set
+    var offsideStrays = 0
+        internal set
+    var offsideMissed = 0
+        internal set
+
     /** The outfield carrier watched for a crossing of the centre line, and their z last step (§7.9). */
     internal var crossingCarrier: Int? = null
     internal var crossingZ = 0.0
@@ -204,7 +218,8 @@ class Match private constructor(
         resolveContacts()                                     // 6
         constrainPlayers()
         if (live) moveLiveBall(dt) else moveIdleBall(dt)      // 7
-        if (live) checkDeadBall(dt)                           // 8
+        if (live) checkOffside()                              // 8
+        if (live) checkDeadBall(dt)
     }
 
     internal fun emit(event: MatchEvent) {

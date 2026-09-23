@@ -22,6 +22,7 @@ object Tuning {
         const val halfWidth: Double = 15.0
         const val halfLength: Double = 30.0
         const val goalLineZ: Double = 26.0
+        const val blueLineZ: Double = 9.5
         const val goalMouthWidth: Double = 6.0
         const val goalDepth: Double = 1.6
         const val netFrameMargin: Double = 0.15
@@ -282,6 +283,7 @@ object Tuning {
             const val passLong: Double = 18.0
             const val passLongWeight: Double = 0.4
             const val passNoise: Double = 0.8
+            const val passOffsidePenalty: Double = 8.0
             const val passThreshold: Double = 3.5
             const val passChancePerPassing: Double = 0.3
             const val passChanceThreat: Double = 0.45
@@ -342,6 +344,14 @@ object Tuning {
             const val releaseTimeout: Double = 2.5
             const val passAccuracy: Double = 0.9
         }
+    }
+    object Offside {
+        const val clearDepth: Double = 4.0
+        const val playerMargin: Double = 0.6
+        const val puckMargin: Double = 0.2
+        const val holdBack: Double = 0.8
+        const val missChance: Double = 0.1
+        const val faceoffReferenceZ: Double = 7.0
     }
     object Match {
         const val easeFactor: Double = 0.8

@@ -42,6 +42,13 @@ public enum Sport: String, Sendable, CaseIterable {
         case .ice: "puck"
         }
     }
+    /// Whether an attacker may not enter the zone before the ball (spec §8.9).
+    public var offside: Bool {
+        switch self {
+        case .field: false
+        case .ice: true
+        }
+    }
 }
 
 /// The five worlds, in the demo match's order (spec §9, §13).

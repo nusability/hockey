@@ -69,6 +69,7 @@ private fun Match.decide(i: Int, threat: Double?): CarrierDecision? {
         if (Pitch.segmentDistance(ownGoal, me.pos, players[m].pos) < c.passOwnGoalZone) score -= c.passOwnGoalPenalty
         if (progress < -c.passBackward) score += c.passBackwardWeight * (progress + c.passBackward)
         if (d > c.passLong) score -= c.passLongWeight * (d - c.passLong)
+        if (isOffsideReceiver(m)) score -= c.passOffsidePenalty
         score += rng.noise(c.passNoise)
         if (score > bestScore) {
             bestScore = score

@@ -47,6 +47,13 @@ public struct Match: Sendable {
     /// Each team's tilt (§7.10): positive is *chase* — the side behind — negative is *hold*, the
     /// side ahead, and both are zero at a level or a one-goal score. Recomputed each step in play.
     var balance = [0.0, 0.0]
+    /// Whether the ball was inside each team's attacking zone last step (§8.9, the ice sport only).
+    var inZone = [false, false]
+    /// Offside (§8.9), counted for the bench and the tests and read by no rule: the zone entries an
+    /// attack made, those that were offside, and those of those the referee let go.
+    public internal(set) var offsideEntries = 0
+    public internal(set) var offsideStrays = 0
+    public internal(set) var offsideMissed = 0
     /// The outfield carrier watched for a crossing of the centre line, and their z last step (§7.9).
     var crossingCarrier: Int?
     var crossingZ = 0.0
@@ -213,7 +220,8 @@ public struct Match: Sendable {
         resolveContacts()                                    // 6
         constrainPlayers()
         if live { moveLiveBall(dt) } else { moveIdleBall(dt) } // 7
-        if live { checkDeadBall(dt) }                        // 8
+        if live { checkOffside() }                           // 8
+        if live { checkDeadBall(dt) }
     }
 
     mutating func emit(_ event: MatchEvent) { events.append(event) }

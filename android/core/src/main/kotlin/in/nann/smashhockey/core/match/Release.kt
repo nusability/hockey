@@ -65,7 +65,7 @@ internal fun Match.snap(c: Int, a: Double): Snap? {
     var pass: Int? = null
     var passDiff = Double.POSITIVE_INFINITY
     for (m in outfield(me.team)) {
-        if (m == c) continue
+        if (m == c || isOffsideReceiver(m)) continue
         val lead = leadPoint(m, c)
         val diff = abs(Pitch.angleDiff(Pitch.heading(lead.x - me.pos.x, lead.z - me.pos.z), a))
         if (diff < o.passWindow && diff < passDiff) {

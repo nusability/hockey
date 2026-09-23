@@ -20,6 +20,7 @@ clear_epsilon = 0.001           # a target this close to what it keeps clear of 
 half_width = 15.0               # x
 half_length = 30.0              # z
 goal_line_z = 26.0
+blue_line_z = 9.5               # §1, §8.9: each blue line, this far from centre — the ice sport's zones
 goal_mouth_width = 6.0
 goal_depth = 1.6
 net_frame_margin = 0.15         # the net's frame, for the ball, on every outer side (6.3 × 1.75)
@@ -162,6 +163,14 @@ close_range = 14.0              # the alert ends once the carrier is this near t
 lane_ahead_max = 4.5            # the lane blocker stands this far in front of the carrier, at most …
 lane_ahead_fraction = 0.35      # … and at most this share of the way to the goal it defends
 
+[offside] # §8.9 — the ice sport only: an attacker may not be in the zone before the puck
+clear_depth = 4.0               # the zone, once entered, is not clear again until the puck is this far back out
+player_margin = 0.6             # a skater is offside only this far beyond the line: standing on it is onside
+puck_margin = 0.2               # the AI holds the line while the puck is still this far short of it (§7.4)
+hold_back = 0.8                 # … by keeping its target this far short of the line
+miss_chance = 0.1               # the referee misses this share of offside entries — one draw at the call (§4.3)
+faceoff_reference_z = 7.0       # the restart is the neutral spot nearest (the puck's x, direction × 7.0)
+
 [ai.balance] # §7.10 — the rubberband: a match tilts back toward whichever side is behind
 temperament_base = 1.05         # temperament = clamp(1.05 + noise(0.8), 0, 1.8), drawn once at set-up
 temperament_noise = 0.8
@@ -271,6 +280,7 @@ pass_backward_weight = 0.3
 pass_long = 18.0
 pass_long_weight = 0.4
 pass_noise = 0.8
+pass_offside_penalty = 8.0      # §8.9: a receiver already in the zone the puck has not entered
 pass_threshold = 3.5
 pass_chance_per_passing = 0.3
 pass_chance_threat = 0.45
@@ -401,6 +411,7 @@ cup = "final"
 # §1 — the two sports. The first is the default.
 [[sport]]
 id = "field"
+offside = false                 # §8.9 — field hockey has had no offside since 1998
 corner_radius = 2.0
 ball_friction = 0.9
 ball_drag = 0.3
@@ -410,6 +421,7 @@ ball_kind = "ball"
 
 [[sport]]
 id = "ice"
+offside = true                  # §8.9 — the ice sport's one extra rule
 corner_radius = 8.5
 ball_friction = 0.45
 ball_drag = 0.2

@@ -130,6 +130,7 @@ public enum CopyKey: String, Sendable, CaseIterable {
     case eventPassFirst = "event.passFirst"
     case eventWrongNet = "event.wrongNet"
     case eventReset = "event.reset"
+    case eventOffside = "event.offside"
     case eventVersus = "event.versus"
     case worldMagicwoodName = "world.magicwood.name"
     case worldSpaceName = "world.space.name"

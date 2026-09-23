@@ -166,6 +166,9 @@ public struct MatchCues: Sendable {
         case .whistle:
             banner(.eventReset, [], .warn, b.whistle)
             sound(.matchWhistleShort)
+        case .offside:
+            banner(.eventOffside, [], .warn, b.whistle)
+            sound(.matchWhistleShort)
         case .drillInterrupted(let why):
             let key: CopyKey = switch why {
             case .saved: .eventSaved
@@ -204,7 +207,7 @@ public struct MatchCues: Sendable {
             sound(result == .lost ? .matchResultLose : .matchResultWin, delay: p.stingDelay)
         }
         switch e {
-        case .goal, .drillInterrupted, .periodEnd, .faceOff, .whistle, .ready, .end: lastFlow = e
+        case .goal, .drillInterrupted, .periodEnd, .faceOff, .whistle, .offside, .ready, .end: lastFlow = e
         default: break
         }
         return audible ? out : out.filter(\.isSeen)

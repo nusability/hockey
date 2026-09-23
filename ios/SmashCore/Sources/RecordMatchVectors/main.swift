@@ -154,7 +154,7 @@ var entries = [
           vector: MatchVector(setup: .match(matchSetup(seed: 0xD3_0001, sport: .field, home: .mossfoxes, away: .rocketlynx,
                                                       period: 120, cup: false, control: .automatic)),
                               every: 120, maxTicks: 60_000, inputs: []), policy: nil),
-    Entry(file: "demo-ice.txt", about: "A demo match (§9) on ice (Himalaya): Glacier Wolves v Nebula Narwhals, 2-minute periods, both sides automatic.",
+    Entry(file: "demo-ice.txt", about: "A demo match (§9) on ice (Himalaya): Glacier Wolves v Nebula Narwhals, 2-minute periods, both sides automatic. The only sport with offside (§8.9), so this is where the whistle is pinned.",
           vector: MatchVector(setup: .match(matchSetup(seed: 0xD3_0002, sport: .ice, home: .wolves, away: .nebula,
                                                       period: 120, cup: false, control: .automatic)),
                               every: 120, maxTicks: 60_000, inputs: []), policy: nil),

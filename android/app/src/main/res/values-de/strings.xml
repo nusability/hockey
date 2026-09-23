@@ -132,6 +132,8 @@
     <string name="event_passFirst">ERST PASSEN!</string>
     <string name="event_wrongNet">FALSCHES TOR!</string>
     <string name="event_reset">NEUSTART</string>
+    <!-- The whistle that stops an ice match for offside (§8.9). -->
+    <string name="event_offside">ABSEITS</string>
     <!-- The intro banner of a match: the two teams' names. -->
     <string name="event_versus">%1$s GEGEN %2$s</string>
     <string name="world_magicwood_name">Zauberwald</string>

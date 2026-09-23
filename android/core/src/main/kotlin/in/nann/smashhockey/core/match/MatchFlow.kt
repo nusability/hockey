@@ -175,6 +175,8 @@ internal fun Match.clearForRestart() {
     deadTimer = 0.0
     alert[0] = 0.0
     alert[1] = 0.0
+    inZone[0] = false
+    inZone[1] = false
     crossingCarrier = null
     crossingZ = 0.0
     netRoll = null

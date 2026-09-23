@@ -732,6 +732,24 @@
         }
       }
     },
+    "event.offside" : {
+      "comment" : "The whistle that stops an ice match for offside (§8.9).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ABSEITS"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OFFSIDE"
+          }
+        }
+      }
+    },
     "event.overtime" : {
       "extractionState" : "manual",
       "localizations" : {

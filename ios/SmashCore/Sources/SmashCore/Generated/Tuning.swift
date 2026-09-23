@@ -21,6 +21,7 @@ public enum Tuning {
         public static let halfWidth: Double = 15.0
         public static let halfLength: Double = 30.0
         public static let goalLineZ: Double = 26.0
+        public static let blueLineZ: Double = 9.5
         public static let goalMouthWidth: Double = 6.0
         public static let goalDepth: Double = 1.6
         public static let netFrameMargin: Double = 0.15
@@ -281,6 +282,7 @@ public enum Tuning {
             public static let passLong: Double = 18.0
             public static let passLongWeight: Double = 0.4
             public static let passNoise: Double = 0.8
+            public static let passOffsidePenalty: Double = 8.0
             public static let passThreshold: Double = 3.5
             public static let passChancePerPassing: Double = 0.3
             public static let passChanceThreat: Double = 0.45
@@ -341,6 +343,14 @@ public enum Tuning {
             public static let releaseTimeout: Double = 2.5
             public static let passAccuracy: Double = 0.9
         }
+    }
+    public enum Offside {
+        public static let clearDepth: Double = 4.0
+        public static let playerMargin: Double = 0.6
+        public static let puckMargin: Double = 0.2
+        public static let holdBack: Double = 0.8
+        public static let missChance: Double = 0.1
+        public static let faceoffReferenceZ: Double = 7.0
     }
     public enum Match {
         public static let easeFactor: Double = 0.8

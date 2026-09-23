@@ -76,6 +76,7 @@ class MatchVector(val setup: Setup, val every: Int, val maxTicks: Int, val input
                 is MatchEvent.Board -> "board ${hex(e.speed)}"
                 is MatchEvent.Goal -> "goal ${e.team} ${who(e.scorer)} ${who(e.assist)} ${if (e.ownGoal) 1 else 0}"
                 MatchEvent.Whistle -> "whistle"
+                is MatchEvent.Offside -> "offside ${e.team} ${e.player}"
                 is MatchEvent.PeriodEnd -> "periodEnd ${e.period}"
                 is MatchEvent.DrillInterrupted -> "interrupted ${e.reason.key}"
                 is MatchEvent.End -> "end ${e.result.key}"

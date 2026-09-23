@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.16.1
+Spec-Version: 0.17.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -90,14 +90,19 @@ One engine plays two sports on one pitch.
 |---|---|
 | Length × width | 60 × 30 (half-extents 30 × 15) |
 | Goal lines | z = ±26 |
+| Blue lines (the ice sport only, §8.9) | z = ±9.5 — a team's **attacking zone** is beyond the blue line it attacks |
 | Goal mouth width × depth | 6.0 × 1.6 — the net occupies the box behind the line (for the ball, the net's frame is 0.15 larger on every outer side: 6.3 × 1.75) |
 | Goal crease radius (keep-out, §7) | 3.2 |
 | Boundary | a rounded rectangle at the half-extents, corner radius per sport |
 
-| Sport | Corner radius | Ball friction (m/s²) | Ball drag (1/s) | Wall restitution | Ball |
-|---|---|---|---|---|---|
-| **Field hockey** (default) | 2.0 | 0.9 | 0.3 | 0.6 | a ball, radius 0.36 |
-| **Ice hockey** (Himalaya) | 8.5 | 0.45 | 0.2 | 0.72 | a puck, radius 0.36 |
+| Sport | Corner radius | Ball friction (m/s²) | Ball drag (1/s) | Wall restitution | Ball | Offside |
+|---|---|---|---|---|---|---|
+| **Field hockey** (default) | 2.0 | 0.9 | 0.3 | 0.6 | a ball, radius 0.36 | no |
+| **Ice hockey** (Himalaya) | 8.5 | 0.45 | 0.2 | 0.72 | a puck, radius 0.36 | **yes** (§8.9) |
+
+**Offside is the one rule the two sports do not share.** Field hockey has had none since 1998, so
+the four field worlds play without it; the ice world plays with it (§8.9). Everything else in this
+specification is the same game on both.
 
 Each side has **six players**: a goalie and five outfield players. Face-off spots: the centre
 (0, 0); four neutral spots (±7, ±7); four end spots (±7, ±20).
@@ -231,7 +236,10 @@ uniform ← (out >> 11) × 2^−53                  a double in [0, 1)
   carrier's re-think period, shot chance, `noise(0.8)` per pass candidate in roster order, pass
   chance and shot power (§7.6); a defender's marking chance (§7.3, drawn only when there is
   someone to mark); a goalie's `noise(0.5)` per team-mate (§7.8); a pass's aim noise, x then z;
-  a shot's side (only with no goalie), then its 25 % pull, then its aim noise (§5.4).
+  a shot's side (only with no goalie), then its 25 % pull, then its aim noise (§5.4); and
+  **the referee's eye** (§8.9, the ice sport only), one draw at the moment a zone entry is found
+  offside, after both teams' play that step — it is the only draw offside adds, and the only one
+  that is not made where a player is thinking.
 - `noise(s)` is `(u₁ + u₂ + u₃ − 1.5) × s` from three consecutive draws.
 - Presentation (camera shake, particles, scenery) never draws from these streams.
 
@@ -266,13 +274,13 @@ nothing); a target within 1e-3 of what it keeps clear of is pushed along +x.
 7. The ball: in play it moves (§6); otherwise a carried ball follows its carrier (orbiting only
    during a drill's "get ready"), a ball in the net after a goal rolls on (§8.1), and a loose ball
    stays put.
-8. In play: the dead-ball timer (§6.5).
+8. In play: offside (§8.9, the ice sport only), then the dead-ball timer (§6.5).
 
 #### 4.6 What a restart resets
 Every face-off and drill reset clears: the ball's carrier, velocity, last touches, assist and
 pending release; and for every player, velocity, target, pickup cooldown, hold time, decision,
 mark, expected pass, steal contact, challenge commitment, the loose-ball, dead-ball and alert
-timers, and the crossing being watched (§7.1, §6.5, §7.9). Think timers (§7), the orbit angle and
+timers, the crossing being watched and both teams' zone state (§7.1, §6.5, §7.9, §8.9). Think timers (§7), the orbit angle and
 the time of the last release (§7.8) are not reset.
 
 #### 4.7 Golden vectors
@@ -312,7 +320,10 @@ At any orbit angle, a release **snaps**:
 
 - **to a pass** to the outfield team-mate whose lead position — their position plus `0.8 × velocity
   × t`, with `t = distance / max(14, 11 + 0.55 × distance)` — lies within **0.36 rad** of the
-  orbit angle, the closest in angle winning;
+  orbit angle, the closest in angle winning. **A team-mate who is offside is not a candidate**
+  (§8.9, the ice sport only): the arrow simply does not go green for them, and the release that
+  would have been a pass to them is free instead. The arrow never promises a ball that the whistle
+  would take back (A0), and the apps mark the team-mate so the player can see why (§8.9, §16.4);
 - **to a shot** when the goal centre lies within the goal window of the orbit angle — **0.40 rad,
   widened by up to 0.30 as the carrier closes from 14 to 0 away**. The goal wins over a pass when
   its angle is less than 0.9 × the pass's, or the carrier is within 9 of goal.
@@ -517,6 +528,17 @@ named player rather than shared out:
   the ball, and its taker's target does not go through §7.5 — like a chaser's, it is only clamped
   to `|x| ≤ 13.8`, `|z| ≤ 28.8`. Standing to receive *is* the shape.
 
+**Holding the line** (the ice sport only, §8.9). Before any of §7.5's shaping, a player who is not
+the carrier has their target pulled back to **0.8 short of the blue line they attack** whenever the
+target lies beyond that point and the ball is **still 0.2 short of the line**. It applies to
+supporters, to the offer-taker and to chasers alike, and only while the team is not
+defending — a defender in their own half is never at risk. This is the whole of the AI's respect
+for the rule in its movement, and it is deliberately *not* a guarantee: a target held 0.8 short of
+the line does not stop a skater at speed from carrying 0.6 past it, a chaser committed to a loose
+ball that is already in the zone is never held at all, and a ball that leaves the zone and is sent
+straight back in finds whoever was still deep. **The stray run falls out of that slack**; no draw
+is made for it, and none is declared in §4.3.
+
 #### 7.5 Shape, spacing and discipline
 For every player not chasing:
 - **Formation spot** (used when marking is skipped): home spot moved toward the ball by
@@ -546,7 +568,8 @@ The carrier is **forced** when a threat is within 2.6 or it has held for 3.5 s.
 - Else **pass** to the best team-mate between 3 and 26 away, scored by
   `1.2 × openness (≤ 6) + 0.35 × progress − 6 if the lane is blocked (1.4 wide) − 10 if the ball
   would cross within 5 of their own goal + 0.3 × (progress + 6) when more than 6 backward −
-  0.4 × (distance − 18) beyond 18 + noise(0.8)`, if that best score exceeds 3.5, with probability
+  0.4 × (distance − 18) beyond 18 − 8 if they are offside (§8.9, the ice sport only) +
+  noise(0.8)`, if that best score exceeds 3.5, with probability
   `0.3 × passing + 0.45 if threatened within 4 + 0.3 if held over 2 s`, or always when forced.
 - **Forced**: pass to the best-scoring team-mate between 3 and 26 away whatever the score; with
   none in range, **shoot** within 24 of goal, else **clear** (release unassisted).
@@ -837,6 +860,68 @@ never a banner, a sound or a haptic.
   steal, a save or a post, three pulses with the horn for a goal of ours (one soft one for a goal
   against), and a soft tick with each second of the countdown.
 
+#### 8.9 Offside — the ice sport only
+The one rule the two sports do not share (§1). **A player of the attacking side may not be in the
+zone before the puck is.** It exists in the ice world and nowhere else: the four field worlds play
+without it, and **a drill is never whistled offside** (§10) — a drill is a lesson in one thing, and
+a whistle it did not teach is a whistle that only confuses.
+
+**The zone.** A team's attacking zone is everything beyond the blue line it attacks — `z > 9.5` for
+team 0, `z < −9.5` for team 1 (§1).
+
+**When the line counts as crossed.** On the **puck's centre**, not its edge. A player can read the
+call off where the puck is, which is the only thing they can see; a rule judged on a trailing edge
+they cannot see is a rule they cannot learn (A0). The same centre decides the zone for everything
+below.
+
+**The entry.** Each step in play, team 0 then team 1: the puck **enters** the zone a team attacks
+when its centre is inside, it was not last step, and **that team touched it last** — the attack
+put it in. A puck the defence sends into its own end is not an entry and is never offside.
+
+**Once entered, the zone stays entered** until the puck is **4.0 clear of the line** again. A puck
+rattling on the line is one entry, not twenty, and the rule is judged once per real attack — which
+is what "the zone is not clear until the puck is out" means in the sport it comes from.
+
+**Who is offside.** At the moment of the entry, any of that team's **outfield** players standing
+more than **0.6** beyond the line is offside. The 0.6 is the difference between standing *on* the
+line and being *in* the zone; a player on the line is onside. Two are exempt, and only two:
+
+- **the carrier** — carrying it in is how a zone is entered;
+- **the player who touched the puck last** — the one who sent it in, who cannot be ahead of their
+  own pass.
+
+Goalies and drill dummies are never offside. If more than one player is offside, the **first in
+roster order** is the one the whistle names.
+
+**The referee misses some.** When an entry is found offside, **one draw** is made from the match
+stream (§4.3): on a draw below **0.10** the referee does not see it and **play goes on**, with
+nothing emitted and nothing shown. The entry still counts as made, so the same puck is not judged
+again a step later. About one offside in ten goes unpunished — rare enough that the player learns
+the rule as a consistent one, and often enough that a referee is a person.
+
+**The whistle.** Otherwise play stops **at once** — there is no delayed call. A delayed offside is
+a rule about a thing that has not happened yet, and A0 will not carry it: the player would be
+watching a play that is already void without being told. Play stops exactly as a dead ball does
+(§6.5): the puck's carrier is cleared, its speed drops to 20 %, and after **1.4 s** a face-off
+restarts play.
+
+**Where the face-off is.** At the **neutral-zone** spot (§1) nearest the point `(the puck's x when
+the whistle went, direction × 7.0)` — that is, one of the two neutral spots on the side of centre
+the puck entered, the one on the puck's side of the pitch; the first of §1's four on a tie. The
+attack comes out of the zone and starts again, which is the rule's whole cost: **no penalty, no
+possession handed over, and never a goal given or taken away.** A goal struck before the whistle
+stands, because the whistle can only come at an entry, and at an entry the puck is only just in.
+
+**What it is worth.** Measured over 400 automatic ice matches: about **5 %** of the zone entries an
+attack makes are offside — one stray run in twenty — of which about **10 %** go unseen, leaving
+about **1.7 whistles a match**. Ice matches score about **10.5** goals to the field's **12.4**: the
+ice world is the tighter, more structured of the two sports, which is what it is in life.
+
+**What the core exposes.** For every player, whether they are offside *now* — who the whistle would
+name if the puck entered this instant, by exactly the test above — so the apps can mark them
+(§16.4); and, at the whistle, the event carrying the offending team and the player named. Both are
+presentation reading the match; neither changes a tick (§4.2).
+
 ### 9. The demo match
 A match plays behind the menus so the title screen is alive: the player's team (Moss Foxes
 before a career exists) against a random club, both sides fully automatic, in the five worlds in
@@ -848,6 +933,9 @@ world, a goal target and a time limit.
 
 - **No rubberband:** a drill is not a match between two scores, so §7.10 never tilts one and a
   drill draws no temperament.
+- **No offside:** §8.9 never fires in a drill, on ice or anywhere else, and the drill's players
+  never hold the blue line. Drill 5 (Moving cones) is played on the Himalaya ice and is unchanged
+  by the rule: it teaches one thing, and a whistle it did not teach is a whistle that confuses.
 - **Setup:** fixed lineups. The ball starts with the player's first player (or the one the drill
   names), orbiting from behind them (the orbit angle π, turning as §5.1 chooses), after a 1.4 s
   "get ready". The drill's clock is its time limit.
@@ -1113,6 +1201,13 @@ card from blank to 1 like any other change, and every card stands in the same pl
 12:11. The result slab (§16.5) counts up on the same two cards a side. The pause panel: **Resume** and **Quit** — quitting a season match says it forfeits 0–3
 before it does (§8.7).
 
+**The offside mark** (the ice sport only, §8.9). A player the core reports offside wears a **faded
+ring** on the pitch, in their kit's primary colour — the same ring the aim's lock-on marker draws
+around a pass receiver (§5.2), but pale, unpulsed and drawn under the player rather than over them.
+It appears and fades over 0.12 s as the core's answer changes, and it is the whole of the warning:
+a player who is about to be whistled is visibly marked before it happens, and the aim arrow is
+already refusing to go green for them. Nothing else on the HUD changes.
+
 In a drill the HUD shows goals scored of the target and the clock — the target sets the width, so a
 target of ten or more gets two cards a side — and the drill's hint is the intro card before
 "get ready" (§10).
@@ -1130,6 +1225,7 @@ frame wraps to two centred lines rather than shrinking (§16): "END OF PERIOD 1"
 | the last period ends level in the cup | OVERTIME | info | 2.4 |
 | a drill's get ready | GET READY; AGAIN! after an interruption; NICE! AGAIN after a goal | info | 0.9 |
 | a dead ball in a match (§6.5) | RESET | warn | 1.8 |
+| an offside in an ice match (§8.9) | OFFSIDE | warn | 1.8 |
 | a drill interrupted (§10) | SAVED! · STOLEN! · WRONG GOAL! · PASS FIRST! · RESET | bad | 1.2 |
 | a goal | GOAL! (ours) · GOAL AGAINST | good · bad | 2.4 |
 | the end | FINAL (a match) · DRILL DONE! / TIME'S UP (a drill) | good, or bad for a loss | 1.5 |
@@ -1159,7 +1255,7 @@ disk with a ball circling it and an aim line.
 
 ## Out of scope
 - Steering players, aiming by drag, charging a shot: the player's only input is hold and release.
-- Offside and icing.
+- Icing. (Offside is in scope, on the ice sport only — §8.9.)
 - More than eight teams in a season; playing as one of the eight clubs; switching teams within a
   career.
 - The player's team's rating changing over time.

@@ -61,6 +61,7 @@ extension Match {
             if Pitch.segmentDistance(ownGoal, me.pos, players[m].pos) < C.passOwnGoalZone { score -= C.passOwnGoalPenalty }
             if progress < -C.passBackward { score += C.passBackwardWeight * (progress + C.passBackward) }
             if d > C.passLong { score -= C.passLongWeight * (d - C.passLong) }
+            if isOffsideReceiver(m) { score -= C.passOffsidePenalty }
             score += rng.noise(C.passNoise)
             if score > bestScore { bestScore = score; best = m }
         }

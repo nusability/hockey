@@ -39,6 +39,9 @@ public struct MatchSnapshot: Sendable, Hashable {
     public let aim: Aim?
     /// True when the carrier waits for the player's finger (§5.3).
     public let playerCarrier: Bool
+    /// Per player, in roster order: who the whistle would name if the ball entered the zone now
+    /// (§8.9, the ice sport only). All false in a field match and in a drill.
+    public let offside: [Bool]
     /// Seconds left in the period (or the drill); 0 in overtime.
     public let clock: Double
     public let score: [Int]
@@ -65,7 +68,7 @@ extension Match {
             }
         }
         return MatchSnapshot(state: state, players: people, ball: b, aim: aim,
-                             playerCarrier: ball.carrier.map(isPlayerControlled) ?? false,
+                             playerCarrier: ball.carrier.map(isPlayerControlled) ?? false, offside: offsidePlayers,
                              clock: clock, score: score, period: period, overtime: overtime, time: time, result: result)
     }
 

@@ -192,6 +192,8 @@ def worlds(model, bits):
             bits.add(f"Sport.{x['id']}.{camel(key)}", x[key])
     s.append(switch("ballKind", "String", [(x["id"], f'"{x["ball_kind"]}"') for x in model.sports],
                     "\"ball\" or \"puck\": what the world draws."))
+    s.append(switch("offside", "Bool", [(x["id"], "true" if x["offside"] else "false") for x in model.sports],
+                    "Whether an attacker may not enter the zone before the ball (spec \u00a78.9)."))
     s.append("}\n\n/// The five worlds, in the demo match's order (spec §9, §13).\n")
     s.append("public enum World: String, Sendable, CaseIterable {\n")
     s.append("".join(f"    case {ident(w['id'])}\n" for w in model.worlds))

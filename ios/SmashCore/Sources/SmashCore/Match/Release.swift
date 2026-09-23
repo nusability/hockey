@@ -40,7 +40,7 @@ extension Match {
         let me = players[c]
         var pass: Int?
         var passDiff = Double.infinity
-        for m in outfield(me.team) where m != c {
+        for m in outfield(me.team) where m != c && !isOffsideReceiver(m) {
             let lead = leadPoint(of: m, from: c)
             let diff = Pitch.angleDiff(Pitch.heading(lead.x - me.pos.x, lead.z - me.pos.z), a).magnitude
             if diff < O.passWindow && diff < passDiff { pass = m; passDiff = diff }

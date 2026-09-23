@@ -9,8 +9,8 @@
 #
 # Taken from the web prototype's text (not its code) with three edits: HTML emphasis is dropped
 # (the UI is 3D text), emoji are dropped (conventions: no emoji in UI chrome), and the prototype's
-# offside/icing banners and the board's passing/shooting sliders are left out (spec: out of scope
-# and §12). Engine banners got proper keys (event.*).
+# icing banner and the board's passing/shooting sliders are left out (spec: out of scope and
+# §12). Engine banners got proper keys (event.*).
 
 [copy]
 "app.name" = { en = "Smash Hockey 3D", de = "Smash Hockey 3D" }
@@ -162,4 +162,5 @@
 "event.passFirst" = { en = "PASS FIRST!", de = "ERST PASSEN!" }
 "event.wrongNet" = { en = "WRONG GOAL!", de = "FALSCHES TOR!" }
 "event.reset" = { en = "RESET", de = "NEUSTART" }
+"event.offside" = { en = "OFFSIDE", de = "ABSEITS", comment = "The whistle that stops an ice match for offside (§8.9)." }
 "event.versus" = { en = "{home} VS {away}", de = "{home} GEGEN {away}", comment = "The intro banner of a match: the two teams' names." }

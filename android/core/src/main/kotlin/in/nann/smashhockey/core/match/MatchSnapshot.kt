@@ -13,6 +13,11 @@ data class MatchSnapshot(
     val aim: Aim?,
     /** True when the carrier waits for the player's finger (§5.3). */
     val playerCarrier: Boolean,
+    /**
+     * Per player, in roster order: who the whistle would name if the ball entered the zone now
+     * (§8.9, the ice sport only). All false in a field match and in a drill.
+     */
+    val offside: List<Boolean>,
     /** Seconds left in the period (or the drill); 0 in overtime. */
     val clock: Double,
     val score: List<Int>,
@@ -69,7 +74,8 @@ val Match.snapshot: MatchSnapshot
             }
         }
         return MatchSnapshot(
-            state, people, b, aim, c != null && isPlayerControlled(c), clock, scores, period, overtime, time, result,
+            state, people, b, aim, c != null && isPlayerControlled(c), offsidePlayers,
+            clock, scores, period, overtime, time, result,
         )
     }
 

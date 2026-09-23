@@ -153,12 +153,14 @@ def worlds(model, bits):
     s.append("/** The two sports one engine plays (spec §1). [FIELD] is the default. */\n")
     s.append("enum class Sport(\n    val key: String,\n    val cornerRadius: Double,\n    val ballFriction: Double,\n"
              "    val ballDrag: Double,\n    val wallRestitution: Double,\n    val ballRadius: Double,\n"
-             "    /** \"ball\" or \"puck\": what the world draws. */\n    val ballKind: String,\n) {\n")
+             "    /** \"ball\" or \"puck\": what the world draws. */\n    val ballKind: String,\n"
+             "    /** Whether an attacker may not enter the zone before the ball (spec \u00a78.9). */\n"
+             "    val offside: Boolean,\n) {\n")
     keys = ("corner_radius", "ball_friction", "ball_drag", "wall_restitution", "ball_radius")
     rows = []
     for x in model.sports:
         rows.append(f"    {x['id'].upper()}(\"{x['id']}\", " + ", ".join(double_lit(x[k]) for k in keys)
-                    + f", \"{x['ball_kind']}\")")
+                    + f", \"{x['ball_kind']}\", {str(x['offside']).lower()})")
         for k in keys:
             bits.add(f"Sport.{x['id'].upper()}.{camel(k)}", x[k])
     s.append(",\n".join(rows) + ";\n\n" + lookup("Sport", "rules.toml") + "}\n\n")

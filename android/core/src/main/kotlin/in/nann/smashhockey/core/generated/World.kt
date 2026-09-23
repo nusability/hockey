@@ -12,9 +12,11 @@ enum class Sport(
     val ballRadius: Double,
     /** "ball" or "puck": what the world draws. */
     val ballKind: String,
+    /** Whether an attacker may not enter the zone before the ball (spec §8.9). */
+    val offside: Boolean,
 ) {
-    FIELD("field", 2.0, 0.9, 0.3, 0.6, 0.36, "ball"),
-    ICE("ice", 8.5, 0.45, 0.2, 0.72, 0.36, "puck");
+    FIELD("field", 2.0, 0.9, 0.3, 0.6, 0.36, "ball", false),
+    ICE("ice", 8.5, 0.45, 0.2, 0.72, 0.36, "puck", true);
 
     companion object {
         /** The entry declared as [key]; throws for a key rules.toml does not declare. */

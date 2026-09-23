@@ -160,6 +160,10 @@ class MatchCues(private val p: Params, private val drill: Boolean, private val a
                 banner(CopyKey.EVENT_RESET, none, Banner.Style.WARN, b.whistle)
                 sound(SoundCue.MATCH_WHISTLE_SHORT)
             }
+            is MatchEvent.Offside -> {
+                banner(CopyKey.EVENT_OFFSIDE, none, Banner.Style.WARN, b.whistle)
+                sound(SoundCue.MATCH_WHISTLE_SHORT)
+            }
             is MatchEvent.DrillInterrupted -> {
                 val key = when (e.reason) {
                     DrillInterruption.SAVED -> CopyKey.EVENT_SAVED
@@ -200,7 +204,7 @@ class MatchCues(private val p: Params, private val drill: Boolean, private val a
         }
         when (e) {
             is MatchEvent.Goal, is MatchEvent.DrillInterrupted, is MatchEvent.PeriodEnd, is MatchEvent.FaceOff,
-            MatchEvent.Whistle, MatchEvent.Ready, is MatchEvent.End -> lastFlow = e
+            MatchEvent.Whistle, is MatchEvent.Offside, MatchEvent.Ready, is MatchEvent.End -> lastFlow = e
             else -> Unit
         }
         return if (audible) out else out.filter { it.isSeen }

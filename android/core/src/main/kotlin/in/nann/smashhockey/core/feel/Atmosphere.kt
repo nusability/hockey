@@ -106,7 +106,7 @@ class Atmosphere(private val p: Params) {
             is MatchEvent.Steal -> side(s.players[e.by].team, g.steal)
             MatchEvent.Post -> push(g.post, g.post)
             MatchEvent.Play -> push(g.kickoff, g.kickoff)
-            MatchEvent.Whistle, is MatchEvent.DrillInterrupted -> push(g.whistle, g.whistle)
+            MatchEvent.Whistle, is MatchEvent.Offside, is MatchEvent.DrillInterrupted -> push(g.whistle, g.whistle)
             is MatchEvent.PeriodEnd -> push(g.periodEnd, g.periodEnd)
             is MatchEvent.End -> push(g.ended, g.ended)
             else -> Unit

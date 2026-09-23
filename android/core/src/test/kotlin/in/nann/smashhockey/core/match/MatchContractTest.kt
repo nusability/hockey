@@ -424,6 +424,144 @@ class MatchContractTest {
         assertEquals(0.0, m.hold(1), 0.0)
     }
 
+    // §8.9 — offside, the ice sport only
+
+    private fun iceMatch(seed: Long = 42, sport: Sport = Sport.ICE) = MatchSetup(
+        seed, sport, SideSetup.club(Club.WOLVES), SideSetup.club(Club.NEBULA), 60.0, 2.0,
+        cup = false, control = Control.PLAYER,
+    )
+
+    /**
+     * An ice match in play, the puck loose just outside the zone team 0 attacks, last touched by
+     * team 0, with [deep] moved past the blue line by [beyond].
+     */
+    private fun aboutToEnter(deep: Int, beyond: Double, setup: MatchSetup = iceMatch()): Match {
+        val m = Match(setup)
+        while (m.state != MatchState.PLAY) m.tick()
+        m.drainEvents()
+        m.ball.carrier = null
+        m.ball.pos = Vec(0.0, Tuning.Pitch.blueLineZ - 1)
+        m.ball.vel = Vec.ZERO
+        m.ball.lastTouch = m.outfield(0).first()
+        m.inZone[0] = false
+        m.inZone[1] = false
+        m.players[deep].pos = Vec(4.0, Tuning.Pitch.blueLineZ + beyond)
+        return m
+    }
+
+    /** Moves the puck into the zone and runs the rule once. Returns the events it emitted. */
+    private fun enterZone(m: Match): List<MatchEvent> {
+        m.ball.pos = Vec(m.ball.pos.x, Tuning.Pitch.blueLineZ + 0.5)
+        m.checkOffside()
+        return m.drainEvents()
+    }
+
+    @Test fun aPlayerInTheZoneBeforeThePuckIsWhistledOffside() {
+        var whistled = 0
+        var missed = 0
+        for (seed in 0L until 40L) {
+            val m = aboutToEnter(3, Tuning.Offside.playerMargin + 0.5, iceMatch(seed))
+            val events = enterZone(m)
+            assertEquals(1, m.offsideStrays)
+            val call = events.filterIsInstance<MatchEvent.Offside>().firstOrNull()
+            if (call != null) {
+                whistled += 1
+                assertEquals(0, call.team)
+                assertEquals(3, call.player)
+                assertEquals(MatchState.WHISTLE, m.state)
+                assertEquals(0, m.offsideMissed)
+                assertTrue(Tuning.Pitch.faceoffNeutral.any { it.x == m.restartSpot.x && it.z == m.restartSpot.z })
+                assertEquals(Tuning.Offside.faceoffReferenceZ, m.restartSpot.z, 0.0)
+            } else {
+                missed += 1
+                assertEquals(MatchState.PLAY, m.state)
+                assertEquals(1, m.offsideMissed)
+            }
+        }
+        assertEquals(40, whistled + missed)
+        assertTrue("the miss must be rare: $missed of 40", whistled > 30)
+        assertTrue("and it must happen", missed > 0)
+    }
+
+    @Test fun aPlayerOnTheLineIsOnside() {
+        val m = aboutToEnter(3, Tuning.Offside.playerMargin - 0.1)
+        assertTrue(enterZone(m).isEmpty())
+        assertEquals(MatchState.PLAY, m.state)
+    }
+
+    @Test fun theCarrierAndTheLastTouchAreNeverOffside() {
+        for (deep in listOf(3, 4)) {
+            val m = aboutToEnter(deep, 3.0)
+            if (deep == 3) {
+                m.ball.lastTouch = 3
+            } else {
+                m.ball.carrier = 4
+                m.ball.lastTouch = 4
+            }
+            assertTrue(enterZone(m).isEmpty())
+        }
+    }
+
+    @Test fun aFieldMatchAndADrillAreNeverWhistledOffside() {
+        val field = aboutToEnter(3, 3.0, iceMatch(sport = Sport.FIELD))
+        assertTrue(enterZone(field).isEmpty())
+        val d = drill(Drill.MOVING)                 // drill 5 — the ice world (§10)
+        assertFalse(d.offsideApplies)
+        assertTrue(d.offsidePlayers.none { it })
+    }
+
+    /**
+     * The zone, once entered, is not clear again until the puck is 4.0 back out (§8.9): a puck
+     * rattling on the line is one entry, not twenty.
+     */
+    @Test fun aPuckRattlingOnTheLineIsOneEntry() {
+        val m = aboutToEnter(3, 3.0)
+        enterZone(m)
+        val after = m.offsideEntries
+        for (z in listOf(Tuning.Pitch.blueLineZ - 1, Tuning.Pitch.blueLineZ + 1, Tuning.Pitch.blueLineZ - 2)) {
+            m.state = MatchState.PLAY
+            m.ball.pos = Vec(0.0, z)
+            m.checkOffside()
+        }
+        assertEquals(after, m.offsideEntries)
+        m.state = MatchState.PLAY
+        m.ball.pos = Vec(0.0, Tuning.Pitch.blueLineZ - Tuning.Offside.clearDepth - 0.1)
+        m.checkOffside()
+        m.ball.pos = Vec(0.0, Tuning.Pitch.blueLineZ + 0.5)
+        m.checkOffside()
+        assertEquals(after + 1, m.offsideEntries)
+    }
+
+    /**
+     * §5.2: the aim never snaps to a team-mate the whistle would punish, and the AI's pass score
+     * reads the same predicate (§7.6).
+     */
+    @Test fun theAimNeverSnapsToAnOffsideTeamMate() {
+        val m = aboutToEnter(1, 3.0)
+        m.ball.carrier = 3
+        m.players[3].pos = Vec(0.0, 0.0)
+        m.players[1].pos = Vec(0.0, Tuning.Pitch.blueLineZ + 3)
+        m.players[1].vel = Vec.ZERO
+        m.ball.pos = Vec(0.0, 0.0)
+        assertTrue(m.isOffsideReceiver(1))
+        assertFalse(m.snap(3, 0.0) is Snap.Pass)    // the orbit pointing along +Z, at team-mate 1
+        m.ball.pos = Vec(0.0, Tuning.Pitch.blueLineZ + 1)
+        assertFalse(m.isOffsideReceiver(1))
+    }
+
+    /** §7.4: a supporter's target is held short of the line while the puck is short of it. */
+    @Test fun theAttackHoldsTheBlueLineWhileThePuckIsShortOfIt() {
+        val m = aboutToEnter(3, 3.0)
+        m.ball.pos = Vec(0.0, 0.0)
+        val wanted = Vec(2.0, Tuning.Pitch.blueLineZ + 5)
+        assertEquals(Tuning.Pitch.blueLineZ - Tuning.Offside.holdBack, m.heldAtLine(3, wanted).z, 0.0)
+        m.ball.pos = Vec(0.0, Tuning.Pitch.blueLineZ + 1)
+        assertEquals(wanted.z, m.heldAtLine(3, wanted).z, 0.0)
+        m.ball.pos = Vec(0.0, 0.0)
+        m.ball.carrier = 3
+        assertEquals(wanted.z, m.heldAtLine(3, wanted).z, 0.0)
+    }
+
     // Performance (§4)
 
     @Test fun aFullMatchRunsFarFasterThanRealTime() {

@@ -80,6 +80,12 @@ def need_float(value, where):
     return value
 
 
+def need_bool(value, where):
+    if not isinstance(value, bool):
+        fail(where, f"expected a boolean, got {value!r}")
+    return value
+
+
 def need_int(value, where):
     if isinstance(value, bool) or not isinstance(value, int):
         fail(where, f"expected an integer, got {value!r}")
@@ -229,9 +235,11 @@ def load(root: Path) -> Model:
     sports = []
     for i, s in enumerate(need_list(rules, "sport", "rules.toml")):
         w = f"rules.toml [[sport]] #{i + 1}"
-        expect_keys(s, {"id", "corner_radius", "ball_friction", "ball_drag", "wall_restitution", "ball_radius", "ball_kind"}, w)
+        expect_keys(s, {"id", "offside", "corner_radius", "ball_friction", "ball_drag", "wall_restitution",
+                        "ball_radius", "ball_kind"}, w)
         sports.append({"id": need_str(s["id"], w), "ball_kind": need_str(s["ball_kind"], w),
-                       **{k: need_float(s[k], f"{w}.{k}") for k in s if k not in ("id", "ball_kind")}})
+                       "offside": need_bool(s["offside"], f"{w}.offside"),
+                       **{k: need_float(s[k], f"{w}.{k}") for k in s if k not in ("id", "ball_kind", "offside")}})
     sport_ids = [s["id"] for s in sports]
     worlds = []
     for i, wd in enumerate(need_list(teams, "world", "teams.toml")):

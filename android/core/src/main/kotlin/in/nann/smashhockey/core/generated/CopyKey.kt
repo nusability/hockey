@@ -132,6 +132,7 @@ enum class CopyKey(val key: String, val resourceName: String, val arguments: Lis
     EVENT_PASS_FIRST("event.passFirst", "event_passFirst", emptyList()),
     EVENT_WRONG_NET("event.wrongNet", "event_wrongNet", emptyList()),
     EVENT_RESET("event.reset", "event_reset", emptyList()),
+    EVENT_OFFSIDE("event.offside", "event_offside", emptyList()),
     EVENT_VERSUS("event.versus", "event_versus", listOf("home", "away")),
     WORLD_MAGICWOOD_NAME("world.magicwood.name", "world_magicwood_name", emptyList()),
     WORLD_SPACE_NAME("world.space.name", "world_space_name", emptyList()),

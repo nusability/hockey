@@ -68,6 +68,7 @@ extension Match {
             chasing = chasing || s.offer
         }
         if !defending { players[i].mark = nil }
+        if possession != .theirs { target = heldAtLine(i, target) }
         if !chasing { target = shaped(i, target, possession: possession) }
         players[i].target = Match.clampToPlay(target)
     }

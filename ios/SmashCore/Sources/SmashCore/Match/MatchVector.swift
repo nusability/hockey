@@ -79,6 +79,7 @@ public struct MatchVector: Sendable {
         case .board(let speed): return "board \(hex(speed))"
         case .goal(let team, let scorer, let assist, let own): return "goal \(team) \(who(scorer)) \(who(assist)) \(own ? 1 : 0)"
         case .whistle: return "whistle"
+        case .offside(let team, let player): return "offside \(team) \(player)"
         case .periodEnd(let n): return "periodEnd \(n)"
         case .drillInterrupted(let reason): return "interrupted \(reason.rawValue)"
         case .end(let result): return "end \(result.rawValue)"

@@ -156,6 +156,7 @@ extension Match {
         looseTimer = 0
         deadTimer = 0
         alert = [0, 0]
+        inZone = [false, false]
         crossingCarrier = nil
         crossingZ = 0
         netRoll = nil

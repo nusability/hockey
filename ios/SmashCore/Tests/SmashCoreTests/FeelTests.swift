@@ -29,7 +29,8 @@ import Testing
             return MatchSnapshot.Player(team: team, role: role, radius: 1, x: x, z: -x, vx: 0, vz: 0, facing: 0)
         }
         let b = MatchSnapshot.Ball(x: ball.x, z: 0, vx: ball.vx, vz: 0, radius: 0.36, carrier: carrier, orbit: 0, orbitDirection: 1)
-        return MatchSnapshot(state: state, players: players, ball: b, aim: aim, playerCarrier: playerCarrier, clock: clock,
+        return MatchSnapshot(state: state, players: players, ball: b, aim: aim, playerCarrier: playerCarrier,
+                             offside: players.map { _ in false }, clock: clock,
                              score: [0, 0], period: period, overtime: overtime, time: 0, result: nil)
     }
 

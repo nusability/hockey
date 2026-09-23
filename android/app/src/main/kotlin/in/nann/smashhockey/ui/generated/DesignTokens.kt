@@ -52,5 +52,5 @@ object DesignTokens {
     }
 
     /** The UI's own light (ADR 0006's formula), so a menu looks the same in every world. */
-    val LOOK = WorldLook(0xFFFFFF, 0xB9C0DA, 0.3, 0xFFFFFF, 0.62, listOf(-0.35, 0.3, 1.0), 0.34)
+    val LOOK = WorldLook(0xFFFFFF, 0xC3C8DC, 0.3, 0xFFFFFF, 0.743, listOf(-0.35, 0.3, 1.0), 0.354)
 }

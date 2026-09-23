@@ -908,7 +908,11 @@ generated into both apps; no screen or component spells a colour or a size of it
 
 **The UI has its own light**, not the light of the world standing behind it: the kit's blocks are
 toon-shaded (ADR 0006) under one neutral rig — bright from the front, a little less from above, less
-again from the sides — so a white slab reads white and a menu looks the same in every world. How
+again from the sides — so a white slab reads white and a menu looks the same in every world. **The
+rig is read in the UI's own frame**, so the face the player is looking at is the fully lit one on
+every screen and on the HUD, whichever way that screen stands and wherever the match camera has
+moved to: the front face keeps the palette's colour as it was authored, and no screen sits in its
+own shadow. How
 much of the key a face turned away from it keeps is part of a light (`shade`): a world keeps the
 prototype's value, and the **UI's own light drops much lower**, because an extruded letter is only
 legible when its sides read as a bevel rather than as more of the front's colour. The shading is

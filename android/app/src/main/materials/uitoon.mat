@@ -1,13 +1,17 @@
-// A toon-shaded flat colour — players, the ball, confetti (ADR 0006; the twin of iOS's
-// toon shader graph in Materials.swift): the prototype's toon material, lit by our own formula as
-// an unlit material, the sun's term in two bands:
+// The 3D UI's toon colour (ADR 0006; the twin of iOS's UIToon shader graph in Materials.swift):
+// toon.mat's formula read from the **object's own normal** instead of the world's. A menu stands
+// facing whichever camera pose its screen uses and the HUD hangs off the moving match camera, so a
+// key fixed in the world falls on a different face of every screen and leaves most of them in the
+// dark band — "washed out, in their own shadow". In the UI's own frame +Z is always the face the
+// player looks at, +Y its top and ±X its sides, so design.json's light means what it says on every
+// screen, and nothing has to be rewritten as the camera moves. The formula, unchanged:
 //   colour = albedo × (mix(ground, sky, 0.5 + 0.5·n.y) + sun · (n·l > 0.4 ? 1 : shade))
 // `shade` is the band's dark side, a share of the sun: a world keeps the prototype's 0.7, the 3D
 // UI's own light drops much lower so an extruded letter's sides read as a bevel (design.json).
 // Every colour linear, sky, ground and sun already carrying their strengths. `alpha` lets the 3D UI
 // fade a block; a solid instance (alpha 1) sets depth writes on (Materials, the UI kit's Palette).
 material {
-    name : toon,
+    name : uitoon,
     shadingModel : unlit,
     parameters : [
         { type : float3, name : albedo },
@@ -28,7 +32,7 @@ vertex {
     void materialVertex(inout MaterialVertexInputs material) {
         highp vec3 n;
         toTangentFrame(mesh_tangents, n);
-        material.shadingNormal = vec4(getWorldFromModelNormalMatrix() * n, 0.0);
+        material.shadingNormal = vec4(n, 0.0);
     }
 }
 

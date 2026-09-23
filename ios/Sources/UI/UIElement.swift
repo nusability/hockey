@@ -119,7 +119,7 @@ enum Blocks {
         guard let (materials, look) = shading else {
             preconditionFailure("Blocks.light(with:look:) was not called — the UI has no shading")
         }
-        do { return try materials.toon(UInt32(rgb), look: look) } catch {
+        do { return try materials.ui(UInt32(rgb), look: look) } catch {
             preconditionFailure("the toon material failed to build: \(error)")
         }
     }

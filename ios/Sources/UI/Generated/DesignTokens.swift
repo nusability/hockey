@@ -49,5 +49,5 @@ enum DesignTokens {
     }
 
     /// The UI's own light (ADR 0006's formula), so a menu looks the same in every world.
-    static let look = WorldLook(hemiSky: 0xFFFFFF, hemiGround: 0xB9C0DA, hemiStrength: 0.3, sun: 0xFFFFFF, sunStrength: 0.62, sunDirection: [-0.35, 0.3, 1.0], shade: 0.34)
+    static let look = WorldLook(hemiSky: 0xFFFFFF, hemiGround: 0xC3C8DC, hemiStrength: 0.3, sun: 0xFFFFFF, sunStrength: 0.743, sunDirection: [-0.35, 0.3, 1.0], shade: 0.354)
 }

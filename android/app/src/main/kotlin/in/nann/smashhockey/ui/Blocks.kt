@@ -26,12 +26,13 @@ import kotlin.math.sqrt
 import `in`.nann.smashhockey.ui.generated.DesignTokens
 
 /**
- * How the UI is painted: the match's toon shader (ADR 0006), lit by [look] — the kit's blocks and
- * letters shade exactly like the players — one instance per (colour, opacity step), made once and
- * reused. This is the only place the kit touches a material.
+ * How the UI is painted: the match's toon formula (ADR 0006) read from the object's own normal
+ * (uitoon.mat), lit by [look] — the UI's own light, so the face the player looks at is the lit one
+ * on every screen however that screen stands — one instance per (colour, opacity step), made once
+ * and reused. This is the only place the kit touches a material.
  */
 class Palette(private val engine: Engine, assets: Assets, private val look: WorldLook) {
-    private val material: Material = assets.material(engine, "toon")
+    private val material: Material = assets.material(engine, "uitoon")
     private val instances = SparseArray<MaterialInstance>()
 
     /** The instance painting [rgb] (sRGB 0xRRGGBB) at [alpha]; opaque ones write depth. */

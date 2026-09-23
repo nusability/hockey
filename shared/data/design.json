@@ -68,14 +68,14 @@
     "knob_depth": 0.07
   },
 
-  "_look": "The light the UI is lit by (ADR 0006's formula, the same one the players are shaded with), and **not** the light of the world standing behind it: a menu looks the same in the oasis and in space, and a white slab reads white rather than taking the world's tint. Neutral and slightly cool from above, the key from above and to the left but still toward the viewer, so only a block's front face catches it: its top is lighter than its sides because the sky is, its sides drop to `shade`, and its underside is darkest. That step is what makes an extruded letter read as a solid object with a bevel rather than as a flat blob — the UI's `shade` is set much lower than a world's for exactly that reason. The key stays inside the toon band on every face but the front (|x| and y below the band's 0.4), so every side of a glyph drops by the same clear step and no face is accidentally as bright as the front.",
+  "_look": "The light the UI is lit by (ADR 0006's formula, the same one the players are shaded with), and **not** the light of the world standing behind it: a menu looks the same in the oasis and in space, and a white slab reads white rather than taking the world's tint. It is read **in the UI's own frame** \u2014 the 3D UI's shader takes the object's normal rather than the world's (iOS `UIToon`, Android `uitoon.mat`) \u2014 because a menu stands facing whichever camera pose its screen uses and the HUD hangs off the moving match camera: a key fixed in the world falls on a different face of every screen and leaves most of them inside the dark band, which is what 'in their own shadow' was. In the UI's frame +Z is always the face the player looks at, +Y its top, \u00b1X its sides. Neutral and slightly cool from above, the key from above and to the left but still toward the viewer, so the face the player looks at is **fully lit**: n\u00b7l is 0.91 there, well clear of the band's 0.4, and the light multiplies the palette by 0.98\u20131.00, so a colour lands as it was authored. Every other face is inside the band and drops to `shade`: the sides to 0.50 of the front, the top to 0.56 (lighter than the sides because the sky is), the underside darkest at 0.44. That step is what makes an extruded letter read as a solid object with a bevel rather than as a flat blob \u2014 the UI's `shade` is set much lower than a world's for exactly that reason.",
   "look": {
     "hemi_sky": "#ffffff",
-    "hemi_ground": "#b9c0da",
+    "hemi_ground": "#c3c8dc",
     "hemi_strength": 0.3,
     "sun": "#ffffff",
-    "sun_strength": 0.62,
+    "sun_strength": 0.743,
     "sun_direction": [-0.35, 0.3, 1.0],
-    "shade": 0.34
+    "shade": 0.354
   }
 }

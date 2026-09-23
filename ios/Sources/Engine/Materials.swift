@@ -7,13 +7,20 @@ import UIKit
 /// world / toon / flat / sky materials:
 ///
 /// - **world** — a world mesh: its palette texture, lit by the formula below;
-/// - **toon** — a flat colour (players, posts, the ball, the HUD), lit by the formula with the sun's
-///   term in two bands, as the prototype's toon material;
+/// - **toon** — a flat colour (players, posts, the ball), lit by the formula with the sun's term in
+///   two bands, as the prototype's toon material;
+/// - **uiToon** — the same shader for the 3D UI, read from the **object's own normal** instead of
+///   the world's: a menu stands facing whichever camera pose its screen uses, so a key fixed in the
+///   world falls on a different face of every screen and leaves most of them in the dark band —
+///   which is what "washed out, in their own shadow" was. In the UI's own frame +Z is always the
+///   face the player looks at, so `design.json`'s light means what it says on every screen and the
+///   HUD, and nothing has to be rewritten as the camera moves;
 /// - **flat** — an unlit colour at an opacity (the players' dots and rings, disc shadows, the aim line);
 /// - **sky** — the dome's palette gradient, unlit.
 ///
 /// `colour = albedo × (mix(ground, sky, 0.5 + 0.5·n.y) · hemiStrength + sun · sunStrength · band(n·l))`,
-/// `band = max(0, n·l)` for the world and `n·l > 0.4 ? 1 : look.shade` for toon; n the world-space normal,
+/// `band = max(0, n·l)` for the world and `n·l > 0.4 ? 1 : look.shade` for toon; n the normal — the
+/// world's for the scene, the object's own for the UI —
 /// l the unit vector toward the sun, every colour linear. No engine light and no tone mapping touch
 /// it: world and toon are RealityKit shader graphs ending in the **unlit** surface with
 /// `applyPostProcessToneMap` off, flat and sky are `UnlitMaterial(applyPostProcessToneMap: false)` —
@@ -24,11 +31,13 @@ import UIKit
 final class Materials {
     private let worldGraph: ShaderGraphMaterial
     private let toonGraph: ShaderGraphMaterial
+    private let uiGraph: ShaderGraphMaterial
     private var toons: [ToonKey: ShaderGraphMaterial] = [:]
 
-    private init(world: ShaderGraphMaterial, toon: ShaderGraphMaterial) {
+    private init(world: ShaderGraphMaterial, toon: ShaderGraphMaterial, ui: ShaderGraphMaterial) {
         worldGraph = world
         toonGraph = toon
+        uiGraph = ui
     }
 
     /// Loads the two shader graphs (ShadingGraph.usda, written out at first use).
@@ -37,7 +46,8 @@ final class Materials {
         do {
             let world = try await ShaderGraphMaterial(named: "/Root/World", from: url)
             let toon = try await ShaderGraphMaterial(named: "/Root/Toon", from: url)
-            return Materials(world: world, toon: toon)
+            let ui = try await ShaderGraphMaterial(named: "/Root/UIToon", from: url)
+            return Materials(world: world, toon: toon, ui: ui)
         } catch {
             throw AssetError.missing("the shading graph (\(url.lastPathComponent)): \(error)")
         }
@@ -60,9 +70,20 @@ final class Materials {
 
     /// A toon-shaded flat colour, lit by the world's look.
     func toon(_ rgb: UInt32, look: WorldLook) throws -> ShaderGraphMaterial {
-        let key = ToonKey(rgb: rgb, look: look)
+        try shaded(toonGraph, rgb, look: look, ui: false)
+    }
+
+    /// The 3D UI's toon colour: the same formula read from the object's own normal, so the UI's
+    /// light (design.json) lands on the face the player looks at whichever way a screen stands.
+    func ui(_ rgb: UInt32, look: WorldLook) throws -> ShaderGraphMaterial {
+        try shaded(uiGraph, rgb, look: look, ui: true)
+    }
+
+    private func shaded(_ graph: ShaderGraphMaterial, _ rgb: UInt32, look: WorldLook,
+                        ui: Bool) throws -> ShaderGraphMaterial {
+        let key = ToonKey(rgb: rgb, look: look, ui: ui)
         if let m = toons[key] { return m }
-        var m = toonGraph
+        var m = graph
         try Materials.light(&m, look)
         try m.setParameter(name: "Albedo", value: .color(Materials.linearColour(Materials.linear(rgb))))
         toons[key] = m
@@ -92,7 +113,7 @@ final class Materials {
 
     // MARK: helpers
 
-    private struct ToonKey: Hashable { let rgb: UInt32; let look: WorldLook }
+    private struct ToonKey: Hashable { let rgb: UInt32; let look: WorldLook; let ui: Bool }
 
     /// The hemisphere and the sun, premultiplied by their strengths, and the unit vector toward the sun.
     private static func light(_ m: inout ShaderGraphMaterial, _ look: WorldLook) throws {
@@ -174,6 +195,7 @@ enum ShadingGraph {
         {
         \(material("World", toon: false))
         \(material("Toon", toon: true))
+        \(material("UIToon", toon: true, space: "object"))
         }
 
         """
@@ -181,7 +203,7 @@ enum ShadingGraph {
 
     /// One material: `colour = albedo × (mix(Ground, Sky, 0.5 + 0.5·n.y) + Sun · band(n·SunDirection))`,
     /// the toon band's dark side being the look's `Shade`.
-    private static func material(_ name: String, toon: Bool) -> String {
+    private static func material(_ name: String, toon: Bool, space: String = "world") -> String {
         let p = "/Root/\(name)"
         let albedoInput = toon
             ? "color3f inputs:Albedo = (1, 1, 1)"
@@ -252,7 +274,7 @@ enum ShadingGraph {
                 def Shader "Normal"
                 {
                     uniform token info:id = "ND_normal_vector3"
-                    string inputs:space = "world"
+                    string inputs:space = "\(space)"
                     float3 outputs:out
                 }
 

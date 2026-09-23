@@ -28,7 +28,6 @@ import `in`.nann.smashhockey.ui.Label3D
 import `in`.nann.smashhockey.ui.Panel
 import `in`.nann.smashhockey.ui.Presentable
 import `in`.nann.smashhockey.ui.TableRow
-import `in`.nann.smashhockey.ui.KitSound
 import `in`.nann.smashhockey.ui.Tile
 import `in`.nann.smashhockey.core.season.TableRow as Standing
 
@@ -46,8 +45,6 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
     private val cupTab: Tile
     private var showingCup = false
     private val card: Panel
-    /** The team detail standing in front of the table (§16.3a); nothing behind it takes a tap. */
-    private var detail: TeamDetailPanel? = null
 
     init {
         val career = checkNotNull(game.save.career) { "the hub is reached only with a career" }
@@ -152,7 +149,7 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
             val row = child(TableRow(kit, texts(start, shown), cols, width, S.ROW_HEIGHT + 0.02f, "hub_table_row_${r.team.key}",
                 if (mine) C.ROW_HIGHLIGHT else if (start % 2 == 0) C.ROW_LIGHT else C.ROW_DARK,
                 chip = TableRow.KitColours(k.first, k.second), y = rowY[start], entrance = Entrance.Slide(fromLeft = i % 2 == 0),
-                hint = "${Names.team(r.team, career)}, ${L(CopyKey.DETAIL_OPEN)}", action = { openDetail(r.team) }),
+                hint = "${Names.team(r.team, career)}, ${L(CopyKey.DETAIL_OPEN)}", action = { game.go(Game.Place.Detail(r.team)) }),
                 at(0f, rowY[start]), layer)
             tableParts += row
             if (before == null) continue
@@ -197,23 +194,6 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
         }
     }
 
-    // ---------------------------------------------------------------- the team detail (§16.3a)
-
-    /** Tapping a row tips its team's detail up in front of the table; the rows behind take no taps. */
-    private fun openDetail(team: TeamKey) {
-        if (detail != null) return
-        val career = game.save.career ?: return
-        val season = game.save.season ?: return
-        KitSound.sweep()
-        detail = TeamDetailPanel(this, team, career, season, onEdit = { game.go(Game.Place.Team(editing = true)) },
-            onClose = { closeDetail() })
-    }
-
-    private fun closeDetail() {
-        detail?.leave()
-        detail = null
-    }
-
     private fun switchTo(cup: Boolean) {
         if (cup == showingCup) return
         showingCup = cup
@@ -231,8 +211,7 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
     }
 
     override fun leave() {
-        for (p in (detail?.parts ?: emptyList()) + tableParts + cupParts) p.hide(0.0)
-        detail = null
+        for (p in tableParts + cupParts) p.hide(0.0)
         super.leave()
     }
 

@@ -37,6 +37,9 @@ final class UIStage {
     private var semantic: [Semantic] = []
     private var interactive: [Interactive] = []
     private var active: Interactive?
+    /// A card standing in front of the screen (§16.6): while one is up, only what hangs under it
+    /// takes fingers or reaches VoiceOver. Everything behind is inert, not merely disabled.
+    private var modalRoot: Entity?
     private var timers: [(at: Double, run: () -> Void)] = []
 
     init(pose: CameraPose, viewSize: CGSize, insets: UIEdgeInsets, motion: MotionTokens) {
@@ -50,6 +53,24 @@ final class UIStage {
     }
 
     func resize(_ size: CGSize) { viewSize = size }
+
+    /// Puts a card in front of everything: nothing outside `root` is touchable or findable until
+    /// this is called again with nil. A finger held on something behind is let go without firing.
+    func setModal(_ root: Entity?) {
+        modalRoot = root
+        if let a = active, !reachable(a.entity) { active = nil }
+    }
+
+    /// Whether `e` is reachable at all — always, unless a card stands in front of it.
+    private func reachable(_ e: Entity) -> Bool {
+        guard let root = modalRoot else { return true }
+        var node: Entity? = e
+        while let n = node {
+            if n === root { return true }
+            node = n.parent
+        }
+        return false
+    }
 
     /// A world-standing frame for a screen seen from `pose`.
     func frame(at pose: CameraPose) -> ScreenFrame {
@@ -115,6 +136,7 @@ final class UIStage {
         semantic.removeAll { inside($0.entity) }
         interactive.removeAll { inside($0.entity) }
         if let a = active, inside(a.entity) { active = nil }
+        if let m = modalRoot, inside(m) { modalRoot = nil }
         root.removeFromParent()
     }
 
@@ -134,7 +156,7 @@ final class UIStage {
     /// they can say no.
     private func pick(_ ray: TouchRay) -> Interactive? {
         var best: (Interactive, Float)?
-        for i in interactive where i.isPresent && i.takesTouches {
+        for i in interactive where i.isPresent && i.takesTouches && reachable(i.entity) {
             let local = ray.local(to: i.boundsEntity)
             guard let t = local.hit(i.bounds) else { continue }
             // Compare in world distance: local t is scaled by the node's scale.
@@ -158,11 +180,11 @@ final class UIStage {
 
     /// VoiceOver's activation of node `id` — the same action a tap fires.
     func activate(_ id: String) {
-        interactive.first { $0.semantics.id == id && $0.isPresent }?.activate()
+        interactive.first { $0.semantics.id == id && $0.isPresent && reachable($0.entity) }?.activate()
     }
 
     func adjust(_ id: String, by steps: Int) {
-        interactive.first { $0.semantics.id == id && $0.isPresent }?.adjust(by: steps)
+        interactive.first { $0.semantics.id == id && $0.isPresent && reachable($0.entity) }?.adjust(by: steps)
     }
 
     /// Projects every present semantic node's box to the screen: the overlay is output, like pixels.
@@ -171,7 +193,7 @@ final class UIStage {
         let aspect = Float(viewSize.width / max(viewSize.height, 1))
         let t = tan(rig.fovDegrees / 2 * .pi / 180)
         var nodes: [A11yNode] = []
-        for s in semantic where s.isPresent {
+        for s in semantic where s.isPresent && reachable(s.entity) {
             let b = s.bounds
             let toView = view * s.boundsEntity.transformMatrix(relativeTo: nil)
             var minX = CGFloat.greatestFiniteMagnitude, minY = CGFloat.greatestFiniteMagnitude

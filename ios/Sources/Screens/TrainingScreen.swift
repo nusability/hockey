@@ -10,6 +10,9 @@ final class TrainingScreen: Screen {
     private var introParts: [Presentable] = []
     private var cards: [Tile] = []
     private var intro: Drill?
+    /// The screen's own way back — it leaves while an intro card stands, so there is never a
+    /// second Back on screen (§16.6).
+    private var back: BlockButton!
 
     init(game: Game, intro: Drill?) {
         super.init(pose: CameraPose(Presentation.Screens.Training.eye, Presentation.Screens.Training.target), game: game)
@@ -27,8 +30,9 @@ final class TrainingScreen: Screen {
             let y = contentTop - pitch * (Float(i / 2) + 0.5)
             cards.append(part(card(drill, height: pitch - 0.05, save: save), at: at(x, y)))
         }
-        part(BlockButton(L(.commonBack), id: "training_back_button", style: .quiet, size: [0.8, 0.3], textHeight: 0.09,
-                         motion: m) { [weak game] in game.map { $0.go($0.home) } }, at: at(0, bottom + 0.3))
+        back = part(BlockButton(L(.commonBack), id: "training_back_button", style: .quiet, size: [0.8, 0.3],
+                                textHeight: 0.09, motion: m) { [weak game] in game.map { $0.go($0.home) } },
+                    at: at(0, bottom + 0.3))
         if let intro, save.isOpen(intro) {
             stage.after(0.9) { [weak self] in self?.open(intro) }
         }
@@ -69,7 +73,9 @@ final class TrainingScreen: Screen {
         return t
     }
 
-    /// The intro card (§16.4, §16.6): the drill's name, its hint, and Start.
+    /// The intro card (§16.4, §16.6): the drill's name, its hint, and Start. It stands in front of
+    /// the screen as a card: the cards behind take no taps and are out of VoiceOver's reach, and
+    /// the screen's own Back steps aside so only the card's controls are on screen.
     private func open(_ d: Drill) {
         guard game.save.isOpen(d) else { return }
         closeIntro()
@@ -78,37 +84,62 @@ final class TrainingScreen: Screen {
             c.isSelected = Drill.allCases[i] == d
             c.isEnabled = false                     // the intro stands in front: the cards behind take no taps
         }
+        back.hide(after: 0)
         KitSound.sweep()
         let m = motion
-        let panel = child(Panel(size: [1.62, 1.5, 0.14], colour: C.paper, entrance: .tumble, motion: m), at: at(0, 0.05, z: 0.5),
-                          on: layer)
+        let width = 1.62
+        let room = CardLayout.inner(width: width)
+        // The card is measured before it is built, so a long hint makes it taller rather than
+        // letting the keys land on the words (§16.6).
+        let number = L(.trainingDrill, d.number)
+        let name = L(d.nameKey).uppercased()
+        let goals = L(.trainingGoalsIn, d.goals, Int(d.seconds))
+        let hint = Paragraph(L(d.hintKey), height: 0.058, colour: C.ink, width: Float(room), id: "training_hint",
+                             motion: m)
+        let card = CardLayout(width: width,
+                              blocks: [CardLayout.blockHeight(number, height: 0.05, room: room),
+                                       CardLayout.blockHeight(name, height: 0.11, room: room),
+                                       CardLayout.blockHeight(goals, height: 0.05, room: room),
+                                       Double(hint.blockHeight)],
+                              buttons: [CardLayout.Button(text: L(.commonBack), textHeight: 0.08, minWidth: 0.5,
+                                                          minHeight: 0.3),
+                                        CardLayout.Button(text: L(.trainingStart), textHeight: 0.13, minWidth: 0.7,
+                                                          minHeight: 0.36)])
+        let panel = child(Panel(size: [Float(card.width), Float(card.height), 0.14], colour: C.paper, entrance: .tumble,
+                                motion: m),
+                          at: at(0, (top + bottom) / 2, z: 0.5), on: layer)
         var parts: [Presentable] = [panel]
-        child(Label3D(L(.trainingDrill, d.number), height: 0.05, colour: C.greenInk, motion: m), at: at(0, 0.6), on: panel.content)
-            .show(after: 0)
-        child(Label3D(L(d.nameKey).uppercased(), height: 0.11, colour: C.ink, maxWidth: 1.45, motion: m), at: at(0, 0.45),
-              on: panel.content).show(after: 0)
-        child(Label3D(L(.trainingGoalsIn, d.goals, Int(d.seconds)), height: 0.05, colour: C.pinkInk, maxWidth: 1.4, motion: m),
-              at: at(0, 0.31), on: panel.content).show(after: 0)
-        let hint = child(Paragraph(L(d.hintKey), height: 0.058, colour: C.ink, width: 1.4, id: "training_hint", motion: m),
-                         at: at(0, -0.02), on: panel.content)
-        hint.show(after: 0)
-        let start = child(BlockButton(L(.trainingStart), id: "training_start_button", style: .primary, size: [0.8, 0.32],
-                                      textHeight: 0.13, motion: m) { [weak game] in game?.play(.drill(d)) },
-                          at: at(0.33, -0.52), on: panel.content)
+        child(Label3D(number, height: 0.05, colour: C.greenInk, maxWidth: Float(room), motion: m),
+              at: at(0, Float(card.blocks[0].centreY)), on: panel.content).show(after: 0)
+        child(Label3D(name, height: 0.11, colour: C.ink, maxWidth: Float(room), motion: m),
+              at: at(0, Float(card.blocks[1].centreY)), on: panel.content).show(after: 0)
+        child(Label3D(goals, height: 0.05, colour: C.pinkInk, maxWidth: Float(room), motion: m),
+              at: at(0, Float(card.blocks[2].centreY)), on: panel.content).show(after: 0)
+        child(hint, at: at(0, Float(card.blocks[3].centreY)), on: panel.content).show(after: 0)
+        let startBox = card.buttons[1]
+        let start = child(BlockButton(L(.trainingStart), id: "training_start_button", style: .primary,
+                                      size: [Float(startBox.width), Float(startBox.height)], textHeight: 0.13,
+                                      motion: m) { [weak game] in game?.play(.drill(d)) },
+                          at: at(Float(startBox.centreX), Float(startBox.centreY)), on: panel.content)
         start.bobs = true
-        let close = child(BlockButton(L(.commonBack), id: "training_close_button", style: .quiet, size: [0.56, 0.28],
-                                      textHeight: 0.08, motion: m) { [weak self] in self?.closeIntro() },
-                          at: at(-0.46, -0.52), on: panel.content)
+        let closeBox = card.buttons[0]
+        let close = child(BlockButton(L(.commonBack), id: "training_close_button", style: .quiet,
+                                      size: [Float(closeBox.width), Float(closeBox.height)], textHeight: 0.08,
+                                      motion: m) { [weak self] in self?.closeIntro() },
+                          at: at(Float(closeBox.centreX), Float(closeBox.centreY)), on: panel.content)
         parts += [start, close]
         for (i, p) in parts.enumerated() { p.show(after: Double(i) * motion.staggerSeconds * 3) }
         introParts = parts
+        stage.setModal(panel.entity)
     }
 
     private func closeIntro() {
         guard !introParts.isEmpty, let panel = introParts.first as? Panel else { return }
+        stage.setModal(nil)
         for p in introParts.reversed() { p.hide(after: 0) }
         introParts = []
         intro = nil
+        back.show(after: 0.2)
         for (i, c) in cards.enumerated() {
             c.isSelected = false
             c.isEnabled = game.save.isOpen(Drill.allCases[i])
@@ -117,6 +148,7 @@ final class TrainingScreen: Screen {
     }
 
     override func leave() {
+        stage.setModal(nil)
         for p in introParts { p.hide(after: 0) }
         super.leave()
     }

@@ -46,6 +46,11 @@ class UIStage(
     private val semantic = ArrayList<Semantic>()
     private val interactive = ArrayList<Interactive>()
     private var active: Interactive? = null
+    /**
+     * A card standing in front of the screen (§16.6): while one is up, only what hangs under it
+     * takes fingers or reaches TalkBack. Everything behind is inert, not merely disabled.
+     */
+    private var modalRoot: UiNode? = null
 
     private class Timer(val at: Double, val run: () -> Unit)
     private val timers = ArrayList<Timer>()
@@ -60,6 +65,23 @@ class UIStage(
     }
 
     fun resize(w: Int, h: Int) { viewW = w; viewH = h }
+
+    /**
+     * Puts a card in front of everything: nothing outside [root] is touchable or findable until
+     * this is called again with null. A finger held on something behind is let go without firing.
+     */
+    fun setModal(root: UiNode?) {
+        modalRoot = root
+        active?.let { if (!reachable(it.node)) active = null }
+    }
+
+    /** Whether [n] is reachable at all — always, unless a card stands in front of it. */
+    private fun reachable(n: UiNode): Boolean {
+        val root = modalRoot ?: return true
+        var p: UiNode? = n
+        while (p != null) { if (p === root) return true; p = p.parentNode }
+        return false
+    }
 
     /** A world-standing frame for a screen seen from [pose]. */
     fun frame(pose: CameraPose): ScreenFrame {
@@ -126,6 +148,7 @@ class UIStage(
         semantic.removeAll { inside(it.node) }
         interactive.removeAll { inside(it.node) }
         active?.let { if (inside(it.node)) active = null }
+        modalRoot?.let { if (inside(it)) modalRoot = null }
         kit.destroy(root)
     }
 
@@ -147,7 +170,7 @@ class UIStage(
         var bestDistance = Float.MAX_VALUE
         for (i in 0 until interactive.size) {
             val e = interactive[i]
-            if (!e.isPresent || !e.takesTouches) continue
+            if (!e.isPresent || !e.takesTouches || !reachable(e.node)) continue
             val local = ray.local(e.boundsNode)
             val t = local.hit(e.bounds) ?: continue
             // Compare in world distance: local t is scaled by the node's scale.
@@ -181,7 +204,10 @@ class UIStage(
     fun adjust(id: String, steps: Int) { find(id)?.adjust(steps) }
 
     private fun find(id: String): Interactive? {
-        for (i in 0 until interactive.size) if (interactive[i].semantics.id == id && interactive[i].isPresent) return interactive[i]
+        for (i in 0 until interactive.size) {
+            val e = interactive[i]
+            if (e.semantics.id == id && e.isPresent && reachable(e.node)) return e
+        }
         return null
     }
 
@@ -202,7 +228,7 @@ class UIStage(
         var count = 0
         for (i in 0 until semantic.size) {
             val s = semantic[i]
-            if (!s.isPresent || count == found.size) continue
+            if (!s.isPresent || !reachable(s.node) || count == found.size) continue
             val b = s.bounds
             android.opengl.Matrix.multiplyMM(toView, 0, view, 0, s.boundsNode.worldMatrix(), 0)
             var minX = Float.MAX_VALUE; var minY = Float.MAX_VALUE; var maxX = -Float.MAX_VALUE; var maxY = -Float.MAX_VALUE

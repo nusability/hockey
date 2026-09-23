@@ -373,6 +373,10 @@ target = [4.0, 2.0, -6.0]
 eye = [-19.0, 10.0, -14.0]
 target = [2.0, 3.0, 8.0]
 
+[screens.detail]           # a team's detail, its own screen off the hub (§16.3a)
+eye = [-22.0, 8.0, 2.0]
+target = [-2.0, 3.0, -6.0]
+
 [screens.training]
 eye = [18.0, 7.0, 14.0]
 target = [-4.0, 2.0, -4.0]

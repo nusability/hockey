@@ -269,6 +269,10 @@ enum Presentation {
             static let eye: [Double] = [-19.0, 10.0, -14.0]
             static let target: [Double] = [2.0, 3.0, 8.0]
         }
+        enum Detail {
+            static let eye: [Double] = [-22.0, 8.0, 2.0]
+            static let target: [Double] = [-2.0, 3.0, -6.0]
+        }
         enum Training {
             static let eye: [Double] = [18.0, 7.0, 14.0]
             static let target: [Double] = [-4.0, 2.0, -4.0]

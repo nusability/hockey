@@ -14,8 +14,6 @@ final class HubScreen: Screen {
     private var cupTab: Tile!
     private var showingCup = false
     private var card: Panel!
-    /// The team detail standing in front of the table (§16.3a); nothing behind it takes a tap.
-    private var detail: TeamDetailPanel?
 
     init(game: Game) {
         super.init(pose: CameraPose(Presentation.Screens.Hub.eye, Presentation.Screens.Hub.target), game: game)
@@ -145,8 +143,8 @@ final class HubScreen: Screen {
                                      colour: mine ? C.rowHighlight : (start % 2 == 0 ? C.rowLight : C.rowDark),
                                      kit: .init(primary: Int(kit.primary), secondary: Int(kit.secondary)),
                                      y: rowY[start], entrance: .slide(fromLeft: i % 2 == 0), motion: motion,
-                                     hint: "\(Names.team(r.team, career)), \(L(.detailOpen))") { [weak self] in
-                                         self?.openDetail(r.team)
+                                     hint: "\(Names.team(r.team, career)), \(L(.detailOpen))") { [weak game] in
+                                         game?.go(.detail(r.team))
                                      },
                             at: at(0, rowY[start]), on: layer)
             tableParts.append(row)
@@ -195,24 +193,6 @@ final class HubScreen: Screen {
         }
     }
 
-    // MARK: the team detail (§16.3a)
-
-    /// Tapping a row tips its team's detail up in front of the table; the rows behind take no taps.
-    private func openDetail(_ team: TeamKey) {
-        guard detail == nil, let career = game.save.career, let season = game.save.season else { return }
-        KitSound.sweep()
-        detail = TeamDetailPanel(screen: self, team: team, career: career, season: season) { [weak game] in
-            game?.go(.team(editing: true))
-        } onClose: { [weak self] in
-            self?.closeDetail()
-        }
-    }
-
-    private func closeDetail() {
-        detail?.leave()
-        detail = nil
-    }
-
     private func switchTo(cup: Bool) {
         guard cup != showingCup else { return }
         showingCup = cup
@@ -230,8 +210,7 @@ final class HubScreen: Screen {
     }
 
     override func leave() {
-        for p in (detail?.parts ?? []) + tableParts + cupParts { p.hide(after: 0) }
-        detail = nil
+        for p in tableParts + cupParts { p.hide(after: 0) }
         super.leave()
     }
 }

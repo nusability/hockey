@@ -1,5 +1,6 @@
 package `in`.nann.smashhockey.screens
 
+import `in`.nann.smashhockey.core.feel.CardLayout
 import `in`.nann.smashhockey.core.generated.CopyKey
 import `in`.nann.smashhockey.core.generated.Drill
 import `in`.nann.smashhockey.core.generated.Role
@@ -32,6 +33,11 @@ class TrainingScreen(game: Game, intro: Drill?) :
     Screen(Game.pose(Presentation.Screens.Training.eye, Presentation.Screens.Training.target), game) {
     private var introParts: List<Presentable> = emptyList()
     private val cards = ArrayList<Tile>()
+    /**
+     * The screen's own way back — it leaves while an intro card stands, so there is never a
+     * second Back on screen (§16.6).
+     */
+    private val back: BlockButton
 
     init {
         val save = game.save
@@ -47,7 +53,7 @@ class TrainingScreen(game: Game, intro: Drill?) :
             val y = contentTop - pitch * (i / 2 + 0.5f)
             cards += part(card(drill, pitch - 0.05f, save), at(x, y))
         }
-        part(BlockButton(kit, L(CopyKey.COMMON_BACK), "training_back_button", BlockButton.Style.QUIET, 0.8f, 0.3f, 0.09f) {
+        back = part(BlockButton(kit, L(CopyKey.COMMON_BACK), "training_back_button", BlockButton.Style.QUIET, 0.8f, 0.3f, 0.09f) {
             game.go(game.home)
         }, at(0f, bottom + 0.3f))
         if (intro != null && save.isOpen(intro)) stage.after(0.9) { open(intro) }
@@ -77,41 +83,68 @@ class TrainingScreen(game: Game, intro: Drill?) :
         return t
     }
 
-    /** The intro card (§16.4, §16.6): the drill's name, its hint, and Start. */
+    /**
+     * The intro card (§16.4, §16.6): the drill's name, its hint, and Start. It stands in front of
+     * the screen as a card: the cards behind take no taps and are out of TalkBack's reach, and the
+     * screen's own Back steps aside so only the card's controls are on screen.
+     */
     private fun open(d: Drill) {
         if (!game.save.isOpen(d)) return
         closeIntro()
         for ((i, c) in cards.withIndex()) c.isSelected = Drill.entries[i] == d
         cards.forEach { it.isEnabled = false }      // the cards behind the intro take no taps (§16.6)
-        val panel = child(Panel(kit, 1.62f, 1.5f, 0.14f, C.PAPER, Entrance.Tumble), at(0f, 0.05f, z = 0.5f), layer)
-        child(Label3D(kit, L(CopyKey.TRAINING_DRILL, d.number), 0.05f, C.GREEN_INK), at(0f, 0.6f), panel.content).show(0.0)
-        child(Label3D(kit, L(d.nameKey).uppercase(), 0.11f, C.INK, maxWidth = 1.45f), at(0f, 0.45f), panel.content).show(0.0)
-        child(Label3D(kit, L(CopyKey.TRAINING_GOALS_IN, d.goals, d.seconds.toInt()), 0.05f, C.PINK_INK, maxWidth = 1.4f),
-            at(0f, 0.31f), panel.content).show(0.0)
-        child(Paragraph(kit, L(d.hintKey), 0.058f, C.INK, 1.4f, id = "training_hint"), at(0f, -0.02f), panel.content).show(0.0)
-        val start = child(BlockButton(kit, L(CopyKey.TRAINING_START), "training_start_button", BlockButton.Style.PRIMARY, 0.8f, 0.32f, 0.13f) {
-            game.play(MatchPlan.Practice(d))
-        }, at(0.33f, -0.52f), panel.content)
+        back.hide(0.0)
+        val width = 1.62
+        val room = CardLayout.inner(width)
+        // The card is measured before it is built, so a long hint makes it taller rather than
+        // letting the keys land on the words (§16.6).
+        val number = L(CopyKey.TRAINING_DRILL, d.number)
+        val name = L(d.nameKey).uppercase()
+        val goals = L(CopyKey.TRAINING_GOALS_IN, d.goals, d.seconds.toInt())
+        val hint = Paragraph(kit, L(d.hintKey), 0.058f, C.INK, room.toFloat(), id = "training_hint")
+        val card = CardLayout(width,
+            listOf(CardLayout.blockHeight(number, 0.05, room), CardLayout.blockHeight(name, 0.11, room),
+                CardLayout.blockHeight(goals, 0.05, room), hint.blockHeight.toDouble()),
+            listOf(CardLayout.Button(L(CopyKey.COMMON_BACK), 0.08, 0.5, 0.3),
+                CardLayout.Button(L(CopyKey.TRAINING_START), 0.13, 0.7, 0.36)))
+        val panel = child(Panel(kit, card.width.toFloat(), card.height.toFloat(), 0.14f, C.PAPER, Entrance.Tumble),
+            at(0f, (top + bottom) / 2, z = 0.5f), layer)
+        child(Label3D(kit, number, 0.05f, C.GREEN_INK, maxWidth = room.toFloat()),
+            at(0f, card.blocks[0].centreY.toFloat()), panel.content).show(0.0)
+        child(Label3D(kit, name, 0.11f, C.INK, maxWidth = room.toFloat()),
+            at(0f, card.blocks[1].centreY.toFloat()), panel.content).show(0.0)
+        child(Label3D(kit, goals, 0.05f, C.PINK_INK, maxWidth = room.toFloat()),
+            at(0f, card.blocks[2].centreY.toFloat()), panel.content).show(0.0)
+        child(hint, at(0f, card.blocks[3].centreY.toFloat()), panel.content).show(0.0)
+        val startBox = card.buttons[1]
+        val start = child(BlockButton(kit, L(CopyKey.TRAINING_START), "training_start_button", BlockButton.Style.PRIMARY,
+            startBox.width.toFloat(), startBox.height.toFloat(), 0.13f) { game.play(MatchPlan.Practice(d)) },
+            at(startBox.centreX.toFloat(), startBox.centreY.toFloat()), panel.content)
         start.bobs = true
-        val close = child(BlockButton(kit, L(CopyKey.COMMON_BACK), "training_close_button", BlockButton.Style.QUIET, 0.56f, 0.28f, 0.08f) {
-            closeIntro()
-        }, at(-0.46f, -0.52f), panel.content)
+        val closeBox = card.buttons[0]
+        val close = child(BlockButton(kit, L(CopyKey.COMMON_BACK), "training_close_button", BlockButton.Style.QUIET,
+            closeBox.width.toFloat(), closeBox.height.toFloat(), 0.08f) { closeIntro() },
+            at(closeBox.centreX.toFloat(), closeBox.centreY.toFloat()), panel.content)
         val parts = listOf(panel, start, close)
         KitSound.sweep()
         for ((i, p) in parts.withIndex()) p.show(i * motion.staggerSeconds * 3)
         introParts = parts
+        stage.setModal(panel.node)
     }
 
     private fun closeIntro() {
         val panel = introParts.firstOrNull() as? Panel ?: return
+        stage.setModal(null)
         for (p in introParts.asReversed()) p.hide(0.0)
         introParts = emptyList()
+        back.show(0.2)
         for (c in cards) c.isSelected = false
         for ((i, c) in cards.withIndex()) c.isEnabled = game.save.isOpen(Drill.entries[i])
         stage.after(0.9) { stage.remove(panel.node) }
     }
 
     override fun leave() {
+        stage.setModal(null)
         for (p in introParts) p.hide(0.0)
         super.leave()
     }

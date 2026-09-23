@@ -1211,13 +1211,15 @@ coach's board; there is no other settings screen.
 - **Next fixture:** both teams' kits, **both clubs' full names** under their codes, league round or
   cup round, the world it is played in, and **Play**, which starts the match in one tap (A2).
 - **League table** (§11.4), the player's row marked; **the cup** bracket with results so far. A
-  table row is tappable and opens its team's detail (§16.3a).
+  table row is tappable and goes to its team's detail screen (§16.3a).
 - **Season over:** champion, cup winner, the player's place and trophies, and **Next season**.
 
 #### 16.3a The team detail
-Tapping a row of the league table tips a panel up in front of it, the way a drill's intro card
-does (§16.6), and **Back** dismisses it the same way; while it stands, the rows behind it take no
-taps. It is about the row's team and shows, read off the season's fixtures (§15):
+Tapping a row of the league table **goes to a screen of its own**: the hub's title, fixture card,
+table, tabs and buttons leave the way any screen's parts leave, the camera swoops to the detail's
+own place, and **Back** swoops back to the hub. Nothing of the hub stands behind it — there is one
+screen's worth of controls on screen at any moment, and never two **Back**s. It is about the row's
+team and shows, read off the season's fixtures (§15):
 
 - the team's **full name** beside its kit and short code — the player's own in the accent colour;
 - where it stands: its **place** in the table and its **points**;
@@ -1232,6 +1234,13 @@ taps. It is about the row's team and shows, read off the season's fixtures (§15
 
 The panel is the same for every team, and **the player's own team gets one thing more**: the way
 to change its name, code, kit and home world (§16.1).
+
+**The panel holds its own buttons.** Its controls stand *inside* its width and *below* its last
+line, in a row of their own; a button is as wide as its own caption needs and the row is squeezed
+to the panel's inner width before it is placed, so a long German caption can never stick out past
+an edge. The panel's **height follows its content**: a club name or a next fixture that wraps to
+two lines (§16) makes the panel taller rather than pushing the buttons over the words. The same
+rule holds for every card a screen puts in front of itself (§16.6).
 
 Played, won, drawn, lost, the last three and the next fixture are **one computation in the core**,
 the same on both platforms, from the season record alone — no screen counts them itself.
@@ -1285,8 +1294,15 @@ when won; back to the title (quick match).
 
 #### 16.6 Training
 The eight drills as cards in order: name, world, goals/time, what opposes (none, goalie, dummies,
-defenders), won or locked (§10). A locked card does not start. Choosing an open one shows its
-intro (the hint) and **Start**; while the intro stands, the cards behind it take no taps.
+defenders), won or locked (§10). A locked card does not start. Choosing an open one tips its
+intro card up — the hint — with **Start**.
+
+**A card in front of a screen is a layer, not a decoration.** While the intro stands, everything
+behind it is **inert**: the drill cards take no taps *and* are out of VoiceOver's and TalkBack's
+reach, and the screen's own **Back** steps aside for the card's own — so only one screen's worth
+of controls is on screen. Dismissing the card brings the screen's controls back. The card holds
+its buttons inside its own width and below its content, and grows in height to hold a long hint
+(§16.3a).
 
 #### 16.7 The coach's board
 Sliders for pressing, covering, push up and discipline (§12), the five formations as a picker

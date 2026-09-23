@@ -270,6 +270,10 @@ object Presentation {
             val eye: List<Double> = listOf(-19.0, 10.0, -14.0)
             val target: List<Double> = listOf(2.0, 3.0, 8.0)
         }
+        object Detail {
+            val eye: List<Double> = listOf(-22.0, 8.0, 2.0)
+            val target: List<Double> = listOf(-2.0, 3.0, -6.0)
+        }
         object Training {
             val eye: List<Double> = listOf(18.0, 7.0, 14.0)
             val target: List<Double> = listOf(-4.0, 2.0, -4.0)

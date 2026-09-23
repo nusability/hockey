@@ -19,6 +19,8 @@ final class Game {
         case team(editing: Bool)
         case title
         case hub
+        /// A team's detail off the league table — its own screen (§16.3a).
+        case detail(TeamKey)
         case training(intro: Drill?)
         case coach
         case help
@@ -134,6 +136,7 @@ final class Game {
         case .team(let editing): TeamScreen(game: self, editing: editing)
         case .title: TitleScreen(game: self)
         case .hub: HubScreen(game: self)
+        case .detail(let team): DetailScreen(game: self, team: team)
         case .training(let intro): TrainingScreen(game: self, intro: intro)
         case .coach: CoachScreen(game: self)
         case .help: HelpScreen(game: self)

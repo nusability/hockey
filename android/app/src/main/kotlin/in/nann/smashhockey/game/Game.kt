@@ -40,6 +40,7 @@ import `in`.nann.smashhockey.generated.Presentation
 import `in`.nann.smashhockey.generated.look
 import `in`.nann.smashhockey.scene.TeamColours
 import `in`.nann.smashhockey.screens.CoachScreen
+import `in`.nann.smashhockey.screens.DetailScreen
 import `in`.nann.smashhockey.screens.HelpScreen
 import `in`.nann.smashhockey.screens.HubScreen
 import `in`.nann.smashhockey.screens.MatchHud
@@ -56,6 +57,7 @@ import `in`.nann.smashhockey.ui.KitSound
 import `in`.nann.smashhockey.ui.Motion
 import `in`.nann.smashhockey.ui.UIStage
 import `in`.nann.smashhockey.core.generated.Drill
+import `in`.nann.smashhockey.core.generated.TeamKey
 
 /**
  * The whole game on one stage (spec §15, §16) — the twin of iOS's Game.swift: one Filament scene
@@ -75,6 +77,8 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         data class Team(val editing: Boolean = false) : Place
         data object Title : Place
         data object Hub : Place
+        /** A team's detail off the league table — its own screen (§16.3a). */
+        data class Detail(val team: TeamKey) : Place
         data class Training(val intro: Drill?) : Place
         data object Coach : Place
         data object Help : Place
@@ -177,6 +181,7 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
             is Place.Team -> TeamScreen(this, next.editing)
             Place.Title -> TitleScreen(this)
             Place.Hub -> HubScreen(this)
+            is Place.Detail -> DetailScreen(this, next.team)
             is Place.Training -> TrainingScreen(this, next.intro)
             Place.Coach -> CoachScreen(this)
             Place.Help -> HelpScreen(this)

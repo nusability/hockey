@@ -153,8 +153,12 @@ final class Pitch {
             phase = min(max(phase + real * scale / Tuning.Time.tickSeconds - Double(ran), 0), 0.999)
             if ran > 0 {
                 latency.ticked(now: CACurrentMediaTime())
+                let was = snapshot.ball                  // where the ball stood before these ticks
                 snapshot = match!.snapshot
                 self.snapshot = snapshot
+                nets.ballMoved(x: was.x, z: was.z, vx: was.vx, vz: was.vz,
+                               seconds: Double(ran) * Tuning.Time.tickSeconds,
+                               ballY: ballHeight(snapshot.ball.radius), radius: snapshot.ball.radius)
                 let events = match!.drainEvents()
                 for e in events { handle(e, snapshot) }
                 for c in cues.frame(snapshot) { perform(c) }
@@ -174,6 +178,12 @@ final class Pitch {
         return (CameraPose(eye: SIMD3<Float>(p.eye), target: SIMD3<Float>(p.target)), Float(p.fov))
     }
 
+    /// The height the ball's centre is drawn at (`Actors`): a puck lies flat on the ice, a field ball
+    /// stands on its own radius. It is the height the net's cloth is struck at (§8.8).
+    private func ballHeight(_ radius: Double) -> Double {
+        kickoff?.world.sport == .ice ? 0 : radius
+    }
+
     private func input(_ match: Match, _ s: MatchSnapshot) -> DirectorInput {
         let b = s.ball
         return DirectorInput(state: match.state, shotAboutToScore: match.shotAboutToScore,
@@ -181,8 +191,8 @@ final class Pitch {
                              ballVelocity: SIMD2(b.vx, b.vz), carrierTeam: b.carrier.map { s.players[$0].team })
     }
 
-    /// The camera, the confetti, the net and the celebration react, then what the event sets off
-    /// (§8.8); then the game hears of it.
+    /// The camera, the confetti and the celebration react, then what the event sets off (§8.8); then
+    /// the game hears of it. The nets are not here: they answer the ball's own contact, every frame.
     private func handle(_ e: MatchEvent, _ s: MatchSnapshot) {
         let match = self.match!
         switch e {
@@ -190,7 +200,6 @@ final class Pitch {
             let goalZ = (team == 0 ? 1.0 : -1.0) * Tuning.Pitch.goalLineZ
             director.goalScored(goalZ: goalZ, ballX: s.ball.x, lastShotDistance: match.lastShotDistance)
             if let colours = kickoff?.colours[team] { try? confetti?.burst(goalZ: Float(goalZ), colours: colours) }
-            nets.goal(goalZ: goalZ, x: s.ball.x)
             celebrating = team
             log.info("goal team \(team) own \(ownGoal) score \(s.score[0])-\(s.score[1])")
         case .end(let result):

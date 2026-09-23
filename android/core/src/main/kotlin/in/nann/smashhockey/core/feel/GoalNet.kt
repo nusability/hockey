@@ -2,6 +2,7 @@ package `in`.nann.smashhockey.core.feel
 
 import `in`.nann.smashhockey.core.generated.Tuning
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
@@ -9,8 +10,8 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * The goal nets (spec §8.8): their shape, their cloth sway, a goal's ripple — and the box that holds
- * every vertex an app can ever write for them.
+ * The goal nets (spec §8.8): their shape, their cloth sway, the ripple the ball knocks into them —
+ * and the box that holds every vertex an app can ever write for them.
  *
  * The net is the **apps'** (ADR 0008): a world's asset carries the goal frame — the two posts and the
  * crossbar — and nothing else, so that the whole net moves rather than a faint film swaying behind
@@ -35,19 +36,31 @@ object GoalNet {
         val swaySeconds: Double,
         val wave: Double,
         val calm: Double,
-        /** A goal's ripple: amplitude, decay, frequency, wave number, reach and how long it runs. */
+        /**
+         * A contact's ripple: the dent a ball at full speed makes, its decay, its frequency, its
+         * wave number, how far it reaches from the contact and how long it runs.
+         */
         val ripple: Double,
         val decay: Double,
         val frequency: Double,
         val k: Double,
         val reach: Double,
         val seconds: Double,
+        /**
+         * The speed **into** a sheet that dents it the full [ripple], and the least speed the cloth
+         * answers at all — below it the ball is leaning on the net, not striking it.
+         */
+        val hitSpeed: Double,
+        val hitLeast: Double,
     )
 
     /** A point in the game's frame (metres): x across, y up, z along. */
     data class Point(val x: Double, val y: Double, val z: Double) {
         operator fun plus(b: Point) = Point(x + b.x, y + b.y, z + b.z)
+        operator fun minus(b: Point) = Point(x - b.x, y - b.y, z - b.z)
         operator fun times(s: Double) = Point(x * s, y * s, z * s)
+        fun dot(b: Point): Double = x * b.x + y * b.y + z * b.z
+        val length: Double get() = sqrt(dot(this))
     }
 
     /**
@@ -112,12 +125,98 @@ object GoalNet {
         return out
     }
 
+    // ---- what the ball does to the cloth
+
+    /**
+     * The ball meeting a net: which [goal] (0 is the −z end, 1 the +z end), which of that goal's
+     * [sheets] it struck, where on it, how fast it was going **into** the sheet, and what share of a
+     * full-speed dent that is.
+     */
+    data class Touch(
+        val goal: Int,
+        val sheet: Int,
+        val point: Point,
+        val speed: Double,
+        val strength: Double,
+    )
+
+    /**
+     * Where the ball meets the cloth over one frame of the match: its place and velocity at the
+     * frame's start, and how many **match** [seconds] the frame ran for.
+     *
+     * §6.2 resolves the collision itself — the net is solid, the ball is pushed out and bounced —
+     * and does it per tick, twice a frame, so by the time an app reads the snapshot the ball has
+     * already left the cloth. So this sweeps the ball along the path it *would* have taken had
+     * nothing stopped it and asks where that path first reaches a sheet: the same answer the physics
+     * gave, a frame later and in the app's own hands. It answers on the **rising edge** — the frame
+     * the path first reaches a sheet the ball was not already standing on — so a shot into the side
+     * netting, a rebound off the back from inside and a goal are each one contact, and a ball leaning
+     * on the net is none. [ballY] is the height the app draws the ball's centre at; a ball on the ice
+     * can only ever reach the back and the sides, and the roof is written the same way for the day it
+     * can. Null when the ball misses, or when it is only brushing the net slower than `hitLeast`.
+     */
+    @Suppress("LongParameterList", "ReturnCount", "NestedBlockDepth")
+    fun touch(
+        x: Double,
+        z: Double,
+        vx: Double,
+        vz: Double,
+        seconds: Double,
+        ballY: Double,
+        radius: Double,
+        p: Params,
+    ): Touch? {
+        if (seconds <= 0) return null
+        // The net's cloth is drawn on the goal frame's own lines, while §6.2 holds the ball off a box
+        // `netFrameMargin` outside it — so a ball resting against the net sits that much proud of its
+        // sheet. The band a ball counts as touching a sheet in is that gap on the outside and its own
+        // radius on the inside.
+        val slack = radius + Tuning.Pitch.netFrameMargin
+        val from = Point(x, ballY, z)
+        val free = Point(x + vx * seconds, ballY, z + vz * seconds)
+        var bestWhen = Double.POSITIVE_INFINITY
+        var best: Touch? = null
+        for ((goal, sign) in listOf(-1.0, 1.0).withIndex()) {
+            if (max(sign * z, sign * free.z) <= Tuning.Pitch.goalLineZ - slack) continue
+            for ((index, sheet) in sheets(sign, p).withIndex()) {
+                val s0 = (from - sheet.origin).dot(sheet.normal)
+                val s1 = (free - sheet.origin).dot(sheet.normal)
+                if (s0 >= -radius && s0 <= slack) continue        // already on this sheet
+                if (min(s0, s1) > slack || max(s0, s1) < -radius) continue
+                // Where along the path the ball's surface first meets the sheet: from outside that is
+                // the band's outer edge, from inside it is its inner one.
+                val edge = if (s1 < s0) slack else -radius
+                val when0 = if (s1 == s0) 0.0 else min(max((edge - s0) / (s1 - s0), 0.0), 1.0)
+                val at = from + (free - from) * when0
+                val d = at - sheet.origin
+                val a = d.dot(sheet.acrossUnit)
+                val u = d.dot(sheet.upUnit)
+                val la = sheet.across.length
+                val lu = sheet.up.length
+                if (a < -slack || a > la + slack || u < -slack || u > lu + slack) continue
+                // The ball's speed into the sheet — its size, not its sign: a sheet is struck from
+                // either side, and the rising edge is what says the ball was on its way into it.
+                val speed = abs(vx * sheet.normal.x + vz * sheet.normal.z)
+                if (speed < p.hitLeast || when0 >= bestWhen) continue
+                bestWhen = when0
+                best = Touch(
+                    goal, index,
+                    sheet.origin + sheet.acrossUnit * min(max(a, 0.0), la) + sheet.upUnit * min(max(u, 0.0), lu),
+                    speed, min(1.0, speed / p.hitSpeed),
+                )
+            }
+        }
+        return best
+    }
+
     /**
      * How far the node at ([x], [y], [z]) stands off its sheet at real time [t]: the cloth's sway, and
-     * a goal's ripple on top of it. [age] is the real seconds since the ball struck at ([strikeX],
-     * [strikeY], [strikeZ]) — negative, or past `seconds`, for a net that is only breathing. Reduce
-     * Motion keeps `calm` of the sway — calmer, never frozen. Scalars, not points: this runs for every
-     * vertex of both nets on every frame, on both platforms.
+     * the ripple of the ball's last contact on top of it. [age] is the real seconds since the ball
+     * struck at ([strikeX], [strikeY], [strikeZ]) at [strength] of a full-speed dent — negative, or
+     * past `seconds`, for a net that is only breathing. Both terms are bound by the node's [bell], so
+     * the edges the net is laced along never move and the four sheets stay one skin. Reduce Motion
+     * keeps `calm` of the sway and the same share of a dent — calmer, never frozen. Scalars, not
+     * points: this runs for every vertex of both nets on every frame, on both platforms.
      */
     @Suppress("LongParameterList")
     fun offset(
@@ -131,32 +230,23 @@ object GoalNet {
         strikeY: Double,
         strikeZ: Double,
         age: Double,
+        strength: Double,
         p: Params,
     ): Double {
-        val amplitude = p.sway * if (reduceMotion) p.calm else 1.0
-        var d = amplitude * bell * sin(2 * PI * t / p.swaySeconds + p.wave * (x + z))
-        if (age >= 0 && age < p.seconds) {
+        val calm = if (reduceMotion) p.calm else 1.0
+        var d = p.sway * calm * bell * sin(2 * PI * t / p.swaySeconds + p.wave * (x + z))
+        if (age >= 0 && age < p.seconds && strength > 0) {
             val dx = x - strikeX; val dy = y - strikeY; val dz = z - strikeZ
             val distance = sqrt(dx * dx + dy * dy + dz * dz)
-            d += p.ripple * exp(-p.decay * age) * sin(p.frequency * age - p.k * distance) *
-                exp(-distance / p.reach)
+            d += p.ripple * strength * calm * bell * exp(-p.decay * age) *
+                sin(p.frequency * age - p.k * distance) * exp(-distance / p.reach)
         }
         return d
     }
 
     /**
-     * Where a goal's ripple starts: the middle of the back sheet's height, at the ball's x across the
-     * mouth, on the goal line [goalZ] names.
-     */
-    fun strike(goalZ: Double, ballX: Double): Point {
-        val hw = Tuning.Pitch.goalMouthWidth / 2
-        val sign = if (goalZ > 0) 1.0 else -1.0
-        return Point(min(max(ballX, -hw), hw), 0.36, sign * (Tuning.Pitch.goalLineZ + Tuning.Pitch.goalDepth))
-    }
-
-    /**
-     * How far off its sheet any point can ever be pushed: the sway at full stretch, a fresh goal's
-     * ripple, and the cord that stands off the film and is half its own width wide.
+     * How far off its sheet any point can ever be pushed: the sway at full stretch, the deepest dent
+     * a ball can knock into it, and the cord that stands off the film and is half its own width wide.
      */
     fun reach(p: Params): Double = p.sway + p.ripple + p.cordLift + p.cord / 2
 

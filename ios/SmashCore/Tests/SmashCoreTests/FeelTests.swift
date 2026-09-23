@@ -138,8 +138,9 @@ import Testing
 
     /// `presentation.toml [net]` and `[net.sway]` as the apps hand them in.
     static let net = GoalNet.Params(height: 1.9, columns: 12, rows: 5, depth: 4, cord: 0.05, cordLift: 0.012,
-                                    sway: 0.18, swaySeconds: 3.6, wave: 1.1, calm: 0.4, ripple: 0.35,
-                                    decay: 3.2, frequency: 18.0, k: 4.0, reach: 2.5, seconds: 1.6)
+                                    sway: 0.18, swaySeconds: 3.6, wave: 1.1, calm: 0.4, ripple: 0.55,
+                                    decay: 3.2, frequency: 18.0, k: 4.0, reach: 2.5, seconds: 1.6,
+                                    hitSpeed: 22.0, hitLeast: 2.0)
 
     /// The net is four sheets a goal, and every one of them is laced all the way round: the ground,
     /// the posts, the crossbar and the sheet next door. A node on an edge never moves, so the four
@@ -173,7 +174,7 @@ import Testing
         let lift = p.cordLift, half = p.cord / 2
         var checked = 0
         for sign in [Double(-1), 1] {
-            let strike = GoalNet.strike(goalZ: sign * Tuning.Pitch.goalLineZ, ballX: 2.4, p)
+            let strike = GoalNet.Point(2.4, 0.11, sign * (Tuning.Pitch.goalLineZ + Tuning.Pitch.goalDepth))
             for sheet in GoalNet.sheets(sign, p) {
                 let (a, u, n) = (sheet.acrossUnit, sheet.upUnit, sheet.normal)
                 for i in 0...sheet.columns {
@@ -186,7 +187,8 @@ import Testing
                                 for age in [-1.0, t, t - 0.4] {
                                     let d = GoalNet.offset(x: node.x, y: node.y, z: node.z, bell: bell, t: t,
                                                            reduceMotion: calm, strikeX: strike.x,
-                                                           strikeY: strike.y, strikeZ: strike.z, age: age, p)
+                                                           strikeY: strike.y, strikeZ: strike.z, age: age,
+                                                           strength: 1, p)
                                     // The film's vertex, and the four a cord's two ribbons put here.
                                     for (shift, off) in [(GoalNet.Point(0, 0, 0), 0.0),
                                                          (u * half, lift), (u * -half, lift),
@@ -210,17 +212,17 @@ import Testing
     }
 
     /// The cloth never stands still — with or without a ball, and under Reduce Motion, which calms
-    /// it once and never freezes it. A goal's ripple rides on top, bigger than the sway, and is gone
-    /// by `seconds`.
+    /// it once and never freezes it. A contact's ripple rides on top, bigger than the sway, deeper
+    /// the harder the ball came in, and is gone by `seconds`.
     @Test func theNetBreathesAlwaysAndRipplesOnlyForAWhile() {
         let p = Self.net
         let sheet = GoalNet.sheets(1, p)[0]
         let node = sheet.point(p.columns / 2, p.rows / 2)
         let bell = sheet.bell(p.columns / 2, p.rows / 2)
-        func offset(_ t: Double, calm: Bool = false, age: Double = -1) -> Double {
-            let s = GoalNet.strike(goalZ: Tuning.Pitch.goalLineZ, ballX: 0, p)
-            return GoalNet.offset(x: node.x, y: node.y, z: node.z, bell: bell, t: t, reduceMotion: calm,
-                                  strikeX: s.x, strikeY: s.y, strikeZ: s.z, age: age, p)
+        func offset(_ t: Double, calm: Bool = false, age: Double = -1, strength: Double = 1) -> Double {
+            GoalNet.offset(x: node.x, y: node.y, z: node.z, bell: bell, t: t, reduceMotion: calm,
+                           strikeX: node.x, strikeY: node.y, strikeZ: node.z, age: age,
+                           strength: strength, p)
         }
         // Over one period the middle of the back sheet swings the full amplitude, both ways.
         var lo = 0.0, hi = 0.0
@@ -236,9 +238,126 @@ import Testing
             #expect(abs(offset(t, calm: true) - offset(t) * p.calm) < 1e-12)
         }
         #expect((0...360).contains { abs(offset(Double($0) / 100, calm: true)) > 0.2 * p.sway })
-        // A goal is felt at once and forgotten on time.
-        #expect(abs(offset(0, age: 0.02)) > p.sway)
+        // A contact is felt at once, is deeper than the breath, and is forgotten on time.
+        func dent(_ strength: Double) -> Double {
+            (0...40).map { abs(offset(Double($0) / 200, age: Double($0) / 200, strength: strength) - offset(Double($0) / 200)) }.max()!
+        }
+        #expect(dent(1) > 0.7 * p.ripple * bell)
+        #expect(dent(1) > 2 * p.sway)
+        // A dribbled ball nudges it; a hard shot punches it, in proportion.
+        #expect(abs(dent(0.25) - dent(1) / 4) < 1e-9)
+        #expect(dent(0) == 0)
         #expect(offset(0.5, age: p.seconds) == offset(0.5))
+        // Reduce Motion calms a dent by the same share as the breath, and never flattens it.
+        #expect(abs(offset(0.1, calm: true, age: 0.1) - offset(0.1, age: 0.1) * p.calm) < 1e-12)
+    }
+
+    // MARK: what the ball does to the cloth (§8.8)
+
+    /// A ball meeting a sheet, from wherever: the ripple starts where it struck, on the sheet it
+    /// struck, as deep as it was fast into that sheet — and nothing happens when it misses, when it
+    /// is only leaning on the net, or on a second frame against the same sheet.
+    @Test func theBallDentsWhateverSheetItMeetsWhereItMeetsIt() {
+        let p = Self.net
+        let r = 0.36                                        // the ball's radius, both sports
+        let frame = 1.0 / 60
+        let line = Tuning.Pitch.goalLineZ, back = line + Tuning.Pitch.goalDepth
+        let hw = Tuning.Pitch.goalMouthWidth / 2
+        func touch(_ x: Double, _ z: Double, _ vx: Double, _ vz: Double) -> GoalNet.Touch? {
+            GoalNet.touch(x: x, z: z, vx: vx, vz: vz, seconds: frame, ballY: 0, radius: r, p)
+        }
+
+        // A shot into the back of the net, from inside it after it crossed the line: sheet 0, at
+        // the ball's x across the mouth, on the back's own plane.
+        let goal = touch(1.2, back - 0.5, 0, 20)
+        #expect(goal?.sheet == 0 && goal?.goal == 1)
+        #expect(abs((goal?.point.x ?? 0) - 1.2) < 1e-9)
+        #expect(abs((goal?.point.z ?? 0) - back) < 1e-9)
+        #expect(abs((goal?.speed ?? 0) - 20) < 1e-9)
+        #expect(abs((goal?.strength ?? 0) - 20 / p.hitSpeed) < 1e-9)
+
+        // A shot into the side netting from behind the goal: sheet 3 (the +x side), at its depth.
+        let side = touch(hw + 0.6, line + 0.8, -12, 0)
+        #expect(side?.sheet == 3)
+        #expect(abs((side?.point.x ?? 0) - hw) < 1e-9)
+        #expect(abs((side?.point.z ?? 0) - (line + 0.8)) < 1e-9)
+        #expect(abs((side?.speed ?? 0) - 12) < 1e-9)
+
+        // The same, at the other goal and the other side: sheet 2, goal 0.
+        let far = touch(-hw - 0.6, -line - 0.8, 9, 0)
+        #expect(far?.goal == 0 && far?.sheet == 2)
+        #expect(abs((far?.speed ?? 0) - 9) < 1e-9)
+
+        // At an angle into the back, the contact lands where the path crosses it, not where the
+        // ball started: 20 across and 20 along carries it 0.14 sideways over the 0.14 it has left.
+        let angled = touch(0, back - r - 0.14, 20, 20)
+        #expect(angled?.sheet == 0)
+        #expect(abs((angled?.point.x ?? 0) - 0.14) < 1e-3)
+        #expect(abs((angled?.speed ?? 0) - 20) < 1e-9)
+
+        // A hard shot dents it fully; anything faster still only fully.
+        #expect(touch(0, back - 0.5, 0, 30)?.strength == 1)
+        // A slow one in proportion.
+        #expect(abs((touch(0, back - r - 0.05, 0, 5.5)?.strength ?? 0) - 0.25) < 1e-9)
+
+        // A miss: the ball goes by the goal's side, well clear of the netting.
+        #expect(touch(hw + 2.5, line + 0.8, -12, 0) == nil)
+        // A miss: in front of the goal line, nowhere near the cloth.
+        #expect(touch(0, line - 6, 0, 20) == nil)
+        // A miss: across the mouth, parallel to the back and never reaching it.
+        #expect(touch(-2, back - 1.2, 14, 0) == nil)
+        // Leaning on the net, slower than `hitLeast`: the cloth does not answer.
+        #expect(touch(0, back - r - 0.01, 0, 1) == nil)
+        // A second frame against the same sheet is the same contact, not a new one: the ball is
+        // already standing on it.
+        #expect(touch(0, back - r, 0, 20) == nil)
+        // Off the back onto a side is a new contact, on the new sheet.
+        #expect(touch(-hw + r + 0.01, back - r, -14, -3)?.sheet == 2)
+
+        // The contact point never leaves its sheet, however wide of the mouth the ball comes in.
+        for x in stride(from: -hw - 1.0, through: hw + 1.0, by: 0.05) {
+            guard let t = touch(x, back - 0.5, 0, 20) else { continue }
+            #expect(abs(t.point.x) <= hw + 1e-9)
+            #expect(t.point.y >= 0 && t.point.y <= p.height)
+            #expect(abs(t.point.z) <= back + 1e-9)
+        }
+    }
+
+    /// And the same maths, driven the way an app drives it — two ticks a frame at 60 fps, off the
+    /// ball as the frame found it — finds the cloth in a match actually played. Every goal is
+    /// followed by a contact in the net it went into — on its back, or on a side sheet it grazes on
+    /// the way in — and the cloth is struck far more often than it is scored past.
+    @Test func aPlayedMatchStrikesTheCloth() {
+        let p = Self.net
+        var m = Match(MatchSetup.demo(seed: 4, world: .himalaya, home: .club(.mossfoxes),
+                                      away: .club(.nebula), periodSeconds: 120))
+        let frame = 2 * Tuning.Time.tickSeconds          // one frame at 60 Hz; the tick is 1/120 s
+        var touches = 0, goals = 0, answered = 0, onTheBack = 0
+        var owed: Int?                                   // the goal still waiting for its back sheet
+        while m.state != .ended {
+            let was = m.snapshot.ball
+            m.tick(); m.tick()
+            for e in m.drainEvents() {
+                if case .goal(let team, _, _, _) = e {
+                    goals += 1
+                    owed = team == 0 ? 1 : 0             // team 0 attacks +z, so it scores into goal 1
+                }
+            }
+            if let t = GoalNet.touch(x: was.x, z: was.z, vx: was.vx, vz: was.vz, seconds: frame,
+                                     ballY: 0, radius: was.radius, p) {
+                touches += 1
+                #expect(t.strength > 0 && t.strength <= 1)
+                if t.goal == owed {
+                    answered += 1
+                    if t.sheet == 0 { onTheBack += 1 }
+                    owed = nil
+                }
+            }
+        }
+        #expect(goals > 0)
+        #expect(answered == goals, "\(answered) of \(goals) goals reached the cloth")
+        #expect(onTheBack > 0, "no goal reached the back sheet")      // the rest graze a side first
+        #expect(touches > goals, "\(touches) contacts for \(goals) goals — the net is only hit when scored past")
     }
 
     // MARK: the scoreboard, 0:0 to 99:99 (§16.4)

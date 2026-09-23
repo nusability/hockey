@@ -71,6 +71,8 @@ object Presentation {
         const val targetOpacity: Double = 0.9
         const val targetPulse: Double = 0.08
         const val targetPulseRate: Double = 10.0
+        const val offsideOpacity: Double = 0.4
+        const val offsideFade: Double = 0.12
         const val lean: Double = 0.02
         const val maxLean: Double = 0.18
         const val hop: Double = 0.45
@@ -185,7 +187,9 @@ object Presentation {
         const val depth: Int = 4
         const val cord: Double = 0.05
         const val cordLift: Double = 0.012
-        const val amplitude: Double = 0.35
+        const val amplitude: Double = 0.55
+        const val hitSpeed: Double = 22.0
+        const val hitLeast: Double = 2.0
         const val decay: Double = 3.2
         const val frequency: Double = 18.0
         const val k: Double = 4.0

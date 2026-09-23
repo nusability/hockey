@@ -70,6 +70,8 @@ enum Presentation {
         static let targetOpacity: Double = 0.9
         static let targetPulse: Double = 0.08
         static let targetPulseRate: Double = 10.0
+        static let offsideOpacity: Double = 0.4
+        static let offsideFade: Double = 0.12
         static let lean: Double = 0.02
         static let maxLean: Double = 0.18
         static let hop: Double = 0.45
@@ -184,7 +186,9 @@ enum Presentation {
         static let depth: Int = 4
         static let cord: Double = 0.05
         static let cordLift: Double = 0.012
-        static let amplitude: Double = 0.35
+        static let amplitude: Double = 0.55
+        static let hitSpeed: Double = 22.0
+        static let hitLeast: Double = 2.0
         static let decay: Double = 3.2
         static let frequency: Double = 18.0
         static let k: Double = 4.0

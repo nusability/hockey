@@ -804,21 +804,29 @@ never a banner, a sound or a haptic.
 - **The ball.** A field ball rolls along its travel; a puck spins. A loose ball faster than 6 draws
   a tapered, fading ribbon behind it in the ball's yellow, through where it was over the last 0.16 s.
 - **The flat marks are drawn everywhere.** The discs under the players and the ball, the ring the
-  ball circles on, the pops and the aim's own marks (§5.2) lie on the pitch and are drawn over it
-  wherever the play is, in one stated order that never depends on where the play or the camera has
-  got to. Half the pitch is not a place where a mark stops being drawn.
+  ball circles on, the pops, the offside rings (§16.4) and the aim's own marks (§5.2) lie on the
+  pitch and are drawn over it wherever the play is, in one stated order that never depends on where
+  the play or the camera has got to. Half the pitch is not a place where a mark stops being drawn.
 - **The nets are cloth, and the apps own them.** A world carries the goal *frame* — the two posts
   and the crossbar — and nothing else; everything laced to it, the cords and the film under them, is
   drawn by the apps, so the whole net moves and not a film behind it. Each goal is four sheets: the
   back, the roof and the two sides, each a cord grid over a translucent film in the world's own net
   colour. They always breathe — a slow wave travelling across every sheet, strongest in the middle
   and nothing at the edges the net is laced to — whatever the ball is doing, and far enough to be
-  seen from the play camera 36 m up. Reduce Motion calms the wave once; it never stops it. A goal's
-  ripple (below) rides on top of it.
+  seen from the play camera 36 m up. Reduce Motion calms the wave once; it never stops it.
+- **The net answers the ball, not the referee.** Every time the ball meets the cloth it dents where
+  it struck and the dent spreads outward across that goal's sheets and dies away — a goal, the ball
+  rebounding off the back from inside the net, a shot into the side netting from behind the goal, a
+  ball driven into the side of the net in open play. It is the **contact** that ripples the net, not
+  the whistle, so it happens on every one of them and never on a goal that has not reached the cloth
+  yet. How deep the dent is follows the ball's speed **into** that sheet: a hard shot punches the
+  net about a third of the goal's depth, a dribbled ball nudges it, and a ball merely leaning on it
+  does nothing. The dent is bound by the same bell as the breath, so the laced edges stay still and
+  the four sheets hold together as one skin; Reduce Motion keeps the same calmed share of it.
 - **Goals.** Confetti bursts from the scored-in net at real speed — 160 cards in the scoring side's
-  primary, secondary and white, thrown sideways and high, falling, bouncing and tumbling; the net's
-  sheets ripple out from where the ball struck; the camera shakes (a kick of 1.2 falling off by 2.5 a
-  second); the scorers hop (§16.4's banner, the horn and the crowd for a goal of ours, a sigh for one
+  primary, secondary and white, thrown sideways and high, falling, bouncing and tumbling; the net
+  ripples as the ball reaches its cloth, like any other contact (above); the camera shakes (a kick
+  of 1.2 falling off by 2.5 a second); the scorers hop (§16.4's banner, the horn and the crowd for a goal of ours, a sigh for one
   against).
 - **Knocks.** A post shakes the camera (0.5) and rings; the boards only sound. A save, a steal or a
   block pops a quick ring at the spot. Reduce Motion keeps a fifth of every shake.

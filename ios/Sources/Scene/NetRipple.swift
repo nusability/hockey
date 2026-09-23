@@ -8,13 +8,15 @@ import simd
 /// to it is here, so that everything the player reads as "the net" moves. Each goal is four sheets —
 /// back, roof and two sides (core `GoalNet`) — and each sheet is a cord grid over a translucent film.
 /// A net is cloth, so it always breathes: every node sways along its sheet's outward normal by
-/// `sway.amplitude · bell · sin(2π·t / sway.seconds + sway.wave·(x + z))`, and on a goal a damped
-/// wave from where the ball struck rides on top of it. Reduce Motion keeps `sway.reduce_motion` of
-/// the sway — applied once, here.
+/// `sway.amplitude · bell · sin(2π·t / sway.seconds + sway.wave·(x + z))`, and wherever the **ball**
+/// meets the cloth — a goal, a rebound off the back from inside, a shot into the side netting from
+/// behind the goal — a damped wave from the contact point rides on top of it, as deep as the ball
+/// was fast into that sheet (core `GoalNet.touch`, fed the last two frames of the match by `Pitch`).
+/// Reduce Motion keeps `sway.reduce_motion` of both — applied once, in the core's formula.
 ///
 /// Both nets are two meshes — every film, and every cord — written in the pitch's frame on entities
 /// that never move, bounded by `GoalNet.extent`, which a test walks every vertex of every frame of
-/// the sway and of a goal against (SMASH-33). The twin of NetRipple.kt.
+/// the sway and of the hardest contact against (SMASH-33). The twin of NetRipple.kt.
 @MainActor
 final class NetRipple {
     typealias N = Presentation.Net
@@ -25,7 +27,7 @@ final class NetRipple {
         height: N.height, columns: N.columns, rows: N.rows, depth: N.depth, cord: N.cord,
         cordLift: N.cordLift, sway: N.Sway.amplitude, swaySeconds: N.Sway.seconds, wave: N.Sway.wave,
         calm: N.Sway.reduceMotion, ripple: N.amplitude, decay: N.decay, frequency: N.frequency,
-        k: N.k, reach: N.reach, seconds: N.seconds)
+        k: N.k, reach: N.reach, seconds: N.seconds, hitSpeed: N.hitSpeed, hitLeast: N.hitLeast)
 
     /// One vertex of a net: where it rests, along which normal it moves, how freely (`bell`), how far
     /// it already stands off its sheet at rest (a cord's lift), and which goal it belongs to.
@@ -44,8 +46,10 @@ final class NetRipple {
     private let cordModel: ModelEntity
     private var filmVertices: [Vertex] = []
     private var cordVertices: [Vertex] = []
-    /// Per goal (0: −z, the player's own end; 1: +z), the ripple running in it.
-    private var ripple: [(strike: SIMD3<Double>, age: Double)] = [(.zero, -1), (.zero, -1)]
+    /// Per goal (0: −z, the player's own end; 1: +z), the ripple running in it: where the ball
+    /// struck, how long ago, and how hard (0…1 of a full-speed dent).
+    private var ripple: [(strike: SIMD3<Double>, age: Double, strength: Double)] =
+        [(.zero, -1, 0), (.zero, -1, 0)]
     private var clock = 0.0
 
     init() throws {
@@ -77,13 +81,18 @@ final class NetRipple {
         cordModel.model?.materials = [Materials.flat(world.netColour)]
     }
 
-    /// A goal into the net on goal line `goalZ`, the ball at `x` across it.
-    func goal(goalZ: Double, x: Double) {
-        let strike = GoalNet.strike(goalZ: goalZ, ballX: x, Self.params)
-        ripple[goalZ > 0 ? 1 : 0] = (SIMD3(strike.x, strike.y, strike.z), 0)
+    /// The ball as it stood at the start of this frame, and the match seconds the frame ran for:
+    /// whenever its path reaches a sheet it was not already on, that sheet dents from the contact
+    /// point. `ballY` is the height the ball's centre is drawn at. Every contact starts a new ripple
+    /// in its goal; the last one in wins.
+    func ballMoved(x: Double, z: Double, vx: Double, vz: Double, seconds: Double,
+                   ballY: Double, radius: Double) {
+        guard let t = GoalNet.touch(x: x, z: z, vx: vx, vz: vz, seconds: seconds,
+                                    ballY: ballY, radius: radius, Self.params) else { return }
+        ripple[t.goal] = (SIMD3(t.point.x, t.point.y, t.point.z), 0, t.strength)
     }
 
-    /// One frame of real time: the cloth sways always, a goal's ripple rides on top of it.
+    /// One frame of real time: the cloth sways always, the ball's last dent rides on top of it.
     func advance(_ dt: Double, reduceMotion: Bool) {
         clock += dt
         for i in ripple.indices where ripple[i].age >= 0 { ripple[i].age += dt }
@@ -99,7 +108,8 @@ final class NetRipple {
                 let hit = r[q.goal]
                 let d = GoalNet.offset(x: q.node.x, y: q.node.y, z: q.node.z, bell: q.bell, t: t,
                                        reduceMotion: reduceMotion, strikeX: hit.strike.x,
-                                       strikeY: hit.strike.y, strikeZ: hit.strike.z, age: hit.age, p)
+                                       strikeY: hit.strike.y, strikeZ: hit.strike.z, age: hit.age,
+                                       strength: hit.strength, p)
                 v[i] = .init(position: q.rest + q.normal * (Float(d) + q.lift), uv: .zero)
             }
         }

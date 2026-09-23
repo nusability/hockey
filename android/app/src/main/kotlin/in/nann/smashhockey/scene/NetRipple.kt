@@ -17,9 +17,11 @@ import `in`.nann.smashhockey.generated.netColour
  * The world's asset carries the goal *frame* alone (ADR 0008): posts and crossbar. Everything laced
  * to it is here, so that everything the player reads as "the net" moves. Each goal is four sheets —
  * back, roof and two sides (core `GoalNet`) — and each sheet is a cord grid over a translucent film.
- * A net is cloth, so it always breathes: every node sways along its sheet's outward normal, and on a
- * goal a damped wave from where the ball struck rides on top of it. Reduce Motion keeps
- * `sway.reduce_motion` of the sway — applied once, in the core's formula.
+ * A net is cloth, so it always breathes: every node sways along its sheet's outward normal, and
+ * wherever the **ball** meets the cloth — a goal, a rebound off the back from inside, a shot into the
+ * side netting from behind the goal — a damped wave from the contact point rides on top of it, as
+ * deep as the ball was fast into that sheet (core `GoalNet.touch`, fed the last two frames of the
+ * match by `Pitch`). Reduce Motion keeps `sway.reduce_motion` of both — once, in the core's formula.
  *
  * Both nets are two meshes — every film, and every cord — written in the pitch's frame on nodes that
  * never move, bounded by `GoalNet.extent`, which a test walks every vertex against.
@@ -37,6 +39,7 @@ class NetRipple(
         swaySeconds = Presentation.Net.Sway.seconds, wave = Presentation.Net.Sway.wave,
         calm = Presentation.Net.Sway.reduceMotion, ripple = n.amplitude, decay = n.decay,
         frequency = n.frequency, k = n.k, reach = n.reach, seconds = n.seconds,
+        hitSpeed = n.hitSpeed, hitLeast = n.hitLeast,
     )
 
     /** One vertex of a net: its rest, its normal, how freely it moves, its cord lift and its goal. */
@@ -59,11 +62,15 @@ class NetRipple(
     private val filmXyz: FloatArray
     private val cordXyz: FloatArray
 
-    /** Per goal (0: −z, the player's own end; 1: +z): where the ball struck and how long ago. */
+    /**
+     * Per goal (0: −z, the player's own end; 1: +z): where the ball struck, how long ago, and how
+     * hard (0…1 of a full-speed dent).
+     */
     private val strikeX = DoubleArray(2)
     private val strikeY = DoubleArray(2)
     private val strikeZ = DoubleArray(2)
     private val age = DoubleArray(2) { -1.0 }
+    private val strength = DoubleArray(2)
     private var clock = 0.0
 
     init {
@@ -100,15 +107,29 @@ class NetRipple(
     /** The cords take the world's own net colour (teams.toml `net`); the film keeps `[net] colour`. */
     fun paint(world: World) = materials.set(cordMaterial, world.netColour, 1.0)
 
-    /** A goal into the net on goal line [goalZ]'s side, the ball across at [ballX]. */
-    fun ripple(goalZ: Double, ballX: Double) {
-        val i = if (goalZ > 0) 1 else 0
-        val s = GoalNet.strike(goalZ, ballX)
-        strikeX[i] = s.x; strikeY[i] = s.y; strikeZ[i] = s.z
-        age[i] = 0.0
+    /**
+     * The ball as it stood at the start of this frame, and the match [seconds] the frame ran for:
+     * whenever its path reaches a sheet it was not already on, that sheet dents from the contact
+     * point. [ballY] is the height the ball's centre is drawn at. Every contact starts a new ripple in
+     * its goal; the last one in wins.
+     */
+    @Suppress("LongParameterList")
+    fun ballMoved(
+        x: Double,
+        z: Double,
+        vx: Double,
+        vz: Double,
+        seconds: Double,
+        ballY: Double,
+        radius: Double,
+    ) {
+        val t = GoalNet.touch(x, z, vx, vz, seconds, ballY, radius, p) ?: return
+        val i = t.goal
+        strikeX[i] = t.point.x; strikeY[i] = t.point.y; strikeZ[i] = t.point.z
+        age[i] = 0.0; strength[i] = t.strength
     }
 
-    /** One frame of real time: the cloth sways always, a goal's ripple rides on top of it. */
+    /** One frame of real time: the cloth sways always, the ball's last dent rides on top of it. */
     fun advance(dt: Double, reduceMotion: Boolean) {
         clock += dt
         for (i in age.indices) if (age[i] >= 0) age[i] += dt
@@ -122,7 +143,7 @@ class NetRipple(
             val g = q.goal
             val d = GoalNet.offset(
                 q.nx, q.ny, q.nz, q.bell, clock, reduceMotion,
-                strikeX[g], strikeY[g], strikeZ[g], age[g], p,
+                strikeX[g], strikeY[g], strikeZ[g], age[g], strength[g], p,
             ).toFloat() + q.lift
             xyz[i * 3] = q.rx + q.ox * d
             xyz[i * 3 + 1] = q.ry + q.oy * d

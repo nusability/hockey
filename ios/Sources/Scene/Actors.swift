@@ -10,7 +10,8 @@ struct TeamColours: Equatable {
 
 /// Everything that moves in a match, drawn from its snapshot (spec §5, §8): the twelve players as
 /// the prototype's disks (ADR 0006), the ball or puck (rolling or spinning, with its trail), the
-/// orbit ring and the aim arrow round the player's carrier (§5.2). The twin of Android's Actors.kt.
+/// orbit ring and the aim arrow round the player's carrier (§5.2), and the ring under a player the
+/// whistle would name offside (§8.9, §16.4). The twin of Android's Actors.kt.
 ///
 /// Between ticks it extrapolates by at most one tick (`ahead`, match seconds) along the snapshot's
 /// velocities — drawing only; the simulation is advanced by the core's tick clock alone (§4.2).
@@ -26,6 +27,7 @@ final class Actors {
     private let orbit: ModelEntity
     private let aim: AimArrowView
     private let trail: BallTrail
+    private let offside: OffsideMarks
     private var spin = BallSpin()
     private let isPuck: Bool
     private let omega: Double
@@ -93,7 +95,8 @@ final class Actors {
         orbit.isEnabled = false
         aim = try AimArrowView(sport: sport, feel: feel)
         trail = try BallTrail(ballRadius: s.ball.radius, feel: feel)
-        for e in [orbit, aim.root, trail.entity] { root.addChild(e) }
+        offside = try OffsideMarks(first: s, colours: colours, sport: sport, feel: feel)
+        for e in [orbit, aim.root, trail.entity, offside.root] { root.addChild(e) }
     }
 
     /// Draws snapshot `s`, `ahead` match seconds past its tick (0 ≤ ahead < one tick), `dt` real
@@ -142,5 +145,6 @@ final class Actors {
         trail.update(ball: ballPos, time: s.time + ahead, loose: b.carrier == nil,
                      speed: (b.vx * b.vx + b.vz * b.vz).squareRoot())
         aim.update(s, positions: positions, angle: angle, clock: clock)
+        offside.update(s, positions: positions, dt: dt)
     }
 }

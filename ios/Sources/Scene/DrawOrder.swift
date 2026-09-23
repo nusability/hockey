@@ -21,15 +21,16 @@ enum DrawOrder {
     /// Lowest first. The ground marks lie under everything; the arrow is drawn over them, its glows
     /// under their own solid parts, exactly as before.
     static let disc: Int32 = 0          // the discs under the players and the ball
-    static let net: Int32 = 1           // the nets' film (their cords are solid)
-    static let pop: Int32 = 2           // a save, a steal or a block
-    static let orbit: Int32 = 3         // the ring the ball circles on
-    static let trail: Int32 = 4         // the loose ball's ribbon
-    static let lock: Int32 = 5          // the lock-on: the receiver's ring, the dots, the goal glow
-    static let arrowGlow: Int32 = 6
-    static let arrow: Int32 = 7         // the chevron ribbon
-    static let headGlow: Int32 = 8
-    static let head: Int32 = 9
+    static let offside: Int32 = 1       // the ring under a player the whistle would name (§8.9)
+    static let net: Int32 = 2           // the nets' film (their cords are solid)
+    static let pop: Int32 = 3           // a save, a steal or a block
+    static let orbit: Int32 = 4         // the ring the ball circles on
+    static let trail: Int32 = 5         // the loose ball's ribbon
+    static let lock: Int32 = 6          // the lock-on: the receiver's ring, the dots, the goal glow
+    static let arrowGlow: Int32 = 7
+    static let arrow: Int32 = 8         // the chevron ribbon
+    static let headGlow: Int32 = 9
+    static let head: Int32 = 10
 
     /// Puts `entity` in the group at `order`.
     static func set(_ entity: Entity, _ order: Int32) {

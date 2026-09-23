@@ -5,6 +5,7 @@ import android.util.Log
 import com.google.android.filament.Engine
 import com.google.android.filament.EntityManager
 import com.google.android.filament.Scene
+import `in`.nann.smashhockey.core.generated.Sport
 import `in`.nann.smashhockey.core.generated.Tuning
 import `in`.nann.smashhockey.core.match.Match
 import `in`.nann.smashhockey.core.match.MatchEvent
@@ -119,8 +120,13 @@ class Pitch(context: Context, private val engine: Engine, private val scene: Sce
             phase = (phase + real * scale / Tuning.Time.tickSeconds - ran).coerceIn(0.0, 0.999)
             if (ran > 0) {
                 latency.ticked()
+                val was = s.ball                        // where the ball stood before these ticks
                 s = m.snapshot
                 snapshot = s
+                nets.ballMoved(
+                    was.x, was.z, was.vx, was.vz, ran * Tuning.Time.tickSeconds,
+                    ballHeight(s.ball.radius), s.ball.radius,
+                )
                 for (e in m.drainEvents()) handle(e, m, s)
                 cues?.frame(s)?.forEach(::cue)
             }
@@ -134,6 +140,13 @@ class Pitch(context: Context, private val engine: Engine, private val scene: Sce
         root.x = -shake[0].toFloat(); root.y = -shake[1].toFloat(); root.z = -shake[2].toFloat(); root.apply()
         if (s.state == MatchState.ENDED) endedFor += real else endedFor = 0.0
     }
+
+    /**
+     * The height the ball's centre is drawn at ([Actors]): a puck lies flat on the ice, a field ball
+     * stands on its own radius. It is the height the net's cloth is struck at (§8.8).
+     */
+    private fun ballHeight(radius: Double): Double =
+        if (kickoff?.world?.sport == Sport.ICE) 0.0 else radius
 
     /** The director's camera: its pose and vertical field of view. */
     val pose: Pair<CameraPose, Double>
@@ -181,14 +194,16 @@ class Pitch(context: Context, private val engine: Engine, private val scene: Sce
         }
     }
 
-    /** The camera, the confetti and the celebration react; then the game hears of it. */
+    /**
+     * The camera, the confetti and the celebration react; then the game hears of it. The nets are not
+     * here: they answer the ball's own contact, every frame (§8.8).
+     */
     private fun handle(e: MatchEvent, m: Match, s: MatchSnapshot) {
         when (e) {
             is MatchEvent.Goal -> {
                 val goalZ = (if (e.team == 0) 1.0 else -1.0) * Tuning.Pitch.goalLineZ
                 director.goalScored(goalZ, s.ball.x, m.lastShotDistance)
                 confetti?.burst(goalZ.toFloat(), e.team)
-                nets.ripple(goalZ, s.ball.x)
                 celebrating = e.team
                 Log.i(TAG, "goal team ${e.team} own ${e.ownGoal} score ${s.score[0]}-${s.score[1]}")
             }

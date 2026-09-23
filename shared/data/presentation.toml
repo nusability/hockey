@@ -92,6 +92,12 @@ target_outer = 0.55
 target_opacity = 0.9
 target_pulse = 0.08        # its scale breathes by this share …
 target_pulse_rate = 10.0   # … at this rate (radians per second of real time)
+# §16.4: the offside mark (the ice sport only, §8.9) — the receiver's ring above, in the player's own
+# kit primary, pale and unpulsed, lying on the pitch under them. It fades in and out over
+# `offside_fade` seconds of real time as the core's answer changes, so a player who crosses the line
+# and comes back does not flicker.
+offside_opacity = 0.4
+offside_fade = 0.12
 lean = 0.02                # a running player leans into its run: radians per m/s …
 max_lean = 0.18            # … up to this
 hop = 0.45                 # the scorers' team hops during a goal celebration (m)
@@ -240,9 +246,21 @@ block = "#fdba74"
 # `cord_lift` off its film so the two never fight. The film is `colour` at `opacity`; the cords take
 # the world's own net colour (teams.toml [[world]] `net`).
 #
-# A goal ripples the net it went into: every sheet bulges outward in a wave from where the ball
-# struck — displacement = amplitude × e^(−decay·t) × sin(frequency·t − k·r) × e^(−r/reach), r the
-# distance from the strike, t real seconds since the goal, for `seconds`.
+# The ball ripples the cloth wherever it meets it — a goal, a rebound off the back from inside, a
+# shot into the side netting from behind the goal. The wave spreads from the contact point across
+# every sheet of that goal and decays: displacement = amplitude × strength × bell × e^(−decay·t) ×
+# sin(frequency·t − k·r) × e^(−r/reach), r the distance from the contact, t real seconds since it,
+# for `seconds`; `bell` is the sway's, so the laced edges stay put and the four sheets hold together.
+# `strength` is the ball's speed **into** the sheet over `hit_speed`, capped at 1: a hard shot punches
+# the net, a dribbled ball nudges it. Slower than `hit_least` the ball is leaning on the net, not
+# striking it, and nothing happens.
+#
+# `amplitude` is what the play camera can read: 36 m up and 20 m back (§8.6), where a metre at the far
+# goal is ~50 px. A full-speed shot into the middle of the back sheet dents it 0.55 m — three times
+# the sway, ~28 px at the far goal and ~43 at the near one, and about a third of the goal's depth, so
+# the net bellies out without the ball appearing to pass through it. A ball on the ice strikes the
+# cloth just above the lacing, where `bell` is about 0.6, which is still ~17 px of dent at the far
+# goal. `hit_speed` is a shot from a good player (§7.6's shot power, 20 + 6 per skill).
 [net]
 colour = "#f8fafc"
 height = 1.9               # the goal's height (the worlds' goal frames)
@@ -252,7 +270,9 @@ rows = 5
 depth = 4
 cord = 0.05
 cord_lift = 0.012
-amplitude = 0.35
+amplitude = 0.55
+hit_speed = 22.0           # m/s into a sheet for the full dent
+hit_least = 2.0            # slower than this and the cloth does not answer
 decay = 3.2
 frequency = 18.0
 k = 4.0

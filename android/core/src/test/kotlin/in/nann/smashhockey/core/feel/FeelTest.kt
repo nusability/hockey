@@ -114,8 +114,8 @@ class FeelTest {
     /** `presentation.toml [net]` and `[net.sway]` as the app hands them in. */
     private val net = GoalNet.Params(
         height = 1.9, columns = 12, rows = 5, depth = 4, cord = 0.05, cordLift = 0.012,
-        sway = 0.18, swaySeconds = 3.6, wave = 1.1, calm = 0.4, ripple = 0.35, decay = 3.2,
-        frequency = 18.0, k = 4.0, reach = 2.5, seconds = 1.6,
+        sway = 0.18, swaySeconds = 3.6, wave = 1.1, calm = 0.4, ripple = 0.55, decay = 3.2,
+        frequency = 18.0, k = 4.0, reach = 2.5, seconds = 1.6, hitSpeed = 22.0, hitLeast = 2.0,
     )
 
     /**
@@ -153,7 +153,7 @@ class FeelTest {
         val half = net.cord / 2
         var checked = 0
         for (sign in listOf(-1.0, 1.0)) {
-            val s = GoalNet.strike(sign * Tuning.Pitch.goalLineZ, 2.4)
+            val s = GoalNet.Point(2.4, 0.11, sign * (Tuning.Pitch.goalLineZ + Tuning.Pitch.goalDepth))
             for (sheet in GoalNet.sheets(sign, net)) {
                 val a = sheet.acrossUnit
                 val u = sheet.upUnit
@@ -164,7 +164,9 @@ class FeelTest {
                     for (step in 0..120) {
                         val t = step / 60.0
                         for (calm in listOf(false, true)) for (age in listOf(-1.0, t, t - 0.4)) {
-                            val d = GoalNet.offset(node.x, node.y, node.z, bell, t, calm, s.x, s.y, s.z, age, net)
+                            val d = GoalNet.offset(
+                                node.x, node.y, node.z, bell, t, calm, s.x, s.y, s.z, age, 1.0, net,
+                            )
                             val places = listOf(
                                 GoalNet.Point(0.0, 0.0, 0.0) to 0.0,
                                 u * half to net.cordLift, u * -half to net.cordLift,
@@ -188,15 +190,15 @@ class FeelTest {
 
     /**
      * The cloth never stands still — with or without a ball, and under Reduce Motion, which calms it
-     * once and never freezes it. A goal's ripple rides on top and is gone by `seconds`.
+     * once and never freezes it. A contact's ripple rides on top, bigger than the sway, deeper the
+     * harder the ball came in, and is gone by `seconds`.
      */
     @Test fun theNetBreathesAlwaysAndRipplesOnlyForAWhile() {
         val sheet = GoalNet.sheets(1.0, net)[0]
         val node = sheet.point(net.columns / 2, net.rows / 2)
         val bell = sheet.bell(net.columns / 2, net.rows / 2)
-        val s = GoalNet.strike(Tuning.Pitch.goalLineZ, 0.0)
-        fun offset(t: Double, calm: Boolean = false, age: Double = -1.0) =
-            GoalNet.offset(node.x, node.y, node.z, bell, t, calm, s.x, s.y, s.z, age, net)
+        fun offset(t: Double, calm: Boolean = false, age: Double = -1.0, strength: Double = 1.0) =
+            GoalNet.offset(node.x, node.y, node.z, bell, t, calm, node.x, node.y, node.z, age, strength, net)
         var lo = 0.0
         var hi = 0.0
         for (step in 0..360) {
@@ -210,8 +212,136 @@ class FeelTest {
             assertTrue(abs(offset(t, calm = true) - offset(t) * net.calm) < 1e-12)
         }
         assertTrue((0..360).any { abs(offset(it / 100.0, calm = true)) > 0.2 * net.sway })
-        assertTrue(abs(offset(0.0, age = 0.02)) > net.sway)
+        // A contact is felt at once, is deeper than the breath, and is forgotten on time.
+        fun dent(strength: Double) = (0..40).maxOf {
+            abs(offset(it / 200.0, age = it / 200.0, strength = strength) - offset(it / 200.0))
+        }
+        assertTrue(dent(1.0) > 0.7 * net.ripple * bell)
+        assertTrue(dent(1.0) > 2 * net.sway)
+        // A dribbled ball nudges it; a hard shot punches it, in proportion.
+        assertEquals(dent(1.0) / 4, dent(0.25), 1e-9)
+        assertEquals(0.0, dent(0.0), 0.0)
         assertEquals(offset(0.5), offset(0.5, age = net.seconds), 0.0)
+        // Reduce Motion calms a dent by the same share as the breath, and never flattens it.
+        assertEquals(offset(0.1, age = 0.1) * net.calm, offset(0.1, calm = true, age = 0.1), 1e-12)
+    }
+
+    // ---- what the ball does to the cloth (§8.8)
+
+    /**
+     * A ball meeting a sheet, from wherever: the ripple starts where it struck, on the sheet it
+     * struck, as deep as it was fast into that sheet — and nothing happens when it misses, when it is
+     * only leaning on the net, or on a second frame against the same sheet.
+     */
+    @Test fun theBallDentsWhateverSheetItMeetsWhereItMeetsIt() {
+        val r = 0.36                                      // the ball's radius, both sports
+        val frame = 1.0 / 60
+        val line = Tuning.Pitch.goalLineZ
+        val back = line + Tuning.Pitch.goalDepth
+        val hw = Tuning.Pitch.goalMouthWidth / 2
+        fun touch(x: Double, z: Double, vx: Double, vz: Double) =
+            GoalNet.touch(x, z, vx, vz, frame, 0.0, r, net)
+
+        // A shot into the back of the net, from inside it after it crossed the line: sheet 0, at the
+        // ball's x across the mouth, on the back's own plane.
+        val goal = touch(1.2, back - 0.5, 0.0, 20.0)
+        assertEquals(0, goal!!.sheet)
+        assertEquals(1, goal.goal)
+        near(1.2, goal.point.x)
+        near(back, goal.point.z)
+        near(20.0, goal.speed)
+        near(20.0 / net.hitSpeed, goal.strength)
+
+        // A shot into the side netting from behind the goal: sheet 3 (the +x side), at its depth.
+        val side = touch(hw + 0.6, line + 0.8, -12.0, 0.0)
+        assertEquals(3, side!!.sheet)
+        near(hw, side.point.x)
+        near(line + 0.8, side.point.z)
+        near(12.0, side.speed)
+
+        // The same, at the other goal and the other side: sheet 2, goal 0.
+        val far = touch(-hw - 0.6, -line - 0.8, 9.0, 0.0)
+        assertEquals(0, far!!.goal)
+        assertEquals(2, far.sheet)
+        near(9.0, far.speed)
+
+        // At an angle into the back, the contact lands where the path crosses it, not where the ball
+        // started: 20 across and 20 along carries it 0.14 sideways over the 0.14 it has left.
+        val angled = touch(0.0, back - r - 0.14, 20.0, 20.0)
+        assertEquals(0, angled!!.sheet)
+        assertEquals(0.14, angled.point.x, 1e-3)
+        near(20.0, angled.speed)
+
+        // A hard shot dents it fully; anything faster still only fully.
+        assertEquals(1.0, touch(0.0, back - 0.5, 0.0, 30.0)!!.strength, 0.0)
+        // A slow one in proportion.
+        near(0.25, touch(0.0, back - r - 0.05, 0.0, 5.5)!!.strength)
+
+        // A miss: the ball goes by the goal's side, well clear of the netting.
+        assertNull(touch(hw + 2.5, line + 0.8, -12.0, 0.0))
+        // A miss: in front of the goal line, nowhere near the cloth.
+        assertNull(touch(0.0, line - 6, 0.0, 20.0))
+        // A miss: across the mouth, parallel to the back and never reaching it.
+        assertNull(touch(-2.0, back - 1.2, 14.0, 0.0))
+        // Leaning on the net, slower than `hitLeast`: the cloth does not answer.
+        assertNull(touch(0.0, back - r - 0.01, 0.0, 1.0))
+        // A second frame against the same sheet is the same contact, not a new one: the ball is
+        // already standing on it.
+        assertNull(touch(0.0, back - r, 0.0, 20.0))
+        // Off the back onto a side is a new contact, on the new sheet.
+        assertEquals(2, touch(-hw + r + 0.01, back - r, -14.0, -3.0)!!.sheet)
+
+        // The contact point never leaves its sheet, however wide of the mouth the ball comes in.
+        var x = -hw - 1.0
+        while (x <= hw + 1.0) {
+            val t = touch(x, back - 0.5, 0.0, 20.0)
+            if (t != null) {
+                assertTrue(abs(t.point.x) <= hw + 1e-9)
+                assertTrue(t.point.y >= 0 && t.point.y <= net.height)
+                assertTrue(abs(t.point.z) <= back + 1e-9)
+            }
+            x += 0.05
+        }
+    }
+
+    /**
+     * And the same maths, driven the way an app drives it — two ticks a frame at 60 fps, off the ball
+     * as the frame found it — finds the cloth in a match actually played. Every goal is followed by a
+     * contact in the net it went into — on its back, or on a side sheet it grazes on the way in — and
+     * the cloth is struck far more often than it is scored past.
+     */
+    @Test fun aPlayedMatchStrikesTheCloth() {
+        val m = Match(MatchSetup.demo(4, World.HIMALAYA, SideSetup.club(Club.MOSSFOXES), SideSetup.club(Club.NEBULA), 120.0))
+        val frame = 2 * Tuning.Time.tickSeconds          // one frame at 60 Hz; the tick is 1/120 s
+        var touches = 0
+        var goals = 0
+        var answered = 0
+        var onTheBack = 0
+        var owed: Int? = null
+        while (m.state != MatchState.ENDED) {
+            val was = m.snapshot.ball
+            m.tick(); m.tick()
+            for (e in m.drainEvents()) {
+                if (e is MatchEvent.Goal) {
+                    goals++
+                    owed = if (e.team == 0) 1 else 0     // team 0 attacks +z, so it scores into goal 1
+                }
+            }
+            val t = GoalNet.touch(was.x, was.z, was.vx, was.vz, frame, 0.0, was.radius, net)
+            if (t != null) {
+                touches++
+                assertTrue(t.strength > 0 && t.strength <= 1)
+                if (t.goal == owed) {
+                    answered++
+                    if (t.sheet == 0) onTheBack++
+                    owed = null
+                }
+            }
+        }
+        assertTrue(goals > 0)
+        assertEquals("$answered of $goals goals reached the cloth", goals, answered)
+        assertTrue("no goal reached the back sheet", onTheBack > 0)
+        assertTrue("$touches contacts for $goals goals", touches > goals)
     }
 
     // ---- the scoreboard, 0:0 to 99:99 (§16.4)

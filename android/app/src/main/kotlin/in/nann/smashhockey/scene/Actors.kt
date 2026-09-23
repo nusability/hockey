@@ -26,8 +26,9 @@ data class TeamColours(val primary: Int, val secondary: Int)
 
 /**
  * Everything that moves in a match, drawn from its snapshot (spec §5, §8): the twelve players as the
- * prototype's disks (ADR 0006), the ball or puck — rolling or spinning, with its trail (§8.8) — and
- * the aim arrow (§5.2, [AimArrow]); the twin of iOS's Actors.swift.
+ * prototype's disks (ADR 0006), the ball or puck — rolling or spinning, with its trail (§8.8) — the
+ * aim arrow (§5.2, [AimArrow]) and the ring under a player the whistle would name offside (§8.9,
+ * §16.4); the twin of iOS's Actors.swift.
  *
  * Between ticks it extrapolates by at most one tick (`ahead`, match seconds) along the snapshot's
  * velocities — drawing only; the simulation is advanced by the core's tick clock alone (§4.2).
@@ -56,6 +57,7 @@ class Actors(
     private val ballRadius = first.ball.radius
     private val aim = AimArrow(engine, scene, parent, materials, sport.cornerRadius)
     private val trail = Trail(engine, scene, materials, first.ball.radius.toFloat())
+    private val offside = OffsideMarks(engine, scene, parent, first, colours, sport, materials)
     /** The ball's accumulated roll (field) or spin (puck), and where it was last drawn. */
     private val spin = FloatArray(16).also { Matrix.setIdentityM(it, 0) }
     private var lastBall: DoubleArray? = null
@@ -99,6 +101,7 @@ class Actors(
 
     /** Draws snapshot [s], [ahead] match seconds past its tick; [celebrating]'s players hop on real [clock]. */
     fun update(s: MatchSnapshot, ahead: Double, celebrating: Int?, clock: Double) {
+        val dt = clock - lastClock              // taken before `roll` moves `lastClock` on
         val xs = DoubleArray(s.players.size); val zs = DoubleArray(s.players.size)
         s.players.forEachIndexed { i, pl ->
             xs[i] = pl.x + pl.vx * ahead; zs[i] = pl.z + pl.vz * ahead
@@ -135,6 +138,7 @@ class Actors(
         ballDisc.x = bx.toFloat(); ballDisc.y = 0.02f; ballDisc.z = bz.toFloat(); ballDisc.apply()
         trail.update(bx, bz, s.time + ahead, sqrt(b.vx * b.vx + b.vz * b.vz), c == null)
         aim.update(s, xs, zs, angle, clock)
+        offside.update(s, xs, zs, dt)
     }
 
     /**
@@ -165,6 +169,7 @@ class Actors(
     fun destroy() {
         aim.destroy()
         trail.destroy()
+        offside.destroy()
         entities.forEach { scene.removeEntity(it) }
         geometries.values.forEach { it.destroy() }
         players.forEach { engine.destroyEntity(it.entity); com.google.android.filament.EntityManager.get().destroy(it.entity) }

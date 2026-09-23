@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.23.0
+Spec-Version: 0.23.1
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -1385,6 +1385,10 @@ one), for three reasons, each of which is a rule of its store:
   device-to-device transfer alike. Nothing in it may be restored onto a second phone and counted
   twice: an install id that rode to a new phone would be one install counted as two, forever. The
   save stays backed up — player data is sacred.
+- **A refused copy is kept where the exclusion still covers it.** Unlike the save's, a refused device
+  record is moved into a directory of its own, and that directory is what the exclusion names: a
+  backup rule lists exact paths, so a copy left beside the record would have been carried off the
+  phone with the install id still in it. The copy is kept for diagnosis and read by nothing.
 
 Its rules: counts and instants are never negative, and a yes without a recorded showing is
 impossible (the showing is stamped first, the answer follows it). A `last_asked_at` *earlier* than

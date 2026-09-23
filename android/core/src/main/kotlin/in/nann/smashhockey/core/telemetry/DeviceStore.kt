@@ -81,8 +81,18 @@ class DeviceStore(val directory: File) {
     }
 
     /**
-     * After a refusal (§17.1): the refused file is moved aside, untouched, as `device.refused-N.json`
-     * (the first N free), and a **replacement** is written in its place.
+     * Where a refused record is kept: a directory of its own, excluded from backup as a whole.
+     *
+     * Not beside the record as the save's refused copies are, and the reason is the id. An exclusion
+     * list names exact paths, so `device.refused-1.json` sitting next to `device.json` would be
+     * **backed up** — carrying the very install id §18.1 says never rides a record that syncs. A
+     * directory is excluded once and covers every copy there will ever be.
+     */
+    val refusedDirectory = File(directory, REFUSED_DIRECTORY_NAME)
+
+    /**
+     * After a refusal (§17.1): the refused file is moved aside, untouched, into
+     * `device-refused/device-N.json` (the first N free), and a **replacement** is written in its place.
      *
      * The replacement — never a [DeviceRecord.Companion.fresh] — is stamped as if the question had
      * just been put, so the record we lost reads as brand new and serving a full cooldown. One corrupt
@@ -91,9 +101,10 @@ class DeviceStore(val directory: File) {
     fun replaceRefused(now: Long, installId: String): Pair<DeviceRecord, File?> {
         var kept: File? = null
         if (file.exists()) {
+            refusedDirectory.mkdirs()
             var n = 1
-            while (File(directory, "device.refused-$n.json").exists()) n++
-            val aside = File(directory, "device.refused-$n.json")
+            while (File(refusedDirectory, "device-$n.json").exists()) n++
+            val aside = File(refusedDirectory, "device-$n.json")
             Files.move(file.toPath(), aside.toPath())
             kept = aside
         }
@@ -114,5 +125,8 @@ class DeviceStore(val directory: File) {
             is Loaded.Refused -> replaceRefused(now, installId).first to loaded.why
         }
 
-    companion object { const val FILE_NAME = "device.json" }
+    companion object {
+        const val FILE_NAME = "device.json"
+        const val REFUSED_DIRECTORY_NAME = "device-refused"
+    }
 }

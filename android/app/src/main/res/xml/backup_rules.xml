@@ -6,10 +6,15 @@
   save.json is therefore backed up and stays backed up: player progress is sacred (principle 13).
 
   device.json is not. It holds the anonymous install id, and an install id restored onto a second
-  phone is one install counted as two, forever — and it would carry a "already asked / already said
+  phone is one install counted as two, forever — and it would carry an "already asked / already said
   yes" stamp to a device that was never asked. The iOS twin is isExcludedFromBackup in DeviceStore.
+
+  `device-refused` is a directory, and that is why it can be excluded in one line: an exclusion names
+  exact paths, so a refused copy sitting beside device.json would have been backed up, carrying the
+  very install id §18.1 says never rides a record that syncs.
 -->
 <full-backup-content>
     <exclude domain="file" path="device.json" />
     <exclude domain="file" path="device.json.tmp" />
+    <exclude domain="file" path="device-refused" />
 </full-backup-content>

@@ -59,11 +59,11 @@ import Testing
         #expect(try String(contentsOf: store.file, encoding: .utf8) == record.encoded())
 
         // The refused bytes are kept, untouched, and a second refusal does not overwrite the first.
-        let kept = store.directory.appendingPathComponent("device.refused-1.json")
+        let kept = store.refusedDirectory.appendingPathComponent("device-1.json")
         #expect(try Data(contentsOf: kept) == bad)
         try bad.write(to: store.file)
         #expect(try store.replaceRefused(at: Self.now, installId: Self.otherId).keptAt?.lastPathComponent
-                == "device.refused-2.json")
+                == "device-2.json")
     }
 
     /// Rule 1 of §17.1: the save's refusal path and starting over move `save.json` and write
@@ -115,5 +115,21 @@ import Testing
             return
         }
         #expect(why == "brokenRule $.install_id zeroInstallId")
+    }
+
+    /// The refused copy lands inside the excluded directory and never beside the record. A backup
+    /// rule names exact paths, so a copy written beside `device.json` would be carried off the phone
+    /// with the install id still in it (§17.1, §18.1) — which is the one thing this file exists to
+    /// prevent.
+    @Test func aRefusedCopyIsKeptInsideTheExcludedDirectory() throws {
+        let store = DeviceStore(directory: Self.directory())
+        try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true)
+        try Data("not json".utf8).write(to: store.file)
+        let kept = try store.replaceRefused(at: Self.now, installId: Self.id).keptAt
+        #expect(kept?.deletingLastPathComponent().lastPathComponent == DeviceStore.refusedDirectoryName)
+        #expect(kept?.lastPathComponent == "device-1.json")
+        // Beside the record there is now only the record itself — no copy an exclusion would miss.
+        let beside = try FileManager.default.contentsOfDirectory(atPath: store.directory.path)
+        #expect(beside.filter { $0.hasPrefix("device.") } == [DeviceStore.fileName])
     }
 }

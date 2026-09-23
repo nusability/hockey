@@ -70,9 +70,9 @@ class DeviceStoreTest {
         assertEquals(record.encoded(), store.file.readText())
 
         // The refused bytes are kept, untouched, and a second refusal does not overwrite the first.
-        assertTrue(File(store.directory, "device.refused-1.json").readBytes().contentEquals(bad))
+        assertTrue(File(store.refusedDirectory, "device-1.json").readBytes().contentEquals(bad))
         store.file.writeBytes(bad)
-        assertEquals("device.refused-2.json", store.replaceRefused(now, otherId).second!!.name)
+        assertEquals("device-2.json", store.replaceRefused(now, otherId).second!!.name)
     }
 
     /**
@@ -107,5 +107,21 @@ class DeviceStoreTest {
             DeviceStore.Loaded.Refused("brokenRule \$.install_id zeroInstallId"),
             store.load(now, id),
         )
+    }
+
+    /**
+     * The refused copy lands inside the excluded directory and never beside the record. A backup rule
+     * names exact paths, so a copy written beside `device.json` would be carried off the phone with
+     * the install id still in it (§17.1, §18.1) — which is the one thing this file exists to prevent.
+     */
+    @Test fun aRefusedCopyIsKeptInsideTheExcludedDirectory() {
+        val store = DeviceStore(directory())
+        store.file.writeBytes("not json".toByteArray())
+        val kept = store.replaceRefused(now, id).second!!
+        assertEquals(DeviceStore.REFUSED_DIRECTORY_NAME, kept.parentFile.name)
+        assertEquals("device-1.json", kept.name)
+        // Beside the record there is now only the record itself — no copy an exclusion would miss.
+        val beside = store.directory.list()!!.filter { it.startsWith("device.") }.sorted()
+        assertEquals(listOf(DeviceStore.FILE_NAME), beside)
     }
 }

@@ -15,9 +15,10 @@ import Foundation
 ///    the game, so `replaceRefused(at:installId:)` moves the unreadable file aside and writes a
 ///    **`replacement`** — stamped as if the question had just been put. Never a `fresh`: a record we
 ///    lost must serve a full cooldown, never read as long-ago-and-eligible.
-/// 3. **It is excluded from device backup.** `isExcludedFromBackup` is set on the file after every
-///    write, so an install id can never be restored onto a second phone and counted twice.
-///    `save.json` stays backed up — player data is sacred.
+/// 3. **It is excluded from device backup**, and so is every refused copy of it
+///    (`device-refused/`, a directory so one exclusion covers all of them). `isExcludedFromBackup` is
+///    set after every write, so an install id can never be restored onto a second phone and counted
+///    twice. `save.json` stays backed up — player data is sacred.
 public struct DeviceStore: Sendable {
     /// What was on the device — the same three answers `SaveStore.Loaded` gives, and the same
     /// meanings; only what the app does with the third one differs.
@@ -82,15 +83,26 @@ public struct DeviceStore: Sendable {
 
     /// Keeps the file out of iCloud and iTunes/Finder backups (§17.1). Set after the rename, because
     /// the rename replaces the file the flag was on.
-    private func excludeFromBackup() throws {
-        var url = file
+    private func excludeFromBackup() throws { try excludeFromBackup(file) }
+
+    private func excludeFromBackup(_ target: URL) throws {
+        var url = target
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
         try url.setResourceValues(values)
     }
 
-    /// After a refusal (§17.1): the refused file is moved aside, untouched, as
-    /// `device.refused-N.json` (the first N free), and a **replacement** is written in its place.
+    /// Where a refused record is kept: a directory of its own, excluded from backup as a whole.
+    ///
+    /// Not beside the record as the save's refused copies are, and the reason is the id. An exclusion
+    /// list names exact files, so `device.refused-1.json` sitting next to `device.json` would be
+    /// **backed up** — carrying the very install id §18.1 says never rides a record that syncs. A
+    /// directory can be excluded once and covers every copy there will ever be.
+    public var refusedDirectory: URL { directory.appendingPathComponent(Self.refusedDirectoryName) }
+    public static let refusedDirectoryName = "device-refused"
+
+    /// After a refusal (§17.1): the refused file is moved aside, untouched, into
+    /// `device-refused/device-N.json` (the first N free), and a **replacement** is written in its place.
     ///
     /// The replacement — never a `fresh` — is stamped as if the question had just been put, so the
     /// record we lost reads as brand new and serving a full cooldown. One corrupt byte must not
@@ -99,11 +111,13 @@ public struct DeviceStore: Sendable {
     public func replaceRefused(at now: Int64, installId: String) throws -> (record: DeviceRecord, keptAt: URL?) {
         var kept: URL?
         if FileManager.default.fileExists(atPath: file.path) {
+            try FileManager.default.createDirectory(at: refusedDirectory, withIntermediateDirectories: true)
+            try excludeFromBackup(refusedDirectory)
             var n = 1
-            var aside = directory.appendingPathComponent("device.refused-\(n).json")
+            var aside = refusedDirectory.appendingPathComponent("device-\(n).json")
             while FileManager.default.fileExists(atPath: aside.path) {
                 n += 1
-                aside = directory.appendingPathComponent("device.refused-\(n).json")
+                aside = refusedDirectory.appendingPathComponent("device-\(n).json")
             }
             try FileManager.default.moveItem(at: file, to: aside)
             kept = aside

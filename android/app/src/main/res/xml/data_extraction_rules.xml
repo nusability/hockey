@@ -6,15 +6,22 @@
 
   Exclude-only, so save.json is backed up and transferred like everything else the app writes
   (player progress is sacred, principle 13). device.json is neither: an install id restored onto a
-  second phone is one install counted as two, forever.
+  second phone is one install counted as two, forever — and it would carry an "already asked /
+  already said yes" stamp to a device that was never asked.
+
+  `device-refused` is a directory, and that is why it can be excluded in one line: an exclusion
+  names exact paths, so a refused copy sitting beside device.json would have been backed up,
+  carrying the very install id §18.1 says never rides a record that syncs.
 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="device.json" />
         <exclude domain="file" path="device.json.tmp" />
+        <exclude domain="file" path="device-refused" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="device.json" />
         <exclude domain="file" path="device.json.tmp" />
+        <exclude domain="file" path="device-refused" />
     </device-transfer>
 </data-extraction-rules>

@@ -410,6 +410,10 @@ public enum Tuning {
         public static let hardFoughtMatches: Int = 20
         public static let cooldownDays: Int = 90
     }
+    public enum Telemetry {
+        public static let backlog: Int = 200
+        public static let sendTimeoutSeconds: Double = 8.0
+    }
     public enum Board {
         public static let tacticMin: Double = 0.0
         public static let tacticMax: Double = 1.0

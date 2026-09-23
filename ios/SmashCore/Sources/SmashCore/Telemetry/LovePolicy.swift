@@ -207,3 +207,20 @@ public struct LoveMatch: Sendable, Hashable {
         return (goalsFor - goalsAgainst == 1 && winningGoalWasLate) || trailed
     }
 }
+
+extension LoveMatch {
+    /// How far into the match the clock stood, in milliseconds, from what a snapshot holds: the
+    /// period, the seconds left in it, and the period's length (§12). This is **match time, not wall
+    /// time** — a face-off that took two seconds to drop is not two seconds of the match — which is
+    /// what makes it comparable with `durationMillis` and with the final-third boundary (§17.2).
+    ///
+    /// Overtime reads as the whole match having run: a golden goal is by definition the last one, and
+    /// it is late by any measure worth the name.
+    public static func elapsedMillis(period: Int, remainingSeconds: Double, periodSeconds: Double,
+                                     overtime: Bool, periods: Int = Tuning.Match.periods) -> Int {
+        let whole = Int((Double(periods) * periodSeconds * 1000).rounded())
+        guard !overtime else { return whole }
+        let played = Double(max(period - 1, 0)) * periodSeconds + max(0, periodSeconds - remainingSeconds)
+        return min(whole, max(0, Int((played * 1000).rounded())))
+    }
+}

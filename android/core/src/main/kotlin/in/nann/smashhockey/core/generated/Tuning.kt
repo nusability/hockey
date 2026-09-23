@@ -411,6 +411,10 @@ object Tuning {
         const val hardFoughtMatches: Int = 20
         const val cooldownDays: Int = 90
     }
+    object Telemetry {
+        const val backlog: Int = 200
+        const val sendTimeoutSeconds: Double = 8.0
+    }
     object Board {
         const val tacticMin: Double = 0.0
         const val tacticMax: Double = 1.0

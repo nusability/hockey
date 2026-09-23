@@ -39,7 +39,12 @@ struct GameView: View {
             .background(Color.black)
             .ignoresSafeArea()
             .onChange(of: reduceMotion) { _, r in game?.reduceMotion = r }
-            .onChange(of: phase) { _, p in if p != .active { game?.pause(true) } }   // §8.7
+            .onChange(of: phase) { _, p in
+                guard p != .active, let g = game else { return }
+                g.pause(true)                                              // §8.7
+                // The other of the two moments anything is sent (§18.8): the app is leaving.
+                g.telemetry.flush(installId: g.device.installId)
+            }
             .task {
                 guard game == nil, failure == nil else { return }
                 do {

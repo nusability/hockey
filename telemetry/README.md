@@ -8,8 +8,11 @@ Nothing here is part of either app, and neither app depends on it being up: with
 configured the client is inert, and a failed send is dropped rather than retried (A0, A2 — nothing
 may sit between a result and the next face-off).
 
-**No client sends anything yet.** The contract exists, the tables exist, the endpoint answers. The
-apps' side is the next piece of work.
+**Both apps send** (spec §18, since 2026-09-23): a played match and a finished season, queued in memory
+and flushed when the player reaches the hub or the app goes to the background. The love dialog's two
+routes have their senders and no call site yet — no screen asks the question (§17). A build with no
+endpoint configured sends nothing, and a test run sends nothing ever; the client refuses both at the
+source, because a robot's row is indistinguishable from a person's once it has arrived.
 
 ## The one thing to understand
 
@@ -30,6 +33,17 @@ generator, and the Swift type, the Kotlin type, the DDL, the contract and the IN
 together — or `python3 tools/generate-data.py --check` fails.
 
 ⚠️ **Never edit `schema.sql`, `columns.json` or the generated record types.** Edit the declaration.
+
+⚠️ **A wire column may not be a `double` or an `rgb`** — the generator refuses one. The canonical JSON
+writer both apps share encodes a double as its exact bit pattern, a JSON *string* (`"0x405E…"`), which
+is right for a save a vector pins byte for byte and wrong for a column typed as a number: the collector
+would reject the whole row with `period_seconds is not a number`. Found the honest way, by generating
+the client's bytes and reading them, before anything was sent — `period_seconds` became `period_ms`.
+Say instants and durations in integer milliseconds, which is what everything else here already does.
+
+The two versions in `telemetry.toml` are not one: `[format]` is `device.json`'s file format (§17.1) and
+`[wire]` is these four tables' column contract (§18.6). `columns.json` carries the latter as `"wire"`,
+and the collector logs it at boot. A change to one must never move the other.
 
 ## Shape
 
@@ -103,8 +117,18 @@ file in a root-owned directory (`../flashybird` learned this). The snippet there
 block — every other vhost on this box logs to journald, which Loki already collects. **Check
 `systemctl is-active caddy` actually says `active`.**
 
-`schema.sql` only runs on the database's *first* boot. A later declaration change is applied by hand
-with `psql -f` — it is idempotent. While nothing has shipped, a change may simply drop and rebuild a
+`columns.json` is read **at boot**, so a declaration change needs `docker compose restart collector`
+before the new column exists as far as the INSERT is concerned.
+
+`schema.sql` only runs on the database's *first* boot. A later declaration change is applied by hand —
+the db service is `smashhockey-db`:
+
+```sh
+docker compose exec -T smashhockey-db psql -U smashhockey -d smashhockey -c "DROP TABLE matches;"
+docker compose exec -T smashhockey-db psql -U smashhockey -d smashhockey -f - < schema.sql
+```
+
+— it is idempotent. While nothing has shipped, a change may simply drop and rebuild a
 table (`conventions.md`, greenfield); from the first shipped build a column is added with an explicit
 default, never renamed or removed.
 

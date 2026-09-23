@@ -12,7 +12,9 @@ public struct Match: Sendable {
     let sport: Sport
     let control: Control
     let drill: Drill?
-    let periodSeconds: Double
+    /// The period's length in seconds (§12) — public because the row a finished match reports names
+    /// it, and the app must not have to guess at what the setup chose (§18.2).
+    public let periodSeconds: Double
     let cup: Bool
     /// Radians per second of every orbit (§5.1).
     let omega: Double

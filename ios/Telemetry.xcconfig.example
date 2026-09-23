@@ -1,0 +1,23 @@
+// The iOS half of the telemetry configuration (spec §18.7).
+//
+//     cp ios/Telemetry.xcconfig.example ios/Telemetry.xcconfig
+//
+// `ios/Telemetry.xcconfig` is **untracked and required to exist** — `xcodegen generate` fails and
+// names it when it does not, which is the loud failure a missing endpoint is supposed to be. Copied
+// as it stands, with both values empty, **the client is inert**: nothing is queued and nothing is
+// sent (conventions.md, Configuration — no endpoint is ever defaulted in code). Fill both in to
+// turn it on; `ios/project.yml` substitutes them into the generated Info.plist, which is where
+// `Telemetry.swift` reads them.
+//
+// ⚠️ `//` starts a comment in an xcconfig, so a pasted `https://…` silently truncates to `https:`
+// and the endpoint quietly becomes nonsense. Write the URL host-first after `$(SMASH_SCHEME)`,
+// which reassembles the scheme through an empty `$()` expansion — that is what keeps the two
+// slashes apart in the file:
+SMASH_SCHEME = https:/$()/
+
+// The collector (spec §18.6): $(SMASH_SCHEME)ingest.nann.in/smash
+SMASH_TELEMETRY_URL   =
+
+// On the box: `grep SH_INGEST_TOKEN /opt/smashhockey/.env`. Not a secret in any real sense — it
+// ships inside the binary — but it never belongs in a commit, a ticket or a chat.
+SMASH_TELEMETRY_TOKEN =

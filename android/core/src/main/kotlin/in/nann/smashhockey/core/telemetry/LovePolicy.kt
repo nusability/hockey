@@ -232,4 +232,29 @@ data class LoveMatch(
      */
     val wasHardFought: Boolean
         get() = won && ((goalsFor - goalsAgainst == 1 && winningGoalWasLate) || trailed)
+
+    companion object {
+        /**
+         * How far into the match the clock stood, in milliseconds, from what a snapshot holds: the
+         * period, the seconds left in it, and the period's length (§12). This is **match time, not
+         * wall time** — a face-off that took two seconds to drop is not two seconds of the match —
+         * which is what makes it comparable with [durationMillis] and with the final-third boundary
+         * (§17.2).
+         *
+         * Overtime reads as the whole match having run: a golden goal is by definition the last one,
+         * and it is late by any measure worth the name.
+         */
+        fun elapsedMillis(
+            period: Int,
+            remainingSeconds: Double,
+            periodSeconds: Double,
+            overtime: Boolean,
+            periods: Int = Tuning.Match.periods,
+        ): Int {
+            val whole = Math.round(periods * periodSeconds * 1000).toInt()
+            if (overtime) return whole
+            val played = maxOf(period - 1, 0) * periodSeconds + maxOf(0.0, periodSeconds - remainingSeconds)
+            return minOf(whole, maxOf(0, Math.round(played * 1000).toInt()))
+        }
+    }
 }

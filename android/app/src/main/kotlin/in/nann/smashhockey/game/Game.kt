@@ -34,7 +34,14 @@ import `in`.nann.smashhockey.core.season.recordPlayed
 import `in`.nann.smashhockey.core.season.table
 import `in`.nann.smashhockey.core.season.withBoard
 import `in`.nann.smashhockey.core.season.won
+import `in`.nann.smashhockey.core.season.SeasonEnd
+import `in`.nann.smashhockey.core.generated.SeasonRecord
+import `in`.nann.smashhockey.core.generated.Tuning
+import `in`.nann.smashhockey.core.season.team
 import `in`.nann.smashhockey.core.telemetry.DeviceStore
+import `in`.nann.smashhockey.core.telemetry.LoveMatch
+import `in`.nann.smashhockey.core.telemetry.TelemetryRow
+import `in`.nann.smashhockey.core.telemetry.recordingPlayedMatch
 import `in`.nann.smashhockey.core.telemetry.replacement
 import `in`.nann.smashhockey.engine.Assets
 import `in`.nann.smashhockey.engine.FilamentHost
@@ -111,6 +118,13 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
     // The device's own record (§17.1): its own file beside the save, out of backup, its refusal silent.
     private val devices = DeviceStore(context.filesDir)
     var device: DeviceRecord; private set
+    /** What leaves the device (§18): inert unless the build is configured for it. */
+    val telemetry = Telemetry.of(context, synthetic = launch != null)
+    /**
+     * The player's match as it is scored, in the order the goals fell (§17.2) — the tape [LoveMatch]
+     * reads the comeback and the winning goal off. Kept for the match being played and no longer.
+     */
+    private val goalTape = ArrayList<LoveMatch.Goal>()
     private val stageState = mutableStateOf<UIStage?>(null)
     /** The stage, once built — the semantics overlay reads it. */
     val stageRef: State<UIStage?> get() = stageState
@@ -127,8 +141,7 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
     private var boardDirty = false
     private var width = 0
     private var height = 0
-    private var ui: Int? = null
-    private val onPitch = HashSet<Int>()
+    private val touches = Touches(this)
 
     init {
         Copy.init(context)
@@ -204,6 +217,10 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
             is Place.Result -> ResultScreen(this, next.outcome)
         }
         screen = s
+        // One of the two moments anything is sent (§18.8): the player has come to rest on the hub.
+        // Never on the result screen, never on an input path, never between a result and the next
+        // face-off (A0, A2).
+        if (next == Place.Hub) telemetry.flush(device.installId)
         stage.rig.swoop(s.pose, roll = if (first) 0f else 0.12f)
         s.show(if (first) 0.9 else 0.45)
         if (playing != null) endMatch()
@@ -266,6 +283,7 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         screen = null
         hud?.leave()
         playing = plan
+        goalTape.clear()
         demoOn = false
         pitch.start(plan, kickoff)
         sfx.sport = kickoff.world.sport
@@ -287,7 +305,11 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         when (val plan = playing ?: return) {
             MatchPlan.Season -> {
                 rememberTable()
-                commit { it.forfeit().first }
+                val before = save.season
+                var end: SeasonEnd? = null
+                commit { val (next, ended) = it.forfeit(); end = ended; next }
+                // A forfeit is a played match (§18.2) and says so in its own column.
+                report(plan, MatchResult.LOST, before, forfeit = true, end = end)
                 go(Place.Hub)
             }
             is MatchPlan.Practice -> go(Place.Training(plan.drill))
@@ -311,19 +333,70 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         if (pitch.plan != plan) return
         hud?.event(e)
         pitch.snapshot?.let { atmosphere.hear(e, it) }
+        if (e is MatchEvent.Goal) {
+            val s = pitch.snapshot
+            val k = pitch.kickoff
+            if (s != null && k != null) {
+                val periods = if (plan is MatchPlan.Practice) 1 else Tuning.Match.periods
+                goalTape.add(
+                    LoveMatch.Goal(
+                        e.team == 0,
+                        LoveMatch.elapsedMillis(s.period, s.clock, k.match.periodSeconds, s.overtime, periods),
+                    ),
+                )
+            }
+        }
         if (e !is MatchEvent.End) return
         val s = pitch.snapshot ?: return
         val k = pitch.kickoff
         val outcome = Outcome(plan, s.score, s.overtime, e.result, k?.codes, k?.sideNames, k?.colours ?: emptyList(), k?.drillGoals)
         // Recorded now, before anything else can happen (§15); shown once the banner has had its moment.
+        val before = save.season
+        var end: SeasonEnd? = null
         when {
             plan == MatchPlan.Season -> {
                 rememberTable()
-                commit { it.recordPlayed(s.score[0], s.score[1], s.overtime).first }
+                commit { val (next, ended) = it.recordPlayed(s.score[0], s.score[1], s.overtime); end = ended; next }
             }
             plan is MatchPlan.Practice && e.result == MatchResult.WON -> commit { it.won(plan.drill) }
         }
+        report(plan, e.result, before, forfeit = false, end = end)
         stage.after(Presentation.Screens.resultDelay) { if (playing == plan) go(Place.Result(outcome)) }
+    }
+
+    /**
+     * Counts the finished match on the device record (§17.1) and queues what it reports (§18.2,
+     * §18.3). One place, so a forfeit is reported exactly as a played match is — and **nothing here
+     * sends anything**: the rows wait in memory for the next flush (§18.8).
+     */
+    private fun report(plan: MatchPlan, result: MatchResult, seasonBefore: SeasonRecord?, forfeit: Boolean, end: SeasonEnd?) {
+        if (plan is MatchPlan.Demo) return
+        val snapshot = pitch.snapshot ?: return
+        val kickoff = pitch.kickoff ?: return
+        device = device.recordingPlayedMatch()
+        try { devices.write(device) } catch (e: Exception) {
+            Log.e(TAG, "the device record could not be written", e)
+        }
+        val periods = if (plan is MatchPlan.Practice) 1 else Tuning.Match.periods
+        val career = save.career
+        val love = LoveMatch(
+            goals = goalTape.toList(),
+            durationMillis = Math.round(periods * kickoff.match.periodSeconds * 1000).toInt(),
+            wonCup = end != null && career != null && end.cupWinner == career.team,
+            wonLeague = end != null && career != null && end.champion == career.team,
+        )
+        telemetry.record(
+            TelemetryRow.Match(
+                MatchReport.match(plan, kickoff.world, kickoff.match.periodSeconds, result, snapshot, love,
+                    save.board, seasonBefore, device.matchesPlayed, forfeit),
+            ),
+        )
+        val season = save.season
+        if (end != null && career != null && season != null) {
+            MatchReport.season(end, season, career, device.matchesPlayed)?.let {
+                telemetry.record(TelemetryRow.Season(it))
+            }
+        }
     }
 
     /** What the match sets off beyond the pitch (§8.8, §16.4): the HUD's banners, the haptics, the sounds. */
@@ -385,47 +458,8 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         flush()
     }
 
-    // ---------------------------------------------------------------- touches
-
-    /**
-     * Every finger on the surface. A finger that lands on a 3D control belongs to the UI (the first
-     * such finger drives it); every other finger is the match's while a match is being played: the
-     * first one down holds, the last one up releases (§5.3).
-     */
-    fun onTouch(e: MotionEvent): Boolean {
-        val stage = stageState.value ?: return true
-        val i = e.actionIndex
-        val id = e.getPointerId(i)
-        when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
-                if (ui == null && stage.touchDown(e.getX(i), e.getY(i))) {
-                    ui = id
-                } else if (pitchTakesFingers) {
-                    val first = onPitch.isEmpty()
-                    onPitch += id
-                    if (first) pitch.hold(true, e.eventTime)
-                }
-            }
-            MotionEvent.ACTION_MOVE -> ui?.let { u ->
-                val at = e.findPointerIndex(u)
-                if (at >= 0) stage.touchMoved(e.getX(at), e.getY(at))
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> lift(stage, id, e.getX(i), e.getY(i), e.eventTime)
-            MotionEvent.ACTION_CANCEL -> for (k in 0 until e.pointerCount) lift(stage, e.getPointerId(k), e.getX(k), e.getY(k), e.eventTime)
-        }
-        return true
-    }
-
-    private fun lift(stage: UIStage, id: Int, x: Float, y: Float, time: Long) {
-        if (id == ui) {
-            ui = null
-            stage.touchUp(x, y)
-        } else if (onPitch.remove(id) && onPitch.isEmpty()) {
-            pitch.hold(false, time)
-        }
-    }
-
-    private val pitchTakesFingers get() = playing != null && pitch.plan == playing && !pitch.paused
+    /** Every finger on the surface (§5.3) — its own concern, in Touches.kt. */
+    fun onTouch(e: MotionEvent): Boolean = touches.onTouch(e)
 
     fun destroy() {
         host.stop()

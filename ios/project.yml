@@ -53,6 +53,20 @@ targets:
     # The sound bank (spec §8.8, shared/data/sounds.toml): iOS plays the .m4a twin of each file, into
     # the bundle's sounds/ keeping the bank's folders; the .ogg twins are Android's.
     postCompileScripts:
+      # Which code this build is (spec §18.1). A build setting cannot run git and an xcconfig would
+      # go stale, so the stamp is a resource written on every build — and it **fails the build**
+      # rather than guessing: a row that lies about its commit is worse than no row (the client is
+      # inert without it).
+      - name: Stamp the commit
+        basedOnDependencyAnalysis: false
+        script: |
+          set -eu
+          cd "$SRCROOT/.."
+          COMMIT="$(git rev-parse --short=10 HEAD)"
+          if ! git diff --quiet HEAD; then COMMIT="$COMMIT-dirty"; fi
+          DST="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          mkdir -p "$DST"
+          printf '%s\n' "$COMMIT" > "$DST/commit.txt"
       - name: Bundle the sound bank
         basedOnDependencyAnalysis: false
         script: |
@@ -61,6 +75,12 @@ targets:
           DST="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/sounds"
           mkdir -p "$DST"
           rsync -a --delete --include='*/' --include='*.m4a' --exclude='*' "$SRC/" "$DST/"
+    # The telemetry endpoint and ingest token (spec §18.7), per machine and untracked;
+    # ios/Telemetry.xcconfig.example is the committed copy. Absent, the settings expand to nothing
+    # and the client is inert — never a literal fallback (conventions.md, Configuration).
+    configFiles:
+      Debug: Telemetry.xcconfig
+      Release: Telemetry.xcconfig
     # Keys the generated plist has no build setting for. xcodegen writes ios/Info.plist from this
     # (untracked); GENERATE_INFOPLIST_FILE merges the INFOPLIST_KEY_* settings into it.
     info:
@@ -68,6 +88,9 @@ targets:
       properties:
         # ProMotion: without this key an iPhone caps every app at 60 Hz (ADR 0005 spike).
         CADisableMinimumFrameDurationOnPhone: true
+        # Read by Telemetry.swift; substituted from Telemetry.xcconfig at build time.
+        SMASHTelemetryURL: $(SMASH_TELEMETRY_URL)
+        SMASHTelemetryToken: $(SMASH_TELEMETRY_TOKEN)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: in.nann.smashhockey

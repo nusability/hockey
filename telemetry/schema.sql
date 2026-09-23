@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS matches (
     "overtime"         BOOLEAN NOT NULL,
     "forfeit"          BOOLEAN NOT NULL,
     "duration_ms"      INT NOT NULL,
-    "period_seconds"   DOUBLE PRECISION NOT NULL,
+    "period_ms"        INT NOT NULL,
     "formation"        TEXT NOT NULL,
     "matches_played"   INT NOT NULL,
     "trailed"          BOOLEAN NOT NULL,

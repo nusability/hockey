@@ -327,6 +327,7 @@ enum GeneratedConstantBits {
         ("Tuning.Season.goalMean", Tuning.Season.goalMean, 0x4002666666666666),
         ("Tuning.Season.goalMeanScale", Tuning.Season.goalMeanScale, 0x4036000000000000),
         ("Tuning.Season.homeBonus", Tuning.Season.homeBonus, 0x3FC3333333333333),
+        ("Tuning.Telemetry.sendTimeoutSeconds", Tuning.Telemetry.sendTimeoutSeconds, 0x4020000000000000),
         ("Tuning.Board.tacticMin", Tuning.Board.tacticMin, 0x0000000000000000),
         ("Tuning.Board.tacticMax", Tuning.Board.tacticMax, 0x3FF0000000000000),
         ("Tuning.Board.periodSeconds[0]", Tuning.Board.periodSeconds[0], 0x404E000000000000),

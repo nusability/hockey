@@ -161,13 +161,13 @@ public struct MatchRow: Sendable, Hashable {
     public var overtime: Bool
     public var forfeit: Bool
     public var durationMs: Int
-    public var periodSeconds: Double
+    public var periodMs: Int
     public var formation: Formation
     public var matchesPlayed: Int
     public var trailed: Bool
     public var hardFought: Bool
 
-    public init(installId: String, commit: String, at: Int64, platform: Platform, env: Env, language: String, synthetic: Bool, sport: Sport, world: World, competition: Competition, seasonNumber: Int?, matchday: Int?, goalsFor: Int, goalsAgainst: Int, result: MatchOutcome, overtime: Bool, forfeit: Bool, durationMs: Int, periodSeconds: Double, formation: Formation, matchesPlayed: Int, trailed: Bool, hardFought: Bool) {
+    public init(installId: String, commit: String, at: Int64, platform: Platform, env: Env, language: String, synthetic: Bool, sport: Sport, world: World, competition: Competition, seasonNumber: Int?, matchday: Int?, goalsFor: Int, goalsAgainst: Int, result: MatchOutcome, overtime: Bool, forfeit: Bool, durationMs: Int, periodMs: Int, formation: Formation, matchesPlayed: Int, trailed: Bool, hardFought: Bool) {
         self.installId = installId
         self.commit = commit
         self.at = at
@@ -186,7 +186,7 @@ public struct MatchRow: Sendable, Hashable {
         self.overtime = overtime
         self.forfeit = forfeit
         self.durationMs = durationMs
-        self.periodSeconds = periodSeconds
+        self.periodMs = periodMs
         self.formation = formation
         self.matchesPlayed = matchesPlayed
         self.trailed = trailed
@@ -216,7 +216,7 @@ extension MatchRow {
             ("overtime", .bool(overtime)),
             ("forfeit", .bool(forfeit)),
             ("duration_ms", .int(durationMs)),
-            ("period_seconds", SaveJSON.double(periodSeconds)),
+            ("period_ms", .int(periodMs)),
             ("formation", .string(formation.rawValue)),
             ("matches_played", .int(matchesPlayed)),
             ("trailed", .bool(trailed)),
@@ -226,7 +226,7 @@ extension MatchRow {
 
     /// Decodes the record at `path` ("$" for the file's root), failing on anything but its exact shape.
     init(json: JSONValue, at path: String) throws(SaveDecodeError) {
-        let o = try SaveJSON.fields(json, at: path, ["install_id", "commit", "at", "platform", "env", "language", "synthetic", "sport", "world", "competition", "season_number", "matchday", "goals_for", "goals_against", "result", "overtime", "forfeit", "duration_ms", "period_seconds", "formation", "matches_played", "trailed", "hard_fought"])
+        let o = try SaveJSON.fields(json, at: path, ["install_id", "commit", "at", "platform", "env", "language", "synthetic", "sport", "world", "competition", "season_number", "matchday", "goals_for", "goals_against", "result", "overtime", "forfeit", "duration_ms", "period_ms", "formation", "matches_played", "trailed", "hard_fought"])
         self.installId = try SaveJSON.uuid(o[0], at: path + ".install_id")
         self.commit = try SaveJSON.string(o[1], at: path + ".commit")
         self.at = try SaveJSON.i64(o[2], at: path + ".at")
@@ -245,12 +245,86 @@ extension MatchRow {
         self.overtime = try SaveJSON.bool(o[15], at: path + ".overtime")
         self.forfeit = try SaveJSON.bool(o[16], at: path + ".forfeit")
         self.durationMs = try SaveJSON.int(o[17], at: path + ".duration_ms")
-        self.periodSeconds = try SaveJSON.double(o[18], at: path + ".period_seconds")
+        self.periodMs = try SaveJSON.int(o[18], at: path + ".period_ms")
         self.formation = try SaveJSON.key(o[19], at: path + ".formation") as Formation
         self.matchesPlayed = try SaveJSON.int(o[20], at: path + ".matches_played")
         self.trailed = try SaveJSON.bool(o[21], at: path + ".trailed")
         self.hardFought = try SaveJSON.bool(o[22], at: path + ".hard_fought")
     }
+
+    /// The collector's table, and so its route (spec §18.6): `POST <endpoint>/matches`.
+    public static let table: String = "matches"
+
+    /// The row's own columns, without the envelope's (spec §18.1). This is what a call site fills
+    /// in; the envelope is stamped on once per send, so a queued row carries no clock of its own.
+    public struct Body: Sendable, Hashable {
+        public var sport: Sport
+        public var world: World
+        public var competition: Competition
+        public var seasonNumber: Int?
+        public var matchday: Int?
+        public var goalsFor: Int
+        public var goalsAgainst: Int
+        public var result: MatchOutcome
+        public var overtime: Bool
+        public var forfeit: Bool
+        public var durationMs: Int
+        public var periodMs: Int
+        public var formation: Formation
+        public var matchesPlayed: Int
+        public var trailed: Bool
+        public var hardFought: Bool
+
+        public init(sport: Sport, world: World, competition: Competition, seasonNumber: Int?, matchday: Int?, goalsFor: Int, goalsAgainst: Int, result: MatchOutcome, overtime: Bool, forfeit: Bool, durationMs: Int, periodMs: Int, formation: Formation, matchesPlayed: Int, trailed: Bool, hardFought: Bool) {
+            self.sport = sport
+            self.world = world
+            self.competition = competition
+            self.seasonNumber = seasonNumber
+            self.matchday = matchday
+            self.goalsFor = goalsFor
+            self.goalsAgainst = goalsAgainst
+            self.result = result
+            self.overtime = overtime
+            self.forfeit = forfeit
+            self.durationMs = durationMs
+            self.periodMs = periodMs
+            self.formation = formation
+            self.matchesPlayed = matchesPlayed
+            self.trailed = trailed
+            self.hardFought = hardFought
+        }
+    }
+
+    /// One row, from the moment it happened and the envelope of the send that carries it.
+    public init(_ envelope: Envelope, _ body: Body) {
+        self.init(installId: envelope.installId,
+                  commit: envelope.commit,
+                  at: envelope.at,
+                  platform: envelope.platform,
+                  env: envelope.env,
+                  language: envelope.language,
+                  synthetic: envelope.synthetic,
+                  sport: body.sport,
+                  world: body.world,
+                  competition: body.competition,
+                  seasonNumber: body.seasonNumber,
+                  matchday: body.matchday,
+                  goalsFor: body.goalsFor,
+                  goalsAgainst: body.goalsAgainst,
+                  result: body.result,
+                  overtime: body.overtime,
+                  forfeit: body.forfeit,
+                  durationMs: body.durationMs,
+                  periodMs: body.periodMs,
+                  formation: body.formation,
+                  matchesPlayed: body.matchesPlayed,
+                  trailed: body.trailed,
+                  hardFought: body.hardFought)
+    }
+
+    /// The canonical JSON this row is sent as (spec §18.6) — byte for byte what the other platform
+    /// sends for the same values, which is what makes the two builds' rows one dataset.
+    public func encoded() -> String { json().canonicalText() }
 }
 
 /// One finished season (spec §18.3): where the player came and what they won. This is what 'do they finish a season' and 'what fraction ever win the cup' are read from.
@@ -347,6 +421,68 @@ extension SeasonRow {
         self.cupWon = try SaveJSON.bool(o[17], at: path + ".cup_won")
         self.matchesPlayed = try SaveJSON.int(o[18], at: path + ".matches_played")
     }
+
+    /// The collector's table, and so its route (spec §18.6): `POST <endpoint>/seasons`.
+    public static let table: String = "seasons"
+
+    /// The row's own columns, without the envelope's (spec §18.1). This is what a call site fills
+    /// in; the envelope is stamped on once per send, so a queued row carries no clock of its own.
+    public struct Body: Sendable, Hashable {
+        public var seasonNumber: Int
+        public var position: Int
+        public var points: Int
+        public var played: Int
+        public var won: Int
+        public var drawn: Int
+        public var lost: Int
+        public var goalsFor: Int
+        public var goalsAgainst: Int
+        public var champion: Bool
+        public var cupWon: Bool
+        public var matchesPlayed: Int
+
+        public init(seasonNumber: Int, position: Int, points: Int, played: Int, won: Int, drawn: Int, lost: Int, goalsFor: Int, goalsAgainst: Int, champion: Bool, cupWon: Bool, matchesPlayed: Int) {
+            self.seasonNumber = seasonNumber
+            self.position = position
+            self.points = points
+            self.played = played
+            self.won = won
+            self.drawn = drawn
+            self.lost = lost
+            self.goalsFor = goalsFor
+            self.goalsAgainst = goalsAgainst
+            self.champion = champion
+            self.cupWon = cupWon
+            self.matchesPlayed = matchesPlayed
+        }
+    }
+
+    /// One row, from the moment it happened and the envelope of the send that carries it.
+    public init(_ envelope: Envelope, _ body: Body) {
+        self.init(installId: envelope.installId,
+                  commit: envelope.commit,
+                  at: envelope.at,
+                  platform: envelope.platform,
+                  env: envelope.env,
+                  language: envelope.language,
+                  synthetic: envelope.synthetic,
+                  seasonNumber: body.seasonNumber,
+                  position: body.position,
+                  points: body.points,
+                  played: body.played,
+                  won: body.won,
+                  drawn: body.drawn,
+                  lost: body.lost,
+                  goalsFor: body.goalsFor,
+                  goalsAgainst: body.goalsAgainst,
+                  champion: body.champion,
+                  cupWon: body.cupWon,
+                  matchesPlayed: body.matchesPlayed)
+    }
+
+    /// The canonical JSON this row is sent as (spec §18.6) — byte for byte what the other platform
+    /// sends for the same values, which is what makes the two builds' rows one dataset.
+    public func encoded() -> String { json().canonicalText() }
 }
 
 /// One love-dialog showing and the answer it got (spec §18.4). Carries no free text — by type: the message has its own record and its own table, so a call site cannot put a player's words into an analytics row.
@@ -411,6 +547,44 @@ extension LoveRow {
         self.shownAt = try SaveJSON.i64(o[9], at: path + ".shown_at")
         self.matchesPlayed = try SaveJSON.int(o[10], at: path + ".matches_played")
     }
+
+    /// The collector's table, and so its route (spec §18.6): `POST <endpoint>/love`.
+    public static let table: String = "love"
+
+    /// The row's own columns, without the envelope's (spec §18.1). This is what a call site fills
+    /// in; the envelope is stamped on once per send, so a queued row carries no clock of its own.
+    public struct Body: Sendable, Hashable {
+        public var trigger: LoveTriggerKind
+        public var answer: LoveAnswerKind
+        public var shownAt: Int64
+        public var matchesPlayed: Int
+
+        public init(trigger: LoveTriggerKind, answer: LoveAnswerKind, shownAt: Int64, matchesPlayed: Int) {
+            self.trigger = trigger
+            self.answer = answer
+            self.shownAt = shownAt
+            self.matchesPlayed = matchesPlayed
+        }
+    }
+
+    /// One row, from the moment it happened and the envelope of the send that carries it.
+    public init(_ envelope: Envelope, _ body: Body) {
+        self.init(installId: envelope.installId,
+                  commit: envelope.commit,
+                  at: envelope.at,
+                  platform: envelope.platform,
+                  env: envelope.env,
+                  language: envelope.language,
+                  synthetic: envelope.synthetic,
+                  trigger: body.trigger,
+                  answer: body.answer,
+                  shownAt: body.shownAt,
+                  matchesPlayed: body.matchesPlayed)
+    }
+
+    /// The canonical JSON this row is sent as (spec §18.6) — byte for byte what the other platform
+    /// sends for the same values, which is what makes the two builds' rows one dataset.
+    public func encoded() -> String { json().canonicalText() }
 }
 
 /// One message a player typed after answering 'Not really' (spec §18.5). **The only row that carries free text, and it is the whole reason this table exists apart from the others**: an analytics row can never hold a player's words, because the type that holds them is not an analytics row.
@@ -471,4 +645,39 @@ extension FeedbackRow {
         self.trigger = try SaveJSON.key(o[8], at: path + ".trigger") as LoveTriggerKind
         self.matchesPlayed = try SaveJSON.int(o[9], at: path + ".matches_played")
     }
+
+    /// The collector's table, and so its route (spec §18.6): `POST <endpoint>/feedback`.
+    public static let table: String = "feedback"
+
+    /// The row's own columns, without the envelope's (spec §18.1). This is what a call site fills
+    /// in; the envelope is stamped on once per send, so a queued row carries no clock of its own.
+    public struct Body: Sendable, Hashable {
+        public var message: String
+        public var trigger: LoveTriggerKind
+        public var matchesPlayed: Int
+
+        public init(message: String, trigger: LoveTriggerKind, matchesPlayed: Int) {
+            self.message = message
+            self.trigger = trigger
+            self.matchesPlayed = matchesPlayed
+        }
+    }
+
+    /// One row, from the moment it happened and the envelope of the send that carries it.
+    public init(_ envelope: Envelope, _ body: Body) {
+        self.init(installId: envelope.installId,
+                  commit: envelope.commit,
+                  at: envelope.at,
+                  platform: envelope.platform,
+                  env: envelope.env,
+                  language: envelope.language,
+                  synthetic: envelope.synthetic,
+                  message: body.message,
+                  trigger: body.trigger,
+                  matchesPlayed: body.matchesPlayed)
+    }
+
+    /// The canonical JSON this row is sent as (spec §18.6) — byte for byte what the other platform
+    /// sends for the same values, which is what makes the two builds' rows one dataset.
+    public func encoded() -> String { json().canonicalText() }
 }

@@ -38,6 +38,11 @@ final class Game {
     /// The device's own record (§17.1): its own file beside the save, out of backup, its refusal silent.
     private let devices: DeviceStore
     private(set) var device: DeviceRecord
+    /// What leaves the device (§18): inert unless the build is configured for it.
+    let telemetry: Telemetry
+    /// The player's match as it is scored, in the order the goals fell (§17.2) — the tape `LoveMatch`
+    /// reads the comeback and the winning goal off. Kept for the match being played and no longer.
+    private var goalTape: [LoveMatch.Goal] = []
     private var screen: Screen?
     private var hud: MatchHud?
     /// The player's match in progress — nil while the demo plays.
@@ -61,7 +66,8 @@ final class Game {
     }
 
     private init(stage: UIStage, pitch: Pitch, store: SaveStore, save: SaveRecord,
-                 devices: DeviceStore, device: DeviceRecord, feedback: Feedback) {
+                 devices: DeviceStore, device: DeviceRecord, feedback: Feedback, telemetry: Telemetry) {
+        self.telemetry = telemetry
         self.stage = stage
         self.pitch = pitch
         self.store = store
@@ -113,8 +119,10 @@ final class Game {
             device = .replacement(at: now, installId: installId) // never a fresh: see DeviceStore
             deviceRefused = "unwritable \(error.localizedDescription)"
         }
+        // A launch shortcut is a developer's flight, not a player's: its rows say so (§18.1).
+        let telemetry = Telemetry(synthetic: launch != nil)
         let game = Game(stage: stage, pitch: pitch, store: store, save: save,
-                        devices: devices, device: device, feedback: feedback)
+                        devices: devices, device: device, feedback: feedback, telemetry: telemetry)
         if let deviceRefused {
             game.log.error("device record refused, moved aside and replaced: \(deviceRefused, privacy: .public)")
         }
@@ -149,6 +157,10 @@ final class Game {
         stage.rig.swoop(to: s.pose, roll: first ? 0 : 0.12)
         s.show(after: first ? 0.9 : 0.45)
         if playing != nil { endMatch() }
+        // One of the two moments anything is sent (§18.8): the player has come to rest on the hub.
+        // Never on the result screen, never on an input path, never between a result and the next
+        // face-off (A0, A2).
+        if case .hub = next { telemetry.flush(installId: device.installId) }
         // Leaving a match (even one whose world is still loading) puts the demo back on.
         if !demoOn { startDemo() }
         log.info("screen \(String(describing: next), privacy: .public)")
@@ -239,6 +251,7 @@ final class Game {
         place = nil
         hud?.leave()
         playing = plan
+        goalTape = []
         demoOn = false
         let hud = MatchHud(game: self, plan: plan, kickoff: kickoff)
         self.hud = hud
@@ -263,7 +276,11 @@ final class Game {
         switch plan {
         case .season:
             if let c = save.career { tableBefore = save.season?.table(c) }
-            commit { _ = try $0.forfeit() }
+            let before = save.season
+            var end: SeasonEnd?
+            commit { end = try $0.forfeit() }
+            // A forfeit is a played match (§18.2) and says so in its own column.
+            report(plan: plan, result: .lost, seasonBefore: before, forfeit: true, end: end)
             go(.hub)
         case .drill(let d):
             go(.training(intro: d))
@@ -294,21 +311,58 @@ final class Game {
         }
         hud?.event(e)
         if let s = pitch.snapshot { feedback.hear(e, s) }
+        if case .goal(let team, _, _, _) = e, let s = pitch.snapshot, let k = pitch.kickoff {
+            let periods = plan.drill == nil ? Tuning.Match.periods : 1
+            goalTape.append(LoveMatch.Goal(mine: team == 0,
+                                           atMillis: LoveMatch.elapsedMillis(period: s.period, remainingSeconds: s.clock,
+                                                                             periodSeconds: k.match.periodSeconds,
+                                                                             overtime: s.overtime, periods: periods)))
+        }
         guard case .end(let result) = e, let s = pitch.snapshot else { return }
         let outcome = Outcome(plan: plan, score: s.score, overtime: s.overtime, result: result,
                               codes: pitch.kickoff?.codes, names: pitch.kickoff?.sideNames,
                               colours: pitch.kickoff?.colours ?? [], drillGoals: pitch.kickoff?.drillGoals)
         // Recorded now, before anything else can happen (§15); shown once the banner has had its moment.
+        let before = save.season
+        var end: SeasonEnd?
         switch plan {
         case .season:
             if let c = save.career { tableBefore = save.season?.table(c) }
-            commit { try $0.recordPlayed(goalsFor: s.score[0], goalsAgainst: s.score[1], overtime: s.overtime) }
+            commit { end = try $0.recordPlayed(goalsFor: s.score[0], goalsAgainst: s.score[1], overtime: s.overtime) }
         case .drill(let d) where result == .won: commit { $0.won(d) }
         default: break
         }
+        report(plan: plan, result: result, seasonBefore: before, forfeit: false, end: end)
         stage.after(Presentation.Screens.resultDelay) { [weak self] in
             guard let self, self.playing == plan else { return }
             self.go(.result(outcome))
+        }
+    }
+
+    /// Counts the finished match on the device record (§17.1) and queues what it reports (§18.2,
+    /// §18.3). One place, so a forfeit is reported exactly as a played match is — and **nothing here
+    /// sends anything**: the rows wait in memory for the next flush (§18.8).
+    private func report(plan: MatchPlan, result: MatchResult, seasonBefore: SeasonRecord?,
+                        forfeit: Bool, end: SeasonEnd?) {
+        guard !plan.isDemo, let snapshot = pitch.snapshot, let kickoff = pitch.kickoff else { return }
+        device = device.recordingPlayedMatch()
+        do { try devices.write(device) } catch {
+            log.error("the device record could not be written: \(error, privacy: .public)")
+        }
+        let periods = plan.drill == nil ? Tuning.Match.periods : 1
+        let love = LoveMatch(goals: goalTape,
+                             durationMillis: Int((Double(periods) * kickoff.match.periodSeconds * 1000).rounded()),
+                             wonCup: end.map { $0.cupWinner == save.career?.team } ?? false,
+                             wonLeague: end.map { $0.champion == save.career?.team } ?? false)
+        telemetry.record(.match(MatchReport.match(plan: plan, world: kickoff.world,
+                                                  periodSeconds: kickoff.match.periodSeconds, result: result,
+                                                  snapshot: snapshot, love: love, board: save.board,
+                                                  season: seasonBefore, matchesPlayed: device.matchesPlayed,
+                                                  forfeit: forfeit)))
+        if let end, let career = save.career, let season = save.season,
+           let body = MatchReport.season(end, season: season, career: career,
+                                         matchesPlayed: device.matchesPlayed) {
+            telemetry.record(.season(body))
         }
     }
 

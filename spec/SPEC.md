@@ -9,15 +9,16 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.23.2
+Spec-Version: 0.24.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
-the save on the device (see the platform-delta table for what still differs). **§17 and §18 are the
-two sections no build has reached yet:** when the game may ask the player whether they like it is
-decided in both cores and pinned by a corpus, and each install now keeps its own record on the device
-(§17.1), but nothing shows the question — and what would leave the device is declared, with a live
-collector to receive it, but nothing sends it. What this file holds is the complete gameplay
+the save on the device (see the platform-delta table for what still differs). **§18 now runs: both builds send.**
+A played match and a finished season leave the device — anonymously, at the two moments §18.8 allows,
+into the live collector — and each install keeps its own record with its own lifetime match count
+(§17.1). **§17 is still the one section no build has reached:** when the game may ask the player
+whether they like it is decided in both cores and pinned by a corpus, but no screen shows the
+question, so the two rows that would report an answer have their senders and no call site. What this file holds is the complete gameplay
 contract taken from the web prototype — the pitch, the one-touch control, the ball, the
 automatic play, the match, the drills, the season and the coach's board, with every number the
 prototype was tuned to — plus the one thing the prototype never had: **a career**, in which the
@@ -70,6 +71,7 @@ deletes it — the goal for these is zero).
 |---|---|---|
 | 2026-09-22 | **permanent** | **The two look the same to a player's eye, not to the pixel.** Geometry, textures, text, layout, motion and — since ADR 0006 — the shading itself are identical by construction: both platforms compute the same flat Lambert/toon formula in their own unlit materials, with no engine lighting or tone mapping. What remains different is how two engines rasterise and anti-alias. A difference a player would notice is still a bug. |
 | 2026-09-22 | **permanent** | **iOS renders at 60 Hz on ProMotion iPhones, Android at the display's rate up to what it holds.** RealityKit's view offers no frame-rate control (ADR 0005). The simulation is unaffected — it runs in fixed steps (§4). |
+| 2026-09-23 | **permanent** | **A Play test-track install reports `production`, where the same build on TestFlight reports `staging`** (§18.7). The signal is the store's, not ours: iOS's App Store receipt names a sandbox — TestFlight and App Review — apart from a real purchase, while Android offers only the installing package, and Play is the installer for an internal, closed, open or production track alike. Both platforms answer "is this a real store install" as well as their store lets them; a query that must exclude our own test installs excludes them by install id, not by `env`. |
 | 2026-09-22 | **permanent** | **Purchases are per-store and per-device.** There is no account, so an entitlement bought on one store does not follow the player to the other. The game never implies otherwise: no affordance offers a cross-platform restore (ADR 0001). |
 
 **The golden vectors** (`shared/vectors/`) are the one place the two simulations are checked
@@ -1146,10 +1148,15 @@ device backup** while the save stays in it, and **its own refusal is silent** �
 replaced where a refused save stops the game. Telemetry may not stand between the player and the
 game; player data is sacred. Anyone touching either file has to know which is which.
 
-Nothing leaves the device — **today, and by the plain fact that no build sends anything.** The
-install id is minted on the phone and, today, goes nowhere. §18 declares what will, and retires this
-sentence on the day a build carries it. Until the first store submission, these shapes may change without migration (`conventions.md`, greenfield); from then on
-they are migrated, never reset.
+**What leaves the device is only ever the rows of §18** — a played match, a finished season, a
+love-dialog showing, a message the player typed — each carrying the anonymous install id and nothing
+else about the person or the phone. **Neither file ever leaves.** The save is never uploaded, the
+device record is never uploaded, and nothing sent can be turned back into a career: no name, no
+kit, no team, no drill, no board setting, no id but the install's own. A build with no collector
+configured sends nothing at all, and a test run sends nothing ever (§18.7).
+
+Until the first store submission, these shapes may change without migration (`conventions.md`,
+greenfield); from then on they are migrated, never reset.
 
 ### 16. The screens
 Every screen is built from the 3D UI kit (ADR 0005, `conventions.md` UI): blocks, flip digits,
@@ -1356,7 +1363,10 @@ headless test pin ninety days of rationing in a millisecond, instead of ninety d
 #### 17.1 The device record
 Beside the save (§15), and **never inside it**, the device keeps a record of its own: the anonymous
 install id (§18.1), when this install was first seen, how many matches have been played on it, when
-the question was last put, and whether it has been answered with a yes. Instants are **epoch
+the question was last put, and whether it has been answered with a yes. **The count grows by one with
+every player match that finishes** — a league or cup match, a friendly, a drill, however it ended,
+and a forfeit is a match that finished; the demo behind the menus is not one. It is written with the
+match, before the next screen appears, like the save. Instants are **epoch
 milliseconds**; elapsed time is their difference, never a count of calendar days.
 
 **The install id is a random UUID, minted once by the app on the launch that begins the record** and
@@ -1443,17 +1453,21 @@ submission we know nothing about it: how many matches a player gets through, whe
 season, whether they come back, what fraction ever win the cup, and whether the two platforms behave
 alike. None of those can be answered from a device.
 
-**Today the contract exists and the collector is live; no build sends anything.** §15's "nothing
-leaves the device" is therefore still literally true, and it is this section that will retire that
-sentence — on the day a build carries the sending, not before.
+**Both builds now send.** A finished match and a finished season leave the device the next time the
+player comes to rest on the hub or the app goes to the background; the collector is live and stores
+them. The love dialog's two rows (§18.4, §18.5) have their shape, their route and their sender, and
+nothing calls them yet, because no screen asks the question (§17). A build with nothing configured
+sends nothing at all, and that is not a degraded mode — it is the state of every checkout and every
+test run (§18.7).
 
 #### 18.1 What every row carries, and what it does not
 One **anonymous install id** — a random UUID minted on first launch — and nothing else about the
 person or the phone. Never an advertising or vendor identifier, never anything derived from the
 device, and deliberately kept out of any record that syncs, so it can never become a cross-device
 person id. Beside it: the commit the build came from, the platform, the language actually shown, the
-device's own clock, whether the build is a staging or a production one, and whether a debug toggle
-made the row not worth counting.
+device's own clock, whether the build is a staging or a production one, and whether the row came out
+of a developer's flight rather than someone playing — a launch opened by one of the developer
+shortcuts (§16) marks everything it produces as not worth counting.
 
 **The id is the opt-out.** Deleting the app discards it for good, and a reinstall is a fresh install
 as far as anything here can tell. Starting over is *not*: the record outlives a career (§17.1), so a
@@ -1505,8 +1519,8 @@ install reports **production**. The two share one dataset with a column to tell 
 can be compared, and every reading of production says so. The routing is a pure function of two
 booleans on each platform, so both branches are testable — and because the signal is store-side, each
 platform answers it its own way (iOS reads the receipt; Android reads the installer package and can
-only say Play or not-Play, so a Play test track reads as production: a platform-delta row, not a
-licence).
+only say Play or not-Play, so a Play test track reads as production: the platform-delta row dated
+2026-09-23, not a licence).
 
 **A test run reports nothing at all.** Not a staging row — nothing. `../flashybird` put 329 events and
 65 rows into production from a single `xcodebuild test`, and that is the standard this rule exists to

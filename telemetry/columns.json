@@ -133,9 +133,9 @@
           "required": true
         },
         {
-          "name": "period_seconds",
-          "type": "double",
-          "sql": "DOUBLE PRECISION",
+          "name": "period_ms",
+          "type": "int",
+          "sql": "INT",
           "required": true
         },
         {

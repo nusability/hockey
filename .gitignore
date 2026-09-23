@@ -31,3 +31,8 @@ __pycache__/
 *.pyc
 node_modules/
 ios/Info.plist
+
+# Telemetry configuration: the endpoint and the ingest token, per machine. The committed
+# .example files say what goes in them; with them absent the client is inert (spec §18.7).
+ios/Telemetry.xcconfig
+android/telemetry.properties

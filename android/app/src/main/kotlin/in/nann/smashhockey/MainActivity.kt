@@ -79,6 +79,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         game?.pause(true)          // §8.7: leaving the foreground pauses the match
+        // The other of the two moments anything is sent (§18.8): the app is leaving.
+        game?.let { it.telemetry.flush(it.device.installId) }
         game?.stop()
         super.onPause()
     }

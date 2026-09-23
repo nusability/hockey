@@ -153,7 +153,7 @@ data class MatchRow(
     val overtime: Boolean,
     val forfeit: Boolean,
     val durationMs: Int,
-    val periodSeconds: Double,
+    val periodMs: Int,
     val formation: Formation,
     val matchesPlayed: Int,
     val trailed: Boolean,
@@ -180,7 +180,7 @@ data class MatchRow(
             "overtime" to JsonValue.Bool(overtime),
             "forfeit" to JsonValue.Bool(forfeit),
             "duration_ms" to JsonValue.Num(durationMs.toLong()),
-            "period_seconds" to SaveJson.double(periodSeconds),
+            "period_ms" to JsonValue.Num(periodMs.toLong()),
             "formation" to JsonValue.Str(formation.key),
             "matches_played" to JsonValue.Num(matchesPlayed.toLong()),
             "trailed" to JsonValue.Bool(trailed),
@@ -191,7 +191,7 @@ data class MatchRow(
     companion object {
         /** Decodes the record at [path] ("$" for the file's root), failing on anything but its exact shape. */
         fun fromJson(json: JsonValue, path: String): MatchRow {
-            val o = SaveJson.fields(json, path, listOf("install_id", "commit", "at", "platform", "env", "language", "synthetic", "sport", "world", "competition", "season_number", "matchday", "goals_for", "goals_against", "result", "overtime", "forfeit", "duration_ms", "period_seconds", "formation", "matches_played", "trailed", "hard_fought"))
+            val o = SaveJson.fields(json, path, listOf("install_id", "commit", "at", "platform", "env", "language", "synthetic", "sport", "world", "competition", "season_number", "matchday", "goals_for", "goals_against", "result", "overtime", "forfeit", "duration_ms", "period_ms", "formation", "matches_played", "trailed", "hard_fought"))
             val record = MatchRow(
                 installId = SaveJson.uuid(o[0], "$path.install_id"),
                 commit = SaveJson.string(o[1], "$path.commit"),
@@ -211,7 +211,7 @@ data class MatchRow(
                 overtime = SaveJson.bool(o[15], "$path.overtime"),
                 forfeit = SaveJson.bool(o[16], "$path.forfeit"),
                 durationMs = SaveJson.int(o[17], "$path.duration_ms"),
-                periodSeconds = SaveJson.double(o[18], "$path.period_seconds"),
+                periodMs = SaveJson.int(o[18], "$path.period_ms"),
                 formation = SaveJson.key(o[19], "$path.formation", Formation.entries) { it.key },
                 matchesPlayed = SaveJson.int(o[20], "$path.matches_played"),
                 trailed = SaveJson.bool(o[21], "$path.trailed"),
@@ -219,7 +219,68 @@ data class MatchRow(
             )
             return record
         }
+
+        /** The collector's table, and so its route (spec §18.6): `POST <endpoint>/matches`. */
+        const val table: String = "matches"
     }
+
+    /**
+     * The row's own columns, without the envelope's (spec §18.1). This is what a call site fills
+     * in; the envelope is stamped on once per send, so a queued row carries no clock of its own.
+     */
+    data class Body(
+        val sport: Sport,
+        val world: World,
+        val competition: Competition,
+        val seasonNumber: Int?,
+        val matchday: Int?,
+        val goalsFor: Int,
+        val goalsAgainst: Int,
+        val result: MatchOutcome,
+        val overtime: Boolean,
+        val forfeit: Boolean,
+        val durationMs: Int,
+        val periodMs: Int,
+        val formation: Formation,
+        val matchesPlayed: Int,
+        val trailed: Boolean,
+        val hardFought: Boolean,
+    )
+
+    /**
+     * One row, from the moment it happened and the envelope of the send that carries it.
+     */
+    constructor(envelope: Envelope, body: Body) : this(
+        installId = envelope.installId,
+        commit = envelope.commit,
+        at = envelope.at,
+        platform = envelope.platform,
+        env = envelope.env,
+        language = envelope.language,
+        synthetic = envelope.synthetic,
+        sport = body.sport,
+        world = body.world,
+        competition = body.competition,
+        seasonNumber = body.seasonNumber,
+        matchday = body.matchday,
+        goalsFor = body.goalsFor,
+        goalsAgainst = body.goalsAgainst,
+        result = body.result,
+        overtime = body.overtime,
+        forfeit = body.forfeit,
+        durationMs = body.durationMs,
+        periodMs = body.periodMs,
+        formation = body.formation,
+        matchesPlayed = body.matchesPlayed,
+        trailed = body.trailed,
+        hardFought = body.hardFought,
+    )
+
+    /**
+     * The canonical JSON this row is sent as (spec §18.6) — byte for byte what the other platform
+     * sends for the same values, which is what makes the two builds' rows one dataset.
+     */
+    fun encoded(): String = toJson().canonicalText()
 }
 
 /** One finished season (spec §18.3): where the player came and what they won. This is what 'do they finish a season' and 'what fraction ever win the cup' are read from. */
@@ -296,7 +357,60 @@ data class SeasonRow(
             )
             return record
         }
+
+        /** The collector's table, and so its route (spec §18.6): `POST <endpoint>/seasons`. */
+        const val table: String = "seasons"
     }
+
+    /**
+     * The row's own columns, without the envelope's (spec §18.1). This is what a call site fills
+     * in; the envelope is stamped on once per send, so a queued row carries no clock of its own.
+     */
+    data class Body(
+        val seasonNumber: Int,
+        val position: Int,
+        val points: Int,
+        val played: Int,
+        val won: Int,
+        val drawn: Int,
+        val lost: Int,
+        val goalsFor: Int,
+        val goalsAgainst: Int,
+        val champion: Boolean,
+        val cupWon: Boolean,
+        val matchesPlayed: Int,
+    )
+
+    /**
+     * One row, from the moment it happened and the envelope of the send that carries it.
+     */
+    constructor(envelope: Envelope, body: Body) : this(
+        installId = envelope.installId,
+        commit = envelope.commit,
+        at = envelope.at,
+        platform = envelope.platform,
+        env = envelope.env,
+        language = envelope.language,
+        synthetic = envelope.synthetic,
+        seasonNumber = body.seasonNumber,
+        position = body.position,
+        points = body.points,
+        played = body.played,
+        won = body.won,
+        drawn = body.drawn,
+        lost = body.lost,
+        goalsFor = body.goalsFor,
+        goalsAgainst = body.goalsAgainst,
+        champion = body.champion,
+        cupWon = body.cupWon,
+        matchesPlayed = body.matchesPlayed,
+    )
+
+    /**
+     * The canonical JSON this row is sent as (spec §18.6) — byte for byte what the other platform
+     * sends for the same values, which is what makes the two builds' rows one dataset.
+     */
+    fun encoded(): String = toJson().canonicalText()
 }
 
 /** One love-dialog showing and the answer it got (spec §18.4). Carries no free text — by type: the message has its own record and its own table, so a call site cannot put a player's words into an analytics row. */
@@ -349,7 +463,44 @@ data class LoveRow(
             )
             return record
         }
+
+        /** The collector's table, and so its route (spec §18.6): `POST <endpoint>/love`. */
+        const val table: String = "love"
     }
+
+    /**
+     * The row's own columns, without the envelope's (spec §18.1). This is what a call site fills
+     * in; the envelope is stamped on once per send, so a queued row carries no clock of its own.
+     */
+    data class Body(
+        val trigger: LoveTriggerKind,
+        val answer: LoveAnswerKind,
+        val shownAt: Long,
+        val matchesPlayed: Int,
+    )
+
+    /**
+     * One row, from the moment it happened and the envelope of the send that carries it.
+     */
+    constructor(envelope: Envelope, body: Body) : this(
+        installId = envelope.installId,
+        commit = envelope.commit,
+        at = envelope.at,
+        platform = envelope.platform,
+        env = envelope.env,
+        language = envelope.language,
+        synthetic = envelope.synthetic,
+        trigger = body.trigger,
+        answer = body.answer,
+        shownAt = body.shownAt,
+        matchesPlayed = body.matchesPlayed,
+    )
+
+    /**
+     * The canonical JSON this row is sent as (spec §18.6) — byte for byte what the other platform
+     * sends for the same values, which is what makes the two builds' rows one dataset.
+     */
+    fun encoded(): String = toJson().canonicalText()
 }
 
 /** One message a player typed after answering 'Not really' (spec §18.5). **The only row that carries free text, and it is the whole reason this table exists apart from the others**: an analytics row can never hold a player's words, because the type that holds them is not an analytics row. */
@@ -399,5 +550,40 @@ data class FeedbackRow(
             )
             return record
         }
+
+        /** The collector's table, and so its route (spec §18.6): `POST <endpoint>/feedback`. */
+        const val table: String = "feedback"
     }
+
+    /**
+     * The row's own columns, without the envelope's (spec §18.1). This is what a call site fills
+     * in; the envelope is stamped on once per send, so a queued row carries no clock of its own.
+     */
+    data class Body(
+        val message: String,
+        val trigger: LoveTriggerKind,
+        val matchesPlayed: Int,
+    )
+
+    /**
+     * One row, from the moment it happened and the envelope of the send that carries it.
+     */
+    constructor(envelope: Envelope, body: Body) : this(
+        installId = envelope.installId,
+        commit = envelope.commit,
+        at = envelope.at,
+        platform = envelope.platform,
+        env = envelope.env,
+        language = envelope.language,
+        synthetic = envelope.synthetic,
+        message = body.message,
+        trigger = body.trigger,
+        matchesPlayed = body.matchesPlayed,
+    )
+
+    /**
+     * The canonical JSON this row is sent as (spec §18.6) — byte for byte what the other platform
+     * sends for the same values, which is what makes the two builds' rows one dataset.
+     */
+    fun encoded(): String = toJson().canonicalText()
 }

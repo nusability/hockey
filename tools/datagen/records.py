@@ -64,6 +64,8 @@ class Record:
     fields: list       # [(snake name, TypeRef)]
     table: str = ""    # `_table`: this record is a row in that table (spec §18)
     envelope: bool = False   # `_envelope`: a fragment prepended to every table, never a table itself
+    own: list = None   # a table's own fields, without the envelope's — the body a call site fills in
+    envelope_name: str = ""  # the record whose fields were prepended
 
 
 @dataclass
@@ -159,7 +161,14 @@ def load(root, decl):
             fw = f"{w}.{key}"
             if not re.fullmatch(r"[a-z][a-z0-9]*(_[a-z0-9]+)*", key):
                 fail(fw, "a field name is snake_case")
-            fields.append((key, type_ref(text, fw, names, enum_names)))
+            ref = type_ref(text, fw, names, enum_names)
+            # A wire row carries no doubles and no colours: the canonical writer encodes both as exact
+            # bit patterns (a JSON string), which the collector's contract types as a number — a row it
+            # would reject in full. Say it in milliseconds, or in whatever integer the column means.
+            if table_name and ref.name in ("double", "rgb"):
+                fail(fw, f"a table field may not be a {ref.name} — the canonical encoding is a string "
+                         "of its exact bits, and the collector's column is a number; use an integer")
+            fields.append((key, ref))
         if not fields:
             fail(w, "a record has at least one field")
         records.append(Record(name, doc_text, validate, fields, table_name, is_envelope))
@@ -175,6 +184,8 @@ def load(root, decl):
             if clash:
                 fail(f"{decl.toml} [record.{r.name}]",
                      f"redeclares the envelope's {sorted(clash)} — the envelope is declared once")
+            r.own = r.fields
+            r.envelope_name = envelopes[0].name
             r.fields = shared + r.fields
     elif any(r.table for r in records):
         fail(decl.toml, "a table needs an envelope record (_envelope = true)")
@@ -283,7 +294,45 @@ def swift(decl, family):
                 out.append(f"        self.{n} = {swift_decode_one(ref, f'o[{i}]', p)}\n")
         if r.validate:
             out.append("        try validate(at: path)\n")
-        out.append("    }\n}\n")
+        out.append("    }\n")
+        out.append(swift_table(r))
+        out.append("}\n")
+    return "".join(out)
+
+
+TABLE_DOC = """
+    /// The row's own columns, without the envelope's (spec §18.1). This is what a call site fills
+    /// in; the envelope is stamped on once per send, so a queued row carries no clock of its own.
+"""
+ENVELOPE_DOC = """
+    /// One row, from the moment it happened and the envelope of the send that carries it.
+"""
+ENCODED_DOC = """
+    /// The canonical JSON this row is sent as (spec §18.6) — byte for byte what the other platform
+    /// sends for the same values, which is what makes the two builds' rows one dataset.
+"""
+
+
+def swift_table(r):
+    """A table record's body type, its envelope initialiser and its canonical text (spec §18)."""
+    if not r.table:
+        return ""
+    shared = r.fields[: len(r.fields) - len(r.own)]
+    out = ["\n    /// The collector's table, and so its route (spec §18.6): `POST <endpoint>/" + r.table + "`.\n",
+           f'    public static let table: String = "{r.table}"\n',
+           TABLE_DOC, "    public struct Body: Sendable, Hashable {\n"]
+    out.extend(f"        public var {camel(k)}: {swift_type(t)}\n" for k, t in r.own)
+    params = ", ".join(f"{camel(k)}: {swift_type(t)}" for k, t in r.own)
+    out.append(f"\n        public init({params}) {{\n")
+    out.extend(f"            self.{camel(k)} = {camel(k)}\n" for k, _ in r.own)
+    out.append("        }\n    }\n")
+    out.append(ENVELOPE_DOC)
+    out.append(f"    public init(_ envelope: {r.envelope_name}, _ body: Body) {{\n        self.init(")
+    args = [f"{camel(k)}: envelope.{camel(k)}" for k, _ in shared] + [f"{camel(k)}: body.{camel(k)}" for k, _ in r.own]
+    out.append(",\n                  ".join(args))
+    out.append(")\n    }\n")
+    out.append(ENCODED_DOC)
+    out.append("    public func encoded() -> String { json().canonicalText() }\n")
     return "".join(out)
 
 
@@ -352,7 +401,39 @@ def kotlin(decl, family):
         out.append("            )\n")
         if r.validate:
             out.append("            record.validate(path)\n")
-        out.append("            return record\n        }\n    }\n}\n")
+        out.append("            return record\n        }\n")
+        if r.table:
+            out.append(f"\n        /** The collector's table, and so its route (spec §18.6): `POST <endpoint>/{r.table}`. */\n")
+            out.append(f'        const val table: String = "{r.table}"\n')
+        out.append("    }\n")
+        out.append(kotlin_table(r))
+        out.append("}\n")
+    return "".join(out)
+
+
+def kdoc(doc):
+    """The same comment as Swift's, as KDoc — one source of wording for the two platforms."""
+    lines = [l.strip()[4:] for l in doc.strip("\n").split("\n")]
+    out = ["\n    /**\n"] + [f"     * {l}\n" for l in lines] + ["     */\n"]
+    return "".join(out)
+
+
+def kotlin_table(r):
+    """A table record's body type, its envelope constructor and its canonical text (spec §18)."""
+    if not r.table:
+        return ""
+    shared = r.fields[: len(r.fields) - len(r.own)]
+    out = [kdoc(TABLE_DOC)]
+    out.append("    data class Body(\n")
+    out.extend(f"        val {camel(k)}: {kotlin_type(t)},\n" for k, t in r.own)
+    out.append("    )\n")
+    out.append(kdoc(ENVELOPE_DOC))
+    out.append(f"    constructor(envelope: {r.envelope_name}, body: Body) : this(\n")
+    out.extend(f"        {camel(k)} = envelope.{camel(k)},\n" for k, _ in shared)
+    out.extend(f"        {camel(k)} = body.{camel(k)},\n" for k, _ in r.own)
+    out.append("    )\n")
+    out.append(kdoc(ENCODED_DOC))
+    out.append("    fun encoded(): String = toJson().canonicalText()\n")
     return "".join(out)
 
 

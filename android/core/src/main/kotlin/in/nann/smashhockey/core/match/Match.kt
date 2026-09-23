@@ -24,7 +24,11 @@ class Match private constructor(
     internal val sport: Sport,
     internal val control: Control,
     internal val drill: Drill?,
-    internal val periodSeconds: Double,
+    /**
+     * The period's length in seconds (§12) — public because the row a finished match reports names
+     * it, and the app must not have to guess at what the setup chose (§18.2).
+     */
+    val periodSeconds: Double,
     internal val cup: Boolean,
     orbitPeriod: Double,
     internal val tactics: List<Tactics>,

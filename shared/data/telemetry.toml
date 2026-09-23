@@ -122,7 +122,11 @@ result = "MatchOutcome"
 overtime = "bool"
 forfeit = "bool"
 duration_ms = "int"
-period_seconds = "double"
+# Milliseconds, not the seconds the board holds (§12): a wire row carries no doubles at all. The
+# canonical writer encodes a double as its exact bit pattern — a JSON *string* — which is right for a
+# save a vector pins byte for byte and wrong for a column the collector types as a number; and two
+# platforms' shortest-round-trip float printing is one more thing that can disagree for nothing.
+period_ms = "int"
 formation = "formation"
 matches_played = "int"
 trailed = "bool"

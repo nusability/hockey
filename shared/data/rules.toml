@@ -400,6 +400,10 @@ hard_fought_matches = 20        # the hard-fought-win branch arms nothing before
 cooldown_days = 90              # one showing per this many days, counted from the presentation and
                                 # in absolute time (a day is 86 400 000 ms, never a calendar day)
 
+[telemetry] # §18.8 — the only numbers on the sending path, declared here so both apps hold one value
+backlog = 200                   # rows kept at most; a row past this drops the oldest, never the newest
+send_timeout_seconds = 8.0      # a send unanswered by then is abandoned — dropped, never retried
+
 # §11.1 — the matchday plan, in order: league rounds (1-based, inclusive) and cup rounds.
 [[matchday_block]]
 league = [1, 4]

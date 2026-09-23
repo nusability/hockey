@@ -326,6 +326,7 @@ internal object GeneratedConstantBits {
         Triple("Tuning.Season.goalMean", Tuning.Season.goalMean, 4612361558371493478L), // 0x4002666666666666
         Triple("Tuning.Season.goalMeanScale", Tuning.Season.goalMeanScale, 4626885667169763328L), // 0x4036000000000000
         Triple("Tuning.Season.homeBonus", Tuning.Season.homeBonus, 4594572339843380019L), // 0x3FC3333333333333
+        Triple("Tuning.Telemetry.sendTimeoutSeconds", Tuning.Telemetry.sendTimeoutSeconds, 4620693217682128896L), // 0x4020000000000000
         Triple("Tuning.Board.tacticMin", Tuning.Board.tacticMin, 0L), // 0x0000000000000000
         Triple("Tuning.Board.tacticMax", Tuning.Board.tacticMax, 4607182418800017408L), // 0x3FF0000000000000
         Triple("Tuning.Board.periodSeconds[0]", Tuning.Board.periodSeconds[0], 4633641066610819072L), // 0x404E000000000000

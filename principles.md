@@ -17,7 +17,12 @@ ambiguous, pick the option that advances them.
   watch before it is a pleasure to win; the goal camera and the slow motion are the payoff.
 - **A2. A match is always worth starting and never worth quitting.** From the menu to the
   face-off is one tap. No interstitial between the player and the next match or the next drill
-  attempt, ever. A retry of a drill is one tap.
+  attempt, ever — nothing loads, fetches, sells or asks in that gap. A retry of a drill is one tap.
+  **The one thing the game may ask for itself** is whether the player is enjoying it (spec §17), and
+  this principle binds that question rather than excusing it: it is *armed* at the moment it is
+  earned and *put* only on a screen the player has already come to rest on — never on the way from a
+  result to the next face-off, never over a retry, and never more than one tap to be rid of. A
+  question that costs a player a match they wanted to start has already lost, whatever it earns us.
 - **A3. A season to come back to.** The league, the cup, the drills, and whatever renewable
   content follows — the game must have a reason to open it tomorrow.
 

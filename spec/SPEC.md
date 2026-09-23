@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.17.1
+Spec-Version: 0.18.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -811,9 +811,9 @@ never a banner, a sound or a haptic.
   and the crossbar — and nothing else; everything laced to it, the cords and the film under them, is
   drawn by the apps, so the whole net moves and not a film behind it. Each goal is four sheets: the
   back, the roof and the two sides, each a cord grid over a translucent film in the world's own net
-  colour. They always breathe — a slow wave travelling across every sheet, strongest in the middle
-  and nothing at the edges the net is laced to — whatever the ball is doing, and far enough to be
-  seen from the play camera 36 m up. Reduce Motion calms the wave once; it never stops it.
+  colour. They hang **still** until the ball strikes them: a net that billows on
+  its own reads as wind on a pitch that has none, and it pulls the eye away from the play. The
+  cloth's only motion is the ball's (below).
 - **The net answers the ball, not the referee.** Every time the ball meets the cloth it dents where
   it struck and the dent spreads outward across that goal's sheets and dies away — a goal, the ball
   rebounding off the back from inside the net, a shot into the side netting from behind the goal, a

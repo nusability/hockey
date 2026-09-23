@@ -279,22 +279,16 @@ k = 4.0
 reach = 2.5
 seconds = 1.6
 
-# §8.8: a net is cloth, so it never stands perfectly still — with or without a ball. Every point of
-# every sheet, cords and film together, sways along the sheet's outward normal by
-# amplitude × bell × sin(2π·t / seconds + wave·(x + z)), t real seconds, (x, z) the point on the
-# pitch. `bell` is sin(π·u)·sin(π·v) over the sheet's own grid: nothing at the edges the net is laced
-# to, most in the middle. A goal's ripple above is added on top of this. Reduce Motion keeps
-# `reduce_motion` of the amplitude — calmer, never frozen.
-#
-# The amplitude is what the play camera can see: it stands 36 m up and 20 m back (§8.6), so a net at
-# the far goal is ~48 m away and a metre there is ~50 px on a phone. 0.06 was three pixels of drift
-# over 3.6 s — invisible. 0.18 is a hand's breadth of billow, ~9 px at the far goal and ~14 at the
-# near one, and still less than an eighth of the goal's depth.
+# The cloth hangs still until the ball strikes it (§8.8): a net that billows on its own reads as
+# wind on a pitch that has none, and it draws the eye away from the play. `bell` is
+# sin(π·u)·sin(π·v) over the sheet's own grid — nothing at the edges the net is laced to, most in
+# the middle — and it shapes the ball's dent, which is now the only thing that moves the net.
 [net.sway]
-amplitude = 0.18
+amplitude = 0.0            # still: only the ball moves the cloth (§8.8)
 seconds = 3.6
 wave = 1.1                 # radians of phase per metre
 reduce_motion = 0.4
+
 
 # §16.4: the banners the match raises (the prototype's), each shown for its seconds of real time and
 # then leaving. Styles: good (a goal of ours, a win: popped big in the sun colour), bad (a goal

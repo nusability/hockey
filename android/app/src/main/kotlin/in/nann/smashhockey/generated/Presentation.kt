@@ -196,7 +196,7 @@ object Presentation {
         const val reach: Double = 2.5
         const val seconds: Double = 1.6
         object Sway {
-            const val amplitude: Double = 0.18
+            const val amplitude: Double = 0.0
             const val seconds: Double = 3.6
             const val wave: Double = 1.1
             const val reduceMotion: Double = 0.4

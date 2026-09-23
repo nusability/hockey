@@ -195,7 +195,7 @@ enum Presentation {
         static let reach: Double = 2.5
         static let seconds: Double = 1.6
         enum Sway {
-            static let amplitude: Double = 0.18
+            static let amplitude: Double = 0.0
             static let seconds: Double = 3.6
             static let wave: Double = 1.1
             static let reduceMotion: Double = 0.4

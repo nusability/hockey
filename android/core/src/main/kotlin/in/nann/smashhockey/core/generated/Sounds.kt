@@ -53,5 +53,4 @@ enum class SoundCue(val key: String, val spec: SoundSpec) {
     UI_ERROR("ui.error", SoundSpec(listOf("ui/error-1", "ui/error-2"), listOf("ui/error-1", "ui/error-2"), 0.0, 0.0, 1, 80, SoundBus.UI)),
     UI_SLIDER_TICK("ui.slider.tick", SoundSpec(listOf("ui/slider-tick"), listOf("ui/slider-tick"), -2.0, 0.3, 3, 30, SoundBus.UI)),
     UI_CONFETTI_POP("ui.confetti.pop", SoundSpec(listOf("ui/confetti-pop"), listOf("ui/confetti-pop"), 0.0, 1.0, 2, 60, SoundBus.UI)),
-    AMBIENCE_CROWD("ambience.crowd", SoundSpec(listOf(), listOf(), 0.0, 0.0, 1, 20, SoundBus.AMBIENCE)),
 }

@@ -11,6 +11,7 @@ import `in`.nann.smashhockey.core.match.MatchEvent
 import `in`.nann.smashhockey.core.match.MatchSnapshot
 import `in`.nann.smashhockey.core.match.MatchState
 import `in`.nann.smashhockey.core.match.lastShotDistance
+import `in`.nann.smashhockey.core.feel.Atmosphere
 import `in`.nann.smashhockey.core.match.shotAboutToScore
 import `in`.nann.smashhockey.core.match.snapshot
 import `in`.nann.smashhockey.engine.Assets
@@ -149,6 +150,23 @@ class Pitch(context: Context, private val engine: Engine, private val scene: Sce
 
     /** §8.6's time scale now — what the match's sounds play at (§8.8); 0 while paused. */
     val timeScale: Double get() = if (paused || match == null) 0.0 else director.timeScale
+
+    /**
+     * What the stadium reads this frame (§8.8): the player's match as it stands, and which goal a
+     * shot about to score (§8.6) is heading for. Null behind the menus — the demo has no crowd (§9).
+     */
+    val atmosphere: Pair<MatchSnapshot, Atmosphere.Danger?>?
+        get() {
+            val m = match ?: return null
+            val s = snapshot ?: return null
+            if (plan?.isDemo != false) return null
+            val danger = if (m.shotAboutToScore) {
+                if (s.ball.vz > 0) Atmosphere.Danger.THEIRS else Atmosphere.Danger.OURS
+            } else {
+                null
+            }
+            return s to danger
+        }
 
     /** A player's match (not a drill) opens with "Home vs Away" (§16.4). */
     fun intro(home: String, away: String) { cues?.intro(home, away)?.forEach(::cue) }

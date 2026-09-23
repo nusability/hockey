@@ -54,7 +54,6 @@ public enum SoundCue: String, Sendable, Hashable, CaseIterable {
     case uiError = "ui.error"
     case uiSliderTick = "ui.slider.tick"
     case uiConfettiPop = "ui.confetti.pop"
-    case ambienceCrowd = "ambience.crowd"
 
     public var spec: SoundSpec {
         switch self {
@@ -85,7 +84,6 @@ public enum SoundCue: String, Sendable, Hashable, CaseIterable {
         case .uiError: SoundSpec(field: ["ui/error-1", "ui/error-2"], ice: ["ui/error-1", "ui/error-2"], gainDb: 0.0, pitchSemitones: 0.0, maxVoices: 1, priority: 80, bus: .ui)
         case .uiSliderTick: SoundSpec(field: ["ui/slider-tick"], ice: ["ui/slider-tick"], gainDb: -2.0, pitchSemitones: 0.3, maxVoices: 3, priority: 30, bus: .ui)
         case .uiConfettiPop: SoundSpec(field: ["ui/confetti-pop"], ice: ["ui/confetti-pop"], gainDb: 0.0, pitchSemitones: 1.0, maxVoices: 2, priority: 60, bus: .ui)
-        case .ambienceCrowd: SoundSpec(field: [], ice: [], gainDb: 0.0, pitchSemitones: 0.0, maxVoices: 1, priority: 20, bus: .ambience)
         }
     }
 }

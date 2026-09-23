@@ -95,6 +95,14 @@ final class Pitch {
     /// §8.6's time scale — what a match sound's rate follows (§8.8).
     var timeScale: Double { paused ? 0 : director.timeScale }
 
+    /// What the stadium reads this frame (§8.8): the player's match as it stands, and which goal a
+    /// shot about to score (§8.6) is heading for. Nil behind the menus — the demo has no crowd (§9).
+    var atmosphere: (snapshot: MatchSnapshot, danger: SmashCore.Atmosphere.Danger?)? {
+        guard let match, let snapshot, let plan, !plan.isDemo else { return nil }
+        let danger: SmashCore.Atmosphere.Danger? = match.shotAboutToScore ? (snapshot.ball.vz > 0 ? .theirs : .ours) : nil
+        return (snapshot, danger)
+    }
+
     private func place(_ plan: MatchPlan, _ kickoff: Kickoff, in stage: WorldStage) {
         do {
             let first = kickoff.match.snapshot

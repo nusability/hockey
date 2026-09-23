@@ -1,0 +1,144 @@
+# The stadium and the drums: the looping layers under the game, and how each follows the match
+# (spec §8.8). Declared once and generated into both apps by tools/generate-data.py, into the app
+# targets like the rest of presentation — nothing here can change what a tick does (§4.2).
+#
+# The one-shot sound bank is shared/data/sounds.toml; this file is the other half: sound that never
+# stops. Its files are prepared by tools/prepare-sounds.py from shared/assets/sounds/sources.toml
+# ([[loop]] cut from a recording, [[pattern]] assembled from one-shots) and ship the same two ways —
+# `.m4a` for iOS, `.ogg` for Android. `--check` proves every `file` below exists in both.
+#
+# Everything a layer does is a gain in dB and a pan; the mapping from the match to that gain is the
+# arithmetic below, the same on both platforms (the cores' `Atmosphere`). No layer is ever restarted
+# to make it react: a loop starts once and stays, and only its gain moves.
+#
+# Units: dB, seconds, rates per second of real time (a value approaches its target by
+# 1 − exp(−rate·dt) each frame), pan −1 (left) … 1 (right).
+
+version = 1
+
+# --------------------------------------------------------------------------------------- the beds
+# Two crowds, one behind each goal. Both play the same murmur, the away end a little detuned so the
+# two never lock into one sound, and spread across the stereo field so you can hear which end is up.
+# Over them one swell layer — the same crowd on its feet — that rises with whatever is happening and
+# leans toward the end being attacked: they groan at their own goal, we roar at theirs. The goal
+# cheer, the horn and the sigh of sounds.toml still play on top; these only carry the room.
+
+[bed.home]
+file = "ambience/crowd-base"
+follows = "home"           # which envelope drives it: home | away | swell
+pan = -0.45
+rate = 1.0                 # playback rate on top of the time scale
+quiet_db = -26.0           # its gain when its envelope is 0 …
+loud_db = -11.0            # … and when it is 1
+
+[bed.away]
+file = "ambience/crowd-base"
+follows = "away"
+pan = 0.45
+rate = 0.94                # detuned, so home and away are two crowds and not one doubled
+quiet_db = -29.0           # the far end is further away
+loud_db = -15.0
+
+[bed.swell]
+file = "ambience/crowd-swell"
+follows = "swell"
+pan = 0.0                  # moved toward the end under attack, up to `pan_span` below
+rate = 1.0
+quiet_db = -44.0           # silent in open play
+loud_db = -9.0
+
+# -------------------------------------------------------------------------------------- the music
+# Drums and nothing else — the bank holds no pitched instrument, so there is no melody to carry. Low
+# by design: the match loop sits about 16 dB under a struck ball, the menu loop further still. Only
+# one plays at a time.
+
+[music.match]
+file = "music/match-drums"
+quiet_db = -22.0           # open play
+loud_db = -16.0            # an attack, or the last seconds
+follows_time_scale = true  # §8.6: it slurs with the slow motion like every other match sound
+
+[music.menu]
+file = "music/menu-drums"
+quiet_db = -24.0
+loud_db = -24.0            # the menus never lift: it is the same all the way through
+follows_time_scale = false
+
+# ------------------------------------------------------------------------------------ the mapping
+# How the match becomes those envelopes, every frame. `threat` is where the ball is between the two
+# goals: 1 at the goal the player's team attacks, −1 at its own (the ball's z over the goal line's).
+#
+#   attack  = max(0,  threat) ^ shape        the player's team is coming
+#   defend  = max(0, −threat) ^ shape        the other team is coming
+#   late    = 1 in overtime, else the share of the last `late_seconds` of a period gone, 0 elsewhere
+#
+#   home_target = base + attack·rise − defend·hush + late·late_rise + danger·attack_danger + surge
+#   away_target = base + defend·rise − attack·hush + late·late_rise + danger·defend_danger + surge
+#   swell_target = max(home_target, away_target)
+#   swell pan    = pan_span · (defend − attack)         — toward the end being attacked
+#
+# each clamped to 0…1. `danger` is 1 while §8.6 says a shot is about to score, and it counts for the
+# side being shot at (`defend_danger` when the shot is ours — their end holds its breath).
+#
+# A `surge` is an impulse added to one side's target and decaying at `surge_decay`; the events below
+# push one. Each envelope then eases toward its target at `attack_rate` rising, `release_rate`
+# falling — a crowd comes up faster than it settles.
+[mapping]
+shape = 1.6
+base = 0.06
+rise = 0.95
+hush = 0.30
+late_seconds = 30.0
+late_rise = 0.35
+attack_danger = 0.45
+defend_danger = 0.55
+pan_span = 0.5
+surge_decay = 0.55         # per second
+attack_rate = 3.2
+release_rate = 0.7
+
+# What each event pushes into which side's surge. A goal is the big one: ours lifts the home end to
+# the top and takes the away end below its own floor (the disappointed fall the owner asked for).
+[surge]
+kickoff = 0.45             # play begins, after a face-off
+goal_for = 1.0             # a goal for the side whose crowd it is …
+goal_against = -0.75       # … and for the other
+save = 0.40                # the keeper of that side saves
+post = 0.35                # the ball rings off the post: both ends
+steal = 0.12               # the side that won the ball
+whistle = -0.15            # a stoppage lets the room down
+period_end = -0.35
+ended = -0.6
+
+# The music's own envelope, from the same numbers: it lifts with whichever attack is on and with the
+# last seconds, and never with anything else.
+[music_mapping]
+base = 0.0
+rise = 0.8                 # × max(attack, defend)
+late_rise = 1.0            # × late
+attack_rate = 1.2
+release_rate = 0.45
+
+# Ducking: the music (never the crowd) steps back under the loud one-shots, so a horn or a whistle
+# always lands in front of it. It drops `depth_db` over `attack`, holds while the cue lasts plus
+# `hold`, and comes back over `release`.
+[duck]
+depth_db = -9.0
+attack = 0.04
+hold = 0.5
+release = 1.1
+cues = ["match.goal.horn", "match.goal.cheer", "match.goal.against", "match.whistle.short",
+        "match.whistle.end", "match.result.win", "match.result.lose", "match.post"]
+
+# The rate a layer plays at while the match is in slow motion (§8.6): the time scale, floored here so
+# a goal's 0.18 does not fall apart into a rumble. The match is paused at a time scale of 0; then the
+# layers hold where they are, like every other sound made on the pitch.
+[time_scale]
+min_rate = 0.42
+
+# What the player can turn off (§12, saved with the rest of the board, §15). Both are volumes rather
+# than switches so the coach's board can offer them on the stepped slider it already draws: 0 is off.
+[setting]
+music_default = 0.7
+crowd_default = 0.9
+steps = 0.1

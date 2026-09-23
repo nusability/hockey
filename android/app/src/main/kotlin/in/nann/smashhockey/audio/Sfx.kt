@@ -131,23 +131,8 @@ class Sfx(private val assets: AssetManager) {
         }
     }
 
-    /** Leaving a match: what is still to come is dropped, and the crowd falls silent. */
-    fun clearLater() {
-        later.clear()
-        ambience?.let { pool.stop(it) }
-        ambience = null
-    }
-
-    private var ambience: Int? = null
-
-    /** The crowd under a player's match, looped — when the bank has one (silent by declaration otherwise). */
-    fun crowd() {
-        if (ambience != null) return
-        val spec = SoundCue.AMBIENCE_CROWD.spec
-        val name = spec.files(sport).firstOrNull() ?: return
-        val a = SoundMix.amplitude(spec.gainDb).toFloat() * 0.7071f
-        ambience = pool.play(ids.getValue(name), a, a, spec.priority, -1, 1f).takeIf { it != 0 }
-    }
+    /** Leaving a match: what is still to come is dropped. The crowd is audio/Beds.kt's, not a one-shot. */
+    fun clearLater() = later.clear()
 
     fun pause() = pool.autoPause()
     fun resume() = pool.autoResume()

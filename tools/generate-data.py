@@ -17,14 +17,15 @@ apps' presentation (shared/data/presentation.toml and each world's look → ios/
 Presentation.swift, android/app/…/smashhockey/generated/Presentation.kt — app targets, never the core),
 and what is alive in each world (shared/data/effects.toml → ios/Sources/Effects/Generated/Effects.swift,
 android/app/…/smashhockey/effects/generated/Effects.kt), and the sound bank (shared/data/sounds.toml → Sounds.swift /
- Sounds.kt in SmashCore and :core, next to the copy keys).
+ Sounds.kt in SmashCore and :core, next to the copy keys), and the looping layers under it
+(shared/data/atmosphere.toml → Atmosphere.swift / Atmosphere.kt beside the presentation).
 """
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from datagen import copyout, design, effects, font, kotlin, presentation, save, sounds, swift  # noqa: E402
+from datagen import atmosphere, copyout, design, effects, font, kotlin, presentation, save, sounds, swift  # noqa: E402
 from datagen.common import Bits  # noqa: E402
 from datagen.model import DataError, camel, load, upper_snake  # noqa: E402
 
@@ -50,6 +51,7 @@ def render():
     files.update(design.emit(ROOT))
     files.update(effects.emit(ROOT))
     files.update(sounds.emit(ROOT))
+    files.update(atmosphere.emit(ROOT, {e['key'] for e in sounds.load(ROOT)}))
     files.update(font.emit(ROOT))
     return files
 

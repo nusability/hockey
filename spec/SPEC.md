@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.13.0
+Spec-Version: 0.14.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -680,7 +680,9 @@ Quitting a **season** match forfeits it as a **0–3** loss. Quitting anything e
 #### 8.8 What a match looks, sounds and feels like
 Everything here is presentation: it reads the match and never changes a tick (§4.2). What each event
 sets off is decided once for both apps (the cores' `Feel`), every number is declared once
-(`shared/data/presentation.toml`), and the sounds are the bank's (`shared/data/sounds.toml`). The
+(`shared/data/presentation.toml`), the sounds are the bank's (`shared/data/sounds.toml`) and the
+looping crowd and music — every gain, every attack and release, and what each event pushes into the
+crowd — are `shared/data/atmosphere.toml`'s. The
 player's own matches and drills get all of it; the demo behind the menus (§9) only what is seen —
 never a banner, a sound or a haptic.
 
@@ -693,6 +695,28 @@ never a banner, a sound or a haptic.
   against).
 - **Knocks.** A post shakes the camera (0.5) and rings; the boards only sound. A save, a steal or a
   block pops a quick ring at the spot. Reduce Motion keeps a fifth of every shake.
+- **The stadium.** Under every match of the player's — never the demo — a crowd of two, one behind
+  each goal, and drums. Both are loops that start when the match does and never restart: only their
+  level, their place across the stereo field and their rate ever move, so the room never seams. The
+  **home** end is the player's team's support and the **away** end the other team's; the same murmur
+  carries both, the away end a little detuned and quieter, and the two are spread apart so a player
+  can hear which end is up. Over them a **swell** — the same crowd on its feet — that rises with the
+  situation and leans toward the end being attacked: they groan at their own goal while we roar at
+  theirs. What moves them: how near the ball is to one goal or the other (its share of the way there,
+  weighted so only the final third really lifts it); a shot §8.6 says is about to score, which grips
+  both ends; the last 30 s of a period, and all of overtime; and a push from each event — kick-off,
+  a save at that end, a post, a steal, a stoppage, a period's end, and a goal, which takes the
+  scoring side's end to the top and the conceding side's below its own floor. Each end rises faster
+  than it falls. The goal horn, the goal cheer and the sigh (below) still play on top of all of it.
+- **The drums.** One loop under a match and a calmer one under the menus — **percussion only, no
+  melody**, and low by design: the match's sits about 18 dB under a struck ball at its loudest, quieter still in
+  open play and lifting a little on an attack and in the last seconds; the menus' never lifts. The
+  music (never the crowd) steps back a few dB under the horn, the whistles, the post and the result
+  stings, and comes back when they are gone. Only one of the two ever plays. Both stop with the app.
+  The crowd and the drums have a volume each, declared with the rest of the mapping; 0 is off, and
+  the apps carry it as a setting from the first frame. Where the player turns it is not yet settled
+  — the coach's board (§12, §16.7) is the obvious home, on the stepped slider it already draws — so
+  for now both play at their declared default.
 - **Sound.** Every event of the prototype has its sound — the shot (soft, medium or hard by its
   speed), the pass, the player's side taking the ball, the boards, a dummy, the post, the save, the
   steal, the face-off drop, the whistles (a stoppage, a goal, a drill interrupted; a period's end and
@@ -700,8 +724,10 @@ never a banner, a sound or a haptic.
   drill ticking, and 1.3 s after the end the result's sting (a win or a draw, a loss or time up). The
   3D UI kit sounds too: a press, a refusal, a flip digit turning, a panel landing, the camera's
   whoosh, a slider's step. A sound made on the pitch pans with where it happened and follows the
-  time scale (§8.6); the rest play at real speed, centred. Sound follows the silent switch on iOS and
-  the media volume on Android.
+  time scale (§8.6); the rest play at real speed, centred. The crowd and the match's drums follow
+  that time scale too — floored, so a goal's 0.18 slurs rather than falls apart — and hold where they
+  are while the match is paused; the menus' drums never slow. Sound follows the silent switch on iOS
+  and the media volume on Android.
 - **Haptics**, on the system's haptics setting: a light tick when the player's carrier's aim enters a
   pass or shot window (§5.2), an impact on the player's release scaled by its speed, a sharp tap for a
   steal, a save or a post, three pulses with the horn for a goal of ours (one soft one for a goal

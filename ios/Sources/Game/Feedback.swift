@@ -10,8 +10,22 @@ final class Feedback {
     private let haptics = Haptics()
     private var later: [(due: Double, cue: Cue)] = []
     private var clock = 0.0
+    /// The stadium and the drums (§8.8): the core decides the levels, `Audio` plays them.
+    private var atmosphere = SmashCore.Atmosphere(AtmosphereData.params)
+    /// The player's two volumes (§12); until the coach's board offers them, their declared defaults.
+    var crowdVolume = AtmosphereData.crowdDefault
+    var musicVolume = AtmosphereData.musicDefault
 
     init(audio: Audio) { self.audio = audio }
+
+    /// The stadium under a player's match: its beds and its drums start, or fall silent.
+    func stadium(_ on: Bool) { audio.stadium(on) }
+
+    /// The menus' drums, whenever no match of the player's is on.
+    func menuMusic(_ on: Bool) { audio.menuMusic(on) }
+
+    /// What an event does to the crowd (§8.8) — a goal, a save, a stoppage.
+    func hear(_ e: MatchEvent, _ s: MatchSnapshot) { atmosphere.hear(e, s) }
 
     /// MatchCues' tunables, from presentation.toml.
     static var params: MatchCues.Params {
@@ -38,7 +52,7 @@ final class Feedback {
         case .sound(_, _, let delay) where delay > 0, .haptic(_, let delay) where delay > 0:
             later.append((clock + delay, c))
         case .sound(let cue, let x, _):
-            audio.play(cue, x: x)
+            play(cue, x: x)
         case .haptic(let h, _):
             haptics.play(h)
         case .banner, .shake, .pop:
@@ -46,22 +60,32 @@ final class Feedback {
         }
     }
 
+    /// A one-shot, and the duck it puts on the music when it is one of the declared cues.
+    private func play(_ cue: SoundCue, x: Double?) {
+        audio.play(cue, x: x)
+        if AtmosphereData.duckCues.contains(cue) { atmosphere.duck(seconds: 0) }
+    }
+
     /// A sound of the 3D UI kit (§8.8): a press, a flip, a pop, a whoosh, a nope, a slider's step.
     func ui(_ cue: SoundCue) { audio.play(cue, x: nil) }
 
-    /// One frame of real time; `timeScale` is §8.6's, which the sounds made on the pitch follow.
-    func update(_ dt: Double, timeScale: Double) {
+    /// One frame of real time; `timeScale` is §8.6's, which the sounds made on the pitch follow, and
+    /// `match` is what the stadium reads (nil outside a match of the player's: it falls away).
+    func update(_ dt: Double, timeScale: Double,
+                match: (snapshot: MatchSnapshot, danger: SmashCore.Atmosphere.Danger?)? = nil) {
         clock += dt
         let due = later.filter { $0.due <= clock }
         later.removeAll { $0.due <= clock }
         for d in due {
             switch d.cue {
-            case .sound(let cue, let x, _): audio.play(cue, x: x)
+            case .sound(let cue, let x, _): play(cue, x: x)
             case .haptic(let h, _): haptics.play(h)
             default: break
             }
         }
         audio.update(timeScale: timeScale)
+        let levels = atmosphere.update(dt, match?.snapshot, danger: match?.danger, timeScale: timeScale)
+        audio.apply(levels, crowd: crowdVolume, music: musicVolume)
     }
 
     /// Leaving a match drops what it still had coming but the result sting — the result's own.

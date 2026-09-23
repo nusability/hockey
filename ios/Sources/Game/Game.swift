@@ -212,7 +212,7 @@ final class Game {
         self.hud = hud
         hud.show(after: 0.5)
         feedback.audio.sport = kickoff.world.sport
-        feedback.audio.crowd(true)
+        feedback.stadium(true)
         pitch.start(plan, kickoff)
         stage.rig.track { [weak self] in self?.pitch.pose ?? (CameraPose(eye: .zero, target: [0, 0, 1]), 50) }
     }
@@ -246,7 +246,7 @@ final class Game {
         playing = nil
         pitch.paused = false
         feedback.cancelMatchCues()
-        feedback.audio.crowd(false)
+        feedback.stadium(false)
     }
 
     /// What the player's match set off beyond the pitch (§8.8, §16.4): banners to the HUD, the
@@ -261,6 +261,7 @@ final class Game {
             return
         }
         hud?.event(e)
+        if let s = pitch.snapshot { feedback.hear(e, s) }
         guard case .end(let result) = e, let s = pitch.snapshot else { return }
         let outcome = Outcome(plan: plan, score: s.score, overtime: s.overtime, result: result,
                               codes: pitch.kickoff?.codes, colours: pitch.kickoff?.colours ?? [],
@@ -296,7 +297,8 @@ final class Game {
     func update(_ dt: Double) {
         let step = min(max(dt, 0), 0.1)
         pitch.update(dt)
-        feedback.update(step, timeScale: pitch.timeScale)
+        feedback.menuMusic(playing == nil)
+        feedback.update(step, timeScale: pitch.timeScale, match: pitch.atmosphere)
         if demoOn, !pitch.isLoading, case .demo(let round, _)? = pitch.plan, pitch.endedFor > Presentation.Screens.demoRest {
             demoRound = round + 1
             let plan = MatchPlan.demo(round: demoRound, save: save)

@@ -284,14 +284,7 @@ max_voices = 2
 priority = 60
 
 # --------------------------------------------------------------------------------------- ambience
-
-[event."ambience.crowd"]
-category = "ambience"
-when = "a quiet crowd bed looped under a match, one per sport"
-field = []
-ice = []
-gain_db = 0.0
-pitch_semitones = 0.0
-max_voices = 1
-priority = 20
-todo = "optional for now: no CC0 crowd bed found that loops cleanly without PA music or intelligible words"
+# The crowd is no longer an event: a bed that reacts to the match is not a one-shot. The two crowd
+# beds, the swell over them and the drum music are declared in shared/data/atmosphere.toml, prepared
+# by the same script from the same sources, and played by loops that start once and only ever change
+# their gain. The bus stays declared here because the buses are the playback layers' vocabulary.

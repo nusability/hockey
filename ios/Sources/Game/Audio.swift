@@ -9,8 +9,9 @@ import os
 /// silent by declaration. A fixed set of voices, each a player node through a varispeed (the rate:
 /// the drawn pitch, times §8.6's time scale for a sound made on the pitch) into a small mixer (pan
 /// and level) into the main mixer; which voice a play takes is the core's `VoicePool`, which variant
-/// and pitch `SoundMix`. The crowd bed, when the bank has one, loops on a voice of its own under the
-/// player's match. The session is `.ambient`: the silent switch silences it and other apps' audio
+/// and pitch `SoundMix`. The looping layers — the two crowd beds, the swell over them and the drum
+/// music (`shared/data/atmosphere.toml`) — get nodes of their own that start once and never restart:
+/// only their gain, pan and rate move, from the core's `Atmosphere`. The session is `.ambient`: the silent switch silences it and other apps' audio
 /// plays on. Low latency: buffers are resident and a play is scheduled at once. The twin of Android's
 /// audio/Sfx.kt (SoundPool).
 @MainActor
@@ -21,6 +22,8 @@ final class Audio {
         let mixer = AVAudioMixerNode()
         var pitch = 1.0
         var onPitch = false
+        /// A looping layer that has been started: only those take a gain from `apply`.
+        var looping = false
     }
 
     typealias S = Presentation.Sound
@@ -29,7 +32,14 @@ final class Audio {
     private let engine = AVAudioEngine()
     private let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
     private var voices: [Voice] = []
-    private let bed = Voice()
+    /// The looping layers: the three crowd beds in `AtmosphereData.beds`' order, then the match
+    /// music and the menu music. Each is a voice whose buffer loops for as long as the app lives.
+    private let beds = AtmosphereData.beds.map { _ in Voice() }
+    private let matchTrack = Voice()
+    private let menuTrack = Voice()
+    private var looping: [Voice] { beds + [matchTrack, menuTrack] }
+    private var bedsOn = false
+    private var menuOn = false
     private var pool = VoicePool(count: Presentation.Sound.voices)
     private var buffers: [String: AVAudioPCMBuffer] = [:]
     private var last: [SoundCue: Int] = [:]
@@ -48,12 +58,21 @@ final class Audio {
                 buffers[name] = try Self.decode(url, to: format)
             }
         }
+        for name in AtmosphereData.beds.map(\.file) + [AtmosphereData.matchMusic.file, AtmosphereData.menuMusic.file]
+        where buffers[name] == nil {
+            guard let url = bundle.resourceURL?.appendingPathComponent("sounds/\(name).m4a"),
+                  FileManager.default.fileExists(atPath: url.path) else {
+                throw AssetError.missing("looping layer \(name).m4a (shared/data/atmosphere.toml) is not in the app's "
+                                         + "sounds/ — shared/assets/sounds/ is bundled by ios/project.yml")
+            }
+            buffers[name] = try Self.decode(url, to: format)
+        }
         guard !buffers.isEmpty else { return }
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.ambient)
         try session.setActive(true)
         for _ in 0..<S.voices { voices.append(Voice()) }
-        for v in voices + [bed] {
+        for v in voices + looping {
             engine.attach(v.player)
             engine.attach(v.speed)
             engine.attach(v.mixer)
@@ -96,14 +115,67 @@ final class Audio {
         v.player.play()
     }
 
-    /// The crowd bed under a player's match (§8.8), looped while `on` — silent while the bank has none.
-    func crowd(_ on: Bool) {
-        bed.player.stop()
-        let names = SoundCue.ambienceCrowd.spec.files(sport)
-        guard on, let name = names.first, let buffer = buffers[name], running else { return }
-        bed.player.volume = Float(min(SoundMix.amplitude(SoundCue.ambienceCrowd.spec.gainDb), 1))
-        bed.player.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
-        bed.player.play()
+    /// The stadium under a player's match (§8.8): the two crowd beds and the swell, looping while
+    /// `on`, and the match's drums with them. Starting is the only thing that ever happens to a loop
+    /// — from here on `apply` only moves its gain.
+    func stadium(_ on: Bool) {
+        guard bedsOn != on else { return }
+        bedsOn = on
+        for (v, bed) in zip(beds, AtmosphereData.beds) { loop(v, bed.file, on) }
+        loop(matchTrack, AtmosphereData.matchMusic.file, on)
+    }
+
+    /// The menus' drums (§8.8), looping while `on` — never at the same time as the match's.
+    func menuMusic(_ on: Bool) {
+        guard menuOn != on else { return }
+        menuOn = on
+        loop(menuTrack, AtmosphereData.menuMusic.file, on)
+    }
+
+    private func loop(_ v: Voice, _ name: String, _ on: Bool) {
+        v.player.stop()
+        v.mixer.outputVolume = 0
+        v.looping = false
+        guard on, let buffer = buffers[name], running else { return }
+        v.looping = true
+        v.speed.rate = 1
+        v.player.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
+        v.player.play()
+    }
+
+    /// One frame of the looping layers: the crowd's three envelopes, the music's and its duck, each
+    /// read across that layer's `quietDb`…`loudDb` and scaled by the player's two volumes (§12).
+    /// A layer at a time scale of 0 (the match paused) holds where it is.
+    func apply(_ l: SmashCore.Atmosphere.Levels, crowd: Double, music: Double) {
+        typealias A = AtmosphereData
+        for (v, bed) in zip(beds, A.beds) {
+            let level = switch bed.follows {
+            case .home: l.home
+            case .away: l.away
+            case .swell: l.swell
+            }
+            let pan = bed.follows == .swell ? bed.pan + l.swellPan : bed.pan
+            set(v, db: bed.quietDb + (bed.loudDb - bed.quietDb) * level, volume: crowd,
+                pan: pan, rate: bed.rate * l.rate, hold: l.rate == 0)
+        }
+        let m = A.matchMusic
+        set(matchTrack, db: m.quietDb + (m.loudDb - m.quietDb) * l.music + A.duckDepthDb * l.duck, volume: music,
+            pan: 0, rate: m.followsTimeScale ? l.rate : 1, hold: m.followsTimeScale && l.rate == 0)
+        let n = A.menuMusic
+        set(menuTrack, db: n.quietDb + (n.loudDb - n.quietDb) * l.music + A.duckDepthDb * l.duck, volume: music,
+            pan: 0, rate: 1, hold: false)
+    }
+
+    private func set(_ v: Voice, db: Double, volume: Double, pan: Double, rate: Double, hold: Bool) {
+        guard v.looping else { return }
+        v.mixer.outputVolume = Float(min(SoundMix.amplitude(db) * max(volume, 0), 1))
+        v.mixer.pan = Float(min(max(pan, -1), 1))
+        if hold {
+            if v.player.isPlaying { v.player.pause() }
+        } else {
+            v.speed.rate = Float(min(max(rate, 0.25), 4))
+            if !v.player.isPlaying, v.player.engine != nil, running { v.player.play() }
+        }
     }
 
     /// One frame: the sounds made on the pitch follow §8.6's time scale, and hold while the match is

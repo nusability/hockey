@@ -18,7 +18,9 @@ import `in`.nann.smashhockey.core.generated.BoardRecord
 import `in`.nann.smashhockey.core.generated.SaveRecord
 import `in`.nann.smashhockey.core.generated.World
 import `in`.nann.smashhockey.audio.Haptics
+import `in`.nann.smashhockey.audio.Beds
 import `in`.nann.smashhockey.audio.Sfx
+import `in`.nann.smashhockey.core.feel.Atmosphere
 import `in`.nann.smashhockey.core.feel.Cue
 import `in`.nann.smashhockey.core.match.MatchEvent
 import `in`.nann.smashhockey.core.match.MatchResult
@@ -33,6 +35,7 @@ import `in`.nann.smashhockey.core.season.withBoard
 import `in`.nann.smashhockey.core.season.won
 import `in`.nann.smashhockey.engine.Assets
 import `in`.nann.smashhockey.engine.FilamentHost
+import `in`.nann.smashhockey.generated.AtmosphereData
 import `in`.nann.smashhockey.generated.Presentation
 import `in`.nann.smashhockey.generated.look
 import `in`.nann.smashhockey.scene.TeamColours
@@ -89,6 +92,12 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
     private val haptics = Haptics(context)
     /** The sound bank, loaded (and checked — a missing file fails the launch) before anything plays. */
     private val sfx = Sfx(context.assets)
+    private val beds = Beds(context.assets)
+    /** The stadium and the drums (§8.8): the core decides the levels, [beds] plays them. */
+    private val atmosphere = Atmosphere(AtmosphereData.params)
+    /** The player's two volumes (§12); until the coach's board offers them, their declared defaults. */
+    private var crowdVolume = AtmosphereData.crowdDefault
+    private var musicVolume = AtmosphereData.musicDefault
     private val store = SaveStore(context.filesDir)
     var save: SaveRecord; private set
     private val refusal: String?
@@ -232,7 +241,7 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         demoOn = false
         pitch.start(plan, kickoff)
         sfx.sport = kickoff.world.sport
-        sfx.crowd()
+        beds.stadium(true)
         hud = MatchHud(this, plan, kickoff).also { it.show(0.5) }
         kickoff.names?.let { pitch.intro(it[0], it[1]) }
         stage.rig.track { pitch.pose }
@@ -262,6 +271,7 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
 
     private fun endMatch() {
         sfx.clearLater()
+        beds.stadium(false)
         hud?.leave()
         hud = null
         playing = null
@@ -272,6 +282,7 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         val plan = playing ?: return
         if (pitch.plan != plan) return
         hud?.event(e)
+        pitch.snapshot?.let { atmosphere.hear(e, it) }
         if (e !is MatchEvent.End) return
         val s = pitch.snapshot ?: return
         val k = pitch.kickoff
@@ -291,7 +302,10 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
     private fun cue(c: Cue) {
         when (c) {
             is Cue.Show -> hud?.banner(c.banner)
-            is Cue.Sound -> sfx.play(c.cue, c.x, c.delay)
+            is Cue.Sound -> {
+                sfx.play(c.cue, c.x, c.delay)
+                if (c.cue in AtmosphereData.duckCues) atmosphere.duck(c.delay)
+            }
             is Cue.Feel -> if (c.delay > 0) stage.after(c.delay) { if (playing != null) haptics.play(c.haptic) } else haptics.play(c.haptic)
             is Cue.Shake, is Cue.Pop -> Unit      // the pitch draws these itself
         }
@@ -311,8 +325,8 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
 
     // ---------------------------------------------------------------- the frame, the one clock (ADR 0005)
 
-    fun start() { host.start(); sfx.resume() }
-    fun stop() { host.stop(); sfx.pause(); haptics.stop() }
+    fun start() { host.start(); sfx.resume(); beds.resume() }
+    fun stop() { host.stop(); sfx.pause(); beds.pause(); haptics.stop() }
 
     private fun frame(dt: Double, @Suppress("UNUSED_PARAMETER") frameTimeNanos: Long) {
         if (stageState.value == null) {
@@ -326,6 +340,9 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         pitch.reduceMotion = reduce
         pitch.update(dt)
         sfx.update(step, pitch.timeScale)
+        beds.menu(playing == null)
+        val heard = pitch.atmosphere
+        beds.apply(atmosphere.update(step, heard?.first, heard?.second, pitch.timeScale), crowdVolume, musicVolume)
         val p = pitch.plan
         if (demoOn && p is MatchPlan.Demo && pitch.endedFor > Presentation.Screens.demoRest) {
             demoRound = p.round + 1
@@ -387,6 +404,7 @@ class Game(context: Context, private val surfaceView: SurfaceView, private val l
         kit.destroy()
         pitch.destroy()
         sfx.release()
+        beds.release()
         KitSound.play = null
         host.destroy()
     }

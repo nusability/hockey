@@ -5,8 +5,10 @@
     python3 tools/prepare-sounds.py --check    # no encoding: every manifest entry resolves, every
                                                # output has a source, LICENSES.md is current
 
-Inputs:  shared/assets/sounds/sources.toml   (where each original comes from, and each clip's cut)
-         shared/data/sounds.toml             (the runtime manifest: event id -> files; checked only)
+Inputs:  shared/assets/sounds/sources.toml   (where each original comes from, and each clip's cut,
+                                              each [[loop]]'s loop points and each [[pattern]]'s groove)
+         shared/data/sounds.toml             (the one-shot manifest: event id -> files; checked only)
+         shared/data/atmosphere.toml         (the looping layers: crowd beds and music; checked only)
 Outputs: shared/assets/sounds/<dir>/<name>.m4a  AAC-LC in MPEG-4, for iOS (AVAudioFile / AVAudioEngine)
          shared/assets/sounds/<dir>/<name>.ogg  Vorbis in Ogg, for Android (SoundPool / MediaExtractor)
          shared/assets/sounds/LICENSES.md       generated from sources.toml, never edited by hand
@@ -37,6 +39,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SOUNDS = ROOT / "shared/assets/sounds"
 SOURCES = SOUNDS / "sources.toml"
 MANIFEST = ROOT / "shared/data/sounds.toml"
+ATMOSPHERE = ROOT / "shared/data/atmosphere.toml"
 CACHE = SOUNDS / ".originals"
 LICENSES = SOUNDS / "LICENSES.md"
 
@@ -44,9 +47,13 @@ SR = 44100
 FORMATS = ("m4a", "ogg")
 AAC_KBPS = {1: 96, 2: 128}
 VORBIS_QUALITY = "3"          # ~80 kbit/s mono, ~112 kbit/s stereo
+LOOP_KBPS = 72                # a bed or a music loop: minutes of it, so it is encoded leaner
+LOOP_VORBIS_QUALITY = "1"     # ~64 kbit/s mono
 LEAD_THRESHOLD_DB = -40.0     # leading silence: below this, relative to the clip's peak
 TAIL_THRESHOLD_DB = -54.0     # trailing silence: likewise
 FADE_IN_S = 0.002
+# A pattern's step characters: how hard that hit is struck (a rest is a dot or a dash).
+VELOCITY = {".": 0.0, "-": 0.0, "o": 0.45, "+": 0.70, "x": 1.0}
 
 
 def die(msg: str) -> None:
@@ -69,6 +76,8 @@ def load_sources() -> dict:
     for key in ("class", "source", "clip"):
         if key not in d:
             die(f"{SOURCES.relative_to(ROOT)}: no [{key}] declared")
+    d.setdefault("loop", [])
+    d.setdefault("pattern", [])
     for sid, s in d["source"].items():
         for k in ("title", "author", "page", "url", "licence", "licence_url", "sha256"):
             if k not in s:
@@ -77,19 +86,52 @@ def load_sources() -> dict:
             die(f"source.{sid}: licence {s['licence']!r} is not CC0 — a CC-BY source must carry its exact "
                 "`attribution` line (and nothing non-commercial or share-alike is allowed at all)")
     seen = set()
-    for c in d["clip"]:
-        for k in ("out", "parts", "class", "note"):
+    for c in items(d):
+        kind = c["kind"]
+        for k in ("out", "class", "note"):
             if k not in c:
-                die(f"{SOURCES.relative_to(ROOT)}: clip {c.get('out', '?')} has no `{k}`")
+                die(f"{SOURCES.relative_to(ROOT)}: {kind} {c.get('out', '?')} has no `{k}`")
         if c["out"] in seen:
-            die(f"clip {c['out']} is declared twice")
+            die(f"{kind} {c['out']} is declared twice")
         seen.add(c["out"])
         if c["class"] not in d["class"]:
-            die(f"clip {c['out']}: class {c['class']!r} is not declared under [class]")
+            die(f"{kind} {c['out']}: class {c['class']!r} is not declared under [class]")
+        if kind == "pattern":
+            for k in ("bpm", "bars", "beats", "steps", "track"):
+                if k not in c:
+                    die(f"pattern {c['out']} has no `{k}`")
+            for t in c["track"]:
+                if t.get("source") not in d["source"]:
+                    die(f"pattern {c['out']}: source {t.get('source')!r} is not declared")
+                if not t.get("bars") or "order" not in t:
+                    die(f"pattern {c['out']}: every track needs `bars` and `order`")
+                if len(t["order"]) != c["bars"]:
+                    die(f"pattern {c['out']}: a track's `order` has {len(t['order'])} bars, the loop has {c['bars']}")
+                for b in t["bars"]:
+                    if len(b) != c["steps"]:
+                        die(f"pattern {c['out']}: a bar {b!r} is not {c['steps']} steps")
+                    for ch in b:
+                        if ch not in VELOCITY:
+                            die(f"pattern {c['out']}: step {ch!r} is not one of {''.join(VELOCITY)}")
+            continue
+        if "parts" not in c:
+            die(f"{SOURCES.relative_to(ROOT)}: {kind} {c['out']} has no `parts`")
+        if kind == "loop":
+            for k in ("seconds", "crossfade"):
+                if k not in c:
+                    die(f"loop {c['out']} has no `{k}`")
         for p in c["parts"]:
             if p[0] not in d["source"]:
-                die(f"clip {c['out']}: source {p[0]!r} is not declared")
+                die(f"{kind} {c['out']}: source {p[0]!r} is not declared")
     return d
+
+
+def items(d: dict) -> list[dict]:
+    """Every output this manifest declares, in the order it is written: the one-shot `[[clip]]`s, the
+    `[[loop]]`s cut from a recording, then the `[[pattern]]`s assembled from one-shots."""
+    return ([dict(c, kind="clip") for c in d["clip"]]
+            + [dict(c, kind="loop") for c in d.get("loop", [])]
+            + [dict(c, kind="pattern") for c in d.get("pattern", [])])
 
 
 def load_manifest() -> dict:
@@ -160,15 +202,17 @@ def original(sources: dict, sid: str, member: str | None, workdir: Path) -> Path
 
 # ------------------------------------------------------------------------------------------ audio
 
-def decode(ffmpeg: str, src: Path, start: float | None, end: float | None, ch: int, highpass: float | None) -> array.array:
+def decode(ffmpeg: str, src: Path, start: float | None, end: float | None, ch: int,
+           highpass: float | None, lowpass: float | None = None) -> array.array:
     cmd = [ffmpeg, "-v", "error"]
     if start is not None:
         cmd += ["-ss", f"{start:.3f}"]
     if end is not None:
         cmd += ["-to", f"{end:.3f}"]
     cmd += ["-i", str(src)]
-    if highpass:
-        cmd += ["-af", f"highpass=f={highpass}:poles=2"]
+    filters = ([f"highpass=f={highpass}:poles=2"] if highpass else []) + ([f"lowpass=f={lowpass}:poles=2"] if lowpass else [])
+    if filters:
+        cmd += ["-af", ",".join(filters)]
     cmd += ["-ac", str(ch), "-ar", str(SR), "-f", "f32le", "-"]
     raw = subprocess.run(cmd, capture_output=True, check=True).stdout
     a = array.array("f")
@@ -276,7 +320,8 @@ def fades(a: array.array, ch: int, fade_out: float) -> None:
             a[i * ch + c] *= g
 
 
-def encode(ffmpeg: str, oggenc: str, a: array.array, ch: int, out: Path) -> None:
+def encode(ffmpeg: str, oggenc: str, a: array.array, ch: int, out: Path,
+           kbps: int | None = None, oggq: str | None = None) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     pcm = a.tobytes()
     with tempfile.TemporaryDirectory() as td:
@@ -285,10 +330,95 @@ def encode(ffmpeg: str, oggenc: str, a: array.array, ch: int, out: Path) -> None
                         "-c:a", "pcm_s16le", "-fflags", "+bitexact", "-flags:a", "+bitexact", str(wav)],
                        input=pcm, check=True)
         subprocess.run([ffmpeg, "-v", "error", "-y", "-i", str(wav), "-map_metadata", "-1",
-                        "-c:a", "aac", "-b:a", f"{AAC_KBPS[ch]}k", "-fflags", "+bitexact", "-flags:a", "+bitexact",
+                        "-c:a", "aac", "-b:a", f"{kbps or AAC_KBPS[ch]}k", "-fflags", "+bitexact", "-flags:a", "+bitexact",
                         "-movflags", "+faststart", str(out.with_suffix(".m4a"))], check=True)
-        subprocess.run([oggenc, "--quiet", "--serial", "1", "--discard-comments", "-q", VORBIS_QUALITY,
+        subprocess.run([oggenc, "--quiet", "--serial", "1", "--discard-comments", "-q", oggq or VORBIS_QUALITY,
                         "-o", str(out.with_suffix(".ogg")), str(wav)], check=True)
+
+
+# ------------------------------------------------------------------------------- loops & patterns
+
+def resample(a: array.array, ch: int, factor: float) -> array.array:
+    """Linear resampling by `factor` (2 = an octave up, half as long) — a one-shot retuned."""
+    if abs(factor - 1) < 1e-9:
+        return a
+    n = frames(a, ch)
+    m = max(1, int(n / factor))
+    out = array.array("f", [0.0]) * (m * ch)
+    for i in range(m):
+        t = i * factor
+        j = int(t)
+        f = t - j
+        if j + 1 >= n:
+            j, f = n - 2, 1.0
+        for c in range(ch):
+            out[i * ch + c] = a[j * ch + c] * (1 - f) + a[(j + 1) * ch + c] * f
+    return out
+
+
+def loop_cut(a: array.array, ch: int, seconds: float, crossfade: float) -> array.array:
+    """A seamless loop of `seconds` from `a`: its tail, `crossfade` long, is folded back over its head
+    under an equal-power law, so the last sample runs into the first with no click and no dip."""
+    n = frames(a, ch)
+    L = int(SR * seconds)
+    X = int(SR * crossfade)
+    if n < L + X:
+        die(f"a loop of {seconds} s with a {crossfade} s crossfade needs {(L + X) / SR:.2f} s of source, "
+            f"got {n / SR:.2f} s")
+    out = array.array("f", a[:L * ch])
+    for i in range(X):
+        w = (i + 0.5) / X
+        head, tail = math.sqrt(w), math.sqrt(1 - w)
+        for c in range(ch):
+            out[i * ch + c] = out[i * ch + c] * head + a[(L + i) * ch + c] * tail
+    return out
+
+
+def rng(seed: int):
+    """A small deterministic generator, so an assembled loop is the same file on every machine."""
+    state = (seed * 2654435761 + 1) & 0xFFFFFFFF
+
+    def nxt() -> float:
+        nonlocal state
+        state = (state * 1664525 + 1013904223) & 0xFFFFFFFF
+        return state / 0x100000000
+    return nxt
+
+
+def pattern_build(ffmpeg: str, sources: dict, spec: dict, work: Path) -> array.array:
+    """A drum loop assembled from one-shots (spec §8.8's music): `bars` bars of `beats` beats at `bpm`,
+    each bar a string of `steps` step characters per track. A hit whose tail runs past the end wraps
+    around to the start, so the loop is seamless by construction — there is no loop point to smooth.
+    `humanize_ms` / `humanize_db` scatter the hits a little, from `seed`, so it is played, not clocked."""
+    ch = 2 if spec.get("stereo", False) else 1
+    beat = 60.0 / spec["bpm"]
+    total = int(round(SR * spec["bars"] * spec["beats"] * beat))
+    step = spec["beats"] * beat / spec["steps"]
+    out = array.array("f", [0.0]) * (total * ch)
+    jitter = rng(spec.get("seed", 1))
+    for t in spec["track"]:
+        one = decode(ffmpeg, original(sources, t["source"], t.get("member"), work), t.get("start"), t.get("end"),
+                     ch, t.get("highpass"), t.get("lowpass"))
+        one = trim(one, ch)
+        one = resample(one, ch, 2 ** (t.get("semitones", 0.0) / 12))
+        fades(one, ch, t.get("fade", 0.01))
+        g0 = 10 ** (t.get("gain_db", 0.0) / 20)
+        ms = t.get("humanize_ms", spec.get("humanize_ms", 0.0))
+        dbj = t.get("humanize_db", spec.get("humanize_db", 0.0))
+        for bar in range(spec["bars"]):
+            pat = t["bars"][t["order"][bar]]
+            for k, symbol in enumerate(pat):
+                v = VELOCITY[symbol]
+                if v <= 0:
+                    continue
+                at = (bar * spec["beats"] * beat) + k * step + (2 * jitter() - 1) * ms / 1000
+                g = g0 * v * 10 ** ((2 * jitter() - 1) * dbj / 20)
+                start = int(round(at * SR))
+                for i in range(frames(one, ch)):
+                    j = (start + i) % total          # a tail past the end wraps into the head
+                    for c in range(ch):
+                        out[j * ch + c] += one[i * ch + c] * g
+    return out
 
 
 def duration(ffprobe: str, path: Path) -> float:
@@ -304,24 +434,34 @@ def prepare(sources: dict) -> list[dict]:
     rows = []
     with tempfile.TemporaryDirectory() as td:
         work = Path(td)
-        for c in sources["clip"]:
+        for c in items(sources):
             ch = 2 if c.get("stereo", False) else 1
-            buf = array.array("f")
-            for i, p in enumerate(c["parts"]):
-                sid = p[0]
-                if len(p) > 1 and isinstance(p[1], str):
-                    member, times = p[1], p[2:]
-                else:
-                    member, times = None, p[1:]
-                start = times[0] if len(times) > 0 else None
-                end = times[1] if len(times) > 1 else None
-                pause = times[2] if len(times) > 2 else 0.0
-                if i and pause:
-                    buf.extend([0.0] * int(SR * pause) * ch)
-                seg = decode(ffmpeg, original(sources, sid, member, work), start, end, ch, c.get("highpass"))
-                buf.extend(trim(seg, ch) if len(c["parts"]) > 1 else seg)
-            buf = trim(buf, ch)
-            fades(buf, ch, c.get("fade", 0.03))
+            looping = c["kind"] != "clip"
+            if c["kind"] == "pattern":
+                buf = pattern_build(ffmpeg, sources, c, work)
+            else:
+                buf = array.array("f")
+                for i, p in enumerate(c["parts"]):
+                    sid = p[0]
+                    if len(p) > 1 and isinstance(p[1], str):
+                        member, times = p[1], p[2:]
+                    else:
+                        member, times = None, p[1:]
+                    start = times[0] if len(times) > 0 else None
+                    end = times[1] if len(times) > 1 else None
+                    pause = times[2] if len(times) > 2 else 0.0
+                    if i and pause:
+                        buf.extend([0.0] * int(SR * pause) * ch)
+                    seg = decode(ffmpeg, original(sources, sid, member, work), start, end, ch,
+                                 c.get("highpass"), c.get("lowpass"))
+                    buf.extend(trim(seg, ch) if len(c["parts"]) > 1 and not looping else seg)
+            # A loop has no start and no end to tidy: trimming its silence or fading its edges would
+            # be the one thing you would hear, every time round.
+            if c["kind"] == "loop":
+                buf = loop_cut(buf, ch, c["seconds"], c["crossfade"])
+            elif not looping:
+                buf = trim(buf, ch)
+                fades(buf, ch, c.get("fade", 0.03))
             cls = sources["class"][c["class"]]
             loud = loudest_window(buf, ch)
             pk = db(peak(buf))
@@ -346,7 +486,9 @@ def prepare(sources: dict) -> list[dict]:
             for i in range(len(buf)):
                 buf[i] *= g
             out = SOUNDS / c["out"]
-            encode(ffmpeg, oggenc, buf, ch, out)
+            encode(ffmpeg, oggenc, buf, ch, out,
+                   kbps=c.get("kbps", LOOP_KBPS if looping else None),
+                   oggq=c.get("oggq", LOOP_VORBIS_QUALITY if looping else None))
             rows.append(dict(out=c["out"], cls=c["class"], ch=ch, dur=frames(buf, ch) / SR, shaved=shaved,
                              loud=loud + gain, peak=pk + gain, limited=limited,
                              dur_m4a=duration(ffprobe, out.with_suffix(".m4a")),
@@ -395,8 +537,18 @@ def licences_md(sources: dict) -> str:
     L += ["## Files", "",
           "| File (`.m4a` + `.ogg`) | Original | Original file | Cut (s) | Fade-out (s) | Treatment |",
           "|---|---|---|---|---|---|"]
-    for c in sources["clip"]:
+    for c in items(sources):
         origs, files, cuts = [], [], []
+        if c["kind"] == "pattern":
+            for t in c["track"]:
+                origs.append(f"`{t['source']}`")
+                files.append(sources["source"][t["source"]]["title"])
+            treat = [c["note"], f"class {c['class']}",
+                     f"assembled: {c['bars']} bars of {c['beats']}/4 at {c['bpm']} BPM, "
+                     f"{len(c['track'])} tracks, seed {c.get('seed', 1)}"]
+            uniq = lambda xs: " + ".join(dict.fromkeys(xs))
+            L.append(f"| `{c['out']}` | {uniq(origs)} | {uniq(files)} | assembled | 0.00 | {'; '.join(treat)} |")
+            continue
         for p in c["parts"]:
             sid = p[0]
             origs.append(f"`{sid}`")
@@ -410,35 +562,60 @@ def licences_md(sources: dict) -> str:
                     cut = f"+{p[3]:.2f} pause, {cut}"
                 cuts.append(cut)
         treat = [c["note"], f"class {c['class']}"]
+        if c["kind"] == "loop":
+            treat.append(f"looped: {c['seconds']:.0f} s, {c['crossfade']:.1f} s crossfade back over the head")
         if c.get("offset_db"):
             treat.append(f"{c['offset_db']:+.0f} dB from its class")
         if c.get("highpass"):
             treat.append(f"high-pass {c['highpass']} Hz")
+        if c.get("lowpass"):
+            treat.append(f"low-pass {c['lowpass']} Hz")
         if c.get("stereo"):
             treat.append("stereo")
         uniq = lambda xs: " + ".join(dict.fromkeys(xs))
         L.append(f"| `{c['out']}` | {uniq(origs)} | {uniq(files)} | {'; '.join(cuts)} | "
-                 f"{c.get('fade', 0.03):.2f} | {'; '.join(treat)} |")
+                 f"{0.0 if c['kind'] == 'loop' else c.get('fade', 0.03):.2f} | {'; '.join(treat)} |")
     L.append("")
     return "\n".join(L)
 
 
 # ------------------------------------------------------------------------------------------ check
 
-def check(sources: dict, manifest: dict) -> list[str]:
+def load_atmosphere() -> dict:
+    """The looping layers (shared/data/atmosphere.toml): the crowd beds and the drum music, and how
+    each follows the match. Only the file references are checked here; the mapping is the apps'."""
+    with open(ATMOSPHERE, "rb") as f:
+        a = tomllib.load(f)
+    for key in ("bed", "music"):
+        if key not in a:
+            die(f"{ATMOSPHERE.relative_to(ROOT)}: no [{key}.*] tables")
+    for kind in ("bed", "music"):
+        for lid, layer in a[kind].items():
+            if "file" not in layer:
+                die(f"{ATMOSPHERE.relative_to(ROOT)}: {kind}.{lid} has no `file`")
+    return a
+
+
+def atmosphere_stems(a: dict) -> dict[str, str]:
+    return {f"{kind}.{lid}": layer["file"] for kind in ("bed", "music") for lid, layer in a[kind].items()}
+
+
+def check(sources: dict, manifest: dict, atmosphere: dict) -> list[str]:
     errs = []
-    outs = {c["out"] for c in sources["clip"]}
+    outs = {c["out"] for c in items(sources)}
     used = set()
-    for eid, stems in manifest_stems(manifest).items():
-        for s in stems:
-            used.add(s)
-            if s not in outs:
-                errs.append(f"event {eid}: {s} is not produced by any clip in sources.toml")
-            for ext in FORMATS:
-                if not (SOUNDS / f"{s}.{ext}").is_file():
-                    errs.append(f"event {eid}: {s}.{ext} does not exist — run tools/prepare-sounds.py")
+    refs = [(f"event {eid}", stem) for eid, stems in manifest_stems(manifest).items() for stem in stems]
+    refs += [(f"layer {lid}", stem) for lid, stem in atmosphere_stems(atmosphere).items()]
+    for who, stem in refs:
+        used.add(stem)
+        if stem not in outs:
+            errs.append(f"{who}: {stem} is not produced by any clip, loop or pattern in sources.toml")
+        for ext in FORMATS:
+            if not (SOUNDS / f"{stem}.{ext}").is_file():
+                errs.append(f"{who}: {stem}.{ext} does not exist — run tools/prepare-sounds.py")
     for o in sorted(outs - used):
-        errs.append(f"clip {o} is produced but no event in {MANIFEST.relative_to(ROOT)} plays it")
+        errs.append(f"{o} is produced but nothing in {MANIFEST.relative_to(ROOT)} or "
+                    f"{ATMOSPHERE.relative_to(ROOT)} plays it")
     for f in sorted(SOUNDS.rglob("*")):
         if f.suffix.lstrip(".") in FORMATS and ".originals" not in f.parts:
             stem = str(f.relative_to(SOUNDS).with_suffix(""))
@@ -468,17 +645,20 @@ def main() -> None:
         die("usage: tools/prepare-sounds.py [--check]")
     sources = load_sources()
     manifest = load_manifest()
+    atmosphere = load_atmosphere()
     if not args:
         for sid, s in sources["source"].items():
             fetch(sid, s)
         report(prepare(sources))
         LICENSES.write_text(licences_md(sources))
-    errs = check(sources, manifest)
+    errs = check(sources, manifest, atmosphere)
     if errs:
         die("check failed:\n  " + "\n  ".join(errs))
     n = sum(len(v) for v in manifest_stems(manifest).values())
+    layers = atmosphere_stems(atmosphere)
     todo = [eid for eid, e in manifest["event"].items() if e.get("todo")]
-    print(f"check: {len(manifest['event'])} events, {n} file references, all present in both formats; "
+    print(f"check: {len(manifest['event'])} events, {n} file references, {len(layers)} looping layers "
+          f"({', '.join(sorted(layers))}), all present in both formats; "
           f"LICENSES.md current. todo: {', '.join(todo) or 'none'}")
 
 

@@ -8,7 +8,8 @@
 # is CC0 1.0 — no attribution is owed (the credits in LICENSES.md are a courtesy, not an obligation).
 #
 # Freesound: the original upload needs a signed-in account to download, so we fetch the public
-# high-quality preview (Ogg Vorbis, ~190 kbit/s) of the same sound. CC0 covers every copy of the work;
+# high-quality preview (~190 kbit/s, Ogg Vorbis on the older uploads and MP3 on the newer) of the
+# same sound. CC0 covers every copy of the work;
 # the preview is lossy, which is inaudible after our own re-encode at game-SFX sizes. To use the
 # lossless original instead, download it from `page`, drop it into .originals/ under the cached name
 # and update `url`/`sha256` — the clip times are the same.
@@ -678,3 +679,211 @@ parts = [["fs-458398", 0.000, 0.354]]
 class = "ui"
 fade = 0.05
 note = "the whole pop"
+
+# ------------------------------------------------------- the looping layers: the crowd and the drums
+# Two kinds of output live below the one-shot [[clip]]s, both looping and both declared in
+# shared/data/atmosphere.toml rather than sounds.toml:
+#
+#   [[loop]]     a seamless loop cut from a recording. `seconds` long; its tail, `crossfade` long, is
+#                folded back over its head under an equal-power law, so the last sample runs into the
+#                first with no click and no dip. A loop is never trimmed and never faded — the edges
+#                are the one thing you would hear, every time round.
+#   [[pattern]]  a drum loop assembled here from CC0 one-shots: `bars` bars of `beats` beats at `bpm`,
+#                each track a bar-string of `steps` characters — `x` struck, `+` firm, `o` ghost,
+#                `.` rest — chosen per bar by `order`. A hit whose tail runs past the end wraps around
+#                to the start, so there is no loop point at all. `semitones` retunes a one-shot (a hi
+#                tom five semitones down is a floor tom); `humanize_ms` / `humanize_db` scatter the
+#                hits from `seed`, so it is played, not clocked. No melody, by construction: the bank
+#                holds no pitched instrument.
+#
+# Both are encoded leaner than the one-shots (there are minutes of them): AAC 72 kbit/s, Vorbis -q1.
+
+[class.bed]
+# The crowd beds: levelled together so the swell can sit exactly so many dB over the base.
+target = -20.0
+ceiling = -3.0
+[class.music]
+target = -20.0
+ceiling = -3.0
+
+[source.fs-crowd-ambience]
+title = "Millerntor Stadium Crowd Reaction — General Ambience 01 (Sound Of Sankt Pauli)"
+author = "itmightgetloud (Philipp Feit)"
+page = "https://freesound.org/people/itmightgetloud/sounds/829454/"
+url = "https://cdn.freesound.org/previews/829/829454_3625328-hq.mp3"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "00728388fe04840db4f8fd98e76d9140336bba313b27b82314d7a4951d27829c"
+about = "6:12 of a real football crowd at rest. The window we cut was chosen by measurement, not by ear: the steadiest 30 s of the recording after the first 40 s (lowest frame-to-frame spread of its 100 ms loudness), which is the part least likely to hold a chant, a whistle or the PA."
+
+[source.fs-crowd-waves]
+title = "Millerntor Stadium Crowd Reaction — Mood Waves 01 (Sound Of Sankt Pauli)"
+author = "itmightgetloud (Philipp Feit)"
+page = "https://freesound.org/people/itmightgetloud/sounds/829456/"
+url = "https://cdn.freesound.org/previews/829/829456_3625328-hq.mp3"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "41b928d988ea51bfdc75376eae09ea5d98eeeead5b8fae82bf0beda2af870ca4"
+about = "4:03 of the same crowd rising and falling with the play — the swell layer. Its window was chosen the same way, for the loudest steady 30 s."
+
+[source.fs-junk-kick]
+title = "Junk Drum Kit: Kick (Single Hit)"
+author = "freesound user 5205523"
+page = "https://freesound.org/people/deleted_user_5205523/sounds/340473/"
+url = "https://cdn.freesound.org/previews/340/340473_5205523-hq.mp3"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "450e50f3af6951f9f549e462b5d2c742b3f033e6c7ecf8756cc4f2d4b4117e04"
+
+[source.fs-junk-snare]
+title = "Junk Drum Kit: Snare (Single Hit)"
+author = "freesound user 5205523"
+page = "https://freesound.org/people/deleted_user_5205523/sounds/340471/"
+url = "https://cdn.freesound.org/previews/340/340471_5205523-hq.mp3"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "8c0119eb8f7e0cf8ca4aac6902740f0d79eb0fa08edcf4511d0184defd1a49aa"
+
+[source.fs-junk-tom]
+title = "Junk Drum Kit: Hi Tom (Single Hit)"
+author = "freesound user 5205523"
+page = "https://freesound.org/people/deleted_user_5205523/sounds/340467/"
+url = "https://cdn.freesound.org/previews/340/340467_5205523-hq.mp3"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "ba296c1a027cb1c019373b16c3ddb2e691ecb09bfa02714921963b3b6177eaf6"
+
+[source.fs-junk-hat]
+title = "Junk Drum Kit: Hat Closed (Single Hit)"
+author = "freesound user 5205523"
+page = "https://freesound.org/people/deleted_user_5205523/sounds/340469/"
+url = "https://cdn.freesound.org/previews/340/340469_5205523-hq.mp3"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "0fabaa6c78c221065b36d14253cd58074d4fed3e5225c8eb13cc809c93f357c5"
+
+[source.fs-junk-ride]
+title = "Junk Drum Kit: Ride (Single Hit)"
+author = "freesound user 5205523"
+page = "https://freesound.org/people/deleted_user_5205523/sounds/340472/"
+url = "https://cdn.freesound.org/previews/340/340472_5205523-hq.mp3"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "8c642ac032174c500af2cd3d885ed90b59d7989f92c61cc38b294712cae7bc6e"
+
+[source.fs-junk-crash]
+title = "Junk Drum Kit: Crash (Single Hit)"
+author = "freesound user 5205523"
+page = "https://freesound.org/people/deleted_user_5205523/sounds/340470/"
+url = "https://cdn.freesound.org/previews/340/340470_5205523-hq.mp3"
+licence = "CC0 1.0"
+licence_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+sha256 = "848cae921ac840eb591764ed0885f17ed64a5ffad44675e400446b26cf74306e"
+
+# --------------------------------------------------------------------------------------- the beds
+
+[[loop]]
+out = "ambience/crowd-base"
+parts = [["fs-crowd-ambience", 42.0, 78.0]]
+seconds = 24.0
+crossfade = 5.0
+class = "bed"
+highpass = 80
+lowpass = 5000
+note = "the crowd at rest: a steady murmur, high-passed of rumble and low-passed so no word or whistle carries"
+
+[[loop]]
+out = "ambience/crowd-swell"
+parts = [["fs-crowd-waves", 184.0, 220.0]]
+seconds = 24.0
+crossfade = 5.0
+class = "bed"
+highpass = 80
+lowpass = 6000
+note = "the same crowd up on its feet: the swell layer faded in over the base as an attack builds"
+
+# -------------------------------------------------------------------------------------- the music
+
+[[pattern]]
+out = "music/match-drums"
+class = "music"
+bpm = 104
+bars = 16
+beats = 4
+steps = 16
+seed = 7
+humanize_ms = 5.0
+humanize_db = 1.8
+note = "the match's drums: a driving floor-tom and kick pulse that thickens every fourth bar, tight hats, a restrained backbeat"
+
+[[pattern.track]]
+source = "fs-junk-kick"
+semitones = -2.0
+gain_db = 0.0
+bars = ["x.......x.......", "x.......x...x...", "x..x....x...x.x.", "x..x..x...x.x.x."]
+order = [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 2, 0, 1, 2, 3]
+
+[[pattern.track]]
+source = "fs-junk-tom"
+semitones = -5.0
+gain_db = -3.0
+bars = ["................", "....x.......x...", "..x.x.....x.x...", "x.x.x.x.x.x.x.x."]
+order = [0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 2, 2, 1, 2, 2, 3]
+
+[[pattern.track]]
+source = "fs-junk-hat"
+semitones = 1.0
+gain_db = -10.0
+bars = ["x.o.x.o.x.o.x.o.", "x.o.x.o.x.o.xoxo", "xoxoxoxoxoxoxoxo"]
+order = [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 2]
+
+[[pattern.track]]
+source = "fs-junk-snare"
+gain_db = -6.0
+bars = ["....x.......x...", "....x.......x..x", "....x...x...x.x."]
+order = [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 2]
+
+[[pattern.track]]
+source = "fs-junk-crash"
+gain_db = -14.0
+bars = ["x...............", "................"]
+order = [0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1]
+
+[[pattern]]
+out = "music/menu-drums"
+class = "music"
+bpm = 80
+bars = 16
+beats = 4
+steps = 16
+seed = 11
+humanize_ms = 9.0
+humanize_db = 2.5
+note = "the menus' drums: a slow heartbeat with air around it — a soft kick, a brushed hat, a ride a long way off"
+
+[[pattern.track]]
+source = "fs-junk-kick"
+semitones = -3.0
+gain_db = -3.0
+bars = ["x...............", "x.......o.......", "x.......x......."]
+order = [0, 1, 0, 1, 0, 1, 0, 2, 0, 1, 0, 1, 0, 1, 2, 2]
+
+[[pattern.track]]
+source = "fs-junk-hat"
+gain_db = -16.0
+lowpass = 7000
+bars = ["....o.......o...", "....o...o...o...", "................"]
+order = [0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0, 1, 0, 0, 1, 1]
+
+[[pattern.track]]
+source = "fs-junk-tom"
+semitones = -4.0
+gain_db = -12.0
+bars = ["................", "............o..."]
+order = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1]
+
+[[pattern.track]]
+source = "fs-junk-ride"
+gain_db = -18.0
+bars = ["................", "..............o."]
+order = [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]

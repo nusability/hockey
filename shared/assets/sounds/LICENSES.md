@@ -157,6 +157,72 @@ Freesound originals are the site's public HQ preview of the upload (see `sources
 - sha256: `6cdcedbd45268f182bedda5f806802774c6c94da75c42b429dd0b203429a1da4`
 - About: A split-flap display (station board / flip clock) turning; a low hum under it.
 
+### `fs-crowd-ambience` — Millerntor Stadium Crowd Reaction — General Ambience 01 (Sound Of Sankt Pauli)
+
+- Author: itmightgetloud (Philipp Feit)
+- Source: https://freesound.org/people/itmightgetloud/sounds/829454/
+- Licence: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- Fetched from: https://cdn.freesound.org/previews/829/829454_3625328-hq.mp3
+- sha256: `00728388fe04840db4f8fd98e76d9140336bba313b27b82314d7a4951d27829c`
+- About: 6:12 of a real football crowd at rest. The window we cut was chosen by measurement, not by ear: the steadiest 30 s of the recording after the first 40 s (lowest frame-to-frame spread of its 100 ms loudness), which is the part least likely to hold a chant, a whistle or the PA.
+
+### `fs-crowd-waves` — Millerntor Stadium Crowd Reaction — Mood Waves 01 (Sound Of Sankt Pauli)
+
+- Author: itmightgetloud (Philipp Feit)
+- Source: https://freesound.org/people/itmightgetloud/sounds/829456/
+- Licence: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- Fetched from: https://cdn.freesound.org/previews/829/829456_3625328-hq.mp3
+- sha256: `41b928d988ea51bfdc75376eae09ea5d98eeeead5b8fae82bf0beda2af870ca4`
+- About: 4:03 of the same crowd rising and falling with the play — the swell layer. Its window was chosen the same way, for the loudest steady 30 s.
+
+### `fs-junk-kick` — Junk Drum Kit: Kick (Single Hit)
+
+- Author: freesound user 5205523
+- Source: https://freesound.org/people/deleted_user_5205523/sounds/340473/
+- Licence: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- Fetched from: https://cdn.freesound.org/previews/340/340473_5205523-hq.mp3
+- sha256: `450e50f3af6951f9f549e462b5d2c742b3f033e6c7ecf8756cc4f2d4b4117e04`
+
+### `fs-junk-snare` — Junk Drum Kit: Snare (Single Hit)
+
+- Author: freesound user 5205523
+- Source: https://freesound.org/people/deleted_user_5205523/sounds/340471/
+- Licence: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- Fetched from: https://cdn.freesound.org/previews/340/340471_5205523-hq.mp3
+- sha256: `8c0119eb8f7e0cf8ca4aac6902740f0d79eb0fa08edcf4511d0184defd1a49aa`
+
+### `fs-junk-tom` — Junk Drum Kit: Hi Tom (Single Hit)
+
+- Author: freesound user 5205523
+- Source: https://freesound.org/people/deleted_user_5205523/sounds/340467/
+- Licence: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- Fetched from: https://cdn.freesound.org/previews/340/340467_5205523-hq.mp3
+- sha256: `ba296c1a027cb1c019373b16c3ddb2e691ecb09bfa02714921963b3b6177eaf6`
+
+### `fs-junk-hat` — Junk Drum Kit: Hat Closed (Single Hit)
+
+- Author: freesound user 5205523
+- Source: https://freesound.org/people/deleted_user_5205523/sounds/340469/
+- Licence: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- Fetched from: https://cdn.freesound.org/previews/340/340469_5205523-hq.mp3
+- sha256: `0fabaa6c78c221065b36d14253cd58074d4fed3e5225c8eb13cc809c93f357c5`
+
+### `fs-junk-ride` — Junk Drum Kit: Ride (Single Hit)
+
+- Author: freesound user 5205523
+- Source: https://freesound.org/people/deleted_user_5205523/sounds/340472/
+- Licence: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- Fetched from: https://cdn.freesound.org/previews/340/340472_5205523-hq.mp3
+- sha256: `8c642ac032174c500af2cd3d885ed90b59d7989f92c61cc38b294712cae7bc6e`
+
+### `fs-junk-crash` — Junk Drum Kit: Crash (Single Hit)
+
+- Author: freesound user 5205523
+- Source: https://freesound.org/people/deleted_user_5205523/sounds/340470/
+- Licence: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- Fetched from: https://cdn.freesound.org/previews/340/340470_5205523-hq.mp3
+- sha256: `848cae921ac840eb591764ed0885f17ed64a5ffad44675e400446b26cf74306e`
+
 ## Files
 
 | File (`.m4a` + `.ogg`) | Original | Original file | Cut (s) | Fade-out (s) | Treatment |
@@ -237,3 +303,7 @@ Freesound originals are the site's public HQ preview of the upload (see `sources
 | `ui/error-2` | `kenney-interface` | error_005.ogg | whole | 0.03 | low two-note boop; class ui |
 | `ui/slider-tick` | `kenney-interface` | tick_004.ogg | whole | 0.03 | a soft, low tick; class ui |
 | `ui/confetti-pop` | `fs-458398` | Balloon Pop / Christmas cracker / Confetti Cannon | 0.000–0.354 | 0.05 | the whole pop; class ui |
+| `ambience/crowd-base` | `fs-crowd-ambience` | Millerntor Stadium Crowd Reaction — General Ambience 01 (Sound Of Sankt Pauli) | 42.000–78.000 | 0.00 | the crowd at rest: a steady murmur, high-passed of rumble and low-passed so no word or whistle carries; class bed; looped: 24 s, 5.0 s crossfade back over the head; high-pass 80 Hz; low-pass 5000 Hz |
+| `ambience/crowd-swell` | `fs-crowd-waves` | Millerntor Stadium Crowd Reaction — Mood Waves 01 (Sound Of Sankt Pauli) | 184.000–220.000 | 0.00 | the same crowd up on its feet: the swell layer faded in over the base as an attack builds; class bed; looped: 24 s, 5.0 s crossfade back over the head; high-pass 80 Hz; low-pass 6000 Hz |
+| `music/match-drums` | `fs-junk-kick` + `fs-junk-tom` + `fs-junk-hat` + `fs-junk-snare` + `fs-junk-crash` | Junk Drum Kit: Kick (Single Hit) + Junk Drum Kit: Hi Tom (Single Hit) + Junk Drum Kit: Hat Closed (Single Hit) + Junk Drum Kit: Snare (Single Hit) + Junk Drum Kit: Crash (Single Hit) | assembled | 0.00 | the match's drums: a driving floor-tom and kick pulse that thickens every fourth bar, tight hats, a restrained backbeat; class music; assembled: 16 bars of 4/4 at 104 BPM, 5 tracks, seed 7 |
+| `music/menu-drums` | `fs-junk-kick` + `fs-junk-hat` + `fs-junk-tom` + `fs-junk-ride` | Junk Drum Kit: Kick (Single Hit) + Junk Drum Kit: Hat Closed (Single Hit) + Junk Drum Kit: Hi Tom (Single Hit) + Junk Drum Kit: Ride (Single Hit) | assembled | 0.00 | the menus' drums: a slow heartbeat with air around it — a soft kick, a brushed hat, a ride a long way off; class music; assembled: 16 bars of 4/4 at 80 BPM, 4 tracks, seed 11 |

@@ -7,11 +7,6 @@ struct DirectorPose: Equatable {
     var eye: SIMD3<Double>
     var target: SIMD3<Double>
     var fov: Double
-
-    static func mix(_ a: DirectorPose, _ b: DirectorPose, _ w: Double) -> DirectorPose {
-        DirectorPose(eye: a.eye + (b.eye - a.eye) * w, target: a.target + (b.target - a.target) * w,
-                   fov: a.fov + (b.fov - a.fov) * w)
-    }
 }
 
 /// What the director reads from the match each frame (spec §8.6 queries, and where the ball is).
@@ -28,12 +23,15 @@ struct DirectorInput {
 /// Presentation time and the camera (spec §8.6; the twin of Android's Director.kt). The director
 /// sets the time scale — how many ticks a real second holds — and never touches what a tick does
 /// (§4.2). It runs on real time, so the camera and the UI move at full speed through slow motion.
+///
+/// Where the camera *stands* is the core's (`SmashCore.MatchCamera`), handed this file's numbers
+/// from `presentation.toml`, so one test walks the ball over the whole pitch and pins the solve on
+/// both platforms. What is left here is the time scale, the shake, and the app's end of the rig.
 struct Director {
     typealias S = Tuning.SlowMotion
     typealias P = Presentation.Camera
 
     private(set) var timeScale = 1.0
-    private(set) var pose: DirectorPose
     var reduceMotion = false
     /// The view's width over its height: the play camera fits the pitch's width to it.
     var aspect = 0.46
@@ -41,26 +39,25 @@ struct Director {
     // §8.6 — the goal's slow motion runs on real seconds since the goal.
     private var goalClock: Double?
     private var goalIsLong = false
-    private var goal: (z: Double, side: Double, x: Double)?
 
-    // The play camera's focus (a z on the pitch's axis), and the dramatic cameras' blend.
-    private var focusZ = 0.0
-    private var weight = 0.0
-    private var drama: DirectorPose
+    private var camera: MatchCamera
     private var shake = 0.0
     private var shakeClock = 0.0
 
     init() {
-        let start = Director.playPose(focusZ: 0, aspect: 0.46)
-        pose = start
-        drama = start
+        camera = MatchCamera(Director.params, aspect: 0.46)
+    }
+
+    var pose: DirectorPose {
+        let p = camera.pose
+        return DirectorPose(eye: SIMD3(p.eyeX, p.eyeY, p.eyeZ), target: SIMD3(p.atX, p.atY, p.atZ), fov: p.fov)
     }
 
     /// A goal was scored in the net on goal line `goalZ` (§8.5).
     mutating func goalScored(goalZ: Double, ballX: Double, lastShotDistance: Double?) {
         goalClock = 0
         goalIsLong = (lastShotDistance ?? 0) > S.longShot
-        goal = (goalZ, ballX >= 0 ? 1 : -1, min(max(ballX, -1.5), 1.5))
+        camera.goalScored(goalZ: goalZ, ballX: ballX)
     }
 
     /// A shake's kick (§8.8: a goal, a post) of `amplitude` metres; Reduce Motion keeps a share of it.
@@ -73,7 +70,7 @@ struct Director {
         // §8.6 — the time scale.
         var target = 1.0
         var rate = S.easeRate
-        var mode = Mode.play
+        var mode = MatchCamera.Mode.play
         if var t = goalClock {
             if m.state != .goal {
                 goalClock = nil
@@ -89,31 +86,15 @@ struct Director {
                 }
             }
         }
-        if case .play = mode, m.shotAboutToScore {
+        if mode == .play, m.shotAboutToScore {
             mode = .buildup
             if (m.lastShotDistance ?? 0) <= S.longShot { target = S.shotScale }
         }
         timeScale += (target - timeScale) * (1 - exp(-dt * rate))
 
-        // The camera.
-        followPlay(dt, m)
-        let play = Director.playPose(focusZ: focusZ, aspect: aspect)
-        var wanted = 0.0
-        var blendRate = P.Buildup.rate
-        switch mode {
-        case .goal(let t):
-            drama = goalPose(t, ball: m.ball)
-            wanted = reduceMotion ? P.ReduceMotion.goalWeight : P.Goal.weight
-            blendRate = P.Goal.rateIn
-        case .buildup:
-            drama = buildupPose(m)
-            wanted = reduceMotion ? P.ReduceMotion.buildupWeight : P.Buildup.weight
-        case .play:
-            if goal != nil { blendRate = P.Goal.rateOut }
-        }
-        weight += (wanted - weight) * (1 - exp(-dt * blendRate))
-        if case .play = mode, weight < 0.002 { goal = nil }
-        pose = DirectorPose.mix(play, drama, weight)
+        camera.advance(dt, mode: mode,
+                       ball: MatchCamera.Ball(x: m.ball.x, z: m.ball.y, vx: m.ballVelocity.x, vz: m.ballVelocity.y),
+                       aspect: aspect, reduceMotion: reduceMotion)
 
         shakeClock += dt
         shake = max(0, shake - dt * P.Shake.decay)      // the prototype's linear fall-off
@@ -128,50 +109,19 @@ struct Director {
         return SIMD3(sin(w), sin(w * 1.31 + 1.7), 0) * (shake / 2)
     }
 
-    private enum Mode { case play, buildup, goal(Double) }
-
-    // MARK: the play camera
-
-    /// The prototype's play camera: the focus eases toward a share of the ball's z.
-    private mutating func followPlay(_ dt: Double, _ m: DirectorInput) {
-        typealias C = P.Play
-        let want = min(max(m.ball.y * C.follow, C.minZ), C.maxZ)
-        focusZ += (want - focusZ) * (1 - exp(-dt * C.rate))
-    }
-
-    /// High and steep behind the focus, looking up the pitch, the field of view fitted each frame so
-    /// the pitch's width fills the screen.
-    static func playPose(focusZ f: Double, aspect: Double) -> DirectorPose {
-        typealias C = P.Play
-        let eye = SIMD3(0, C.height, f - C.back)
-        let d = simd_distance(eye, SIMD3(0, 0, f - C.fitNear))
-        let hfov = 2 * atan(C.halfWidth / d)
-        let vfov = 2 * atan(tan(hfov / 2) / max(aspect, 0.01)) * 180 / .pi
-        return DirectorPose(eye: eye, target: SIMD3(0, 0, f + C.look), fov: min(max(vfov, C.minFov), C.maxFov))
-    }
-
-    // MARK: the dramatic cameras
-
-    /// A shot about to score: low behind the ball, looking along it at the net.
-    private func buildupPose(_ m: DirectorInput) -> DirectorPose {
-        typealias B = P.Buildup
-        let outward = m.ballVelocity.y >= 0 ? 1.0 : -1.0
-        let gz = outward * Tuning.Pitch.goalLineZ
-        let t = abs(m.ballVelocity.y) > 1e-6 ? (gz - m.ball.y) / m.ballVelocity.y : 0
-        let hitX = m.ball.x + m.ballVelocity.x * max(t, 0)
-        return DirectorPose(eye: SIMD3(m.ball.x * 0.6, B.height, gz - outward * B.back),
-                          target: SIMD3(hitX * 0.5, 0.6, gz), fov: B.fov)
-    }
-
-    /// The goal camera: beside the net on the side the ball came from, sweeping round behind it.
-    private func goalPose(_ t: Double, ball: SIMD2<Double>) -> DirectorPose {
-        typealias G = P.Goal
-        guard let g = goal else { return drama }
-        let outward = g.z >= 0 ? 1.0 : -1.0
-        let run = reduceMotion ? 0 : min(t, G.sweepSeconds)
-        let a = G.startAngle - run * G.sweep
-        let eye = SIMD3(g.x + g.side * sin(a) * G.radius, G.height + run * G.rise, g.z + outward * cos(a) * G.radius)
-        let target = SIMD3(ball.x * 0.4, G.lookHeight, g.z - outward * 0.5)
-        return DirectorPose(eye: eye, target: target, fov: G.fov)
-    }
+    /// `presentation.toml [camera]` and the pitch numbers §8.6's shot window is measured in,
+    /// handed to the core's solve. Declared once; nothing else reads these.
+    static let params = MatchCamera.Params(
+        height: P.Play.height, back: P.Play.back, look: P.Play.look, follow: P.Play.follow,
+        minZ: P.Play.minZ, maxZ: P.Play.maxZ, rate: P.Play.rate, halfWidth: P.Play.halfWidth,
+        fitNear: P.Play.fitNear, minFov: P.Play.minFov, maxFov: P.Play.maxFov,
+        buildupHeight: P.Buildup.height, buildupBack: P.Buildup.back, buildupFov: P.Buildup.fov,
+        buildupWeight: P.Buildup.weight, buildupRate: P.Buildup.rate,
+        goalRadius: P.Goal.radius, goalHeight: P.Goal.height, goalRise: P.Goal.rise,
+        goalStartAngle: P.Goal.startAngle, goalSweep: P.Goal.sweep, goalSweepSeconds: P.Goal.sweepSeconds,
+        goalLookHeight: P.Goal.lookHeight, goalFov: P.Goal.fov, goalWeight: P.Goal.weight,
+        goalRateIn: P.Goal.rateIn, goalRateOut: P.Goal.rateOut,
+        reduceGoalWeight: P.ReduceMotion.goalWeight, reduceBuildupWeight: P.ReduceMotion.buildupWeight,
+        goalLineZ: Tuning.Pitch.goalLineZ, postX: Tuning.Pitch.postX,
+        postMargin: S.shotPostMargin, shotHorizon: S.shotHorizon)
 }

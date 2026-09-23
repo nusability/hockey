@@ -3,6 +3,10 @@ import SmashCore
 
 /// Extruded lettering from the shared font (ADR 0005), placed by its centre, its left or its
 /// right edge. Changing the text re-meshes through TextMesh's cache.
+///
+/// A caption wider than `maxWidth` **wraps to two centred lines** before it is allowed to shrink
+/// (spec §16.4, core `TextLayout.caption`): a long German label stays legible rather than being
+/// squeezed to a smear. Only a caption with nowhere to break — one long word — still shrinks.
 @MainActor
 final class Label3D: Presentable {
     /// The core's three alignments, so the kit and both platforms name the same thing.
@@ -10,15 +14,17 @@ final class Label3D: Presentable {
 
     let entity = Entity()
     let body = Entity()
-    private let model: ModelEntity
+    private var models: [ModelEntity] = []
     private(set) var text: String
     let height: Float
     let align: Align
     var rest = Transform()
     var presence: Presence
     private var colour: Int
-    /// Wider than this, the lettering shrinks to fit (a long German word in a short slot).
+    /// Wider than this, the lettering wraps to two lines, and only then shrinks to fit.
     let maxWidth: Float?
+    /// The widest line's layout width, before `body`'s shrink.
+    private var natural: Float = 0
 
     init(_ text: String, height: Float, colour: Int, align: Align = .centre, maxWidth: Float? = nil,
          entrance: Entrance = .pop, motion: MotionTokens) {
@@ -28,20 +34,17 @@ final class Label3D: Presentable {
         self.align = align
         self.colour = colour
         presence = Presence(entrance, motion: motion)
-        model = Blocks.text(text, height: height, colour)
         entity.addChild(body)
-        body.addChild(model)
-        realign()
+        reletter()
         entity.isEnabled = false
     }
 
-    var width: Float { Blocks.width(of: model) * body.scale.x }
+    var width: Float { natural * body.scale.x }
 
     func set(_ newText: String) {
         guard newText != text else { return }
         text = newText
-        Blocks.retext(model, newText, height: height)
-        realign()
+        reletter()
     }
 
     func show(after delay: Double) { presence.show(after: delay) }
@@ -50,12 +53,24 @@ final class Label3D: Presentable {
     func setColour(_ rgb: Int) {
         guard rgb != colour else { return }
         colour = rgb
-        Blocks.recolour(model, rgb)
+        for m in models { Blocks.recolour(m, rgb) }
     }
 
-    private func realign() {
-        let natural = Double(Blocks.width(of: model))
-        body.scale = SIMD3(repeating: Float(TextLayout.fit(natural, maxWidth.map(Double.init))))
+    /// Re-meshes the caption, wrapped to at most two lines, and re-aligns the block.
+    private func reletter() {
+        for m in models { m.parent?.removeFromParent() }
+        models = []
+        let lines = maxWidth.map { TextLayout.caption(text, height: Double(height), width: Double($0)) } ?? [text]
+        for (i, line) in lines.enumerated() {
+            let holder = Entity()
+            holder.position.y = Float(TextLayout.stackY(i, of: lines.count, height: Double(height)))
+            let m = Blocks.text(line, height: height, colour)
+            holder.addChild(m)
+            body.addChild(holder)
+            models.append(m)
+        }
+        natural = Float(TextLayout.widest(lines, height: Double(height)))
+        body.scale = SIMD3(repeating: Float(TextLayout.fit(Double(natural), maxWidth.map(Double.init))))
         body.position.x = Float(TextLayout.alignX(align, width: Double(width)))
     }
 
@@ -67,12 +82,16 @@ final class Label3D: Presentable {
 
 /// A word whose letters arrive one by one — each drops in, squashes, and then keeps bobbing on
 /// a travelling wave. The title's logo; also "GOAL!" and "FULL TIME".
+///
+/// A banner too wide for the frame **wraps to two centred lines** (spec §16.4, core
+/// `TextLayout.caption`) — "END OF PERIOD 1" and "ENDE 1. DRITTEL" break in the same place on both
+/// phones — and only shrinks when there is nowhere to break.
 @MainActor
 final class WaveText: Semantic, Presentable {
     let entity = Entity()
     var rest = Transform()
     let semantics: Semantics
-    private var letters: [(node: Entity, model: ModelEntity, presence: Presence, x: Float)] = []
+    private var letters: [(node: Entity, model: ModelEntity, presence: Presence, x: Float, y: Float)] = []
     private var shown = false
     private let bobScale: Float
     private let bounds_: BoundingBox
@@ -85,24 +104,33 @@ final class WaveText: Semantic, Presentable {
         semantics = Semantics(id: id, label: text, trait: .header)
         bobScale = bob
         stagger = motion.staggerSeconds
-        var x: Float = 0
-        var parts: [(ModelEntity, Float)] = []
-        for ch in text {
-            let s = String(ch)
-            if s == " " { x += height * 0.35; continue }
-            let m = Blocks.text(s, height: height, colour)
-            let w = Blocks.width(of: m)
-            parts.append((m, x + w / 2))
-            x += w + tracking
+        let lines = TextLayout.caption(text, height: Double(height), width: Double(maxWidth))
+        var parts: [(ModelEntity, Float, Float)] = []
+        var total: Float = 0
+        for (index, line) in lines.enumerated() {
+            var x: Float = 0
+            var row: [(ModelEntity, Float)] = []
+            for ch in line {
+                let s = String(ch)
+                if s == " " { x += height * 0.35; continue }
+                let m = Blocks.text(s, height: height, colour)
+                let w = Blocks.width(of: m)
+                row.append((m, x + w / 2))
+                x += w + tracking
+            }
+            let lineWidth = max(0, x - tracking)
+            total = max(total, lineWidth)
+            let y = Float(TextLayout.stackY(index, of: lines.count, height: Double(height)))
+            for (m, cx) in row { parts.append((m, cx - lineWidth / 2, y)) }
         }
-        let total = x - tracking
-        for (m, cx) in parts {
+        for (m, cx, cy) in parts {
             let node = Entity()
             node.addChild(m)
             entity.addChild(node)
-            letters.append((node, m, Presence(entrance, motion: motion), cx - total / 2))
+            letters.append((node, m, Presence(entrance, motion: motion), cx, cy))
         }
-        bounds_ = BoundingBox(min: [-total / 2, -height * 0.6, 0], max: [total / 2, height * 0.6, height * 0.4])
+        let halfHeight = max(height * 0.6, Float(TextLayout.stackHeight(lines.count, height: Double(height))) / 2)
+        bounds_ = BoundingBox(min: [-total / 2, -halfHeight, 0], max: [total / 2, halfHeight, height * 0.4])
         fit = total > maxWidth ? maxWidth / total : 1
         entity.isEnabled = false
     }
@@ -132,9 +160,10 @@ final class WaveText: Semantic, Presentable {
             letters[i].presence.advance(dt, ctx)
             var t = Transform()
             t.translation.x = letters[i].x
+            t.translation.y = letters[i].y
             if !ctx.reduceMotion {
                 let phase = (ctx.time / period + Double(i) * 0.12) * 2 * .pi
-                t.translation.y = Float(sin(phase)) * Float(ctx.motion.idleBobMetres) * 2 * bobScale
+                t.translation.y += Float(sin(phase)) * Float(ctx.motion.idleBobMetres) * 2 * bobScale
                 t.rotation = simd_quatf(angle: Float(sin(phase + 1)) * 0.05 * bobScale, axis: [0, 0, 1])
             }
             letters[i].presence.apply(to: letters[i].node, rest: t, reduceMotion: ctx.reduceMotion)

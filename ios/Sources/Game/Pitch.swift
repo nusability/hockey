@@ -142,7 +142,7 @@ final class Pitch {
         let real = min(max(dt, 0), Tuning.Time.maxRealGap)
         clock += real
         pops.advance(real)
-        nets.advance(real)
+        nets.advance(real, reduceMotion: reduceMotion)
         guard match != nil, let actors, var snapshot else { return }
         if !paused {
             director.reduceMotion = reduceMotion

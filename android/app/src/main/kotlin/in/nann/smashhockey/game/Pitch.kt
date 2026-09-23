@@ -128,7 +128,7 @@ class Pitch(context: Context, private val engine: Engine, private val scene: Sce
         actors?.update(s, if (paused) 0.0 else phase * Tuning.Time.tickSeconds, celebrating, clock)
         confetti?.advance(real)
         pops.advance(real)
-        nets.advance(real)
+        nets.advance(real, reduceMotion)
         val shake = director.shakeOffset
         root.x = -shake[0].toFloat(); root.y = -shake[1].toFloat(); root.z = -shake[2].toFloat(); root.apply()
         if (s.state == MatchState.ENDED) endedFor += real else endedFor = 0.0

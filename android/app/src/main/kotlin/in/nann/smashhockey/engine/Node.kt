@@ -14,7 +14,13 @@ import kotlin.math.min
 class Node(private val engine: Engine, parent: Int? = null, val mesh: GpuMesh? = null, existing: Int? = null) {
     val entity: Int = existing ?: mesh?.entity ?: EntityManager.get().create()
     private val tm = engine.transformManager
-    private val instance: Int
+
+    /**
+     * The slot in Filament's TransformManager — **looked up every time, never cached**. An
+     * instance is an index into a packed array: destroying any component swaps the last one into
+     * the freed slot, so a cached instance silently starts naming another entity.
+     */
+    private val instance: Int get() = tm.getInstance(entity)
 
     var x = 0f; var y = 0f; var z = 0f
     var yaw = 0f; var pitch = 0f; var roll = 0f
@@ -22,7 +28,6 @@ class Node(private val engine: Engine, parent: Int? = null, val mesh: GpuMesh? =
 
     init {
         if (!tm.hasComponent(entity)) tm.create(entity)
-        instance = tm.getInstance(entity)
         parent?.let { tm.setParent(instance, tm.getInstance(it)) }
     }
 

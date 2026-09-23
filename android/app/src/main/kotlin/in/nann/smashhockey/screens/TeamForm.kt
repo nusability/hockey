@@ -120,10 +120,10 @@ class TeamForm(private val screen: Screen, top: Float, private val changed: () -
         nameField.isSelected = editing == Keyboard.Field.NAME
         codeField.isSelected = editing == Keyboard.Field.CODE
         val name = draft.name
-        screen.reletter(nameText, if (name.isEmpty()) L(CopyKey.TEAM_NAME_EMPTY) else name.uppercase(), 0.085f, maxWidth = 1.5f, y = -0.02f)
-        nameText.childNodes.first().recolour(if (name.isEmpty()) C.DISABLED_INK else C.INK)
+        screen.reletter(nameText, if (name.isEmpty()) L(CopyKey.TEAM_NAME_EMPTY) else name.uppercase(), 0.085f,
+            colour = if (name.isEmpty()) C.DISABLED_INK else C.INK, maxWidth = 1.5f, y = -0.02f)
         nameField.relabel("${L(CopyKey.TEAM_NAME)}, $name")
-        screen.reletter(codeText, draft.short.ifEmpty { "–" }, 0.11f, y = -0.025f)
+        screen.reletter(codeText, draft.short.ifEmpty { "–" }, 0.11f, colour = C.INK, y = -0.025f)
         codeField.relabel("${L(CopyKey.TEAM_CODE)}, ${draft.short}")
         for ((t, p) in shirts.zip(Career.kitPalette)) t.isSelected = p.primary == draft.primary
         for ((t, p) in trims.zip(Career.kitPalette)) t.isSelected = p.secondary == draft.secondary

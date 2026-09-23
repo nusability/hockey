@@ -61,26 +61,34 @@ class Screen {
     func letters(_ text: String, height: Float, colour: Int, maxWidth: Float? = nil, align: Label3D.Align = .centre,
                  at p: SIMD3<Float>, on parent: Entity) -> Entity {
         let node = Entity()
-        let m = Blocks.text(text, height: height, colour)
-        node.addChild(m)
-        Screen.fit(node, m, maxWidth: maxWidth, align: align, at: p)
         parent.addChild(node)
+        Screen.place(node, text, height: height, colour: colour, maxWidth: maxWidth, align: align, at: p)
         return node
     }
 
     /// Re-letters what `letters` made.
-    func reletter(_ node: Entity, _ text: String, height: Float, maxWidth: Float? = nil, align: Label3D.Align = .centre,
-                  at p: SIMD3<Float>) {
-        guard let m = node.children.first as? ModelEntity else { return }
-        Blocks.retext(m, text, height: height)
-        Screen.fit(node, m, maxWidth: maxWidth, align: align, at: p)
+    func reletter(_ node: Entity, _ text: String, height: Float, colour: Int, maxWidth: Float? = nil,
+                  align: Label3D.Align = .centre, at p: SIMD3<Float>) {
+        Screen.place(node, text, height: height, colour: colour, maxWidth: maxWidth, align: align, at: p)
     }
 
-    private static func fit(_ node: Entity, _ m: ModelEntity, maxWidth: Float?, align: Label3D.Align, at p: SIMD3<Float>) {
-        let w = Blocks.width(of: m)
-        let k = Float(TextLayout.fit(Double(w), maxWidth.map(Double.init)))
+    /// Lettering on a slab: at most two centred lines when it is given a width to stay inside
+    /// (§16), and a shrink only when a line still has nowhere to break.
+    private static func place(_ node: Entity, _ text: String, height: Float, colour: Int, maxWidth: Float?,
+                              align: Label3D.Align, at p: SIMD3<Float>) {
+        for child in node.children.map({ $0 }) { child.removeFromParent() }
+        let room = maxWidth.map(Double.init)
+        let lines = room.map { TextLayout.caption(text, height: Double(height), width: $0) } ?? [text]
+        for (i, line) in lines.enumerated() {
+            let holder = Entity()
+            holder.position.y = Float(TextLayout.stackY(i, of: lines.count, height: Double(height)))
+            holder.addChild(Blocks.text(line, height: height, colour))
+            node.addChild(holder)
+        }
+        let w = TextLayout.widest(lines, height: Double(height))
+        let k = Float(TextLayout.fit(w, room))
         node.scale = SIMD3(repeating: k)
-        node.position = p + SIMD3(Float(TextLayout.alignX(align, width: Double(w * k))), 0, 0)
+        node.position = p + SIMD3(Float(TextLayout.alignX(align, width: w * Double(k))), 0, 0)
     }
 
     /// Arrivals, one after another on the stagger token.

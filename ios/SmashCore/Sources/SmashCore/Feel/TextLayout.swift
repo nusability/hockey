@@ -96,4 +96,49 @@ public enum TextLayout {
         if !line.isEmpty { lines.append(line) }
         return lines
     }
+
+    // MARK: captions that do not fit on one line (spec §16.4)
+
+    /// How many lines a caption may take before it starts shrinking instead.
+    public static let maxCaptionLines = 2
+
+    /// Baseline to baseline for stacked lines: the font's own line box, so two lines of a banner sit
+    /// as far apart on both phones.
+    public static func lineStep(_ height: Double) -> Double { lineTop(height) - lineBottom(height) }
+
+    /// Where line `index` of `count` sits above the block's centre — the top line highest. A single
+    /// line sits on the anchor, exactly where it used to.
+    public static func stackY(_ index: Int, of count: Int, height: Double) -> Double {
+        (Double(count - 1) / 2 - Double(index)) * lineStep(height)
+    }
+
+    /// How tall a block of `count` lines is — what a slab has to grow to hold them.
+    public static func stackHeight(_ count: Int, height: Double) -> Double {
+        Double(max(count, 1) - 1) * lineStep(height) + (lineTop(height) - lineBottom(height))
+    }
+
+    /// The widest of `lines`.
+    public static func widest(_ lines: [String], height: Double) -> Double {
+        lines.reduce(0) { max($0, width($1, height: height)) }
+    }
+
+    /// The lines a caption takes in `width` of room: one, while it fits; otherwise the **most even**
+    /// split into at most `maxCaptionLines` that never breaks a word. A caption that still does not
+    /// fit — one long word, or more words than two lines can hold — comes back as it is, for the
+    /// caller to shrink with `fit`. Both apps therefore break "END OF PERIOD 1" and
+    /// "ENDE 1. DRITTEL" in the same place.
+    public static func caption(_ text: String, height: Double, width room: Double) -> [String] {
+        let words = text.split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        guard words.count > 1, room > 0, width(text, height: height) > room else {
+            return [text]
+        }
+        var best: [String]?
+        var bestWidest = Double.infinity
+        for cut in 1..<words.count {
+            let candidate = [words[..<cut].joined(separator: " "), words[cut...].joined(separator: " ")]
+            let w = widest(candidate, height: height)
+            if w < bestWidest { bestWidest = w; best = candidate }
+        }
+        return best ?? [text]
+    }
 }

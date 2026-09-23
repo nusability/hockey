@@ -21,7 +21,7 @@ final class BlockButton: Interactive, Presentable {
     private let body = Entity()
     private let cap: ModelEntity
     private let base: ModelEntity
-    private let label: ModelEntity
+    private var labels: [ModelEntity] = []
     private let labelNode = Entity()
     private let textHeight: Float
     let size: SIMD2<Float>
@@ -40,7 +40,15 @@ final class BlockButton: Interactive, Presentable {
     init(_ title: String, id: String, label: String? = nil, style: Style = .primary, size: SIMD2<Float>? = nil,
          textHeight: Float = DesignTokens.Size.textButton, entrance: Entrance = .drop,
          motion: MotionTokens, action: @escaping () -> Void) {
-        let s = size ?? SIMD2(DesignTokens.Size.buttonWidth, DesignTokens.Size.buttonHeight)
+        var s = size ?? SIMD2(DesignTokens.Size.buttonWidth, DesignTokens.Size.buttonHeight)
+        // A caption too wide for the cap wraps to two lines (§16.4) rather than shrinking to a
+        // smear — and the key grows tall enough to hold them, so the words sit on it, not over it.
+        let capHeight = Double(textHeight)
+        let room = TextLayout.room(slabWidth: Double(s.x), textHeight: capHeight)
+        let lines = TextLayout.caption(title, height: capHeight, width: room)
+        let needed: Double = TextLayout.stackHeight(lines.count, height: capHeight)
+            + 2 * capHeight * TextLayout.marginPerHeight
+        s.y = max(s.y, Float(needed))
         self.size = s
         self.style = style
         self.motion = motion
@@ -54,28 +62,39 @@ final class BlockButton: Interactive, Presentable {
         base = Blocks.slab([s.x - 2 * inset, s.y - 2 * inset, d * 0.5], style.base)
         base.position.z = -d * 0.3
         cap = Blocks.slab([s.x, s.y, d], style.cap)
-        self.label = Blocks.text(title, height: textHeight, style.ink)
         self.textHeight = textHeight
         labelNode.position.z = d / 2
-        labelNode.addChild(self.label)
-        fitLabel()
         entity.addChild(base)
         entity.addChild(body)
         body.addChild(cap)
         body.addChild(labelNode)
+        letter(title)
         entity.isEnabled = false
     }
 
-    /// Keeps a margin of lettering either side; a long word shrinks to fit.
-    private func fitLabel() {
+    /// Lays the caption out on the cap: at most two centred lines, a margin of lettering either
+    /// side, and a shrink only when a line still has nowhere to break.
+    private func letter(_ title: String) {
+        for m in labels { m.parent?.removeFromParent() }
+        labels = []
         let room = TextLayout.room(slabWidth: Double(size.x), textHeight: Double(textHeight))
-        labelNode.scale = SIMD3(repeating: Float(TextLayout.fit(Double(Blocks.width(of: label)), room)))
+        let lines = TextLayout.caption(title, height: Double(textHeight), width: room)
+        for (i, line) in lines.enumerated() {
+            let holder = Entity()
+            holder.position.y = Float(TextLayout.stackY(i, of: lines.count, height: Double(textHeight)))
+            let m = Blocks.text(line, height: textHeight, isEnabled ? style.ink : Style.disabled.ink)
+            holder.addChild(m)
+            labelNode.addChild(holder)
+            labels.append(m)
+        }
+        let widest = TextLayout.widest(lines, height: Double(textHeight))
+        labelNode.scale = SIMD3(repeating: Float(TextLayout.fit(widest, room)))
     }
 
-    /// A new caption (and VoiceOver label).
+    /// A new caption (and VoiceOver label). The key keeps the height it was built at, so a screen's
+    /// row of buttons stays a row: a longer caption wraps and, if it must, shrinks within it.
     func retitle(_ title: String) {
-        Blocks.retext(label, title, height: textHeight)
-        fitLabel()
+        letter(title)
         semantics.label = title
     }
 
@@ -87,7 +106,7 @@ final class BlockButton: Interactive, Presentable {
             let s = newValue ? style : .disabled
             Blocks.recolour(cap, s.cap)
             Blocks.recolour(base, s.base)
-            Blocks.recolour(label, s.ink)
+            for m in labels { Blocks.recolour(m, s.ink) }
         }
     }
 

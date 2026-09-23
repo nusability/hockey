@@ -107,4 +107,61 @@ class TextLayoutTest {
         assertEquals(listOf("ZURÜCKSETZEN"), TextLayout.wrap("ZURÜCKSETZEN", 0.1, 0.1))
         assertTrue(TextLayout.wrap("", 0.1, 1.0).isEmpty())
     }
+
+    // ---- captions too wide for their slab (§16.4)
+
+    /**
+     * The banner the owner caught running off its slab, and its German twin. Both wrap to two
+     * lines rather than shrinking to a smear, and both wrap in the same place on both phones.
+     */
+    @Test fun aBannerTooWideForItsSlabWrapsToTwoLines() {
+        // presentation.toml [banner] height_info, in design.json's frame width less its margin.
+        val height = 0.2
+        val room = 1.8 - 0.1
+        for (text in listOf("END OF PERIOD 1", "END OF PERIOD 2", "ENDE 1. DRITTEL", "ENDE 3. DRITTEL")) {
+            val lines = TextLayout.caption(text, height, room)
+            assertTrue("$text -> $lines", lines.size <= TextLayout.MAX_CAPTION_LINES)
+            assertEquals(text, lines.joinToString(" "))
+        }
+        // "END OF PERIOD 1" is the one that overflowed: it must not still be one line.
+        val en = TextLayout.caption("END OF PERIOD 1", height, room)
+        assertTrue(en.size == 2 || TextLayout.width("END OF PERIOD 1", height) <= room)
+    }
+
+    /** The split is the most even one that never breaks a word. */
+    @Test fun aCaptionSplitsWhereTheTwoLinesComeOutEvenest() {
+        val h = 0.1
+        val text = "END OF PERIOD 1"
+        val room = TextLayout.width(text, h) * 0.7
+        val lines = TextLayout.caption(text, h, room)
+        assertEquals(listOf("END OF", "PERIOD 1"), lines)
+        // Every other break is wider than the one chosen.
+        val chosen = TextLayout.widest(lines, h)
+        for (cut in listOf(listOf("END", "OF PERIOD 1"), listOf("END OF PERIOD", "1"))) {
+            assertTrue("$cut", TextLayout.widest(cut, h) >= chosen)
+        }
+    }
+
+    /**
+     * What must not wrap: a caption that already fits, and a word with nowhere to break — that one
+     * still shrinks, as it always did.
+     */
+    @Test fun onlyACaptionThatNeedsItAndCanBreakWraps() {
+        assertEquals(listOf("PLAY"), TextLayout.caption("PLAY", 0.1, 1.0))
+        assertEquals(listOf("ZURÜCKSETZEN"), TextLayout.caption("ZURÜCKSETZEN", 0.1, 0.1))
+        assertEquals(listOf(""), TextLayout.caption("", 0.1, 0.1))
+    }
+
+    /**
+     * Two lines are centred on the anchor a single line sits on, a font line box apart, and the
+     * slab has to grow by exactly that much to hold them.
+     */
+    @Test fun stackedLinesAreCentredOnTheAnchor() {
+        val h = 0.1
+        val step = TextLayout.lineStep(h)
+        assertEquals(0.0, TextLayout.stackY(0, 1, h), 0.0)
+        assertEquals(step / 2, TextLayout.stackY(0, 2, h), 1e-12)
+        assertEquals(-step / 2, TextLayout.stackY(1, 2, h), 1e-12)
+        assertEquals(step, TextLayout.stackHeight(2, h) - TextLayout.stackHeight(1, h), 1e-12)
+    }
 }

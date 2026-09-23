@@ -220,6 +220,37 @@ import Testing
         #expect(p.phase == .hidden)
     }
 
+    /// Reduce Motion is read every frame on Android, so it can flip in the middle of an **arrival**
+    /// too — not only a leave. Either way of drawing it, the arrival still ends on its exact pose,
+    /// fully opaque: an element that stops short of its mark is one whose caption lands without it.
+    @Test func reduceMotionTurningOnOrOffMidArrivalStillLands() {
+        for (before, after) in [(false, true), (true, false)] {
+            var p = Self.presence()
+            p.show()
+            Self.run(&p, 0.08, reduceMotion: before)             // the arrival is in flight…
+            #expect(p.phase == .shown && p.arrival < 1, "\(before) then \(after)")
+            Self.run(&p, 3, reduceMotion: after)                 // …and the setting flips under it
+            #expect(p.isSettledIn, "\(before) then \(after)")
+            #expect(p.arrival == 1, "\(before) then \(after)")
+            #expect(p.opacity == 1, "\(before) then \(after)")
+        }
+    }
+
+    /// A screen entered twice in quick succession: the staggered arrivals of the second entry are
+    /// asked for while the first is still in the air. Every element still ends on its exact pose —
+    /// none is left part-way, and none is taken for arrived while it still has a delay to serve.
+    @Test func aScreenEnteredTwiceInQuickSuccessionStillLandsEverything() {
+        for stagger in [0.0, 0.05, 0.12] {
+            var p = Self.presence()
+            p.show(after: stagger)
+            Self.run(&p, 0.06)
+            p.show(after: stagger)                               // entered again, mid-flight
+            #expect(!p.isSettledIn, "\(stagger)")               // a pending arrival is not arrived
+            Self.run(&p, 3)
+            #expect(p.isSettledIn && p.arrival == 1, "\(stagger)")
+        }
+    }
+
     @Test func hidingBeforeAnArrivalBeginsCancelsIt() {
         var p = Self.presence()
         p.show(after: 0.5)
@@ -529,4 +560,100 @@ import Testing
                                 .uiCameraWhooshLong, .uiCameraWhooshShort, .uiError, .uiSliderTick, .uiConfettiPop]
         for cue in used { #expect(!cue.spec.field.isEmpty && !cue.spec.ice.isEmpty, "\(cue.rawValue) has no files") }
     }
+
+    // MARK: where the camera stands (§8.6)
+
+    /// `presentation.toml [camera]` and §8.6's shot window, as the apps hand them over.
+    static let camera = MatchCamera.Params(
+        height: 36, back: 20, look: -4, follow: 0.85, minZ: -7, maxZ: 14, rate: 2.2,
+        halfWidth: 16.5, fitNear: 8, minFov: 45, maxFov: 78,
+        buildupHeight: 8, buildupBack: 20, buildupFov: 44, buildupWeight: 0.4, buildupRate: 5,
+        goalRadius: 13, goalHeight: 4.5, goalRise: 1.1, goalStartAngle: 1.8, goalSweep: 0.14,
+        goalSweepSeconds: 4.5, goalLookHeight: 0.4, goalFov: 46, goalWeight: 1, goalRateIn: 4, goalRateOut: 1.6,
+        reduceGoalWeight: 0.35, reduceBuildupWeight: 0.15,
+        goalLineZ: Tuning.Pitch.goalLineZ, postX: Tuning.Pitch.postX,
+        postMargin: Tuning.SlowMotion.shotPostMargin, shotHorizon: Tuning.SlowMotion.shotHorizon)
+
+    /// A lap of the whole pitch and well past both goal lines, through the corners and up the
+    /// middle. The camera is asked about every metre of it.
+    static let walk: [SIMD2<Double>] = [
+        [0, 0], [14, 0], [14, 24], [14, 31], [0, 33], [-14, 31], [-14, 24], [-14, 0],
+        [-14, -24], [-14, -31], [0, -33], [14, -31], [14, -24], [14, 0], [0, 0],
+        [0, 33], [0, -33], [0, 0], [-14, 30], [14, -30], [0, 0],
+    ]
+
+    /// The bug the owner saw: behind the goal line the camera shook between two poses at frame
+    /// rate. A ball there is **not** a shot about to score — whichever way its z velocity happens to
+    /// point this frame — so nothing may frame it as one.
+    @Test func aBallBehindAGoalLineIsNeverFramedAsAShot() {
+        let p = Self.camera
+        for z in [p.goalLineZ + 0.1, p.goalLineZ + 4, 30.0] {
+            for vz in [-25.0, -8, 8, 25] {
+                for side in [-1.0, 1.0] {
+                    let ball = MatchCamera.Ball(x: 0, z: side * z, vx: 0, vz: vz)
+                    #expect(MatchCamera.buildupGoalZ(ball, p) == nil, "z \(side * z) vz \(vz)")
+                }
+            }
+        }
+        // In front of the line and running at the mouth, it still is one — and it is the goal the
+        // ball is heading into, never the one its velocity's sign happens to name.
+        let coming = MatchCamera.Ball(x: 0, z: 20, vx: 0, vz: 20)
+        #expect(MatchCamera.buildupGoalZ(coming, p) == p.goalLineZ)
+        let going = MatchCamera.Ball(x: 0, z: -20, vx: 0, vz: -20)
+        #expect(MatchCamera.buildupGoalZ(going, p) == -p.goalLineZ)
+    }
+
+    /// Walked over the whole pitch — corners, both goal mouths and well behind both nets — the
+    /// camera stays stable. Jitter has a shape: the eye stepping one way and straight back the
+    /// next frame, over and over. A blend that turns around once, when a shot stops being a shot,
+    /// does not: it turns *once* and it turns by a hair.
+    ///
+    /// The stated thresholds: no single frame reverses the eye or the look-at by more than
+    /// **0.15 m**, and two reversals worth noticing (over a centimetre) never fall within
+    /// **10 frames** of each other. The bug threw the eye tens of metres, end to end, every frame.
+    @Test func theCameraNeverJittersWhereverTheBallIs() {
+        for reduce in [false, true] {
+            var camera = MatchCamera(Self.camera, aspect: 0.46)
+            var last: (eye: SIMD3<Double>, at: SIMD3<Double>)?
+            var lastStep: (eye: SIMD3<Double>, at: SIMD3<Double>)?
+            var worstStep = 0.0, worstReversal = 0.0
+            var frame = 0, lastReversalFrame = -100, closestReversals = Int.max
+            for (a, b) in zip(Self.walk, Self.walk.dropFirst()) {
+                let span = b - a
+                let frames = max(1, Int((span.x * span.x + span.y * span.y).squareRoot() / 12 * 60))
+                let v = SIMD2(span.x / Double(frames) * 60, span.y / Double(frames) * 60)
+                for i in 0..<frames {
+                    frame += 1
+                    let at = a + span * (Double(i) / Double(frames))
+                    let ball = MatchCamera.Ball(x: at.x, z: at.y, vx: v.x, vz: v.y)
+                    let mode: MatchCamera.Mode = MatchCamera.buildupGoalZ(ball, Self.camera) == nil ? .play : .buildup
+                    let pose = camera.advance(1.0 / 60, mode: mode, ball: ball, aspect: 0.46, reduceMotion: reduce)
+                    let eye = SIMD3(pose.eyeX, pose.eyeY, pose.eyeZ), target = SIMD3(pose.atX, pose.atY, pose.atZ)
+                    defer { last = (eye, target) }
+                    guard let l = last else { continue }
+                    let step = (eye: eye - l.eye, at: target - l.at)
+                    worstStep = max(worstStep, Self.length(step.eye), Self.length(step.at))
+                    if let previous = lastStep {
+                        var reversal = 0.0
+                        for pair in [(step.eye, previous.eye), (step.at, previous.at)] where Self.dot(pair.0, pair.1) < 0 {
+                            reversal = max(reversal, min(Self.length(pair.0), Self.length(pair.1)))
+                        }
+                        worstReversal = max(worstReversal, reversal)
+                        if reversal > 0.01 {
+                            closestReversals = min(closestReversals, frame - lastReversalFrame)
+                            lastReversalFrame = frame
+                        }
+                    }
+                    lastStep = step
+                }
+            }
+            let why = "reduce motion: \(reduce)"
+            #expect(worstStep < 1.6, "worst step \(worstStep), \(why)")
+            #expect(worstReversal < 0.15, "worst reversal \(worstReversal), \(why)")
+            #expect(closestReversals > 10, "reversals \(closestReversals) frames apart, \(why)")
+        }
+    }
+
+    private static func length(_ v: SIMD3<Double>) -> Double { (v.x * v.x + v.y * v.y + v.z * v.z).squareRoot() }
+    private static func dot(_ a: SIMD3<Double>, _ b: SIMD3<Double>) -> Double { a.x * b.x + a.y * b.y + a.z * b.z }
 }

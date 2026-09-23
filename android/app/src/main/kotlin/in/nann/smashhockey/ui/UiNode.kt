@@ -21,7 +21,17 @@ class UiNode internal constructor(
     var parentNode: UiNode? = parent
         private set
     val entity: Int = EntityManager.get().create()
-    internal val instance: Int
+
+    /**
+     * This node's slot in Filament's TransformManager — **looked up every time, never cached**.
+     * A TransformManager instance is an index into a packed array, not a handle: destroying any
+     * component swaps the last one into the freed slot, so every instance taken before a
+     * `destroy` may now name a different entity. A screen taken apart therefore left the
+     * surviving screens' nodes writing their pose into a stranger's slot — their own transform
+     * stopped moving, frozen wherever the last good write had left it mid-arrival, while their
+     * bounds (read through the same stale slot) answered from somewhere else entirely.
+     */
+    internal val instance: Int get() = kit.engine.transformManager.getInstance(entity)
     /** The local pose. Mutate it, then call [changed]. */
     val transform = Xform()
     private val children = ArrayList<UiNode>(2)
@@ -44,7 +54,6 @@ class UiNode internal constructor(
     init {
         val tm = kit.engine.transformManager
         tm.create(entity)
-        instance = tm.getInstance(entity)
         val p = parent?.entity ?: parentEntity
         if (p != null) tm.setParent(instance, tm.getInstance(p))
         parent?.children?.add(this)

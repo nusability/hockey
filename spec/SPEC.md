@@ -673,6 +673,18 @@ unassisted releases and clears, never passes.
   at least 0.6.
 - **Reduce Motion** keeps the slow motion and tames the camera and the shake (§8.8).
 
+**The camera is never jumpy.** Wherever the ball is — in a corner, in a goal mouth or rattling
+around well behind a net — the camera moves smoothly: it may travel fast, and it may turn around
+once when a shot stops being a shot, but it never steps one way and back again frame after frame.
+Two rules keep it so, and both apps are tested against a ball walked over the whole pitch and past
+both goal lines:
+
+- A shot's build-up frames **the goal the ball is heading into and is still in front of**. A ball
+  already behind a goal line is not a shot about to score, whichever way its velocity happens to
+  point, and nothing frames it as one.
+- Once a build-up has chosen its goal it **keeps it** until the blend back to the play camera has
+  run out. Changing the framed goal while the dramatic camera still carries weight is a cut.
+
 #### 8.7 Quitting
 A match can be paused (automatically when the app leaves the foreground) and quit from the pause.
 Quitting a **season** match forfeits it as a **0–3** loss. Quitting anything else just leaves.
@@ -688,6 +700,9 @@ never a banner, a sound or a haptic.
 
 - **The ball.** A field ball rolls along its travel; a puck spins. A loose ball faster than 6 draws
   a tapered, fading ribbon behind it in the ball's yellow, through where it was over the last 0.16 s.
+- **The nets are cloth.** Both goals' sheets always breathe — a slow wave travelling across them,
+  strongest in the middle and nothing at the edges the net is laced to — whatever the ball is doing.
+  Reduce Motion calms the wave; it never stops it. A goal's ripple (below) rides on top of it.
 - **Goals.** Confetti bursts from the scored-in net at real speed — 160 cards in the scoring side's
   primary, secondary and white, thrown sideways and high, falling, bouncing and tumbling; the net's
   sheets ripple out from where the ball struck; the camera shakes (a kick of 1.2 falling off by 2.5 a
@@ -954,10 +969,22 @@ consequences a player can see: a caption's line does not move with the character
 word with an umlaut sits on its slab exactly where an all-caps English one does — and the same
 screen is laid out identically on both phones.
 
+**A caption that does not fit wraps before it shrinks.** Lettering wider than the room it is given
+breaks into **at most two centred lines**, split where the two lines come out evenest and never
+through a word, and the slab it sits on **grows in height** to hold them. Only lettering with
+nowhere to break — a single long word — still shrinks to fit, as it always did. Both platforms
+break a string in the same place, so a banner that needs two lines in English and one in German
+reads the same way on both phones.
+
 **A transition finishes.** An element that arrives ends on its exact pose; an element that leaves
 ends hidden, and is only then taken off the screen. This holds however the motion is being played —
 the whimsical springs, or Reduce Motion's plain fades — including when the system's Reduce Motion
-setting changes in the middle of one. Nothing is ever left part-way, hanging where it should not be.
+setting changes in the middle of one, and when a screen is entered again while its last arrival is
+still in the air. Nothing is ever left part-way, hanging where it should not be.
+
+**What the player touches is what the player sees.** An element's hit target and its accessibility
+frame are read from the pose it is actually drawn at — never from the pose it was meant to land on.
+An element the player can see is one they can reach; one that is still on its way is neither.
 
 #### 16.1 First launch — creating the team
 With no career saved, the game opens here, once (§2.2): the create form, and nothing else to
@@ -996,7 +1023,9 @@ target of ten or more gets two cards a side — and the drill's hint is the intr
 "get ready" (§10).
 
 **Banners** — the prototype's, built from the kit's lettering in the middle of the screen, each for
-its time in real seconds and then gone (a new one replaces the last):
+its time in real seconds and then gone (a new one replaces the last). A banner too wide for the
+frame wraps to two centred lines rather than shrinking (§16): "END OF PERIOD 1" and its German
+"ENDE 1. DRITTEL" both break after their first half and stay full size.
 
 | When | Banner | Style | Seconds |
 |---|---|---|---|

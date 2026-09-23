@@ -124,11 +124,10 @@ final class TeamForm {
         nameField.isSelected = editing == .name
         codeField.isSelected = editing == .code
         let name = draft.name
-        screen.reletter(nameText, name.isEmpty ? L(.teamNameEmpty) : name.uppercased(), height: 0.085, maxWidth: 1.5,
-                        at: [0, -0.02, 0])
-        if let m = nameText.children.first as? ModelEntity { Blocks.recolour(m, name.isEmpty ? C.disabledInk : C.ink) }
+        screen.reletter(nameText, name.isEmpty ? L(.teamNameEmpty) : name.uppercased(), height: 0.085,
+                        colour: name.isEmpty ? C.disabledInk : C.ink, maxWidth: 1.5, at: [0, -0.02, 0])
         nameField.relabel("\(L(.teamName)), \(name)")
-        screen.reletter(codeText, draft.short.isEmpty ? "–" : draft.short, height: 0.11, at: [0, -0.025, 0])
+        screen.reletter(codeText, draft.short.isEmpty ? "–" : draft.short, height: 0.11, colour: C.ink, at: [0, -0.025, 0])
         codeField.relabel("\(L(.teamCode)), \(draft.short)")
         for (t, pair) in zip(shirts, Career.kitPalette) { t.isSelected = pair.primary == draft.primary }
         for (t, pair) in zip(trims, Career.kitPalette) { t.isSelected = pair.secondary == draft.secondary }

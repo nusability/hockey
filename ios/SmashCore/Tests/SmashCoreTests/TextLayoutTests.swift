@@ -91,4 +91,55 @@ import Testing
         #expect(TextLayout.wrap("ZURÜCKSETZEN", height: 0.1, width: 0.1) == ["ZURÜCKSETZEN"])
         #expect(TextLayout.wrap("", height: 0.1, width: 1).isEmpty)
     }
+
+    // MARK: captions too wide for their slab (§16.4)
+
+    /// The banner the owner caught running off its slab, and its German twin. Both wrap to two
+    /// lines rather than shrinking to a smear, and both wrap in the same place on both phones.
+    @Test func aBannerTooWideForItsSlabWrapsToTwoLines() {
+        // presentation.toml [banner] height_info, in design.json's frame width less its margin.
+        let height = 0.2
+        let room = 1.8 - 0.1
+        for text in ["END OF PERIOD 1", "END OF PERIOD 2", "ENDE 1. DRITTEL", "ENDE 3. DRITTEL"] {
+            let lines = TextLayout.caption(text, height: height, width: room)
+            #expect(lines.count <= TextLayout.maxCaptionLines, "\(text) → \(lines)")
+            #expect(lines.joined(separator: " ") == text, "\(text) → \(lines)")
+        }
+        // "END OF PERIOD 1" is the one that overflowed: it must not still be one line.
+        let en = TextLayout.caption("END OF PERIOD 1", height: height, width: room)
+        #expect(en.count == 2 || TextLayout.width("END OF PERIOD 1", height: height) <= room)
+    }
+
+    /// The split is the most even one that never breaks a word.
+    @Test func aCaptionSplitsWhereTheTwoLinesComeOutEvenest() {
+        let h = 0.1
+        let text = "END OF PERIOD 1"
+        let room = TextLayout.width(text, height: h) * 0.7
+        let lines = TextLayout.caption(text, height: h, width: room)
+        #expect(lines == ["END OF", "PERIOD 1"], "\(lines)")
+        // Every other break is wider than the one chosen.
+        let chosen = TextLayout.widest(lines, height: h)
+        for cut in [["END", "OF PERIOD 1"], ["END OF PERIOD", "1"]] {
+            #expect(TextLayout.widest(cut, height: h) >= chosen)
+        }
+    }
+
+    /// What must not wrap: a caption that already fits, and a word with nowhere to break — that one
+    /// still shrinks, as it always did.
+    @Test func onlyACaptionThatNeedsItAndCanBreakWraps() {
+        #expect(TextLayout.caption("PLAY", height: 0.1, width: 1) == ["PLAY"])
+        #expect(TextLayout.caption("ZURÜCKSETZEN", height: 0.1, width: 0.1) == ["ZURÜCKSETZEN"])
+        #expect(TextLayout.caption("", height: 0.1, width: 0.1) == [""])
+    }
+
+    /// Two lines are centred on the anchor a single line sits on, a font line box apart, and the
+    /// slab has to grow by exactly that much to hold them.
+    @Test func stackedLinesAreCentredOnTheAnchor() {
+        let h = 0.1
+        let step = TextLayout.lineStep(h)
+        #expect(TextLayout.stackY(0, of: 1, height: h) == 0)
+        #expect(abs(TextLayout.stackY(0, of: 2, height: h) - step / 2) < 1e-12)
+        #expect(abs(TextLayout.stackY(1, of: 2, height: h) + step / 2) < 1e-12)
+        #expect(abs(TextLayout.stackHeight(2, height: h) - TextLayout.stackHeight(1, height: h) - step) < 1e-12)
+    }
 }

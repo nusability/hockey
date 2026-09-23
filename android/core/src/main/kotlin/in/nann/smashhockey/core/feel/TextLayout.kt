@@ -105,4 +105,50 @@ object TextLayout {
         if (line.isNotEmpty()) lines += line
         return lines
     }
+
+    // ---- captions that do not fit on one line (spec §16.4)
+
+    /** How many lines a caption may take before it starts shrinking instead. */
+    const val MAX_CAPTION_LINES = 2
+
+    /**
+     * Baseline to baseline for stacked lines: the font's own line box, so two lines of a banner sit
+     * as far apart on both phones.
+     */
+    fun lineStep(height: Double): Double = lineTop(height) - lineBottom(height)
+
+    /**
+     * Where line [index] of [count] sits above the block's centre — the top line highest. A single
+     * line sits on the anchor, exactly where it used to.
+     */
+    fun stackY(index: Int, count: Int, height: Double): Double =
+        ((count - 1) / 2.0 - index) * lineStep(height)
+
+    /** How tall a block of [count] lines is — what a slab has to grow to hold them. */
+    fun stackHeight(count: Int, height: Double): Double =
+        (maxOf(count, 1) - 1) * lineStep(height) + (lineTop(height) - lineBottom(height))
+
+    /** The widest of [lines]. */
+    fun widest(lines: List<String>, height: Double): Double =
+        lines.fold(0.0) { w, line -> maxOf(w, width(line, height)) }
+
+    /**
+     * The lines a caption takes in [room] of room: one, while it fits; otherwise the **most even**
+     * split into at most [MAX_CAPTION_LINES] that never breaks a word. A caption that still does not
+     * fit — one long word, or more words than two lines can hold — comes back as it is, for the
+     * caller to shrink with [fit]. Both apps therefore break "END OF PERIOD 1" and
+     * "ENDE 1. DRITTEL" in the same place.
+     */
+    fun caption(text: String, height: Double, room: Double): List<String> {
+        val words = text.split(' ').filter { it.isNotEmpty() }
+        if (words.size < 2 || room <= 0.0 || width(text, height) <= room) return listOf(text)
+        var best: List<String>? = null
+        var bestWidest = Double.POSITIVE_INFINITY
+        for (cut in 1 until words.size) {
+            val candidate = listOf(words.subList(0, cut).joinToString(" "), words.subList(cut, words.size).joinToString(" "))
+            val w = widest(candidate, height)
+            if (w < bestWidest) { bestWidest = w; best = candidate }
+        }
+        return best ?: listOf(text)
+    }
 }

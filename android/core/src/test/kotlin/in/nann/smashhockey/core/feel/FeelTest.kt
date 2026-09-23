@@ -1,6 +1,7 @@
 package `in`.nann.smashhockey.core.feel
 
 import `in`.nann.smashhockey.core.generated.CopyKey
+import `in`.nann.smashhockey.core.generated.Tuning
 import `in`.nann.smashhockey.core.generated.Role
 import `in`.nann.smashhockey.core.generated.SoundCue
 import `in`.nann.smashhockey.core.generated.Spot
@@ -13,6 +14,7 @@ import `in`.nann.smashhockey.core.match.ReleaseKind
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.pow
+import kotlin.math.sqrt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -178,6 +180,43 @@ class FeelTest {
         p.hide()
         run(p, 3.0)
         assertEquals(UIPresence.Phase.HIDDEN, p.phase)
+    }
+
+    /**
+     * Reduce Motion is read every frame on Android, so it can flip in the middle of an **arrival**
+     * too — not only a leave. Either way of drawing it, the arrival still ends on its exact pose,
+     * fully opaque: an element that stops short of its mark is one whose caption lands without it.
+     */
+    @Test fun reduceMotionTurningOnOrOffMidArrivalStillLands() {
+        for ((before, after) in listOf(false to true, true to false)) {
+            val why = "$before then $after"
+            val p = presence()
+            p.show()
+            run(p, 0.08, before)                    // the arrival is in flight…
+            assertTrue(why, p.phase == UIPresence.Phase.SHOWN && p.arrival < 1.0)
+            run(p, 3.0, after)                      // …and the setting flips under it
+            assertTrue(why, p.isSettledIn)
+            assertEquals(why, 1.0, p.arrival, 0.0)
+            assertEquals(why, 1.0, p.opacity, 0.0)
+        }
+    }
+
+    /**
+     * A screen entered twice in quick succession: the staggered arrivals of the second entry are
+     * asked for while the first is still in the air. Every element still ends on its exact pose —
+     * none is left part-way, and none is taken for arrived while it still has a delay to serve.
+     */
+    @Test fun aScreenEnteredTwiceInQuickSuccessionStillLandsEverything() {
+        for (stagger in listOf(0.0, 0.05, 0.12)) {
+            val p = presence()
+            p.show(stagger)
+            run(p, 0.06)
+            p.show(stagger)                          // entered again, mid-flight
+            assertFalse("$stagger", p.isSettledIn)   // a pending arrival is not arrived
+            run(p, 3.0)
+            assertTrue("$stagger", p.isSettledIn)
+            assertEquals("$stagger", 1.0, p.arrival, 0.0)
+        }
     }
 
     @Test fun hidingBeforeAnArrivalBeginsCancelsIt() {
@@ -433,6 +472,118 @@ class FeelTest {
             SoundCue.UI_SLIDER_TICK, SoundCue.UI_CONFETTI_POP)
         for (cue in used) assertTrue("${cue.key} has no files", cue.spec.field.isNotEmpty() && cue.spec.ice.isNotEmpty())
     }
+
+    // ---- where the camera stands (§8.6)
+
+    /** `presentation.toml [camera]` and §8.6's shot window, as the apps hand them over. */
+    private val camera = MatchCamera.Params(
+        height = 36.0, back = 20.0, look = -4.0, follow = 0.85, minZ = -7.0, maxZ = 14.0, rate = 2.2,
+        halfWidth = 16.5, fitNear = 8.0, minFov = 45.0, maxFov = 78.0,
+        buildupHeight = 8.0, buildupBack = 20.0, buildupFov = 44.0, buildupWeight = 0.4, buildupRate = 5.0,
+        goalRadius = 13.0, goalHeight = 4.5, goalRise = 1.1, goalStartAngle = 1.8, goalSweep = 0.14,
+        goalSweepSeconds = 4.5, goalLookHeight = 0.4, goalFov = 46.0, goalWeight = 1.0,
+        goalRateIn = 4.0, goalRateOut = 1.6, reduceGoalWeight = 0.35, reduceBuildupWeight = 0.15,
+        goalLineZ = Tuning.Pitch.goalLineZ, postX = Tuning.Pitch.postX,
+        postMargin = Tuning.SlowMotion.shotPostMargin, shotHorizon = Tuning.SlowMotion.shotHorizon,
+    )
+
+    /**
+     * A lap of the whole pitch and well past both goal lines, through the corners and up the
+     * middle. The camera is asked about every metre of it.
+     */
+    private val walk = listOf(
+        0.0 to 0.0, 14.0 to 0.0, 14.0 to 24.0, 14.0 to 31.0, 0.0 to 33.0, -14.0 to 31.0, -14.0 to 24.0,
+        -14.0 to 0.0, -14.0 to -24.0, -14.0 to -31.0, 0.0 to -33.0, 14.0 to -31.0, 14.0 to -24.0,
+        14.0 to 0.0, 0.0 to 0.0, 0.0 to 33.0, 0.0 to -33.0, 0.0 to 0.0, -14.0 to 30.0, 14.0 to -30.0,
+        0.0 to 0.0,
+    )
+
+    /**
+     * The bug the owner saw: behind the goal line the camera shook between two poses at frame
+     * rate. A ball there is **not** a shot about to score — whichever way its z velocity happens to
+     * point this frame — so nothing may frame it as one.
+     */
+    @Test fun aBallBehindAGoalLineIsNeverFramedAsAShot() {
+        val p = camera
+        for (z in listOf(p.goalLineZ + 0.1, p.goalLineZ + 4, 30.0)) {
+            for (vz in listOf(-25.0, -8.0, 8.0, 25.0)) {
+                for (side in listOf(-1.0, 1.0)) {
+                    val ball = MatchCamera.Ball(0.0, side * z, 0.0, vz)
+                    assertNull("z ${side * z} vz $vz", MatchCamera.buildupGoalZ(ball, p))
+                }
+            }
+        }
+        // In front of the line and running at the mouth, it still is one — and it is the goal the
+        // ball is heading into, never the one its velocity's sign happens to name.
+        assertEquals(p.goalLineZ, MatchCamera.buildupGoalZ(MatchCamera.Ball(0.0, 20.0, 0.0, 20.0), p))
+        assertEquals(-p.goalLineZ, MatchCamera.buildupGoalZ(MatchCamera.Ball(0.0, -20.0, 0.0, -20.0), p))
+    }
+
+    /**
+     * Walked over the whole pitch — corners, both goal mouths and well behind both nets — the
+     * camera stays stable. Jitter has a shape: the eye stepping one way and straight back the next
+     * frame, over and over. A blend that turns around once, when a shot stops being a shot, does
+     * not: it turns *once* and it turns by a hair.
+     *
+     * The stated thresholds: no single frame reverses the eye or the look-at by more than
+     * **0.15 m**, and two reversals worth noticing (over a centimetre) never fall within **10
+     * frames** of each other. The bug threw the eye tens of metres, end to end, every frame.
+     */
+    @Test fun theCameraNeverJittersWhereverTheBallIs() {
+        for (reduce in listOf(false, true)) {
+            val rig = MatchCamera(camera, 0.46)
+            var last: DoubleArray? = null
+            var lastStep: DoubleArray? = null
+            var worstStep = 0.0
+            var worstReversal = 0.0
+            var frame = 0
+            var lastReversalFrame = -100
+            var closestReversals = Int.MAX_VALUE
+            for (leg in 0 until walk.size - 1) {
+                val (ax, az) = walk[leg]
+                val (bx, bz) = walk[leg + 1]
+                val dx = bx - ax
+                val dz = bz - az
+                val frames = maxOf(1, (sqrt(dx * dx + dz * dz) / 12 * 60).toInt())
+                val vx = dx / frames * 60
+                val vz = dz / frames * 60
+                for (i in 0 until frames) {
+                    frame++
+                    val ball = MatchCamera.Ball(ax + dx * i / frames, az + dz * i / frames, vx, vz)
+                    val mode = if (MatchCamera.buildupGoalZ(ball, camera) == null) MatchCamera.Mode.Play
+                               else MatchCamera.Mode.Buildup
+                    val q = rig.advance(1.0 / 60, mode, ball, 0.46, reduce)
+                    val now = doubleArrayOf(q.eyeX, q.eyeY, q.eyeZ, q.atX, q.atY, q.atZ)
+                    val before = last
+                    last = now
+                    if (before == null) continue
+                    val step = DoubleArray(6) { now[it] - before[it] }
+                    worstStep = maxOf(worstStep, len(step, 0), len(step, 3))
+                    val previous = lastStep
+                    lastStep = step
+                    if (previous == null) continue
+                    var reversal = 0.0
+                    for (k in intArrayOf(0, 3)) {
+                        if (dot(step, previous, k) < 0) reversal = maxOf(reversal, minOf(len(step, k), len(previous, k)))
+                    }
+                    worstReversal = maxOf(worstReversal, reversal)
+                    if (reversal > 0.01) {
+                        closestReversals = minOf(closestReversals, frame - lastReversalFrame)
+                        lastReversalFrame = frame
+                    }
+                }
+            }
+            val why = "reduce motion: $reduce"
+            assertTrue("worst step $worstStep, $why", worstStep < 1.6)
+            assertTrue("worst reversal $worstReversal, $why", worstReversal < 0.15)
+            assertTrue("reversals $closestReversals frames apart, $why", closestReversals > 10)
+        }
+    }
+
+    private fun len(v: DoubleArray, at: Int) = sqrt(v[at] * v[at] + v[at + 1] * v[at + 1] + v[at + 2] * v[at + 2])
+
+    private fun dot(a: DoubleArray, b: DoubleArray, at: Int) =
+        a[at] * b[at] + a[at + 1] * b[at + 1] + a[at + 2] * b[at + 2]
 
     private companion object { const val FADE_SECONDS = 0.18 }
 }

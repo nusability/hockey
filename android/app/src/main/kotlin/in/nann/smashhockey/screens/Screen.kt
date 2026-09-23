@@ -77,24 +77,34 @@ open class Screen private constructor(val pose: CameraPose, val game: Game, hud:
     fun letters(text: String, height: Float, colour: Int, maxWidth: Float? = null, align: Label3D.Align = Label3D.Align.CENTRE,
                 x: Float = 0f, y: Float = 0f, z: Float = 0f, parent: UiNode): UiNode {
         val holder = kit.node(parent)
-        val m = kit.text(text, height, colour, holder)
-        fit(holder, m, maxWidth, align, x, y, z)
+        place(holder, text, height, colour, maxWidth, align, x, y, z)
         return holder
     }
 
     /** Re-letters what [letters] made. */
-    fun reletter(holder: UiNode, text: String, height: Float, maxWidth: Float? = null,
+    fun reletter(holder: UiNode, text: String, height: Float, colour: Int, maxWidth: Float? = null,
                  align: Label3D.Align = Label3D.Align.CENTRE, x: Float = 0f, y: Float = 0f, z: Float = 0f) {
-        val m = holder.childNodes.first()
-        kit.retext(m, text, height)
-        fit(holder, m, maxWidth, align, x, y, z)
+        place(holder, text, height, colour, maxWidth, align, x, y, z)
     }
 
-    private fun fit(holder: UiNode, m: UiNode, maxWidth: Float?, align: Label3D.Align, x: Float, y: Float, z: Float) {
-        val w = kit.width(m)
-        val k = TextLayout.fit(w.toDouble(), maxWidth?.toDouble()).toFloat()
+    /**
+     * Lettering on a slab: at most two centred lines when it is given a width to stay inside (§16),
+     * and a shrink only when a line still has nowhere to break.
+     */
+    private fun place(holder: UiNode, text: String, height: Float, colour: Int, maxWidth: Float?,
+                      align: Label3D.Align, x: Float, y: Float, z: Float) {
+        for (line in holder.childNodes.toList()) kit.destroy(line)
+        val room = maxWidth?.toDouble()
+        val lines = room?.let { TextLayout.caption(text, height.toDouble(), it) } ?: listOf(text)
+        for ((i, line) in lines.withIndex()) {
+            val row = kit.node(holder)
+            row.setPosition(0f, TextLayout.stackY(i, lines.size, height.toDouble()).toFloat(), 0f)
+            kit.text(line, height, colour, row)
+        }
+        val w = TextLayout.widest(lines, height.toDouble())
+        val k = TextLayout.fit(w, room).toFloat()
         holder.setScale(k)
-        holder.setPosition(x + TextLayout.alignX(align.shared, (w * k).toDouble()).toFloat(), y, z)
+        holder.setPosition(x + TextLayout.alignX(align.shared, w * k).toFloat(), y, z)
     }
 
     /** Arrivals, one after another on the stagger token. */

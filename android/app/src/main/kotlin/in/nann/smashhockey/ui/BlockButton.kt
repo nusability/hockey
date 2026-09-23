@@ -40,9 +40,17 @@ class BlockButton(
     private val body = kit.node(node)
     private val base: UiNode
     private val cap: UiNode
-    private val label: UiNode
+    private val holders = ArrayList<UiNode>(2)
+    private val labels = ArrayList<UiNode>(2)
     val w = width
-    val h = height
+    /**
+     * How tall the key stands. A caption too wide for the cap wraps to two lines (§16.4) rather
+     * than shrinking to a smear, and the key grows to hold them — so the words sit on it, not
+     * over it.
+     */
+    val h = maxOf(height, (TextLayout.stackHeight(
+        TextLayout.caption(title, textHeight.toDouble(), TextLayout.room(width.toDouble(), textHeight.toDouble())).size,
+        textHeight.toDouble()) + 2 * textHeight * TextLayout.MARGIN_PER_HEIGHT).toFloat())
     override val semantics = Semantics(id, label ?: title, trait = Semantics.Trait.BUTTON)
     private val labelNode: UiNode
     private val textHeight = textHeight
@@ -60,26 +68,41 @@ class BlockButton(
     init {
         val d = Size.BUTTON_DEPTH
         val inset = Size.BUTTON_BASE_INSET
-        base = kit.slab(width - 2 * inset, height - 2 * inset, d * 0.5f, style.base, node)
+        base = kit.slab(w - 2 * inset, h - 2 * inset, d * 0.5f, style.base, node)
         base.setPosition(0f, 0f, -d * 0.3f)
-        cap = kit.slab(width, height, d, style.cap, body)
+        cap = kit.slab(w, h, d, style.cap, body)
         labelNode = kit.node(body)
         labelNode.setPosition(0f, 0f, d / 2)
-        this.label = kit.text(title, textHeight, style.ink, labelNode)
-        fitLabel()
+        letter(title)
         node.enabled = false
     }
 
-    /** Keeps a margin of lettering either side; a long word shrinks to fit. */
-    private fun fitLabel() {
+    /**
+     * Lays the caption out on the cap: at most two centred lines, a margin of lettering either
+     * side, and a shrink only when a line still has nowhere to break.
+     */
+    private fun letter(title: String) {
+        for (holder in holders) kit.destroy(holder)
+        holders.clear()
+        labels.clear()
+        val ink = if (semantics.isEnabled) style.ink else Style.DISABLED.ink
         val room = TextLayout.room(w.toDouble(), textHeight.toDouble())
-        labelNode.setScale(TextLayout.fit(kit.width(label).toDouble(), room).toFloat())
+        val lines = TextLayout.caption(title, textHeight.toDouble(), room)
+        for ((i, line) in lines.withIndex()) {
+            val holder = kit.node(labelNode)
+            holder.setPosition(0f, TextLayout.stackY(i, lines.size, textHeight.toDouble()).toFloat(), 0f)
+            holders += holder
+            labels += kit.text(line, textHeight, ink, holder)
+        }
+        labelNode.setScale(TextLayout.fit(TextLayout.widest(lines, textHeight.toDouble()), room).toFloat())
     }
 
-    /** A new caption (and TalkBack label). */
+    /**
+     * A new caption (and TalkBack label). The key keeps the height it was built at, so a screen's
+     * row of buttons stays a row: a longer caption wraps and, if it must, shrinks within it.
+     */
     fun retitle(title: String) {
-        kit.retext(label, title, textHeight)
-        fitLabel()
+        letter(title)
         semantics.label = title
     }
 
@@ -91,12 +114,12 @@ class BlockButton(
             val s = if (v) style else Style.DISABLED
             cap.recolour(s.cap)
             base.recolour(s.base)
-            label.recolour(s.ink)
+            for (m in labels) m.recolour(s.ink)
         }
 
     override val boundsNode get() = node
-    override val bounds = Bounds(-width / 2 - 0.02f, -height / 2 - 0.03f, -Size.BUTTON_DEPTH / 2,
-        width / 2 + 0.02f, height / 2 + 0.03f, Size.BUTTON_DEPTH / 2)     // a little forgiving
+    override val bounds = Bounds(-w / 2 - 0.02f, -h / 2 - 0.03f, -Size.BUTTON_DEPTH / 2,
+        w / 2 + 0.02f, h / 2 + 0.03f, Size.BUTTON_DEPTH / 2)     // a little forgiving
     override val isPresent get() = presence.isSettledIn
 
     override fun show(after: Double) = presence.show(after)

@@ -60,6 +60,51 @@ import Testing
         #expect(ice < field)
     }
 
+    /// `[aim]`'s drawing numbers: the ribbon starts at the orbit radius plus 0.35, spreads at most
+    /// 1.1 × 0.62 / 2 across (the arrowhead's wings, 0.95 × 1.1, are wider), its head reaches
+    /// 1.3 × 1.1 past the ribbon's end, and the lock-on never draws more than a lead point away.
+    static let drawing = AimArrow.Drawing(start: Tuning.Orbit.radius + 0.35, across: 0.95 * 1.1,
+                                          head: 1.3 * 1.1, lock: 9.5)
+
+    /// The box a written mesh is bounded by has to hold what is written into it: a box that misses
+    /// the drawn extent is culled away and the arrow stops being drawn (SMASH-24's follow-up — the
+    /// arrow drew only while the carrier was in one half). Every carrier the pitch allows, aiming
+    /// in every direction, against both kinds of clamp the length can take.
+    @Test func theArrowsBoundsHoldEveryVertexItEverWrites() {
+        let box = AimArrow.extent(Self.arrow, Self.drawing)
+        #expect(box.x > Tuning.Pitch.halfWidth && box.z > Tuning.Pitch.halfLength)
+        let r = Tuning.Player.outfieldRadius
+        var checked = 0
+        for corner in [2.0, 8.5] {
+            for x in stride(from: -(Tuning.Pitch.halfWidth - r), through: Tuning.Pitch.halfWidth - r, by: 1.4) {
+                for z in stride(from: -(Tuning.Pitch.halfLength - r), through: Tuning.Pitch.halfLength - r, by: 1.4) {
+                    for step in 0..<72 {
+                        let angle = Double(step) / 72 * 2 * .pi
+                        for kind in [AimArrow.Kind.free, .shot(goalZ: 26), .shot(goalZ: -26),
+                                     .pass(x: Tuning.Pitch.halfWidth - r, z: Tuning.Pitch.halfLength - r)] {
+                            let len = AimArrow.length(kind, x: x, z: z, angle: angle, corner: corner, Self.arrow)
+                            for p in AimArrow.outline(x: x, z: z, angle: angle, length: len, Self.drawing) {
+                                #expect(abs(p.x) <= box.x, "x \(p.x) outside \(box.x) at (\(x), \(z)) ∠\(angle)")
+                                #expect(abs(p.z) <= box.z, "z \(p.z) outside \(box.z) at (\(x), \(z)) ∠\(angle)")
+                                checked += 1
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        #expect(checked > 100_000)
+    }
+
+    /// The lock-on is drawn around a team-mate, who stands on the pitch: their ring and the lead
+    /// point the dotted line runs to are inside the same box.
+    @Test func theLockOnsMarksAreInsideTheArrowsBounds() {
+        let box = AimArrow.extent(Self.arrow, Self.drawing)
+        let r = Tuning.Player.outfieldRadius
+        #expect(Tuning.Pitch.halfWidth - r + Self.drawing.lock <= box.x)
+        #expect(Tuning.Pitch.halfLength - r + Self.drawing.lock <= box.z)
+    }
+
     // MARK: the scoreboard, 0:0 to 99:99 (§16.4)
 
     static let board = Scoreboard.metrics(card: 0.14, gap: 0.0112, colon: 0.084, chip: 0.30, margin: 0.03)

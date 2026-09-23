@@ -116,6 +116,60 @@ public enum AimArrow {
         }
     }
 
+    /// What the arrow spreads over, in metres — the numbers an app draws it from (`[aim]`).
+    public struct Drawing: Sendable, Hashable {
+        /// The ribbon's start from the carrier's centre: the orbit radius plus `[aim] start`.
+        public var start: Double
+        /// Half the widest the ribbon or the arrowhead ever spreads across the aim.
+        public var across: Double
+        /// How far the arrowhead's tip reaches past the ribbon's end.
+        public var head: Double
+        /// The furthest the lock-on draws from the player it marks: a receiver's lead point, and
+        /// the pulsing ring around them.
+        public var lock: Double
+
+        public init(start: Double, across: Double, head: Double, lock: Double) {
+            self.start = start
+            self.across = across
+            self.head = head
+            self.lock = lock
+        }
+    }
+
+    /// How far from its carrier the arrow can ever draw.
+    public static func reach(_ p: Params, _ d: Drawing) -> Double {
+        max(d.start + p.maxLength + d.head + d.across, d.lock)
+    }
+
+    /// The box in pitch coordinates — |x| ≤ `x`, |z| ≤ `z` — holding **every** vertex an app
+    /// writes for the arrow, its head and its lock-on, for a carrier standing anywhere on the pitch
+    /// aiming in any direction: the pitch itself, grown by `reach`.
+    ///
+    /// It exists because a mesh written in place carries its own bounds, and the renderer culls the
+    /// entity against them: a box that does not cover what is drawn takes the arrow off screen once
+    /// the carrier moves (SMASH-24's follow-up — the arrow drew in one half of the pitch only). An
+    /// app that writes the arrow in pitch coordinates and bounds it by this can never go stale,
+    /// because neither the box nor the entity holding it moves.
+    public static func extent(_ p: Params, _ d: Drawing) -> (x: Double, z: Double) {
+        let r = reach(p, d)
+        return (Tuning.Pitch.halfWidth + r, Tuning.Pitch.halfLength + r)
+    }
+
+    /// The arrow's outermost drawn points in pitch coordinates for a carrier at (x, z) aiming along
+    /// `angle` with a ribbon `length` long: the ribbon's four corners and the arrowhead's tip.
+    /// Everything else the arrow draws lies between them.
+    public static func outline(x: Double, z: Double, angle: Double, length: Double,
+                               _ d: Drawing) -> [(x: Double, z: Double)] {
+        let (s, c) = (sin(angle), cos(angle))
+        // Along the aim, and across it — the frame an app draws the ribbon in.
+        func at(_ across: Double, _ along: Double) -> (x: Double, z: Double) {
+            (x + across * c + along * s, z - across * s + along * c)
+        }
+        let near = d.start, far = d.start + length, tip = far + d.head
+        // The head's wings sit across the aim a little behind `far`, so `across` at `far` holds them.
+        return [at(-d.across, near), at(d.across, near), at(-d.across, far), at(d.across, far), at(0, tip)]
+    }
+
     /// How far out along `angle` the pitch stays clear of the boards: marching from 1 m in steps of
     /// `probeStep` while under `maxLength + 2`, the last distance whose point is more than
     /// `boardProbe` inside the boundary; 0 if the first is not.

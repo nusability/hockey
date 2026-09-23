@@ -9,6 +9,14 @@ import simd
 /// what a release now would snap to (core `AimArrow`). When a snap begins the lock-on fades in:
 /// for a pass the receiver's pulsing ring and a dotted line to where the pass would go, for a shot
 /// a glow across the goal mouth. The twin of Android's AimArrow.kt.
+///
+/// The three meshes whose shape changes every frame — the chevron ribbon, the receiver's ring and
+/// the dotted line — are written **in pitch coordinates**, on entities that never move, as the
+/// ball's trail is. A mesh written in place carries its own bounds and the renderer culls the
+/// entity against them, so bounds in a frame that moves with the carrier go stale and the arrow
+/// stops being drawn once it has travelled (SMASH-24's follow-up: it drew in one half only). One
+/// fixed box round the whole pitch — core `AimArrow.extent`, which a test walks every carrier and
+/// every direction against — cannot go stale, because neither it nor its entity moves.
 @MainActor
 final class AimArrowView {
     typealias A = Presentation.Aim
@@ -80,18 +88,17 @@ final class AimArrowView {
             let a = UInt16(2 * i)
             strips += [a, a + 1, a + 2, a + 1, a + 3, a + 2]
         }
-        let reach = Float(Tuning.Orbit.radius + A.start + A.maxLength) + 2
         ribbonMesh = try DynamicMesh(vertexCount: 2 * (Self.ribbonSteps + 1), triangles: strips,
-                                     bounds: BoundingBox(min: [-2, -1, -1], max: [2, 1, reach]))
+                                     bounds: Self.pitchBounds)
         ribbon = ModelEntity(mesh: ribbonMesh.resource, materials: [chevron])
         ribbon.components.set(ModelSortGroupComponent(group: sort, order: 1))
         headGlow = try model(Self.head(), headGlowMaterial, order: 2)
         head = try model(Self.head(), headMaterial, order: 3)
         let start = Float(Tuning.Orbit.radius + A.start)
         glow.position = [0, Float(A.lift) - 0.005, start]
-        ribbon.position = [0, Float(A.lift), start]
-        for e in [glow, ribbon, headGlow, head] { arrow.addChild(e) }
+        for e in [glow, headGlow, head] { arrow.addChild(e) }
         root.addChild(arrow)
+        root.addChild(ribbon)
 
         var ringTris: [UInt16] = []
         for i in 0..<Self.ringSteps {
@@ -99,7 +106,7 @@ final class AimArrowView {
             ringTris += [a, a + 1, a + 2, a + 1, a + 3, a + 2]
         }
         targetMesh = try DynamicMesh(vertexCount: 2 * (Self.ringSteps + 1), triangles: ringTris,
-                                     bounds: BoundingBox(min: [-4, -1, -4], max: [4, 1, 4]))
+                                     bounds: Self.pitchBounds)
         target = ModelEntity(mesh: targetMesh.resource, materials: [targetMaterial])
         target.components.set(ModelSortGroupComponent(group: sort, order: 0))
         root.addChild(target)
@@ -112,7 +119,7 @@ final class AimArrowView {
             }
         }
         dotsMesh = try DynamicMesh(vertexCount: Self.dotCount * (Self.dotSteps + 1), triangles: dotTris,
-                                   bounds: BoundingBox(min: [-40, -1, -40], max: [40, 1, 40]))
+                                   bounds: Self.pitchBounds)
         dotted = ModelEntity(mesh: dotsMesh.resource, materials: [dotMaterial])
         dotted.components.set(ModelSortGroupComponent(group: sort, order: 0))
         root.addChild(dotted)
@@ -127,6 +134,23 @@ final class AimArrowView {
         hide()
     }
 
+    /// What the arrow spreads over, for the box its written meshes are bounded by. `lock` is the
+    /// furthest the lock-on ever draws from the team-mate it marks: a lead point is
+    /// `lead_velocity_factor` × the player's velocity × the pass's flight, which no outfielder can
+    /// push past 9.5 m, and the pulsing ring is nearer than that.
+    static let drawing = AimArrow.Drawing(start: Tuning.Orbit.radius + A.start,
+                                          across: max(A.width * max(A.ribbonNear, A.ribbonFar) / 2,
+                                                      A.head[2] * A.headScale),
+                                          head: A.head[1] * A.headScale, lock: 9.5)
+
+    /// The pitch grown by the arrow's reach — every vertex any of the three meshes ever holds.
+    static var pitchBounds: BoundingBox {
+        let e = AimArrow.extent(AimArrow.Params(maxLength: A.maxLength, minLength: A.minLength, passShort: A.passShort,
+                                                shotShort: A.shotShort, boardMargin: A.boardMargin,
+                                                boardProbe: A.boardProbe, probeStep: A.probeStep), drawing)
+        return BoundingBox(min: [Float(-e.x), -1, Float(-e.z)], max: [Float(e.x), 1, Float(e.z)])
+    }
+
     /// How many dots the line can hold, and the facets of one dot and of the receiver's ring.
     static let dotCount = 40
     static let dotSteps = 12
@@ -134,30 +158,31 @@ final class AimArrowView {
 
     /// Redraws the receiver's ring with the lock-on's `fade` in every vertex's `u` — the shader
     /// multiplies its opacity by it (the Trail graph), so fading costs no material.
-    private func writeRing(fade: Float) {
+    private func writeRing(at centre: SIMD2<Double>, scale: Float, fade: Float) {
         typealias P = Presentation.Player
         let rr = Float(Tuning.Player.outfieldRadius)
-        let inner = rr + Float(P.targetInner), outer = rr + Float(P.targetOuter)
+        let inner = (rr + Float(P.targetInner)) * scale, outer = (rr + Float(P.targetOuter)) * scale
+        let (cx, cz) = (Float(centre.x), Float(centre.y))
         let n = Self.ringSteps
         targetMesh.write { v in
             for i in 0...n {
                 let a = Float(i) / Float(n) * 2 * .pi
                 let (s, c) = (sin(a), cos(a))
-                v[2 * i] = .init(position: [inner * s, 0, inner * c], uv: [fade, 0])
-                v[2 * i + 1] = .init(position: [outer * s, 0, outer * c], uv: [fade, 1])
+                v[2 * i] = .init(position: [cx + inner * s, 0.03, cz + inner * c], uv: [fade, 0])
+                v[2 * i + 1] = .init(position: [cx + outer * s, 0.03, cz + outer * c], uv: [fade, 1])
             }
         }
     }
 
     /// Redraws the dotted line: `count` discs at `at(i)`, the rest collapsed to a point so they
     /// cover nothing. `fade` rides in `u`, as the ring's does.
-    private func writeDots(count: Int, fade: Float, at: (Int) -> SIMD3<Float>) {
+    private func writeDots(count: Int, fade: Float, home: SIMD3<Float>, at: (Int) -> SIMD3<Float>) {
         let r = Float(L.dot) / 2
         let n = Self.dotSteps
         dotsMesh.write { v in
             for d in 0..<Self.dotCount {
                 let base = d * (n + 1)
-                let centre = d < count ? at(d) : .zero
+                let centre = d < count ? at(d) : home
                 let size = d < count ? r : 0
                 v[base] = .init(position: centre, uv: [fade, 0])
                 for i in 0..<n {
@@ -173,16 +198,23 @@ final class AimArrowView {
 
     /// Rewrites the chevron ribbon `len` metres long: `u` is metres from its start (the chevrons are
     /// printed from it), `v` runs 0…1 across it, and the taper is in the vertices.
-    private func writeRibbon(_ len: Float) {
+    private func writeRibbon(from me: SIMD2<Double>, angle: Double, length len: Float) {
         let n = Self.ribbonSteps
         let w = Float(A.width)
+        let (sa, ca) = (Float(sin(angle)), Float(cos(angle)))
+        let (ox, oz) = (Float(me.x), Float(me.y))
+        let lift = Float(A.lift), start = Float(Tuning.Orbit.radius + A.start)
+        // (across, along) in the aim's frame, put down on the pitch.
+        func at(_ across: Float, _ along: Float) -> SIMD3<Float> {
+            [ox + across * ca + along * sa, lift, oz - across * sa + along * ca]
+        }
         ribbonMesh.write { v in
             for i in 0...n {
                 let t = Float(i) / Float(n)
                 let half = Float(A.ribbonNear + (A.ribbonFar - A.ribbonNear) * Double(t)) / 2 * w
                 let u = len * t
-                v[2 * i] = .init(position: [-half, 0, u], uv: [u, 0])
-                v[2 * i + 1] = .init(position: [half, 0, u], uv: [u, 1])
+                v[2 * i] = .init(position: at(-half, start + u), uv: [u, 0])
+                v[2 * i + 1] = .init(position: at(half, start + u), uv: [u, 1])
             }
         }
     }
@@ -217,6 +249,7 @@ final class AimArrowView {
 
     private func hide() {
         arrow.isEnabled = false
+        ribbon.isEnabled = false
         target.isEnabled = false
         mouth.isEnabled = false
         strip.isEnabled = false
@@ -247,8 +280,10 @@ final class AimArrowView {
 
         // The arrow.
         arrow.isEnabled = true
-        root.position = SIMD3(Float(me.x), 0, Float(me.y))
-        root.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
+        ribbon.isEnabled = true
+        // The root stands at the pitch's origin: only the parts drawn from a static mesh are moved
+        // onto the carrier, and the three written in place carry the carrier in their vertices.
+        arrow.position = SIMD3(Float(me.x), 0, Float(me.y))
         arrow.orientation = simd_quatf(angle: Float(angle), axis: [0, 1, 0])
         // Colour and the pulse are all these four materials say, and both follow `colour` alone —
         // the beat itself runs in the shader — so on every other frame nothing is handed to the
@@ -274,7 +309,7 @@ final class AimArrowView {
         let w = Float(A.width), l = Float(len), start = Float(Tuning.Orbit.radius + A.start)
         // The ribbon's length is written into its vertices, not into its material: the chevrons are
         // printed from its texture coordinates (u in metres), so nothing about it is a resource.
-        writeRibbon(l)
+        writeRibbon(from: me, angle: angle, length: l)
         glow.scale = [w, 1, l]
         let hs = Float(A.headScale)
         head.position = [0, Float(A.lift) + 0.005, start + l]
@@ -282,7 +317,7 @@ final class AimArrowView {
         headGlow.position = [0, Float(A.lift) - 0.005, start + l]
         headGlow.scale = SIMD3(repeating: hs * Float(A.headGlow))
 
-        // The lock-on marker, in the pitch's frame (undo the carrier's offset).
+        // The lock-on marker, drawn in the pitch's frame like the ribbon.
         let dir = SIMD2(sin(angle), cos(angle))
         target.isEnabled = false
         dotted.isEnabled = false
@@ -294,9 +329,7 @@ final class AimArrowView {
             typealias P = Presentation.Player
             let r = positions[m]
             target.isEnabled = true
-            target.position = local(r, y: 0.03, me)
-            target.scale = SIMD3(repeating: Float(1 + sin(clock * P.targetPulseRate) * P.targetPulse))
-            writeRing(fade: Float(fade))
+            writeRing(at: r, scale: Float(1 + sin(clock * P.targetPulseRate) * P.targetPulse), fade: Float(fade))
             let p = s.players[m]
             let d = simd_distance(r, me)
             let o = Tuning.Orbit.self
@@ -307,16 +340,21 @@ final class AimArrowView {
             let count = min(Self.dotCount, Int(span / L.dotGap))
             let step = count > 0 ? (lead - tip) / Double(count) : .zero
             dotted.isEnabled = count > 0
-            writeDots(count: count, fade: Float(fade)) { i in
-                self.local(tip + step * (Double(i) + 0.5), y: Float(A.lift), me)
+            writeDots(count: count, fade: Float(fade), home: SIMD3(Float(me.x), Float(A.lift), Float(me.y))) { i in
+                let q = tip + step * (Double(i) + 0.5)
+                return SIMD3(Float(q.x), Float(A.lift), Float(q.y))
             }
             dotsWanted = count
         case .shot:
             mouth.isEnabled = true
-            mouth.position = local(SIMD2(0, goalZ), y: 0, me)
+            mouth.position = [0, 0, Float(goalZ)]
             strip.isEnabled = true
-            strip.position = local(SIMD2(0, goalZ), y: Float(A.lift) - 0.01, me)
-            strip.scale = [1, 1, Float(-(goalZ > 0 ? 1 : -1) * L.mouthDepth)]
+            strip.position = [0, Float(A.lift) - 0.01, Float(goalZ)]
+            // The strip lies from the line back toward the play. It is turned round rather than
+            // scaled by a negative, as Android's is: a mirrored scale leaves the renderer an
+            // inside-out box to bound and sort the part by.
+            strip.orientation = simd_quatf(angle: goalZ > 0 ? .pi : 0, axis: [0, 1, 0])
+            strip.scale = [1, 1, Float(L.mouthDepth)]
             // Only the fade is ours — the breathing is the shader's — so the two materials are
             // written over the 0.08 s a snap fades in and never again while it stands.
             let f = (fade * 50).rounded() / 50
@@ -334,10 +372,5 @@ final class AimArrowView {
             "arrow=on enabled=\(arrow.isEnabled) colour=\(colour) len=\(String(format: "%.2f", len)) "
                 + "fade=\(String(format: "%.2f", fade)) parts=\(root.children.count) dots=\(dotsWanted)"
         }
-    }
-
-    /// A pitch point in the root's frame (the root stands on the carrier, unturned).
-    private func local(_ p: SIMD2<Double>, y: Float, _ origin: SIMD2<Double>) -> SIMD3<Float> {
-        SIMD3(Float(p.x - origin.x), y, Float(p.y - origin.y))
     }
 }

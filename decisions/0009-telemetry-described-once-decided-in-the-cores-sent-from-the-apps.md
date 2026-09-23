@@ -101,6 +101,19 @@ between a result and the next face-off** (A0, A2). Fire-and-forget on a utility 
 **Not persisted across launches.** That would be a second persisted shape and a second write path
 near the frame, bought for events whose loss changes no decision we will make.
 
+> **Narrowed 2026-09-23, when the sending path was built (spec 0.24.0).** The heading above says
+> "nothing about it enters the core", and that turned out to be half a sentence. What must stay in the
+> platform layer is everything that *waits*: the mutable buffer, the thread, the request, the socket.
+> The **rule** — the bound, oldest-dropped-first, and which dataset a build writes into — moved into
+> the cores, because of a fact this ADR did not know: **the app-target suites are not in the routine
+> pipeline.** `swift test` and `./gradlew :core:test` are; `xcodebuild test` is deliberately not (the
+> Mac is shared and simulators are not a routine cost, AGENTS: Verification). A bound and a drop order
+> living in the iOS app layer would therefore be untested on iOS forever, and AGENTS is explicit that
+> a test in no pipeline gets removed. So the rule sits where a test can reach it on both platforms,
+> and the waiting sits where it cannot cost a frame. The purpose of the original sentence — no I/O and
+> no clock in the core — is intact, and a source-level test now asserts it symbol by symbol rather
+> than trusting the prose.
+
 ### Persistence: a second file beside the save
 
 `device.json`, in the same directory as `save.json` (Application Support / `filesDir`), declared in

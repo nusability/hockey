@@ -20,7 +20,6 @@ internal fun Match.thinkGoalie(g: Int, dt: Double) {
     val s = skill[team]
     val al = Tuning.AI.Alert
     val alerted = alert[team] > 0
-    var aimX = ball.pos.x
     val released = ball.lastReleaseTime
     var delay = gl.readBase + gl.readPerUnskill * (1 - s)
     if (alerted) delay *= al.goalieReadScale
@@ -28,17 +27,23 @@ internal fun Match.thinkGoalie(g: Int, dt: Double) {
     // defence is only ever sharpened, never dulled, so no goal is handed to anyone (A0).
     delay *= (1 - Tuning.AI.Balance.chaseGoalieRead * chase(team))
     val reacted = released == null || time - released > delay
-    val towards = dir * ball.vel.z < -gl.readSpeed && reacted
-    if (towards) {
+    // §7.8 — reading a **shot**: a ball travelling on its own that will cross this line within the
+    // horizon. Not a ball someone is carrying, which is not a shot however fast they skate, and not
+    // one that will not arrive: the positioning line below already shades toward the ball at range,
+    // gently, and that is all a keeper should do about an attack still coming.
+    var reading: Double? = null
+    if (ball.carrier == null && reacted && dir * ball.vel.z < -gl.readSpeed) {
         val t = (gz - ball.pos.z) / ball.vel.z
-        val lead = if (alerted) al.goalieLead else gl.readLeadBase + gl.readLeadPerSkill * s
-        if (t > 0 && t < gl.readHorizon) aimX = ball.pos.x + ball.vel.x * t * lead
+        if (t > 0 && t < gl.readHorizon) {
+            val lead = if (alerted) al.goalieLead else gl.readLeadBase + gl.readLeadPerSkill * s
+            reading = ball.pos.x + ball.vel.x * t * lead
+        }
     }
     val toBall = Pitch.unit(ball.pos.x, ball.pos.z - gz)
     val out = gl.outBase + gl.outPerSkill * s
     var x = toBall.x * out * gl.xScale
     var z = gz + toBall.z * out
-    if (towards) x = aimX * (if (alerted) al.goalieAimFactor else gl.readAimFactor)
+    if (reading != null) x = reading * (if (alerted) al.goalieAimFactor else gl.readAimFactor)
     val xLimit = Tuning.Pitch.postX + gl.xLimitExtra
     x = Pitch.clamp(x, -xLimit, xLimit)
     z = gz + dir * Pitch.clamp(dir * (z - gz), gl.frontMin, gl.frontMax)

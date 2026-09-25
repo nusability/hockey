@@ -120,6 +120,23 @@ func drill(_ d: Drill, seed: UInt64) -> MatchVector {
                 every: 30, maxTicks: Int(d.seconds * 120) + 20 * 120, inputs: [])
 }
 
+/// The first seed from `from` whose scrimmage the **defence** scores in.
+///
+/// Drill 8's claim is that free play runs both ways, and `MatchVectorTests` checks the corpus still
+/// covers it. Which seed happens to produce an opposition goal moves whenever the AI or the keeper
+/// changes — it stopped being 0x5EED0008 the day §7.8's keeper stopped reading carried balls as
+/// shots — so the seed is searched for rather than written down, the way the overtime one is.
+func scrimmageSeed(from: UInt64) -> UInt64 {
+    var seed = from
+    while true {
+        var v = drill(.scrimmage, seed: seed)
+        v.inputs = playTape(v, .shootFirst)
+        liftCounts = [:]
+        if v.run().contains(where: { $0.hasPrefix("e ") && $0.contains(" goal 1 ") }) { return seed }
+        seed += 1
+    }
+}
+
 /// The first seed from `from` whose cup match reaches sudden-death overtime.
 func overtimeSeed(from: UInt64) -> UInt64 {
     var seed = from
@@ -148,8 +165,8 @@ var entries = [
           vector: drill(.pass, seed: 0x5EED_0002), policy: .giveAndGo),
     Entry(file: "drill5-moving-cones.txt", about: "Drill 5 (§10): patrolling dummies block; the player shoots on a shot snap and passes only forward.",
           vector: drill(.moving, seed: 0x5EED_0005), policy: .shootFirst),
-    Entry(file: "drill8-scrimmage.txt", about: "Drill 8 (§10): free play — both sides may score, every goal resets; the player shoots on a shot snap and passes only forward.",
-          vector: drill(.scrimmage, seed: 0x5EED_0008), policy: .shootFirst),
+    Entry(file: "drill8-scrimmage.txt", about: "Drill 8 (§10): free play — both sides may score, every goal resets; the player shoots on a shot snap and passes only forward. Seed = the first from 0x5EED0008 the defence scores in.",
+          vector: drill(.scrimmage, seed: scrimmageSeed(from: 0x5EED_0008)), policy: .shootFirst),
     Entry(file: "demo-field.txt", about: "A demo match (§9): Moss Foxes v Rocket Lynx, field hockey, 2-minute periods, both sides automatic.",
           vector: MatchVector(setup: .match(matchSetup(seed: 0xD3_0001, sport: .field, home: .mossfoxes, away: .rocketlynx,
                                                       period: 120, cup: false, control: .automatic)),

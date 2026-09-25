@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.25.2
+Spec-Version: 0.26.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -632,9 +632,22 @@ It keeps out of its own crease and within the §7.5 clamp.
 - **Positioning:** on the line from the goal centre toward the ball, `(1.2 + 0.5 × skill)` out,
   x scaled by 1.6. It stays within `±(3.0 + 0.4)` in x and `0.6–2.4` in front of the line.
 - **Reading a shot:** once `0.16 + 0.2 × (1 − skill)` s have passed since the last release of any
-  kind, a ball (loose or carried) whose velocity toward the goal line (its z-component) exceeds 4
-  sets the goalie's x to 0.9 × an aim x: the predicted crossing x (lead factor `0.75 + 0.25 × skill`) when it arrives within
-  2.5 s, else the ball's current x.
+  kind, a **loose** ball whose velocity toward the goal line (its z-component) exceeds 4 **and which
+  reaches that line within 2.5 s** sets the goalie's x to 0.9 × the predicted crossing x (lead factor
+  `0.75 + 0.25 × skill`). Anything else leaves the goalie on its positioning line above.
+
+  **Both of those conditions are the words "a shot" taken literally,** and each of them was once
+  missing. A ball a player is *carrying* is not a shot however fast they skate at goal, and a ball
+  that will not arrive is not one either — the rule used to read both, and to fall back to the
+  ball's **current** x when it could not predict a crossing. The result was a goalie that committed
+  to the x of a player running at it from the far end of the pitch and then had nowhere to go when
+  they cut the other way: measured over 365 face-offs, a keeper was "reading a shot" of a *carried*
+  ball 85 % of the time it was reading at all, on that current-x fallback 76 % of the time, with the
+  ball a mean of **26.7 m** away — and up to 57 m, the whole length of the pitch. The positioning
+  line already shades the goalie toward the ball at range, by a metre or so, and shading is all a
+  keeper should do about an attack that is still only coming. It keeps §7.9's promise about the
+  alerted keeper true of the ordinary one too: **a keeper who is early is legible; one who teleports
+  is not.**
 - **Smothering:** a loose, slow ball (under 7) within 3.5, `|x| < 6` and within 5 of the line
   draws the goalie straight onto it.
 - **With the ball:** it stands still. After 0.4 s it picks the most open outfield team-mate

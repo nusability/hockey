@@ -13,24 +13,29 @@ extension Match {
         let s = skill[team]
         typealias A = Tuning.AI.Alert
         let alerted = alert[team] > 0
-        var aimX = ball.pos.x
         var delay = G.readBase + G.readPerUnskill * (1 - s)
         if alerted { delay = delay * A.goalieReadScale }
         // §7.10 — a side that is behind has its keeper read sooner. Never the other way round: a
         // defence is only ever sharpened, never dulled, so no goal is handed to anyone (A0).
         delay = delay * (1 - Tuning.AI.Balance.chaseGoalieRead * chase(team))
         let reacted = ball.lastReleaseTime.map { time - $0 > delay } ?? true
-        let towards = dir * ball.vel.z < -G.readSpeed && reacted
-        if towards {
+        // §7.8 — reading a **shot**: a ball travelling on its own that will cross this line within
+        // the horizon. Not a ball someone is carrying, which is not a shot however fast they skate,
+        // and not one that will not arrive: the positioning line below already shades toward the
+        // ball at range, gently, and that is all a keeper should do about an attack still coming.
+        var reading: Double?
+        if ball.carrier == nil && reacted && dir * ball.vel.z < -G.readSpeed {
             let t = (gz - ball.pos.z) / ball.vel.z
-            let lead = alerted ? A.goalieLead : G.readLeadBase + G.readLeadPerSkill * s
-            if t > 0 && t < G.readHorizon { aimX = ball.pos.x + ball.vel.x * t * lead }
+            if t > 0 && t < G.readHorizon {
+                let lead = alerted ? A.goalieLead : G.readLeadBase + G.readLeadPerSkill * s
+                reading = ball.pos.x + ball.vel.x * t * lead
+            }
         }
         let toBall = Pitch.unit(ball.pos.x, ball.pos.z - gz)
         let out = G.outBase + G.outPerSkill * s
         var x = toBall.x * out * G.xScale
         var z = gz + toBall.z * out
-        if towards { x = aimX * (alerted ? A.goalieAimFactor : G.readAimFactor) }
+        if let aimX = reading { x = aimX * (alerted ? A.goalieAimFactor : G.readAimFactor) }
         let xLimit = Tuning.Pitch.postX + G.xLimitExtra
         x = Pitch.clamp(x, -xLimit, xLimit)
         z = gz + dir * Pitch.clamp(dir * (z - gz), G.frontMin, G.frontMax)

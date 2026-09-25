@@ -85,6 +85,35 @@ export const RULES = {
   drillLost: 1.2,       // training: pause after losing the puck
 };
 
+/**
+ * How wide the goal is **as a target for the player's own release** (§5.2).
+ *
+ * The old rule gave the goal a flat 0.40 rad half-window that only ever *widened* as you closed —
+ * it never shrank with distance. Beyond about 7 m that is wider than the goal actually is, and from
+ * 25 m it claims a target three times the real mouth. So a release meant for a team-mate standing
+ * at nearly the same angle snapped to a shot instead, and the ball went the length of the pitch to
+ * the opposing keeper. That is the thing to kill.
+ *
+ * The window is now the goal's **real angular half-size** from where the carrier stands,
+ * `atan(halfMouth / distance)` — the same thing the eye sees. It needs no proximity term: standing
+ * on the goal line the mouth genuinely does fill your view, and the arctangent says so.
+ *
+ *     distance    5 m     14 m    25 m    40 m
+ *     real goal   0.54    0.21    0.12    0.075   rad
+ *     old window  0.59    0.40    0.40    0.40
+ */
+export const GOAL_AIM = {
+  halfMouth: 3.0,       // the goal mouth's half-width (§1)
+  // A little wider than the real mouth, so aiming at a corner still reads as a shot rather than
+  // needing the centre. Turn this to taste; 1.0 is the honest geometry.
+  generosity: 1.25,
+  // Never quite zero — a deliberate long-range shot must stay possible, it just stops being the
+  // thing you get by accident.
+  min: 0.05,
+  // Never wider than the old close-range window, so standing on top of the goal feels unchanged.
+  max: 0.70,
+};
+
 // The AI carrier's shot, scored on the same scale as its pass so the two can be compared
 // (SMASH-55, SMASH-56). Prototype numbers — the whole point of them being here is that they get
 // turned by hand while playing, and only what survives goes into the spec.

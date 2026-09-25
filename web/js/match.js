@@ -1,6 +1,12 @@
-import { RINK, PLAYER, PUCK, RULES, ORBIT, FACEOFF_SPOTS, SPORTS } from './config.js';
+import { RINK, PLAYER, PUCK, RULES, ORBIT, GOAL_AIM, FACEOFF_SPOTS, SPORTS } from './config.js';
 import { clamp, norm, sdRoundRect, roundRectNormal, rand, noise } from './math.js';
 import { updateTeamAI } from './ai.js';
+
+/**
+ * `?aim=old` plays the flat 0.40 rad goal window that never shrank with distance — the one that
+ * stole passes aimed near the goal from range. Here so the two can be played back to back.
+ */
+const OLD_AIM = typeof location !== 'undefined' && new URLSearchParams(location.search).get('aim') === 'old';
 import { formationById, DEFAULT_FORMATION } from './formations.js';
 
 const HW = RINK.width / 2;
@@ -189,8 +195,14 @@ export class Match {
     const gAng = Math.atan2(0 - p.x, gz - p.z);
     const gDiff = Math.abs(angleDiff(gAng, a));
     const dGoal = Math.hypot(p.x, gz - p.z);
-    // the goal mouth is wide up close: widen the snap window with proximity
-    const goalWindow = ORBIT.assistGoal + clamp((14 - dGoal) / 14, 0, 1) * 0.3;
+    // How wide the goal is as a target. OLD: a flat 0.40 that only widened as you closed, so from
+    // range it claimed a target far bigger than the goal and stole passes aimed near it. NEW: the
+    // goal's real angular half-size from here, which shrinks with distance the way the eye says it
+    // should and needs no proximity term of its own.
+    const goalWindow = OLD_AIM
+      ? ORBIT.assistGoal + clamp((14 - dGoal) / 14, 0, 1) * 0.3
+      : clamp(Math.atan(GOAL_AIM.halfMouth * GOAL_AIM.generosity / Math.max(dGoal, 1e-3)),
+              GOAL_AIM.min, GOAL_AIM.max);
     if (gDiff < goalWindow && (!best || gDiff < bestDiff * 0.9 || dGoal < 9)) best = { kind: 'goal', diff: gDiff };
     return best;
   }

@@ -76,8 +76,17 @@ internal fun Match.snap(c: Int, a: Double): Snap? {
     val gz = Pitch.attackGoalZ(me.team)
     val goalDiff = abs(Pitch.angleDiff(Pitch.heading(0.0 - me.pos.x, gz - me.pos.z), a))
     val dGoal = Pitch.length(0.0 - me.pos.x, gz - me.pos.z)
-    val closing = Pitch.clamp((o.goalWindowWidenDistance - dGoal) / o.goalWindowWidenDistance, 0.0, 1.0)
-    val window = o.goalWindow + o.goalWindowWiden * closing
+    // §5.2 — the goal is as wide a target as it actually looks from here: its own angular half-size,
+    // `atan(halfMouth × generosity / distance)`. It shrinks with distance, which is the whole point:
+    // a flat window claimed a target five times the real mouth from 40 m and took releases meant for
+    // a team-mate standing at nearly the same angle.
+    val window = Pitch.clamp(
+        DetMath.atan2(Tuning.Pitch.goalMouthWidth / 2 * o.goalAimGenerosity, dGoal),
+        o.goalWindowMin, o.goalWindowMax)
+    // …and from your own half it is not a target at all. The window shrinking is not enough on its
+    // own: a team-mate who happens to lie near the line to the far goal is further off in angle than
+    // the goal is, so the goal keeps winning the comparison however narrow it gets.
+    if (dGoal > o.goalSnapRange) return pass?.let { Snap.Pass(it) }
     if (goalDiff < window && (pass == null || goalDiff < o.goalOverPassRatio * passDiff || dGoal < o.goalForceDistance)) {
         return Snap.Shot
     }

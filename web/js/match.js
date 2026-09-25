@@ -203,7 +203,11 @@ export class Match {
       ? ORBIT.assistGoal + clamp((14 - dGoal) / 14, 0, 1) * 0.3
       : clamp(Math.atan(GOAL_AIM.halfMouth * GOAL_AIM.generosity / Math.max(dGoal, 1e-3)),
               GOAL_AIM.min, GOAL_AIM.max);
-    if (gDiff < goalWindow && (!best || gDiff < bestDiff * 0.9 || dGoal < 9)) best = { kind: 'goal', diff: gDiff };
+    // …and from your own half the goal is not offered at all.
+    const goalOffered = OLD_AIM || dGoal <= GOAL_AIM.snapRange;
+    if (goalOffered && gDiff < goalWindow && (!best || gDiff < bestDiff * 0.9 || dGoal < 9)) {
+      best = { kind: 'goal', diff: gDiff };
+    }
     return best;
   }
 

@@ -74,11 +74,12 @@ public enum Tuning {
         public static let leadSpeedMin: Double = 14.0
         public static let leadSpeedBase: Double = 11.0
         public static let leadSpeedPerMetre: Double = 0.55
-        public static let goalWindow: Double = 0.4
-        public static let goalWindowWiden: Double = 0.3
-        public static let goalWindowWidenDistance: Double = 14.0
+        public static let goalAimGenerosity: Double = 1.25
+        public static let goalWindowMin: Double = 0.05
+        public static let goalWindowMax: Double = 0.7
         public static let goalOverPassRatio: Double = 0.9
         public static let goalForceDistance: Double = 9.0
+        public static let goalSnapRange: Double = 26.0
     }
     public enum Release {
         public static let lateGrace: [Double] = [0.0625, 0.125, 0.1875, 0.25]

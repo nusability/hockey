@@ -141,14 +141,23 @@ class MatchContractTest {
         assertNull(m.snap(0, lead + 0.365))
     }
 
-    @Test fun theGoalWindowWidensFrom14To0Away() {
+    /**
+     * §5.2 — the goal window is its own angular half-size, so it narrows with distance rather than
+     * widening from a flat floor. `GoalWindowTest` covers the rule; this pins the two edges the
+     * contract is read off.
+     */
+    @Test fun theGoalWindowIsTheGoalsAngularHalfSize() {
         val m = passAtRightAngle()
-        assertEquals(Snap.Shot, m.snap(0, 0.39))
-        assertNull(m.snap(0, 0.41))
+        // 7 away: atan(3.75 / 7) = 0.4917.
         m.players[0].pos = Vec(0.0, 19.0)
         m.players[1].pos = Vec(10.0, 19.0)
-        assertEquals(Snap.Shot, m.snap(0, 0.54))
-        assertNull(m.snap(0, 0.56))
+        assertEquals(Snap.Shot, m.snap(0, 0.48))
+        assertNull(m.snap(0, 0.50))
+        // 16 away: atan(3.75 / 16) = 0.2292 — less than half what the old flat 0.40 gave.
+        m.players[0].pos = Vec(0.0, 10.0)
+        m.players[1].pos = Vec(10.0, 10.0)
+        assertEquals(Snap.Shot, m.snap(0, 0.22))
+        assertNull(m.snap(0, 0.24))
     }
 
     @Test fun theGoalBeatsAPassOnlyWhenClearlyCloserInAngleOrWithin9() {

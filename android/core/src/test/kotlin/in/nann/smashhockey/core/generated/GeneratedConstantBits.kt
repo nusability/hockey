@@ -48,11 +48,12 @@ internal object GeneratedConstantBits {
         Triple("Tuning.Orbit.leadSpeedMin", Tuning.Orbit.leadSpeedMin, 4624070917402656768L), // 0x402C000000000000
         Triple("Tuning.Orbit.leadSpeedBase", Tuning.Orbit.leadSpeedBase, 4622382067542392832L), // 0x4026000000000000
         Triple("Tuning.Orbit.leadSpeedPerMetre", Tuning.Orbit.leadSpeedPerMetre, 4603129179135383962L), // 0x3FE199999999999A
-        Triple("Tuning.Orbit.goalWindow", Tuning.Orbit.goalWindow, 4600877379321698714L), // 0x3FD999999999999A
-        Triple("Tuning.Orbit.goalWindowWiden", Tuning.Orbit.goalWindowWiden, 4599075939470750515L), // 0x3FD3333333333333
-        Triple("Tuning.Orbit.goalWindowWidenDistance", Tuning.Orbit.goalWindowWidenDistance, 4624070917402656768L), // 0x402C000000000000
+        Triple("Tuning.Orbit.goalAimGenerosity", Tuning.Orbit.goalAimGenerosity, 4608308318706860032L), // 0x3FF4000000000000
+        Triple("Tuning.Orbit.goalWindowMin", Tuning.Orbit.goalWindowMin, 4587366580439587226L), // 0x3FA999999999999A
+        Triple("Tuning.Orbit.goalWindowMax", Tuning.Orbit.goalWindowMax, 4604480259023595110L), // 0x3FE6666666666666
         Triple("Tuning.Orbit.goalOverPassRatio", Tuning.Orbit.goalOverPassRatio, 4606281698874543309L), // 0x3FECCCCCCCCCCCCD
         Triple("Tuning.Orbit.goalForceDistance", Tuning.Orbit.goalForceDistance, 4621256167635550208L), // 0x4022000000000000
+        Triple("Tuning.Orbit.goalSnapRange", Tuning.Orbit.goalSnapRange, 4628011567076605952L), // 0x403A000000000000
         Triple("Tuning.Release.lateGrace[0]", Tuning.Release.lateGrace[0], 4589168020290535424L), // 0x3FB0000000000000
         Triple("Tuning.Release.lateGrace[1]", Tuning.Release.lateGrace[1], 4593671619917905920L), // 0x3FC0000000000000
         Triple("Tuning.Release.lateGrace[2]", Tuning.Release.lateGrace[2], 4595923419731591168L), // 0x3FC8000000000000

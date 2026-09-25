@@ -112,6 +112,12 @@ export const GOAL_AIM = {
   min: 0.05,
   // Never wider than the old close-range window, so standing on top of the goal feels unchanged.
   max: 0.70,
+  // Past this the goal is not a snap target at all — 26 is the centre line, so it means "not from
+  // your own half". The narrow window alone does NOT cover the owner's case: a team-mate who
+  // happens to lie near the line to the far goal is further off in angle than the goal is, so the
+  // goal keeps winning the 0.9× comparison however small its window gets. Measured: 17° off the
+  // mate from 46 m still went to the goal with the window alone.
+  snapRange: 26.0,
 };
 
 // The AI carrier's shot, scored on the same scale as its pass so the two can be compared

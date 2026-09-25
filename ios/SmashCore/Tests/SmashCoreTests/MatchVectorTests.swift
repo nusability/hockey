@@ -44,7 +44,10 @@ import Testing
     /// cup match reaches sudden death, the player's tape passes through every branch of §5.3.
     @Test func theVectorsCoverWhatTheyClaim() throws {
         func events(_ name: String) throws -> [String] { try Self.load(name).recorded.filter { $0.hasPrefix("e ") } }
-        #expect(try events("drill1-first-shot.txt").last == "e 1855 end won")
+        // The claim is that the drill is WON, not the tick it happens on — that moves whenever a
+        // rule the tape plays under changes, and pinning it makes an unrelated fix look like a
+        // regression. The tape itself is pinned line by line by `replays`.
+        #expect(try events("drill1-first-shot.txt").last?.hasSuffix("end won") == true)
         let giveAndGo = try events("drill2-give-and-go.txt").filter { $0.contains(" goal ") }
         #expect(giveAndGo.count == 3 && giveAndGo.allSatisfy { !$0.hasSuffix(" - 0") })
         #expect(try events("drill5-moving-cones.txt").contains { $0.contains(" block ") })

@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.26.0
+Spec-Version: 0.27.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -362,9 +362,31 @@ At any orbit angle, a release **snaps**:
   (§8.9, the ice sport only): the arrow simply does not go green for them, and the release that
   would have been a pass to them is free instead. The arrow never promises a ball that the whistle
   would take back (A0), and the apps mark the team-mate so the player can see why (§8.9, §16.4);
-- **to a shot** when the goal centre lies within the goal window of the orbit angle — **0.40 rad,
-  widened by up to 0.30 as the carrier closes from 14 to 0 away**. The goal wins over a pass when
-  its angle is less than 0.9 × the pass's, or the carrier is within 9 of goal.
+- **to a shot** when the goal centre lies within the **goal window** of the orbit angle. That window
+  is the goal's own **angular half-size from where the carrier stands** — `atan(3.0 × 1.25 /
+  distance to the goal centre)`, clamped to **0.05 … 0.70 rad**. The goal wins over a pass when its
+  angle is less than 0.9 × the pass's, or the carrier is within 9 of goal.
+
+  **A target is only as wide as it looks.** The window used to be a flat 0.40 rad that widened as
+  the carrier closed and never shrank, so from 25 out it claimed a target three times the real mouth
+  and from a player's own goal line five times — and a release meant for a team-mate standing at
+  nearly the same angle was taken by the goal instead, sending the ball the length of the pitch to
+  the opposing keeper. An arctangent is what the eye does, and it needs no proximity term of its own:
+  standing on the goal line the mouth genuinely does fill the view.
+
+  | distance | 3 | 5 | 9 | 14 | 20 | 26 | 35 | 45 |
+  |---|---|---|---|---|---|---|---|---|
+  | window | 40° | 37° | 23° | 15° | 11° | 8° | 6° | 5° |
+
+  The `1.25` is the only taste in it: a little wider than the mouth, so aiming at a **corner** still
+  reads as a shot rather than needing the centre.
+
+  **And from beyond 26 — the centre line — the goal is not a snap target at all.** A narrower window
+  is not enough by itself: a team-mate who happens to lie near the line to the far goal is *further
+  off in angle* than the goal is, so the goal goes on winning the 0.9 × comparison however small its
+  window gets. From your own half you are not shooting, so the goal is simply not offered, and a
+  release aimed that way is free (§5.3) rather than a shot — the ball still goes where the arrow
+  points, it is just not an assisted shot on goal.
 
 **The aim arrow** shows the direction and what a release now would snap to — the prototype's arrow,
 and only round **the player's own carrier** (with the white ring the ball circles on). It stands on

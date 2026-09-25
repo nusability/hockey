@@ -63,11 +63,19 @@ lead_velocity_factor = 0.8      # lead position: position + 0.8 × velocity × t
 lead_speed_min = 14.0           # t = distance / max(14, 11 + 0.55 × distance)
 lead_speed_base = 11.0
 lead_speed_per_metre = 0.55
-goal_window = 0.40              # rad
-goal_window_widen = 0.30        # widened by up to 0.30 as the carrier closes from 14 to 0
-goal_window_widen_distance = 14.0
+# The goal's snap window is its ACTUAL angular half-size from the carrier: atan(3.0 × generosity /
+# distance). It shrinks with distance the way the eye says it should, so a release meant for a
+# team-mate is no longer taken by a goal 40 m away that claimed a target five times its real size.
+goal_aim_generosity = 1.25      # a little wider than the mouth, so a corner still reads as a shot
+goal_window_min = 0.05          # rad — a deliberate long shot stays possible
+goal_window_max = 0.70          # rad — never wider than standing on top of the goal used to be
 goal_over_pass_ratio = 0.9      # the goal wins when its angle < 0.9 × the pass's
 goal_force_distance = 9.0       # … or the carrier is within 9 of goal
+# Past this the goal is not a snap target at all — 26 is the centre line, so it means "not from
+# your own half". A narrow window alone does not cover it: a team-mate who happens to lie near the
+# line to the far goal is further off in angle than the goal itself, so the goal keeps winning the
+# comparison however small its window gets. From your own half you are not shooting.
+goal_snap_range = 26.0
 
 [release] # §5.3–§5.4
 late_grace = [0.0625, 0.125, 0.1875, 0.25]      # instants looked back at (s)

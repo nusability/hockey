@@ -75,11 +75,12 @@ object Tuning {
         const val leadSpeedMin: Double = 14.0
         const val leadSpeedBase: Double = 11.0
         const val leadSpeedPerMetre: Double = 0.55
-        const val goalWindow: Double = 0.4
-        const val goalWindowWiden: Double = 0.3
-        const val goalWindowWidenDistance: Double = 14.0
+        const val goalAimGenerosity: Double = 1.25
+        const val goalWindowMin: Double = 0.05
+        const val goalWindowMax: Double = 0.7
         const val goalOverPassRatio: Double = 0.9
         const val goalForceDistance: Double = 9.0
+        const val goalSnapRange: Double = 26.0
     }
     object Release {
         val lateGrace: List<Double> = listOf(0.0625, 0.125, 0.1875, 0.25)

@@ -112,14 +112,21 @@ import Testing
         #expect(m.snap(0, orbit: lead + 0.365) == nil)
     }
 
-    @Test func theGoalWindowWidensFrom14To0Away() {
+    /// §5.2 — the goal window is its own angular half-size, so it narrows with distance rather than
+    /// widening from a flat floor. `GoalWindowTests` covers the rule; this pins the two edges the
+    /// contract is read off.
+    @Test func theGoalWindowIsTheGoalsAngularHalfSize() {
         var m = Self.passAtRightAngle()
-        #expect(m.snap(0, orbit: 0.39) == .shot)       // 26 away: 0.40
-        #expect(m.snap(0, orbit: 0.41) == nil)
-        m.players[0].pos = Vec(x: 0, z: 19)             // 7 away: 0.40 + 0.30 × 0.5
+        // 7 away: atan(3.75 / 7) = 0.4917.
+        m.players[0].pos = Vec(x: 0, z: 19)
         m.players[1].pos = Vec(x: 10, z: 19)
-        #expect(m.snap(0, orbit: 0.54) == .shot)
-        #expect(m.snap(0, orbit: 0.56) == nil)
+        #expect(m.snap(0, orbit: 0.48) == .shot)
+        #expect(m.snap(0, orbit: 0.50) == nil)
+        // 16 away: atan(3.75 / 16) = 0.2292 — less than half what the old flat 0.40 gave.
+        m.players[0].pos = Vec(x: 0, z: 10)
+        m.players[1].pos = Vec(x: 10, z: 10)
+        #expect(m.snap(0, orbit: 0.22) == .shot)
+        #expect(m.snap(0, orbit: 0.24) == nil)
     }
 
     @Test func theGoalBeatsAPassOnlyWhenClearlyCloserInAngleOrWithin9() {

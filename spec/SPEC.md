@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.25.1
+Spec-Version: 0.25.2
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -1218,6 +1218,14 @@ through a word, and the slab it sits on **grows in height** to hold them. Only l
 nowhere to break — a single long word — still shrinks to fit, as it always did. Both platforms
 break a string in the same place, so a banner that needs two lines in English and one in German
 reads the same way on both phones.
+
+**A key is sized to hold its caption on one line, in every language it ships in.** Wrapping is the
+safety net for copy that outgrows its key, not the way a key is meant to look: a key that wraps
+grows in height and, sized for one line, grows into whatever was laid out beside it. So every
+caption a key can carry — including the other strings the same key shows in other states, and every
+language — is measured against the key's room when the screen is authored, and the key is given the
+width or the lettering that holds the widest of them. Where no width inside the design frame can
+hold a caption at the lettering a screen wants, **the lettering gives way, not the frame**.
 
 **A transition finishes.** An element that arrives ends on its exact pose; an element that leaves
 ends hidden, and is only then taken off the screen. This holds however the motion is being played —

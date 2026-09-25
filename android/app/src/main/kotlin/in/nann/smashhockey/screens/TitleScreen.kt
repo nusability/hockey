@@ -39,8 +39,13 @@ class TitleScreen(game: Game) :
                 entrance = Entrance.Pop), at(0f, y0 + 1.6f))
         }
         val over = game.save.season?.isFinished ?: true
+        // 0.11 is the largest lettering at which every caption this key can carry — CONTINUE
+        // SEASON, NEXT SEASON and both German strings — sits on one line in the 1.5 plate. Above it
+        // CONTINUE SEASON wraps and the key grows into the trophies above it (§16). A hair smaller
+        // than the secondary keys below: the plate's size and the sun colour carry the hierarchy
+        // here, not the lettering.
         val season = part(BlockButton(kit, L(if (over) CopyKey.TITLE_NEXT_SEASON else CopyKey.TITLE_CONTINUE), "title_season_button",
-            BlockButton.Style.PRIMARY, 1.5f, 0.4f, 0.14f) {
+            BlockButton.Style.PRIMARY, 1.5f, 0.4f, 0.11f) {
             val seed = MatchPlan.seed()
             if (game.save.season == null) game.commit { it.startSeason(seed) }
             game.go(Game.Place.Hub)

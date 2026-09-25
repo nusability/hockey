@@ -27,8 +27,13 @@ final class TitleScreen: Screen {
         }
 
         let over = game.save.season?.isFinished ?? true
+        // 0.11 is the largest lettering at which every caption this key can carry — CONTINUE
+        // SEASON, NEXT SEASON and both German strings — sits on one line in the 1.5 plate. Above
+        // it CONTINUE SEASON wraps and the key grows into the trophies above it (§16). A hair
+        // smaller than the secondary keys below: the plate's size and the sun colour carry the
+        // hierarchy here, not the lettering.
         let season = part(BlockButton(L(over ? .titleNextSeason : .titleContinue), id: "title_season_button",
-                                      style: .primary, size: [1.5, 0.4], textHeight: 0.14, motion: m) { [weak game] in
+                                      style: .primary, size: [1.5, 0.4], textHeight: 0.11, motion: m) { [weak game] in
             guard let game else { return }
             let seed = MatchPlan.seed()
             if game.save.season == nil { game.commit { try $0.startSeason(seed: seed) } }

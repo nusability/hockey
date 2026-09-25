@@ -85,6 +85,33 @@ export const RULES = {
   drillLost: 1.2,       // training: pause after losing the puck
 };
 
+// The AI carrier's shot, scored on the same scale as its pass so the two can be compared
+// (SMASH-55, SMASH-56). Prototype numbers — the whole point of them being here is that they get
+// turned by hand while playing, and only what survives goes into the spec.
+//
+// Today the carrier rolls for a shot BEFORE it ever scores a pass, so a mediocre shot from 20 out
+// always beats an excellent pass that was never considered; and the shot has no test that the
+// carrier is in FRONT of the goal, so standing behind the net it shoots back up the pitch through
+// the cloth. Both are what the owner sees as "yeeting it from anywhere" and "not passing back from
+// behind the goal".
+export const SHOT = {
+  // A shot at all: in front of the goal line it attacks by this much, and inside this x band.
+  minInFront: 1.0,
+  maxX: 11.0,
+  // Worth this before anything else is added — the number the pass's 3.5 threshold is met on.
+  base: 2.0,
+  // Full marks for a shot from the goal mouth, none from the edge of range.
+  closeness: 7.0,
+  // Full marks from straight in front, none from the x band's edge.
+  central: 3.0,
+  // Through a body, when inside 6 and the shot is taken anyway.
+  throughBody: -5.0,
+  // The shot still has to be worth taking, not merely better than a bad pass.
+  threshold: 3.5,
+  // Forced, with nobody to pass to: a shot from further than this is a clear instead.
+  forcedRange: 24.0,
+};
+
 export const DEFAULT_TACTICS = {
   pressing: 0.55,   // how many players chase the carrier and how far out
   covering: 0.55,   // how strictly free players mark opponents

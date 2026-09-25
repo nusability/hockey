@@ -1,9 +1,16 @@
-import { RINK, ORBIT, PLAYER } from './config.js';
+import { RINK, ORBIT, PLAYER, SHOT } from './config.js';
 import { clamp, dist, lerp, norm, pointSegDist, noise } from './math.js';
 import { angleDiff } from './match.js';
 
 const HW = RINK.width / 2;
 const HL = RINK.length / 2;
+
+/**
+ * `?ai=old` plays the pre-SMASH-55 carrier: shoot rolled BEFORE a pass was ever scored, and no
+ * test that the carrier is in front of the goal. Here so the two can be played back to back while
+ * judging which numbers survive into the spec — the apps will only ever have the new one.
+ */
+const OLD_AI = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ai') === 'old';
 
 /**
  * Drives every player of `team`. Movement is automatic for everyone; only the
@@ -367,6 +374,27 @@ function nearest(list, pt) {
   return b;
 }
 
+/**
+ * What a shot from here is worth, on the same scale as a pass (SMASH-55, SMASH-56).
+ * `-Infinity` when it is not a shot at all. The three hard gates are the ones the old rule was
+ * missing or getting wrong:
+ *   - **in front of the goal it attacks.** Standing behind the net, the goal centre is a metre away
+ *     and the old test passed, so the carrier shot back up the pitch into the cloth.
+ *   - inside the x band, as before.
+ *   - inside range, and not through a body unless it is nearly on top of the goal, as before.
+ */
+function shotScore(match, p, goal, dGoal, laneClear, T, dir) {
+  if (dir * (goal.z - p.z) < SHOT.minInFront) return -Infinity;
+  if (Math.abs(p.x) > SHOT.maxX) return -Infinity;
+  const range = 11 + T.shooting * 11;
+  if (dGoal > range) return -Infinity;
+  if (!laneClear && dGoal >= 6) return -Infinity;
+  const closeness = clamp((range - dGoal) / range, 0, 1);
+  const central = clamp(1 - Math.abs(p.x) / SHOT.maxX, 0, 1);
+  return SHOT.base + SHOT.closeness * closeness + SHOT.central * central
+    + (laneClear ? 0 : SHOT.throughBody) + noise(0.8);
+}
+
 /** Pick what an AI carrier wants to do with the puck. */
 function chooseAction(match, p, T, skill, threatD) {
   const puck = match.puck;
@@ -376,9 +404,7 @@ function chooseAction(match, p, T, skill, threatD) {
   const dGoal = dist(p, goal);
   const forced = threatD < 2.6 || p.ai.holdTime > 3.5;
   const laneClear = shotLaneClear(match, p, goal);
-  const shootRange = 11 + T.shooting * 11;
-  const wantShot = dGoal < shootRange && (laneClear || dGoal < 6) && Math.abs(p.x) < 11;
-  if (wantShot && (Math.random() < 0.35 + T.shooting * 0.5 || forced)) return { kind: 'shoot' };
+  const shot = shotScore(match, p, goal, dGoal, laneClear, T, dir);
 
   const mates = match.teamPlayers(p.team).filter((m) => m !== p && m.role !== 'G' && m.role !== 'O');
   let best = null, bestScore = -Infinity;
@@ -396,10 +422,23 @@ function chooseAction(match, p, T, skill, threatD) {
     const score = openness * 1.2 + progress * 0.35 + lane + offside + danger + backward - (d > 18 ? (d - 18) * 0.4 : 0) + noise(0.8);
     if (score > bestScore) { bestScore = score; best = m; }
   }
+  // The shot and the pass are now weighed against each other, which is the whole change: the old
+  // rule rolled for a shot first and only scored a pass if that roll failed, so the pass never got
+  // to win. A shot has to be worth taking AND better than the ball on offer.
+  const shotWins = OLD_AI
+    ? (dGoal < 11 + T.shooting * 11 && (laneClear || dGoal < 6) && Math.abs(p.x) < 11)
+    : (shot > SHOT.threshold && shot > bestScore);
+  if (shotWins && (Math.random() < 0.35 + T.shooting * 0.5 || forced)) return { kind: 'shoot' };
+
   const passUrge = T.passing * 0.3 + (threatD < 4 ? 0.45 : 0) + (p.ai.holdTime > 2 ? 0.3 : 0);
   if (best && bestScore > 3.5 && (Math.random() < passUrge || forced)) return { kind: 'pass', target: best };
   if (forced && best) return { kind: 'pass', target: best };
-  if (forced && dGoal < 24) return { kind: 'shoot' };
+  // Forced with nobody to pass to: a hopeful shot from as far as forcedRange, but it still has to
+  // be AT the goal. Being behind the net is never a shot, however forced you are — that is the
+  // whole of SMASH-56. A blocked lane no longer matters; a hurried shot into a shin is a clear.
+  const forcedShotIsAtTheGoal = OLD_AI
+    || (dir * (goal.z - p.z) >= SHOT.minInFront && Math.abs(p.x) <= SHOT.maxX);
+  if (forced && forcedShotIsAtTheGoal && dGoal < SHOT.forcedRange) return { kind: 'shoot' };
   if (forced) return { kind: 'clear' };
   return null;
 }
@@ -407,6 +446,7 @@ function chooseAction(match, p, T, skill, threatD) {
 /** Movement for every carrier; release timing for AI carriers only. */
 function carrierAI(match, p, dt, T, skill) {
   const puck = match.puck;
+  const dir = match.dirOf(p.team);
   const goal = { x: 0, z: match.attackGoalZ(p.team) };
   const opps = match.opponents(p.team);
   const threat = nearest(opps.filter((o) => o.role !== 'G' && o.canSteal), p);
@@ -428,6 +468,15 @@ function carrierAI(match, p, dt, T, skill) {
         const t = dd / clamp(11 + dd * 0.55, ORBIT.passSpeedMin, 24);
         aim = Math.atan2(d.target.x + d.target.vx * t * 0.8 - p.x, d.target.z + d.target.vz * t * 0.8 - p.z);
       } else aim = Math.atan2(0 - p.x, goal.z - p.z);
+      // A decision is made, then the carrier keeps skating until the orbit lines up — so by the
+      // time the ball leaves it may have skated past the goal line, and a shot from there goes
+      // back up the pitch into the cloth. The geometry is re-checked at the moment of release, and
+      // a shot that has stopped being one is abandoned rather than taken (SMASH-56).
+      if (!OLD_AI && d.kind === 'shoot'
+          && (dir * (goal.z - p.z) < SHOT.minInFront || Math.abs(p.x) > SHOT.maxX)) {
+        p.ai.decision = null;
+        return;
+      }
       const tol = 0.22 + (1 - skill) * 0.12 + (threatD < 2.2 ? 0.5 : 0);
       if (Math.abs(angleDiff(aim, puck.orbit)) < tol) {
         if (d.kind === 'shoot') match.shootAtGoal(p, { accuracy, power: 20 + skill * 6 + Math.random() * 2 });

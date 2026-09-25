@@ -55,26 +55,26 @@ final class ResultScreen: Screen {
         let next: BlockButton
         switch outcome.plan {
         case .season:
-            next = BlockButton(L(.resultHub), id: "result_hub_button", style: .primary, size: [1.3, 0.38], textHeight: 0.13,
+            next = BlockButton(L(.resultHub), id: "result_hub_button", style: .primary, size: [1.55, 0.38], textHeight: 0.13,
                                motion: m) { [weak game] in game?.go(.hub) }
         case .drill(let d) where won:
             let later = Drill.allCases.firstIndex(of: d).map { $0 + 1 }.flatMap { $0 < Drill.allCases.count ? Drill.allCases[$0] : nil }
             if let later {
-                next = BlockButton(L(.resultNextDrill), id: "result_next_button", style: .primary, size: [1.3, 0.38],
+                next = BlockButton(L(.resultNextDrill), id: "result_next_button", style: .primary, size: [1.55, 0.38],
                                    textHeight: 0.13, motion: m) { [weak game] in game?.go(.training(intro: later)) }
             } else {
-                next = BlockButton(L(.resultDrills), id: "result_drills_button", style: .primary, size: [1.3, 0.38],
+                next = BlockButton(L(.resultDrills), id: "result_drills_button", style: .primary, size: [1.55, 0.38],
                                    textHeight: 0.13, motion: m) { [weak game] in game?.go(.training(intro: nil)) }
             }
         case .drill(let d):
             // A failed drill: again in one tap (A2), or back to the drills.
-            next = BlockButton(L(.resultAgain), id: "result_again_button", style: .primary, size: [1.3, 0.38],
+            next = BlockButton(L(.resultAgain), id: "result_again_button", style: .primary, size: [1.55, 0.38],
                                textHeight: 0.14, motion: m) { [weak game] in game?.play(.drill(d)) }
             part(BlockButton(L(.trainingTitle), id: "result_training_button", style: .quiet, size: [1.0, 0.3],
                              textHeight: 0.1, motion: m) { [weak game] in game?.go(.training(intro: nil)) },
                  at: at(0, bottom + 0.9))
         default:
-            next = BlockButton(L(.resultTitle), id: "result_title_button", style: .primary, size: [1.3, 0.38],
+            next = BlockButton(L(.resultTitle), id: "result_title_button", style: .primary, size: [1.55, 0.38],
                                textHeight: 0.14, motion: m) { [weak game] in game.map { $0.go($0.home) } }
         }
         next.bobs = true

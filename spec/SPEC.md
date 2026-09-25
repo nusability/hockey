@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.25.0
+Spec-Version: 0.25.1
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -1180,7 +1180,8 @@ Every screen is built from the 3D UI kit (ADR 0005, `conventions.md` UI): blocks
 panels and lettering in the world, moving on the shared motion tokens, reached by camera moves
 rather than cuts, with the demo match (§9) playing behind every menu. Every control has a stable
 accessibility identifier, the same on both platforms (`<screen>_<control>_button`), and every word
-comes from the declared copy (§14).
+comes from the declared copy (§14) — a caption spelled into the source is a word no translator can
+reach and no screen can be trusted to show.
 
 **The look.** Panels, slabs, cards and rows are **white**; everything that reads as lettering, a
 digit or an accent is a saturated colour from the game's own set — the sun yellow, the pink, the
@@ -1294,7 +1295,11 @@ the same on both platforms, from the season record alone — no screen counts th
 #### 16.4 The match
 The HUD: both teams' short codes on their kit colours, the score and the clock as flip digits, the
 period as three pips, and a pause button in a corner, clear of the pitch (§8.6's slow motion leaves
-the HUD at real speed). In overtime **OT** takes the clock's place. Goals flip the score and wobble
+the HUD at real speed). **The pause key carries a drawn glyph, not a word** — two upright bars,
+built from the kit's own rounded slabs like everything else in the scene, with its proportions
+declared once so both apps draw one icon. A key whose face is a glyph is not lettered and so never
+wraps or grows (§16's caption rule below); what it means is carried to VoiceOver and TalkBack by its
+label, which *is* declared copy (§14). In overtime **OT** takes the clock's place. Goals flip the score and wobble
 the board. The board holds **two cards a side**, the tens card blank below ten, so a side may reach
 99 without the board changing shape or running into the short codes: the tenth goal flips the tens
 card from blank to 1 like any other change, and every card stands in the same place at 0:0 and at

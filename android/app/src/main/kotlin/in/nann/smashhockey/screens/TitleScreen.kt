@@ -31,10 +31,8 @@ class TitleScreen(game: Game) :
             at(-0.05f, top - 0.90f, tilt = 0.05f))
         badge = part(Panel(kit, 0.42f, 0.30f, 0.12f, C.PINK, Entrance.Pop), at(0.62f, top - 1.22f, z = 0.05f, tilt = -0.22f))
         child(Label3D(kit, "3D", 0.16f, C.INK), parent = badge.content).show(0.0)
-        // The buttons stand on the bottom edge; the tagline and the trophies ride just above them.
+        // The buttons stand on the bottom edge; the trophies ride just above them.
         val y0 = bottom + 0.3f
-        part(Label3D(kit, L(CopyKey.TITLE_TAGLINE), S.TEXT_SMALL, C.INK, maxWidth = 1.7f, entrance = Entrance.Tumble),
-            at(0f, y0 + 1.78f))
         val c = game.save.career
         if (c != null && c.leagueTitles + c.cups > 0) {
             part(Label3D(kit, L(CopyKey.TITLE_TROPHIES, c.leagueTitles, c.cups), S.TEXT_SMALL, C.SUN, maxWidth = 1.6f,

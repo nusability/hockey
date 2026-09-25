@@ -60,7 +60,7 @@ class ResultScreen(game: Game, private val outcome: Outcome) :
         if (outcome.overtime) part(Label3D(kit, L(CopyKey.RESULT_OT), 0.07f, C.PAPER, maxWidth = 1.5f), at(0f, top - 1.8f))
 
         fun button(key: CopyKey, id: String, text: Float = 0.13f, action: () -> Unit) =
-            BlockButton(kit, L(key), id, BlockButton.Style.PRIMARY, 1.3f, 0.38f, text, action = action)
+            BlockButton(kit, L(key), id, BlockButton.Style.PRIMARY, 1.55f, 0.38f, text, action = action)
         val next = when {
             plan == MatchPlan.Season -> button(CopyKey.RESULT_HUB, "result_hub_button") { game.go(Game.Place.Hub) }
             plan is MatchPlan.Practice && won -> {

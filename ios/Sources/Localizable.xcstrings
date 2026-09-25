@@ -3240,23 +3240,6 @@
         }
       }
     },
-    "title.tagline" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ein Finger. Sechs Spieler. Ein Tor."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "One finger. Six players. One goal."
-          }
-        }
-      }
-    },
     "title.training" : {
       "extractionState" : "manual",
       "localizations" : {

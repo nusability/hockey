@@ -35,6 +35,10 @@ enum DesignTokens {
         static let buttonDepth: Float = 0.16
         static let buttonBaseInset: Float = -0.035
         static let textDepthRatio: Float = 0.32
+        static let pauseBarWidth: Float = 0.32
+        static let pauseBarGap: Float = 0.3
+        static let pauseBarCorner: Float = 0.1
+        static let pauseBarDepth: Float = 0.45
         static let textTitle: Float = 0.3
         static let textHeading: Float = 0.13
         static let textButton: Float = 0.12

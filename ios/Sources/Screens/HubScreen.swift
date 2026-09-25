@@ -49,7 +49,7 @@ final class HubScreen: Screen {
                 if game.commit({ try $0.startSeason(seed: seed) }) { game.go(.hub) }
             }
         } else {
-            go = BlockButton(L(.hubPlay), id: "hub_play_button", style: .primary, size: [1.1, 0.36], textHeight: 0.13,
+            go = BlockButton(L(.hubPlay), id: "hub_play_button", style: .primary, size: [1.25, 0.36], textHeight: 0.13,
                              motion: m) { [weak game] in game?.play(.season) }
         }
         go.bobs = true

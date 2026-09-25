@@ -69,8 +69,9 @@ final class MatchHud: Screen {
             overtime = child(Label3D(L(.hudOt), height: 0.11, colour: C.pink, entrance: .pop, motion: m),
                              at: at(-0.12, top - 0.6, z: 0.06), on: layer)
         }
-        pause = part(BlockButton("II", id: "match_pause_button", label: L(.hudPause), style: .quiet, size: [0.26, 0.26], textHeight: 0.11,
-                                 entrance: .pop, motion: m) { [weak game] in game?.pause(true) }, at: at(0.72, top - 0.26))
+        pause = part(BlockButton("", id: "match_pause_button", label: L(.hudPause), style: .quiet, size: [0.26, 0.26], textHeight: 0.11,
+                                 glyph: .pause, entrance: .pop, motion: m) { [weak game] in game?.pause(true) },
+                     at: at(0.72, top - 0.26))
         buildPausePanel(plan.isSeason)
     }
 

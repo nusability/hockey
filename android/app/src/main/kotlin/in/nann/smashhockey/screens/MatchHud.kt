@@ -80,7 +80,8 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
             // In overtime "OT" takes the clock's place (§16.4).
             overtime = child(Label3D(kit, L(CopyKey.HUD_OT), 0.11f, C.PINK, entrance = Entrance.Pop), at(-0.12f, top - 0.6f, z = 0.06f), layer)
         }
-        pause = part(BlockButton(kit, "II", "match_pause_button", BlockButton.Style.QUIET, 0.26f, 0.26f, 0.11f, Entrance.Pop,
+        pause = part(BlockButton(kit, "", "match_pause_button", BlockButton.Style.QUIET, 0.26f, 0.26f, 0.11f,
+            glyph = BlockButton.Glyph.PAUSE, entrance = Entrance.Pop,
             label = L(CopyKey.HUD_PAUSE)) { game.pause(true) }, at(0.72f, top - 0.26f))
         buildPausePanel(plan == MatchPlan.Season)
     }

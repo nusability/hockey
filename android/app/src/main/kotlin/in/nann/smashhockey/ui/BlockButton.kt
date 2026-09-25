@@ -21,11 +21,20 @@ class BlockButton(
     width: Float = Size.BUTTON_WIDTH,
     height: Float = Size.BUTTON_HEIGHT,
     textHeight: Float = Size.TEXT_BUTTON,
+    /**
+     * A key's face can be a caption or a drawn **glyph** — a symbol some keys say better than a
+     * word, built from the kit's own slabs like everything else in the scene (ADR 0005), with its
+     * proportions declared once in `shared/data/design.json` so both apps draw one icon.
+     */
+    private val glyph: Glyph? = null,
     entrance: Entrance = Entrance.Drop,
-    /** What TalkBack reads, when the caption alone does not say it ("II" is Pause). */
+    /** What TalkBack reads, when the glyph or the caption alone does not say it. */
     label: String? = null,
     var action: () -> Unit,
 ) : Interactive, Presentable {
+    /** Two upright bars. It replaces the caption "II", which was two Latin capital I's. */
+    enum class Glyph { PAUSE }
+
     class Style(val cap: Int, val base: Int, val ink: Int) {
         companion object {
             val PRIMARY = Style(Colour.SUN, Colour.SUN_SHADE, Colour.INK)
@@ -48,7 +57,8 @@ class BlockButton(
      * than shrinking to a smear, and the key grows to hold them — so the words sit on it, not
      * over it.
      */
-    val h = maxOf(height, (TextLayout.stackHeight(
+    // A glyph is drawn at the height it is given and never wraps, so it never grows the key.
+    val h = if (glyph != null) height else maxOf(height, (TextLayout.stackHeight(
         TextLayout.caption(title, textHeight.toDouble(), TextLayout.room(width.toDouble(), textHeight.toDouble())).size,
         textHeight.toDouble()) + 2 * textHeight * TextLayout.MARGIN_PER_HEIGHT).toFloat())
     override val semantics = Semantics(id, label ?: title, trait = Semantics.Trait.BUTTON)
@@ -73,8 +83,32 @@ class BlockButton(
         cap = kit.slab(w, h, d, style.cap, body)
         labelNode = kit.node(body)
         labelNode.setPosition(0f, 0f, d / 2)
-        letter(title)
+        if (glyph != null) draw(glyph) else letter(title)
         node.enabled = false
+    }
+
+    /**
+     * Draws a glyph on the cap instead of a caption. The shapes are the kit's rounded slabs, sized
+     * from the design tokens as fractions of the glyph's own height, so the icon scales with the key
+     * and is identical on both platforms.
+     */
+    private fun draw(glyph: Glyph) {
+        for (holder in holders) kit.destroy(holder)
+        holders.clear()
+        labels.clear()
+        val ink = if (semantics.isEnabled) style.ink else Style.DISABLED.ink
+        when (glyph) {
+            Glyph.PAUSE -> {
+                val w = textHeight * Size.PAUSE_BAR_WIDTH
+                val offset = (w + textHeight * Size.PAUSE_BAR_GAP) / 2
+                for (side in listOf(-1f, 1f)) {
+                    val bar = kit.slab(w, textHeight, textHeight * Size.PAUSE_BAR_DEPTH, ink, labelNode,
+                        corner = textHeight * Size.PAUSE_BAR_CORNER)
+                    bar.setPosition(side * offset, 0f, 0f)
+                    labels += bar
+                }
+            }
+        }
     }
 
     /**

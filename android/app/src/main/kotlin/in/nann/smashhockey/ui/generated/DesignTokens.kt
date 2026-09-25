@@ -38,6 +38,10 @@ object DesignTokens {
         const val BUTTON_DEPTH: Float = 0.16f
         const val BUTTON_BASE_INSET: Float = -0.035f
         const val TEXT_DEPTH_RATIO: Float = 0.32f
+        const val PAUSE_BAR_WIDTH: Float = 0.32f
+        const val PAUSE_BAR_GAP: Float = 0.3f
+        const val PAUSE_BAR_CORNER: Float = 0.1f
+        const val PAUSE_BAR_DEPTH: Float = 0.45f
         const val TEXT_TITLE: Float = 0.3f
         const val TEXT_HEADING: Float = 0.13f
         const val TEXT_BUTTON: Float = 0.12f

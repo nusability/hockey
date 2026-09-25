@@ -21,7 +21,6 @@
 # The title (§16.2)
 "title.logo.top" = { en = "SMASH", de = "SMASH" }
 "title.logo.bottom" = { en = "HOCKEY", de = "HOCKEY" }
-"title.tagline" = { en = "One finger. Six players. One goal.", de = "Ein Finger. Sechs Spieler. Ein Tor." }
 "title.continue" = { en = "CONTINUE SEASON", de = "SAISON WEITER" }
 "title.nextSeason" = { en = "NEXT SEASON", de = "NÄCHSTE SAISON" }
 "title.training" = { en = "TRAINING", de = "TRAINING" }

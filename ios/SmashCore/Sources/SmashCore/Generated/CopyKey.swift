@@ -7,7 +7,6 @@ public enum CopyKey: String, Sendable, CaseIterable {
     case commonBack = "common.back"
     case titleLogoTop = "title.logo.top"
     case titleLogoBottom = "title.logo.bottom"
-    case titleTagline = "title.tagline"
     case titleContinue = "title.continue"
     case titleNextSeason = "title.nextSeason"
     case titleTraining = "title.training"

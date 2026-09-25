@@ -19,10 +19,8 @@ final class TitleScreen: Screen {
         badge = part(Panel(size: [0.42, 0.30, 0.12], colour: C.pink, entrance: .pop, motion: m),
                      at: at(0.62, top - 1.22, z: 0.05, tilt: -0.22))
         child(Label3D("3D", height: 0.16, colour: C.ink, motion: m), on: badge.content).presence.show(after: 0)
-        // The buttons stand on the bottom edge; the tagline and the trophies ride just above them.
+        // The buttons stand on the bottom edge; the trophies ride just above them.
         let y0 = bottom + 0.3
-        part(Label3D(L(.titleTagline), height: S.textSmall, colour: C.ink, maxWidth: 1.7, entrance: .tumble, motion: m),
-             at: at(0, y0 + 1.78))
         if let c = game.save.career, c.leagueTitles + c.cups > 0 {
             part(Label3D(L(.titleTrophies, c.leagueTitles, c.cups), height: S.textSmall, colour: C.sun, maxWidth: 1.6,
                          entrance: .pop, motion: m), at: at(0, y0 + 1.6))

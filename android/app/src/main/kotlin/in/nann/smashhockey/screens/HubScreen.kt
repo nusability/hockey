@@ -73,7 +73,7 @@ class HubScreen(game: Game) : Screen(Game.pose(Presentation.Screens.Hub.eye, Pre
                 if (game.commit { it.startSeason(seed) }) game.go(Game.Place.Hub)
             }
         } else {
-            BlockButton(kit, L(CopyKey.HUB_PLAY), "hub_play_button", BlockButton.Style.PRIMARY, 1.1f, 0.36f, 0.13f) {
+            BlockButton(kit, L(CopyKey.HUB_PLAY), "hub_play_button", BlockButton.Style.PRIMARY, 1.25f, 0.36f, 0.13f) {
                 game.play(MatchPlan.Season)
             }
         }

@@ -9,7 +9,6 @@ enum class CopyKey(val key: String, val resourceName: String, val arguments: Lis
     COMMON_BACK("common.back", "common_back", emptyList()),
     TITLE_LOGO_TOP("title.logo.top", "title_logo_top", emptyList()),
     TITLE_LOGO_BOTTOM("title.logo.bottom", "title_logo_bottom", emptyList()),
-    TITLE_TAGLINE("title.tagline", "title_tagline", emptyList()),
     TITLE_CONTINUE("title.continue", "title_continue", emptyList()),
     TITLE_NEXT_SEASON("title.nextSeason", "title_nextSeason", emptyList()),
     TITLE_TRAINING("title.training", "title_training", emptyList()),

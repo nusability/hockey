@@ -1,6 +1,5 @@
 {
   "_comment": "The 3D UI's design tokens (conventions: UI — 'Design tokens, not raw values'), read by tools/generate-data.py and written into both apps as DesignTokens. Colours are sRGB #rrggbb. Sizes are metres in a screen's design frame: a plane frame_depth in front of the camera, frame_width wide, scaled as a whole to the phone's visible width (ScreenFrame). No component or screen spells a colour or a size of its own.",
-
   "_colour": "The palette. Panels, slabs and cards are white — the UI's own light (below) keeps them white in every world — and everything that reads as lettering, a digit or an accent is a saturated colour from the game's own set: the yellow, the pink, the green and the deep navy. Every colour used as lettering on paper clears 4.5:1.",
   "colour": {
     "ink": "#1e1b4b",
@@ -24,28 +23,77 @@
     "row_dark": "#eef1fa",
     "row_highlight": "#ffc83d"
   },
-
-  "_contrast": "Every pair of colours the UI puts lettering on, and the rule of spec \u00a716: anything text-like clears 4.5:1 against what it sits on. The generator computes the WCAG ratio of each pair and refuses to write the tokens if one falls short, so a palette tweak cannot quietly make a caption unreadable. Shading does not change these ratios: a letter's front face and the slab's front face are lit by the same term of ADR 0006's formula, so both move together.",
+  "_contrast": "Every pair of colours the UI puts lettering on, and the rule of spec §16: anything text-like clears 4.5:1 against what it sits on. The generator computes the WCAG ratio of each pair and refuses to write the tokens if one falls short, so a palette tweak cannot quietly make a caption unreadable. Shading does not change these ratios: a letter's front face and the slab's front face are lit by the same term of ADR 0006's formula, so both move together.",
   "contrast": [
-    ["ink", "paper"],
-    ["ink", "paper_shade"],
-    ["ink", "sun"],
-    ["ink", "green"],
-    ["ink", "pink"],
-    ["ink", "row_light"],
-    ["ink", "row_dark"],
-    ["ink", "row_highlight"],
-    ["pink_ink", "paper"],
-    ["green_ink", "paper"],
-    ["disabled_ink", "disabled"],
-    ["card_ink", "card"],
-    ["paper", "board"],
-    ["paper", "chalk"],
-    ["paper", "rail"],
-    ["sun", "board"],
-    ["pink", "board"]
+    [
+      "ink",
+      "paper"
+    ],
+    [
+      "ink",
+      "paper_shade"
+    ],
+    [
+      "ink",
+      "sun"
+    ],
+    [
+      "ink",
+      "green"
+    ],
+    [
+      "ink",
+      "pink"
+    ],
+    [
+      "ink",
+      "row_light"
+    ],
+    [
+      "ink",
+      "row_dark"
+    ],
+    [
+      "ink",
+      "row_highlight"
+    ],
+    [
+      "pink_ink",
+      "paper"
+    ],
+    [
+      "green_ink",
+      "paper"
+    ],
+    [
+      "disabled_ink",
+      "disabled"
+    ],
+    [
+      "card_ink",
+      "card"
+    ],
+    [
+      "paper",
+      "board"
+    ],
+    [
+      "paper",
+      "chalk"
+    ],
+    [
+      "paper",
+      "rail"
+    ],
+    [
+      "sun",
+      "board"
+    ],
+    [
+      "pink",
+      "board"
+    ]
   ],
-
   "size": {
     "frame_depth": 4.0,
     "frame_width": 1.8,
@@ -55,6 +103,10 @@
     "button_depth": 0.16,
     "button_base_inset": -0.035,
     "text_depth_ratio": 0.32,
+    "pause_bar_width": 0.32,
+    "pause_bar_gap": 0.3,
+    "pause_bar_corner": 0.1,
+    "pause_bar_depth": 0.45,
     "text_title": 0.3,
     "text_heading": 0.13,
     "text_button": 0.12,
@@ -67,15 +119,18 @@
     "knob_radius": 0.085,
     "knob_depth": 0.07
   },
-
-  "_look": "The light the UI is lit by (ADR 0006's formula, the same one the players are shaded with), and **not** the light of the world standing behind it: a menu looks the same in the oasis and in space, and a white slab reads white rather than taking the world's tint. It is read **in the UI's own frame** \u2014 the 3D UI's shader takes the object's normal rather than the world's (iOS `UIToon`, Android `uitoon.mat`) \u2014 because a menu stands facing whichever camera pose its screen uses and the HUD hangs off the moving match camera: a key fixed in the world falls on a different face of every screen and leaves most of them inside the dark band, which is what 'in their own shadow' was. In the UI's frame +Z is always the face the player looks at, +Y its top, \u00b1X its sides. Neutral and slightly cool from above, the key from above and to the left but still toward the viewer, so the face the player looks at is **fully lit**: n\u00b7l is 0.91 there, well clear of the band's 0.4, and the light multiplies the palette by 0.98\u20131.00, so a colour lands as it was authored. Every other face is inside the band and drops to `shade`: the sides to 0.50 of the front, the top to 0.56 (lighter than the sides because the sky is), the underside darkest at 0.44. That step is what makes an extruded letter read as a solid object with a bevel rather than as a flat blob \u2014 the UI's `shade` is set much lower than a world's for exactly that reason.",
+  "_look": "The light the UI is lit by (ADR 0006's formula, the same one the players are shaded with), and **not** the light of the world standing behind it: a menu looks the same in the oasis and in space, and a white slab reads white rather than taking the world's tint. It is read **in the UI's own frame** — the 3D UI's shader takes the object's normal rather than the world's (iOS `UIToon`, Android `uitoon.mat`) — because a menu stands facing whichever camera pose its screen uses and the HUD hangs off the moving match camera: a key fixed in the world falls on a different face of every screen and leaves most of them inside the dark band, which is what 'in their own shadow' was. In the UI's frame +Z is always the face the player looks at, +Y its top, ±X its sides. Neutral and slightly cool from above, the key from above and to the left but still toward the viewer, so the face the player looks at is **fully lit**: n·l is 0.91 there, well clear of the band's 0.4, and the light multiplies the palette by 0.98–1.00, so a colour lands as it was authored. Every other face is inside the band and drops to `shade`: the sides to 0.50 of the front, the top to 0.56 (lighter than the sides because the sky is), the underside darkest at 0.44. That step is what makes an extruded letter read as a solid object with a bevel rather than as a flat blob — the UI's `shade` is set much lower than a world's for exactly that reason.",
   "look": {
     "hemi_sky": "#ffffff",
     "hemi_ground": "#c3c8dc",
     "hemi_strength": 0.3,
     "sun": "#ffffff",
     "sun_strength": 0.743,
-    "sun_direction": [-0.35, 0.3, 1.0],
+    "sun_direction": [
+      -0.35,
+      0.3,
+      1.0
+    ],
     "shade": 0.354
   }
 }

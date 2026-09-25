@@ -37,18 +37,29 @@ final class BlockButton: Interactive, Presentable {
     private var nope: Jiggle
     private var held = false
 
+    /// A key's face can be a caption or a drawn **glyph** — a symbol some keys say better than a
+    /// word, built from the kit's own slabs like everything else in the scene (ADR 0005), with its
+    /// proportions declared once in `shared/data/design.json` so both apps draw one icon.
+    enum Glyph {
+        /// Two upright bars. It replaces the caption "II", which was two Latin capital I's.
+        case pause
+    }
+
     init(_ title: String, id: String, label: String? = nil, style: Style = .primary, size: SIMD2<Float>? = nil,
-         textHeight: Float = DesignTokens.Size.textButton, entrance: Entrance = .drop,
+         textHeight: Float = DesignTokens.Size.textButton, glyph: Glyph? = nil, entrance: Entrance = .drop,
          motion: MotionTokens, action: @escaping () -> Void) {
         var s = size ?? SIMD2(DesignTokens.Size.buttonWidth, DesignTokens.Size.buttonHeight)
         // A caption too wide for the cap wraps to two lines (§16.4) rather than shrinking to a
         // smear — and the key grows tall enough to hold them, so the words sit on it, not over it.
         let capHeight = Double(textHeight)
-        let room = TextLayout.room(slabWidth: Double(s.x), textHeight: capHeight)
-        let lines = TextLayout.caption(title, height: capHeight, width: room)
-        let needed: Double = TextLayout.stackHeight(lines.count, height: capHeight)
-            + 2 * capHeight * TextLayout.marginPerHeight
-        s.y = max(s.y, Float(needed))
+        // A glyph is drawn at the height it is given and never wraps, so it never grows the key.
+        if glyph == nil {
+            let room = TextLayout.room(slabWidth: Double(s.x), textHeight: capHeight)
+            let lines = TextLayout.caption(title, height: capHeight, width: room)
+            let needed: Double = TextLayout.stackHeight(lines.count, height: capHeight)
+                + 2 * capHeight * TextLayout.marginPerHeight
+            s.y = max(s.y, Float(needed))
+        }
         self.size = s
         self.style = style
         self.motion = motion
@@ -68,8 +79,30 @@ final class BlockButton: Interactive, Presentable {
         entity.addChild(body)
         body.addChild(cap)
         body.addChild(labelNode)
-        letter(title)
+        if let glyph { draw(glyph) } else { letter(title) }
         entity.isEnabled = false
+    }
+
+    /// Draws a glyph on the cap instead of a caption. The shapes are the kit's rounded slabs, sized
+    /// from the design tokens as fractions of the glyph's own height, so the icon scales with the
+    /// key and is identical on both platforms.
+    private func draw(_ glyph: Glyph) {
+        typealias S = DesignTokens.Size
+        for m in labels { m.parent?.removeFromParent() }
+        labels = []
+        let ink = isEnabled ? style.ink : Style.disabled.ink
+        switch glyph {
+        case .pause:
+            let w = textHeight * S.pauseBarWidth
+            let offset = (w + textHeight * S.pauseBarGap) / 2
+            for side in [-1, 1] as [Float] {
+                let bar = Blocks.slab([w, textHeight, textHeight * S.pauseBarDepth], ink,
+                                      corner: textHeight * S.pauseBarCorner)
+                bar.position.x = side * offset
+                labelNode.addChild(bar)
+                labels.append(bar)
+            }
+        }
     }
 
     /// Lays the caption out on the cap: at most two centred lines, a margin of lettering either

@@ -1,0 +1,792 @@
+{
+  "uid": "smash-overview",
+  "title": "Smash Hockey \u2014 how it is played",
+  "description": "The five questions SMASH-50 asked, and nothing else. Panels are generated: edit telemetry/grafana/build-dashboards.py, not this JSON, and not the UI.",
+  "tags": [
+    "smash-hockey"
+  ],
+  "timezone": "utc",
+  "editable": false,
+  "schemaVersion": 39,
+  "refresh": "",
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "env",
+        "label": "Build",
+        "type": "custom",
+        "query": "production,staging,both",
+        "current": {
+          "text": "production",
+          "value": "production"
+        },
+        "options": [
+          {
+            "text": "production",
+            "value": "production",
+            "selected": true
+          },
+          {
+            "text": "staging",
+            "value": "staging",
+            "selected": false
+          },
+          {
+            "text": "both",
+            "value": "both",
+            "selected": false
+          }
+        ],
+        "description": "Defaults to production: a developer's flights must never quietly join the numbers. Until a store build exists, production is empty and today's rows are under staging."
+      },
+      {
+        "name": "platform",
+        "label": "Platform",
+        "type": "custom",
+        "query": "both,ios,android",
+        "current": {
+          "text": "both",
+          "value": "both"
+        },
+        "options": [
+          {
+            "text": "both",
+            "value": "both",
+            "selected": true
+          },
+          {
+            "text": "ios",
+            "value": "ios",
+            "selected": false
+          },
+          {
+            "text": "android",
+            "value": "android",
+            "selected": false
+          }
+        ],
+        "description": "Defaults to both: one game, one dataset. Splitting it is a question about the port, worth asking on purpose."
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Is anything arriving?",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Installs",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sh-telemetry"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "sh-telemetry"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(DISTINCT install_id) AS installs\n    FROM matches\n    WHERE true\n      AND ('$env' = 'both' OR env = '$env')\n      AND ('$platform' = 'both' OR platform = '$platform')\n      AND NOT synthetic\n",
+          "refId": "A"
+        }
+      ],
+      "description": "Distinct install ids that have played a match.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "no data yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "graphMode": "none",
+        "colorMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Matches",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sh-telemetry"
+      },
+      "gridPos": {
+        "x": 5,
+        "y": 1,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "sh-telemetry"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS matches\n    FROM matches\n    WHERE true\n      AND ('$env' = 'both' OR env = '$env')\n      AND ('$platform' = 'both' OR platform = '$platform')\n      AND NOT synthetic\n",
+          "refId": "A"
+        }
+      ],
+      "description": "Rows in `matches`.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "no data yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "graphMode": "none",
+        "colorMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Last row",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sh-telemetry"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 1,
+        "w": 14,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "sh-telemetry"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT to_timestamp(max(at) / 1000) AS \"last row\"\n    FROM matches\n    WHERE true\n      AND ('$env' = 'both' OR env = '$env')\n      AND ('$platform' = 'both' OR platform = '$platform')\n      AND NOT synthetic\n",
+          "refId": "A"
+        }
+      ],
+      "description": "By the device's own clock. If this is old, nothing is sending \u2014 check the app's launch log.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsIso",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "no data yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "graphMode": "none",
+        "colorMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "row",
+      "title": "The five questions",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "1 \u00b7 How many matches before someone stops",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sh-telemetry"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "sh-telemetry"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH per_install AS (\n  SELECT install_id, count(*) AS played\n    FROM matches\n    WHERE true\n      AND ('$env' = 'both' OR env = '$env')\n      AND ('$platform' = 'both' OR platform = '$platform')\n      AND NOT synthetic\n\n  GROUP BY install_id\n), total AS (\n  SELECT count(*)::float AS installs FROM per_install\n)\nSELECT n AS \"match\",\n       CASE WHEN (SELECT installs FROM total) = 0 THEN NULL\n            ELSE 100.0 * (SELECT count(*) FROM per_install WHERE played >= n) / (SELECT installs FROM total)\n       END AS \"installs still playing\"\n  FROM generate_series(1, 40) AS n\n ORDER BY n",
+          "refId": "A"
+        }
+      ],
+      "description": "The fraction of installs that reached at least N matches. Read where it falls; the 20-match mark is \u00a717.2's hard-fought threshold.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 6,
+            "showPoints": "auto",
+            "pointSize": 8,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "axisLabel": "% of installs",
+            "axisGridShow": true,
+            "gradientMode": "none"
+          },
+          "noValue": "no data yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "transformations": [
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "destinationType": "number",
+                "targetField": "match"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "3 \u00b7 Do they come back",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sh-telemetry"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "sh-telemetry"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH span AS (\n  SELECT install_id,\n         min(at) AS first_ms,\n         (max(at) - min(at)) / 86400000.0 AS days\n    FROM matches\n    WHERE true\n      AND ('$env' = 'both' OR env = '$env')\n      AND ('$platform' = 'both' OR platform = '$platform')\n      AND NOT synthetic\n\n  GROUP BY install_id\n)\nSELECT d AS \"day\",\n       CASE WHEN count(*) FILTER (WHERE (extract(epoch FROM now()) * 1000 - first_ms) / 86400000.0 >= d) = 0\n            THEN NULL\n            ELSE 100.0 * count(*) FILTER (WHERE days >= d)\n                 / count(*) FILTER (WHERE (extract(epoch FROM now()) * 1000 - first_ms) / 86400000.0 >= d)\n       END AS \"installs still coming back\"\n  FROM generate_series(1, 14) AS d, span\n GROUP BY d\n ORDER BY d",
+          "refId": "A"
+        }
+      ],
+      "description": "The fraction still returning N days after their first match. Installs younger than the day being counted are excluded, so a phone set up this morning is not churn.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 6,
+            "showPoints": "auto",
+            "pointSize": 8,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "axisLabel": "% of installs",
+            "axisGridShow": true,
+            "gradientMode": "none"
+          },
+          "noValue": "no data yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "transformations": [
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "destinationType": "number",
+                "targetField": "day"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "2 \u00b7 Finished a season",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sh-telemetry"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "sh-telemetry"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH started AS (\n  SELECT DISTINCT install_id\n    FROM matches\n    WHERE true\n      AND ('$env' = 'both' OR env = '$env')\n      AND ('$platform' = 'both' OR platform = '$platform')\n      AND NOT synthetic\n      AND competition IN ('league', 'cup')\n), finished AS (\n  SELECT DISTINCT install_id\n    FROM seasons\n    WHERE true\n      AND ('$env' = 'both' OR env = '$env')\n      AND ('$platform' = 'both' OR platform = '$platform')\n      AND NOT synthetic\n\n)\nSELECT CASE WHEN (SELECT count(*) FROM started) = 0 THEN NULL\n            ELSE 100.0 * (SELECT count(*) FROM finished) / (SELECT count(*) FROM started) END\n       AS \"finished a season\"",
+          "refId": "A"
+        }
+      ],
+      "description": "Of installs that played a league or cup match. Someone who has only played a friendly has not started a season, so they are not in the denominator.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "no data yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "graphMode": "none",
+        "colorMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "3 \u00b7 Came back on day 7",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sh-telemetry"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "sh-telemetry"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH span AS (\n  SELECT install_id, min(at) AS first_ms, (max(at) - min(at)) / 86400000.0 AS days\n    FROM matches\n    WHERE true\n      AND ('$env' = 'both' OR env = '$env')\n      AND ('$platform' = 'both' OR platform = '$platform')\n      AND NOT synthetic\n\n  GROUP BY install_id\n), eligible AS (\n  SELECT * FROM span WHERE (extract(epoch FROM now()) * 1000 - first_ms) / 86400000.0 >= 7\n)\nSELECT CASE WHEN count(*) = 0 THEN NULL\n            ELSE 100.0 * count(*) FILTER (WHERE days >= 7) / count(*) END AS \"day 7\"\n  FROM eligible",
+          "refId": "A"
+        }
+      ],
+      "description": "Of installs at least 7 days old. This is the number A3 lives or dies by.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "no data yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "graphMode": "none",
+        "colorMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "4 \u00b7 Ever won the cup",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sh-telemetry"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "sh-telemetry"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH ended AS (\n  SELECT install_id, bool_or(cup_won) AS won\n    FROM seasons\n    WHERE true\n      AND ('$env' = 'both' OR env = '$env')\n      AND ('$platform' = 'both' OR platform = '$platform')\n      AND NOT synthetic\n\n  GROUP BY install_id\n)\nSELECT CASE WHEN count(*) = 0 THEN NULL\n            ELSE 100.0 * count(*) FILTER (WHERE won) / count(*) END AS \"won the cup\"\n  FROM ended",
+          "refId": "A"
+        }
+      ],
+      "description": "Of installs that finished a season. If this is near zero the cup is not a reward, it is a rumour.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "no data yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "graphMode": "none",
+        "colorMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Seasons finished",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sh-telemetry"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "sh-telemetry"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS seasons\n    FROM seasons\n    WHERE true\n      AND ('$env' = 'both' OR env = '$env')\n      AND ('$platform' = 'both' OR platform = '$platform')\n      AND NOT synthetic\n",
+          "refId": "A"
+        }
+      ],
+      "description": "Rows in `seasons`.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "no data yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "graphMode": "none",
+        "colorMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "row",
+      "title": "5 \u00b7 Does iOS behave like Android",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Both platforms, same measures",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sh-telemetry"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "sh-telemetry"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH m AS (\n  SELECT platform, install_id, count(*) AS played,\n         avg(goals_for)::numeric(10,2) AS gf, avg(goals_against)::numeric(10,2) AS ga,\n         count(*) FILTER (WHERE result = 'won') AS won\n    FROM matches\n   WHERE ('$env' = 'both' OR env = '$env') AND NOT synthetic\n   GROUP BY platform, install_id\n)\nSELECT platform,\n       count(*)                               AS installs,\n       sum(played)                            AS matches,\n       round(avg(played), 1)                  AS \"matches per install\",\n       round(100.0 * sum(won) / NULLIF(sum(played), 0), 1) AS \"won %\",\n       round(avg(gf), 2)                      AS \"goals for\",\n       round(avg(ga), 2)                      AS \"goals against\"\n  FROM m\n GROUP BY platform\n ORDER BY platform",
+          "refId": "A"
+        }
+      ],
+      "description": "A table and not a chart: these are a percentage, a count and a goal average, and one chart carrying three units would need two y-axes. A difference here that is not a written platform-delta row is a bug. Ignores the platform picker \u2014 this panel is the comparison.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "no data yet"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "platform"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "ios": {
+                        "color": "#3987e5",
+                        "index": 0
+                      },
+                      "android": {
+                        "color": "#d95926",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "The last 50 rows",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Most recent matches",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sh-telemetry"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "sh-telemetry"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT to_timestamp(at / 1000) AS \"played at\", platform, env, commit, world, competition,\n       goals_for AS gf, goals_against AS ga, result, trailed, hard_fought, matches_played AS \"lifetime\"\n    FROM matches\n    WHERE true\n      AND ('$env' = 'both' OR env = '$env')\n      AND ('$platform' = 'both' OR platform = '$platform')\n      AND NOT synthetic\n\n ORDER BY at DESC\n LIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "description": "For confirming a build actually reports, and what it reports. `commit` is the code that wrote the row (\u00a718.1).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "noValue": "no data yet"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "platform"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "ios": {
+                        "color": "#3987e5",
+                        "index": 0
+                      },
+                      "android": {
+                        "color": "#d95926",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+# The operator surface. Append to /etc/caddy/Caddyfile on box #2 (stori-monitoring), then:
+#   cp -a /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak.$(date +%s)
+#   cat Caddyfile.dash.snippet >> /etc/caddy/Caddyfile
+#   caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
+#
+# ⚠️ `caddy validate` is NOT a rehearsal of the reload. Check `systemctl is-active caddy`.
+#
+# A host of its own rather than a path on `ingest.nann.in`, which says "nothing here reads" in its
+# own vhost and its README. Keeping that true is worth more than saving a vhost — and since
+# `*.nann.in` is a wildcard, a hostname costs nothing, which is the payoff the wildcard bought.
+#
+# Shared, like the ingest host: per-product paths, so the next product's dashboard is a path here and
+# needs no DNS, no certificate and no vhost. Grafana serves from the sub-path
+# (GF_SERVER_SERVE_FROM_SUB_PATH), so the prefix is passed through rather than stripped.
+#
+# This is a login page, not a public page: Grafana's own auth, no anonymous read, no self sign-up.
+
+dash.nann.in {
+    encode zstd gzip
+
+    handle /smash* {
+        reverse_proxy 127.0.0.1:3015
+    }
+
+    handle {
+        respond "dash" 200
+    }
+
+    header {
+        -Server
+        Strict-Transport-Security "max-age=31536000;"
+    }
+}

@@ -1,0 +1,21 @@
+# The telemetry database (spec §18). Read-only credentials would be better; the collector's user is
+# what exists, and this instance is not shared with anyone who should not have it.
+apiVersion: 1
+
+datasources:
+  - name: Smash Hockey
+    uid: sh-telemetry
+    type: postgres
+    access: proxy
+    url: smashhockey-db:5432
+    database: smashhockey
+    user: smashhockey
+    isDefault: true
+    secureJsonData:
+      # From the container's environment, so the password lives in one place — /opt/smashhockey/.env
+      # — and never in a file that could be committed.
+      password: $SH_DB_PASSWORD
+    jsonData:
+      sslmode: disable          # same docker network, never leaves the host
+      postgresVersion: 1700
+      timescaledb: false

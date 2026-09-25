@@ -10,10 +10,13 @@
 # this one), and the cheaper alternative if it ever gets tight is a `smashhockey` database inside an
 # existing cluster, at the cost of coupling this schema to another product's container lifecycle.
 #
-# **No Grafana here, unlike flashybird and vidi.** A fourth Grafana for a table with no rows in it is
-# three containers of pattern-following and nothing to look at; dashboards land when there is data
-# worth a dashboard, and this file gains a service then or points an existing instance at this
-# database as a second datasource.
+# **Grafana is here now** (it was not, while the tables were empty). Its own instance rather than a
+# folder in the box's shared one, for the three reasons ../flashybird wrote down: the shared
+# instance's provisioning is config-as-code in the *stori* repo, so every panel change here would be
+# a cross-repo edit into a project under active development; its `grafana_data` volume is in no
+# backup, so panels made there survive only as long as the volume; and two products would share an
+# upgrade cadence they have no reason to share. Here the dashboards **are** the backup — generated
+# JSON in this repo, provisioned read-only, and a total loss of the volume costs a login.
 
 name: smashhockey
 
@@ -62,8 +65,38 @@ services:
         condition: service_healthy
     networks: [smashhockey]
 
+  # The operator surface, on `dash.nann.in/smash` — a different host from the ingest one on purpose.
+  # `ingest.nann.in` says "nothing here reads", in its vhost and its README, and that is a posture
+  # worth keeping true rather than a slogan. A second hostname costs nothing now that `*.nann.in` is
+  # a wildcard, which is exactly the payoff that wildcard bought.
+  grafana:
+    image: grafana/grafana-oss:11.5.2      # pinned to what box #2 already runs and trusts
+    restart: unless-stopped
+    environment:
+      GF_SERVER_ROOT_URL: https://dash.nann.in/smash
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SECURITY_ADMIN_PASSWORD: ${SH_GRAFANA_PASSWORD:?set SH_GRAFANA_PASSWORD in /opt/smashhockey/.env}
+      # The same posture as every other login on this box: nobody signs themselves up, nobody reads
+      # it anonymously. The dashboard is an operator surface, not a public page.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      # Read by the provisioned datasource, so the password is never written into a config file.
+      SH_DB_PASSWORD: ${SH_DB_PASSWORD}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - smashhockey-grafana-data:/var/lib/grafana
+    ports: ["127.0.0.1:3015:3000"]        # 3014 is the collector
+    depends_on:
+      smashhockey-db:
+        condition: service_healthy
+    networks: [smashhockey]
+
 networks:
   smashhockey:
 
 volumes:
   smashhockey-db-data:
+  smashhockey-grafana-data:

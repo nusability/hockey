@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.24.0
+Spec-Version: 0.24.1
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -1549,7 +1549,11 @@ is unaffected by construction.
 
 ## Constraints & invariants
 - **A0 before everything:** nothing may add latency between a finger and the ball, or make the
-  aim line disagree with where the ball goes.
+  aim line disagree with where the ball goes. **This binds the instruments too**, and they are the
+  easiest place to break it: a meter that keeps every sample it has taken costs more the longer the
+  session runs, so the game gets worse the more it is played — and a meter on the input path that
+  does it is measuring the latency it is adding. Anything that measures must cost the same on the
+  first frame of a session as on the hundred-thousandth.
 - **Nothing blocks the next match** (principle A2): no load, fetch, ad or dialog between a result
   and the next face-off, or between a failed drill and its retry. **A question for the player is a
   dialog**: it is armed at the moment it is earned and put only on a screen already come to rest on

@@ -27,9 +27,19 @@ extension Match {
         ball.vel = players[c].vel
     }
 
+    /// Where the ball stands on its carrier's orbit (§5.1) — kept out of both nets' cloth.
+    ///
+    /// A player may walk round and behind a net (§3) and the orbit is 1.5 wide, so without this the
+    /// ball sweeps up to 0.64 into the net through a side panel and 0.49 through the back: the loose
+    /// ball meets a solid net (§6.2), the carried one used to meet nothing. The **orbit angle is not
+    /// touched** — the aim is measured from the carrier's position (§5.2, §5.4), so nothing about
+    /// where a release goes moves; only where the ball is drawn and released from. The nets are met
+    /// in the same order as §6.2: team 0's, then team 1's.
     func orbitPoint(_ c: Int) -> Vec {
         let r = Tuning.Orbit.radius
-        return Vec(x: players[c].pos.x + r * DetMath.sin(ball.orbit), z: players[c].pos.z + r * DetMath.cos(ball.orbit))
+        var p = Vec(x: players[c].pos.x + r * DetMath.sin(ball.orbit), z: players[c].pos.z + r * DetMath.cos(ball.orbit))
+        for team in 0..<2 { p = Pitch.pushOutOfNet(p, team: team, radius: sport.ballRadius) }
+        return p
     }
 
     mutating func moveCarriedBall(_ c: Int, _ dt: Double) {

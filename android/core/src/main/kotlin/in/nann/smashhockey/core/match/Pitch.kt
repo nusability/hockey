@@ -78,6 +78,34 @@ internal object Pitch {
     fun ownGoalZ(team: Int): Double = -direction(team) * Tuning.Pitch.goalLineZ
     fun attackGoalZ(team: Int): Double = direction(team) * Tuning.Pitch.goalLineZ
 
+    /**
+     * Pushes a point out of the net [team] defends, by the nearest way out of the three the net has
+     * — its **mouth**, its **back** or one of its **sides** — with the point kept [r] clear of the
+     * cloth. Returns the point untouched when it is already outside.
+     *
+     * This is where a **carried** ball is kept out of the net (§5.1). The loose-ball solver (§6.2)
+     * uses the same frame but not this function, because for a loose ball the mouth is not a way out:
+     * crossing it is the goal test. A carried ball is the other case — the orbit can carry it over
+     * the goal line through the open mouth, which is allowed and is not a goal, so the mouth is the
+     * nearest way out from in there and it has to be one of the three.
+     */
+    fun pushOutOfNet(p: Vec, team: Int, r: Double): Vec {
+        val gz = ownGoalZ(team)
+        val dir = direction(team)
+        val hw = Tuning.Pitch.goalMouthWidth / 2 + Tuning.Pitch.netFrameMargin + r
+        val deep = Tuning.Pitch.goalDepth + Tuning.Pitch.netFrameMargin + r
+        // How far past the goal line, into the net, the point is.
+        val into = -dir * (p.z - gz)
+        if (!(abs(p.x) < hw && into > -r && into < deep)) return p
+        val outMouth = into + r
+        val outBack = deep - into
+        val outSide = hw - abs(p.x)
+        val least = lesser(lesser(outMouth, outBack), outSide)
+        if (least == outSide) return Vec(if (p.x >= 0) hw else -hw, p.z)
+        if (least == outMouth) return Vec(p.x, gz + dir * r)
+        return Vec(p.x, gz - dir * deep)
+    }
+
     /** Signed distance to the boundary's rounded rectangle (negative inside) and its outward normal. */
     class Boundary(val distance: Double, val normal: Vec)
 

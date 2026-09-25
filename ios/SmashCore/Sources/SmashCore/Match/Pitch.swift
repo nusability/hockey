@@ -71,6 +71,33 @@ enum Pitch {
     static func ownGoalZ(_ team: Int) -> Double { -direction(team) * Tuning.Pitch.goalLineZ }
     static func attackGoalZ(_ team: Int) -> Double { direction(team) * Tuning.Pitch.goalLineZ }
 
+    /// Pushes a point out of the net `team` defends, by the nearest way out of the three the net has
+    /// — its **mouth**, its **back** or one of its **sides** — with the point kept `r` clear of the
+    /// cloth. Returns the point untouched when it is already outside.
+    ///
+    /// This is where a **carried** ball is kept out of the net (§5.1). The loose-ball solver (§6.2)
+    /// uses the same frame but not this function, because for a loose ball the mouth is not a way
+    /// out: crossing it is the goal test. A carried ball is the other case — the orbit can carry it
+    /// over the goal line through the open mouth, which is allowed and is not a goal, so the mouth
+    /// is the nearest way out from in there and it has to be one of the three.
+    static func pushOutOfNet(_ p: Vec, team: Int, radius r: Double) -> Vec {
+        typealias P = Tuning.Pitch
+        let gz = ownGoalZ(team)
+        let dir = direction(team)
+        let hw = P.goalMouthWidth / 2 + P.netFrameMargin + r
+        let deep = P.goalDepth + P.netFrameMargin + r
+        // How far past the goal line, into the net, the point is.
+        let into = -dir * (p.z - gz)
+        guard p.x.magnitude < hw && into > -r && into < deep else { return p }
+        let outMouth = into + r
+        let outBack = deep - into
+        let outSide = hw - p.x.magnitude
+        let least = lesser(lesser(outMouth, outBack), outSide)
+        if least == outSide { return Vec(x: p.x >= 0 ? hw : -hw, z: p.z) }
+        if least == outMouth { return Vec(x: p.x, z: gz + dir * r) }
+        return Vec(x: p.x, z: gz - dir * deep)
+    }
+
     /// The boundary (§1): signed distance to the rounded rectangle at the half-extents (negative
     /// inside) and its outward normal.
     static func boundary(_ x: Double, _ z: Double, corner: Double) -> (distance: Double, normal: Vec) {

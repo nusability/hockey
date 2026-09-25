@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.24.1
+Spec-Version: 0.25.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -326,6 +326,21 @@ its velocity is the carrier's, and the orbit angle is kept in (−π, π]. The o
 value per match, the same for **every** carrier and for the challengers' lead (§7.2): the
 player's ball-spin setting (§12) in matches they play, 2.0 s in the demo.
 
+**The ball on the orbit is kept out of both nets' cloth.** A player may walk round and behind a
+net (§3) and the orbit is 1.5 wide, so the orbit point alone would put the ball well inside the
+net — a solid thing for a loose ball (§6.2) that the carried ball would pass straight through. So
+the orbit point, once computed, is pushed out of each net's frame in turn (team 0's, then team
+1's, as in §6.2), kept the ball's radius clear of the cloth, by the **nearest of the three ways
+out that net has: its mouth, its back, or its nearer side.** The mouth counts here and does not for
+a loose ball, because the orbit carrying the ball over the goal line through the open mouth is
+allowed and is not a goal — so from in there the mouth is the way out.
+
+**The orbit angle is not touched, and neither is any aim.** A release's direction is measured from
+the carrier's position, not the ball's (§5.2, §5.4), so what the aim arrow shows and where the ball
+goes are unchanged by this; what moves is only where the ball stands, and therefore where a release
+leaves from (§5.4, whose own goal guard still applies after this). This is the whole of the
+simulation's regard for the net as an obstacle to a *carried* ball.
+
 When a player wins the ball, the orbit angle starts where the ball was, and the direction is
 chosen so the ball **turns toward the most useful target first**:
 
@@ -429,7 +444,9 @@ A loose ball, each step, in this order:
   within `3.0 − 0.3r` of the centre, crosses the goal line by more than half its radius — both
   judged on its position before and after this step's move, while it is inside the net's frame.
   From any other side the net (§1) is solid: the ball is pushed out through whichever is nearer,
-  its side or its back, and that velocity component reflected with the wall restitution. A goal
+  its side or its back, and that velocity component reflected with the wall restitution. **The
+  mouth is not a way out for a loose ball** — crossing it is the goal test above, which is why only
+  two of the net's three openings appear here and all three appear in §5.1's carried case. A goal
   ends the step's ball update. After moving, the ball meets the nets first (team 0's, then team
   1's), then the posts, then the boundary, then the players.
 - **Players**, in roster order, deflect it when it overlaps them — pushed out to touching, and

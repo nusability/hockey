@@ -13,6 +13,23 @@ const HL = RINK.length / 2;
 const OLD_AI = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ai') === 'old';
 
 /**
+ * How a second defender behaves when the other side has the ball (SMASH-67).
+ *
+ *   cover  (default) — the nearest player goes for the ball; the second takes the CUT-OFF, a point
+ *                      on the carrier's route to goal, and never the ball itself.
+ *   one              — only ever one player goes in; everyone else holds shape and marks.
+ *   old              — what the game does today: every challenger steers to the same point.
+ *
+ * Measured on today's rule: two challengers are committed 92% of the steps the other team carries,
+ * a mean 4.59 m apart, and **within 2 m of each other 20% of the time** — players are 1.6 m across,
+ * so that is touching. They bunch because `challengeTarget` is a function of the ball alone: every
+ * challenger is handed the identical point, and challengers are exempt from the spacing that would
+ * otherwise push them apart.
+ */
+const DEFENCE = (typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('def')) || 'cover';
+
+/**
  * Drives every player of `team`. Movement is automatic for everyone; only the
  * moment of release is decided by the user for their own skaters. AI carriers
  * wait until the circling puck points at their chosen target, so they play by
@@ -67,9 +84,14 @@ export function updateTeamAI(match, team, dt) {
       if (rank < chasers) { target = routeAroundNet(match, p, predictPuck(match, p)); chase = true; }
       else target = supportTarget(match, p, T);
     } else if (possession === 'their') {
-      if (challengers && challengers.has(p)) {
+      const role = challengers ? challengers.indexOf(p) : -1;
+      if (role === 0 || (role > 0 && DEFENCE === 'old')) {
         // go in for the ball itself, not the player carrying it
         target = challengeTarget(match, p, carrier);
+        chase = true;
+      } else if (role > 0) {
+        // the second defender covers the route rather than joining the tackle
+        target = coverTarget(match, p, carrier, challengers[0]);
         chase = true;
       } else {
         target = defendTarget(match, p, T);
@@ -176,6 +198,13 @@ const CHALLENGE = {
   commit: 0.7,         // seconds a challenger stays committed once it goes in
 };
 
+/** Where the SECOND defender stands: covering the route, not tackling the ball. */
+const COVER = {
+  ahead: 5.0,          // metres goal-side of the carrier, on its line to the goal it attacks
+  side: 2.0,           // stepped off that line, away from whoever is going for the ball
+  minGap: 5.0,         // and never closer than this to them, whatever the geometry says
+};
+
 /**
  * Pick who challenges the carrier. Players already between the carrier and
  * our goal go first: they are the ones with something to defend, and an
@@ -203,9 +232,57 @@ function pickChallengers(match, team, carrier, skaters, T) {
       if (a.goalSide !== b.goalSide) return a.goalSide ? -1 : 1;
       return a.d - b.d;
     });
-  const set = new Set(scored.slice(0, max).map((o) => o.q));
-  for (const q of set) q.ai.challengeUntil = now + CHALLENGE.commit;
-  return set;
+  // Ordered best-first: the first goes for the ball, the rest cover. `old` keeps them all on the
+  // ball, which is the behaviour being compared against.
+  const chosen = scored.slice(0, DEFENCE === 'one' ? 1 : max).map((o) => o.q);
+  for (const q of chosen) q.ai.challengeUntil = now + CHALLENGE.commit;
+
+  // **The role is sticky while committed.** The sort above re-runs on every re-think, and its
+  // tiebreaks (goal-side, then distance to the ball) flip as the two defenders move — so without
+  // this they swap jobs several times a second, each one repeatedly re-aiming at the ball, and they
+  // end up in the bunch the roles were meant to prevent. Whoever went for the ball keeps going for
+  // the ball until their commitment lapses.
+  const stillOnTheBall = chosen.find((q) => q.ai.challengeRole === 'ball' && (q.ai.roleUntil || 0) > now);
+  const first = stillOnTheBall || chosen[0];
+  if (first) {
+    for (const q of chosen) {
+      q.ai.challengeRole = q === first ? 'ball' : 'cover';
+      q.ai.roleUntil = now + CHALLENGE.commit;
+    }
+    // Keep `first` at the head, so the caller's index is the role.
+    const rest = chosen.filter((q) => q !== first);
+    return [first, ...rest];
+  }
+  return chosen;
+}
+
+/**
+ * Where a second defender stands: on the carrier's route to the goal it attacks, goal-side of it,
+ * stepped off the line away from whoever is going for the ball. That is a cut-off, not a second
+ * tackle — one player pressures the ball and one covers the space behind, which is the whole of the
+ * difference between defending and following in a bunch.
+ */
+function coverTarget(match, p, carrier, primary) {
+  const gz = match.ownGoalZ(p.team);
+  const n = norm(0 - carrier.x, gz - carrier.z);
+  let x = carrier.x + n.x * COVER.ahead;
+  let z = carrier.z + n.z * COVER.ahead;
+  // Step off the line, on the far side from the player already going in.
+  if (primary && primary !== p) {
+    const side = { x: -n.z, z: n.x };
+    const away = (primary.x - carrier.x) * side.x + (primary.z - carrier.z) * side.z;
+    const s = away >= 0 ? -1 : 1;
+    x += side.x * s * COVER.side;
+    z += side.z * s * COVER.side;
+    // …and never end up on top of them anyway.
+    const d = Math.hypot(x - primary.x, z - primary.z);
+    if (d < COVER.minGap && d > 1e-3) {
+      const push = norm(x - primary.x, z - primary.z);
+      x += push.x * (COVER.minGap - d);
+      z += push.z * (COVER.minGap - d);
+    }
+  }
+  return { x, z };
 }
 
 function interceptPoint(match, p) {

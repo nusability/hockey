@@ -159,6 +159,12 @@ press_range_base = 10.0         # (10 + 22 × pressing) × (1 − 0.35 × discip
 press_range_per_pressing = 22.0
 press_range_discipline = 0.35
 orbit_lead = 0.3
+# The SECOND challenger covers the carrier's route to goal instead of joining the tackle (§7.2).
+# Two players steering to one point is one player's job done twice, and it is what "grapes on a
+# vine" looks like from the stands.
+cover_ahead = 5.0               # goal-side of the carrier, on its line to the goal it attacks
+cover_side = 2.0                # stepped off that line, away from whoever is going for the ball
+cover_min_gap = 5.0             # and never nearer to them than this, whatever the geometry says
 
 [ai.alert] # §7.9 — the alert window a carried ball crossing the centre line opens on the defence
 seconds = 3.0                   # how long the defending team stays sharp after the crossing

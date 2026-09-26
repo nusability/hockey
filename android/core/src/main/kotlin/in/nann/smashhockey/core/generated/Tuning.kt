@@ -163,6 +163,9 @@ object Tuning {
             const val pressRangePerPressing: Double = 22.0
             const val pressRangeDiscipline: Double = 0.35
             const val orbitLead: Double = 0.3
+            const val coverAhead: Double = 5.0
+            const val coverSide: Double = 2.0
+            const val coverMinGap: Double = 5.0
         }
         object Alert {
             const val seconds: Double = 3.0

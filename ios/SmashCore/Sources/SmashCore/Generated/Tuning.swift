@@ -162,6 +162,9 @@ public enum Tuning {
             public static let pressRangePerPressing: Double = 22.0
             public static let pressRangeDiscipline: Double = 0.35
             public static let orbitLead: Double = 0.3
+            public static let coverAhead: Double = 5.0
+            public static let coverSide: Double = 2.0
+            public static let coverMinGap: Double = 5.0
         }
         public enum Alert {
             public static let seconds: Double = 3.0

@@ -132,6 +132,9 @@ internal object GeneratedConstantBits {
         Triple("Tuning.AI.Challenge.pressRangePerPressing", Tuning.AI.Challenge.pressRangePerPressing, 4626885667169763328L), // 0x4036000000000000
         Triple("Tuning.AI.Challenge.pressRangeDiscipline", Tuning.AI.Challenge.pressRangeDiscipline, 4599976659396224614L), // 0x3FD6666666666666
         Triple("Tuning.AI.Challenge.orbitLead", Tuning.AI.Challenge.orbitLead, 4599075939470750515L), // 0x3FD3333333333333
+        Triple("Tuning.AI.Challenge.coverAhead", Tuning.AI.Challenge.coverAhead, 4617315517961601024L), // 0x4014000000000000
+        Triple("Tuning.AI.Challenge.coverSide", Tuning.AI.Challenge.coverSide, 4611686018427387904L), // 0x4000000000000000
+        Triple("Tuning.AI.Challenge.coverMinGap", Tuning.AI.Challenge.coverMinGap, 4617315517961601024L), // 0x4014000000000000
         Triple("Tuning.AI.Alert.seconds", Tuning.AI.Alert.seconds, 4613937818241073152L), // 0x4008000000000000
         Triple("Tuning.AI.Alert.goalieReadScale", Tuning.AI.Alert.goalieReadScale, 4602678819172646912L), // 0x3FE0000000000000
         Triple("Tuning.AI.Alert.goalieAimFactor", Tuning.AI.Alert.goalieAimFactor, 4607182418800017408L), // 0x3FF0000000000000

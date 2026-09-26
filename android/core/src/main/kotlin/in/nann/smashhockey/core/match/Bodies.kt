@@ -58,6 +58,12 @@ internal class Athlete(
     var stealContact = 0.0
     /** Committed as a challenger while match time is below this (§7.2). */
     var challengeUntil = 0.0
+    /**
+     * True while this player is the challenger going for the **ball** rather than covering (§7.2).
+     * It is kept for as long as the commitment lasts so the two defenders do not swap jobs several
+     * times a second and end up in the same place.
+     */
+    var onTheBall = false
     var thinkTimer = 0.0
     /** A patrolling dummy's next step reports zero velocity (§10: zero across a reset). */
     var patrolFresh = true

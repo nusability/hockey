@@ -52,8 +52,11 @@ extension Match {
                 target = supportTarget(i).spot
             }
         case .theirs:
-            if challengers.contains(i) {
+            if challengers.first == i {
                 target = challengePoint()
+                chasing = true
+            } else if challengers.contains(i) {
+                target = coverPoint(i, primary: challengers[0])
                 chasing = true
             } else if i == blocker {
                 target = laneBlockPoint(team: players[i].team, carrier: ball.carrier!)
@@ -145,9 +148,49 @@ extension Match {
             if a.distance != b.distance { return a.distance < b.distance }
             return a.index < b.index
         }
-        let chosen = candidates.prefix(most).map(\.index)
-        for q in chosen { players[q].challengeUntil = time + C.commitTime }
+        var chosen = Array(candidates.prefix(most).map(\.index))
+        // **The role is sticky while the commitment lasts.** The sort above re-runs on every
+        // re-think and its tiebreaks — goal-side, then distance to the ball — flip as the two
+        // defenders move, so without this they swap jobs several times a second, both keep re-aiming
+        // at the ball, and they arrive in the bunch the roles exist to prevent. Whoever went for the
+        // ball keeps going for it; the rest cover (§7.2).
+        let stillOnTheBall = chosen.first { players[$0].onTheBall && players[$0].challengeUntil > time }
+        if let first = stillOnTheBall {
+            chosen = [first] + chosen.filter { $0 != first }
+        }
+        for (rank, q) in chosen.enumerated() {
+            players[q].challengeUntil = time + C.commitTime
+            players[q].onTheBall = rank == 0
+        }
         return chosen
+    }
+
+    /// Where the **second** challenger stands (§7.2): on the carrier's route to the goal it attacks,
+    /// goal-side of it, stepped off the line away from whoever is going for the ball. That is a
+    /// cut-off, not a second tackle — one player pressures the ball and one covers the space behind,
+    /// which is the whole of the difference between defending and following in a bunch.
+    func coverPoint(_ i: Int, primary: Int) -> Vec {
+        typealias C = Tuning.AI.Challenge
+        let carrier = players[ball.carrier!]
+        let gz = Pitch.ownGoalZ(players[i].team)
+        let n = Pitch.unit(0.0 - carrier.pos.x, gz - carrier.pos.z)
+        var x = carrier.pos.x + n.x * C.coverAhead
+        var z = carrier.pos.z + n.z * C.coverAhead
+        // Step off the line, on the far side from the player already going in.
+        let side = Vec(x: -n.z, z: n.x)
+        let away = (players[primary].pos.x - carrier.pos.x) * side.x
+            + (players[primary].pos.z - carrier.pos.z) * side.z
+        let s: Double = away >= 0 ? -1 : 1
+        x += side.x * s * C.coverSide
+        z += side.z * s * C.coverSide
+        // …and never end up on top of them anyway.
+        let d = Pitch.length(x - players[primary].pos.x, z - players[primary].pos.z)
+        if d < C.coverMinGap && d > Tuning.Sim.contactEpsilon {
+            let push = Pitch.unit(x - players[primary].pos.x, z - players[primary].pos.z)
+            x += push.x * (C.coverMinGap - d)
+            z += push.z * (C.coverMinGap - d)
+        }
+        return Vec(x: x, z: z)
     }
 
     /// At least 0.5 nearer their own goal than the carrier, within 7 of the carrier's route to it.

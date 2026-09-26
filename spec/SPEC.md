@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.27.0
+Spec-Version: 0.28.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -294,7 +294,7 @@ nothing); a target within 1e-3 of what it keeps clear of is pushed along +x.
 #### 4.6 What a restart resets
 Every face-off and drill reset clears: the ball's carrier, velocity, last touches, assist and
 pending release; and for every player, velocity, target, pickup cooldown, hold time, decision,
-mark, expected pass, steal contact, challenge commitment, the loose-ball, dead-ball and alert
+mark, expected pass, steal contact, challenge commitment and role (§7.2), the loose-ball, dead-ball and alert
 timers, the crossing being watched and both teams' zone state (§7.1, §6.5, §7.9, §8.9). Think timers (§7), the orbit angle and
 the time of the last release (§7.8) are not reset.
 
@@ -533,8 +533,23 @@ committed (a challenger stays committed for 0.7 s, renewed each step it is chose
 (at least 0.5 nearer their own goal than the carrier, within 7 of the carrier's route to it) within **10** of
 the ball; and anyone else within the press range `(10 + 22 × pressing) × (1 − 0.35 × discipline)`
 of it. Committed players come first,
-then goal-side ones, then the nearest. A challenger heads for **where the ball will be 0.3 s
-ahead on its orbit** plus the carrier's travel, not for the carrier.
+then goal-side ones, then the nearest.
+
+**The first of them goes for the ball; the rest cover.** The one on the ball heads for **where the
+ball will be 0.3 s ahead on its orbit** plus the carrier's travel, not for the carrier. Every other
+challenger takes the **cover point**: on the line from the carrier to the goal it attacks, **5**
+goal-side of it, stepped **2** off that line on the far side from the player going for the ball, and
+then pushed out to at least **5** from them. That is a cut-off rather than a second tackle — one
+player presses the ball and one covers the space behind.
+
+**The role is sticky for as long as the commitment lasts.** Whoever is on the ball stays on the
+ball; only when their 0.7 s lapses can the job pass to someone else. Without that the ordering above
+re-runs at every re-think and its tiebreaks flip as the two defenders move, so they swap jobs several
+times a second, both keep re-aiming at the ball, and they arrive in a bunch — which is the thing
+these two paragraphs exist to prevent. **Two players steering to one point is one player's job done
+twice**, and it reads from the stands as a pack of children following the ball.
+
+A restart clears the role with the commitment (§4.6).
 
 #### 7.3 The other team has it — defending
 Everyone else picks the most dangerous opponent outfield player, other than the carrier, that no

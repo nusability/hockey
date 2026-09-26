@@ -76,8 +76,11 @@ private fun Match.rethink(
             }
         }
         Possession.THEIRS -> {
-            if (i in challengers) {
+            if (challengers.firstOrNull() == i) {
                 target = challengePoint()
+                chasing = true
+            } else if (i in challengers) {
+                target = coverPoint(i, challengers[0])
                 chasing = true
             } else if (i == blocker) {
                 target = laneBlockPoint(p.team, ball.carrier!!)
@@ -156,7 +159,7 @@ private fun Match.routeAroundNet(i: Int, target: Vec): Vec {
 private class Candidate(val index: Int, val committed: Boolean, val goalSide: Boolean, val distance: Double)
 
 /** Who goes in for the ball: the committed, then the goal-side, then the nearest; committed 0.7 s. */
-private fun Match.pickChallengers(team: Int, carrier: Int): List<Int> {
+internal fun Match.pickChallengers(team: Int, carrier: Int): List<Int> {
     val c = Tuning.AI.Challenge
     val t = effectiveTactics(team)
     val pressRange = (c.pressRangeBase + c.pressRangePerPressing * t.pressing) * (1 - c.pressRangeDiscipline * t.discipline)
@@ -177,9 +180,52 @@ private fun Match.pickChallengers(team: Int, carrier: Int): List<Int> {
             else -> a.index.compareTo(b.index)
         }
     }
-    val chosen = sorted.take(most).map { it.index }
-    for (q in chosen) players[q].challengeUntil = time + c.commitTime
+    var chosen = sorted.take(most).map { it.index }
+    // **The role is sticky while the commitment lasts.** The sort above re-runs on every re-think
+    // and its tiebreaks — goal-side, then distance to the ball — flip as the two defenders move, so
+    // without this they swap jobs several times a second, both keep re-aiming at the ball, and they
+    // arrive in the bunch the roles exist to prevent. Whoever went for the ball keeps going for it;
+    // the rest cover (§7.2).
+    val stillOnTheBall = chosen.firstOrNull { players[it].onTheBall && players[it].challengeUntil > time }
+    if (stillOnTheBall != null) {
+        chosen = listOf(stillOnTheBall) + chosen.filter { it != stillOnTheBall }
+    }
+    for ((rank, q) in chosen.withIndex()) {
+        players[q].challengeUntil = time + c.commitTime
+        players[q].onTheBall = rank == 0
+    }
     return chosen
+}
+
+/**
+ * Where the **second** challenger stands (§7.2): on the carrier's route to the goal it attacks,
+ * goal-side of it, stepped off the line away from whoever is going for the ball. That is a cut-off,
+ * not a second tackle — one player pressures the ball and one covers the space behind, which is the
+ * whole of the difference between defending and following in a bunch.
+ */
+internal fun Match.coverPoint(i: Int, primary: Int): Vec {
+    val c = Tuning.AI.Challenge
+    val carrier = players[ball.carrier!!]
+    val gz = Pitch.ownGoalZ(players[i].team)
+    val n = Pitch.unit(0.0 - carrier.pos.x, gz - carrier.pos.z)
+    var x = carrier.pos.x + n.x * c.coverAhead
+    var z = carrier.pos.z + n.z * c.coverAhead
+    // Step off the line, on the far side from the player already going in.
+    val sideX = -n.z
+    val sideZ = n.x
+    val away = (players[primary].pos.x - carrier.pos.x) * sideX +
+        (players[primary].pos.z - carrier.pos.z) * sideZ
+    val s = if (away >= 0) -1.0 else 1.0
+    x += sideX * s * c.coverSide
+    z += sideZ * s * c.coverSide
+    // …and never end up on top of them anyway.
+    val d = Pitch.length(x - players[primary].pos.x, z - players[primary].pos.z)
+    if (d < c.coverMinGap && d > Tuning.Sim.contactEpsilon) {
+        val push = Pitch.unit(x - players[primary].pos.x, z - players[primary].pos.z)
+        x += push.x * (c.coverMinGap - d)
+        z += push.z * (c.coverMinGap - d)
+    }
+    return Vec(x, z)
 }
 
 /** At least 0.5 nearer their own goal than the carrier, within 7 of the carrier's route to it. */
@@ -192,7 +238,7 @@ private fun Match.isGoalSide(q: Int, carrier: Int): Boolean {
 }
 
 /** Where the ball will be 0.3 s ahead on its orbit, plus the carrier's travel. */
-private fun Match.challengePoint(): Vec {
+internal fun Match.challengePoint(): Vec {
     val ch = Tuning.AI.Challenge
     val c = players[ball.carrier!!]
     val a = ball.orbit + omega * ch.orbitLead * ball.orbitDirection

@@ -151,6 +151,7 @@ extension Match {
             players[i].expectPass = 0
             players[i].stealContact = 0
             players[i].challengeUntil = 0
+            players[i].onTheBall = false
             players[i].patrolFresh = true
         }
         looseTimer = 0

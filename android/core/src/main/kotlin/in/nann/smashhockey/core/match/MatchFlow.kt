@@ -169,6 +169,7 @@ internal fun Match.clearForRestart() {
         p.expectPass = 0.0
         p.stealContact = 0.0
         p.challengeUntil = 0.0
+        p.onTheBall = false
         p.patrolFresh = true
     }
     looseTimer = 0.0

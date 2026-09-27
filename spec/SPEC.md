@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.28.0
+Spec-Version: 0.29.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -338,7 +338,7 @@ allowed and is not a goal — so from in there the mouth is the way out.
 **The orbit angle is not touched, and neither is any aim.** A release's direction is measured from
 the carrier's position, not the ball's (§5.2, §5.4), so what the aim arrow shows and where the ball
 goes are unchanged by this; what moves is only where the ball stands, and therefore where a release
-leaves from (§5.4, whose own goal guard still applies after this). This is the whole of the
+leaves from (§5.4, which corrects it no further). This is the whole of the
 simulation's regard for the net as an obstacle to a *carried* ball.
 
 When a player wins the ball, the orbit angle starts where the ball was, and the direction is
@@ -442,8 +442,17 @@ Every release leaves **from the orbit point**; the direction of an aimed release
 - **An unassisted release** travels at **24** along the orbit direction.
 - The player's own releases have accuracy 1. The ball also inherits 20 % of the carrier's
   velocity.
-- A release point with `|z| > 25.7` and `|x| < 3.6` (at either goal) is moved back to the
-  carrier's x and z, z kept within 25.5.
+- **Nothing moves the ball at the moment it leaves.** The orbit point is where the ball has been
+  standing and being drawn, §5.1 has already kept it clear of both nets, and a release leaves from
+  exactly there — at either goal, from in front of a net or from behind one. A ball released from
+  behind a net meets that net on its way back like any other loose ball (§6.2).
+
+  This clause used to say the opposite: a release point with `|z| > 25.7` and `|x| < 3.6` was moved
+  to the carrier's x with z kept within 25.5. That was the prototype's patch for a carried ball that
+  was never held out of the cloth, and once §5.1 held it the clause could only do harm — for a
+  carrier standing behind their **own** net it put the release point *in front of* the goal line, so
+  the ball jumped through the cloth into their own D at the instant of the release. The ball goes
+  where it is; nothing between the finger and the ball may relocate it (A0).
 - The releaser cannot take the ball back for 0.45 s. A release makes the releaser the ball's last
   touch and last releaser (§8.5).
 

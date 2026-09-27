@@ -103,9 +103,6 @@ object Tuning {
         const val freeSpeed: Double = 24.0
         const val playerAccuracy: Double = 1.0
         const val carrierVelocityInherit: Double = 0.2
-        const val goalGuardZ: Double = 25.7
-        const val goalGuardX: Double = 3.6
-        const val goalGuardClampZ: Double = 25.5
         const val releaserCooldown: Double = 0.45
         const val shotSideChance: Double = 0.5
     }

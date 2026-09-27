@@ -102,9 +102,6 @@ public enum Tuning {
         public static let freeSpeed: Double = 24.0
         public static let playerAccuracy: Double = 1.0
         public static let carrierVelocityInherit: Double = 0.2
-        public static let goalGuardZ: Double = 25.7
-        public static let goalGuardX: Double = 3.6
-        public static let goalGuardClampZ: Double = 25.5
         public static let releaserCooldown: Double = 0.45
         public static let shotSideChance: Double = 0.5
     }

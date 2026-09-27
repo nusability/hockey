@@ -81,9 +81,6 @@ internal object GeneratedConstantBits {
         Triple("Tuning.Release.freeSpeed", Tuning.Release.freeSpeed, 4627448617123184640L), // 0x4038000000000000
         Triple("Tuning.Release.playerAccuracy", Tuning.Release.playerAccuracy, 4607182418800017408L), // 0x3FF0000000000000
         Triple("Tuning.Release.carrierVelocityInherit", Tuning.Release.carrierVelocityInherit, 4596373779694328218L), // 0x3FC999999999999A
-        Triple("Tuning.Release.goalGuardZ", Tuning.Release.goalGuardZ, 4627927124583592755L), // 0x4039B33333333333
-        Triple("Tuning.Release.goalGuardX", Tuning.Release.goalGuardX, 4615288898129284301L), // 0x400CCCCCCCCCCCCD
-        Triple("Tuning.Release.goalGuardClampZ", Tuning.Release.goalGuardClampZ, 4627870829588250624L), // 0x4039800000000000
         Triple("Tuning.Release.releaserCooldown", Tuning.Release.releaserCooldown, 4601778099247172813L), // 0x3FDCCCCCCCCCCCCD
         Triple("Tuning.Release.shotSideChance", Tuning.Release.shotSideChance, 4602678819172646912L), // 0x3FE0000000000000
         Triple("Tuning.Ball.maxSpeed", Tuning.Ball.maxSpeed, 4629137466983448576L), // 0x403E000000000000

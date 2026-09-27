@@ -190,10 +190,10 @@ extension Match {
         let n = Pitch.unit(dx, dz)
         if n.x == 0 && n.z == 0 { return false }
         let me = players[c]
-        var from = orbitPoint(c)
-        if from.z.magnitude > R.goalGuardZ && from.x.magnitude < R.goalGuardX {
-            from = Vec(x: me.pos.x, z: Pitch.clamp(me.pos.z, -R.goalGuardClampZ, R.goalGuardClampZ))
-        }
+        // §5.4: from the orbit point, and from nowhere else. §5.1 has already kept that point out of
+        // both nets, so there is nothing here to correct — and a correction here could only lie,
+        // since the ball is already drawn where it stands.
+        let from = orbitPoint(c)
         ball.carrier = nil
         ball.pending = nil
         ball.pos = from

@@ -219,10 +219,10 @@ private fun Match.launch(c: Int, dx: Double, dz: Double, speed: Double): Boolean
     val n = Pitch.unit(dx, dz)
     if (n.x == 0.0 && n.z == 0.0) return false
     val me = players[c]
-    var from = orbitPoint(c)
-    if (abs(from.z) > r.goalGuardZ && abs(from.x) < r.goalGuardX) {
-        from = Vec(me.pos.x, Pitch.clamp(me.pos.z, -r.goalGuardClampZ, r.goalGuardClampZ))
-    }
+    // §5.4: from the orbit point, and from nowhere else. §5.1 has already kept that point out of both
+    // nets, so there is nothing here to correct — and a correction here could only lie, since the
+    // ball is already drawn where it stands.
+    val from = orbitPoint(c)
     ball.carrier = null
     ball.pending = null
     ball.pos = from

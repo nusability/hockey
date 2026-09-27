@@ -98,9 +98,6 @@ shot_noise_offset = 1.2
 free_speed = 24.0
 player_accuracy = 1.0
 carrier_velocity_inherit = 0.2
-goal_guard_z = 25.7             # a release point with |z| > 25.7 and |x| < 3.6 …
-goal_guard_x = 3.6
-goal_guard_clamp_z = 25.5       # … is moved to the carrier, z kept within 25.5
 releaser_cooldown = 0.45
 shot_side_chance = 0.5          # with no goalie, −x on a draw below 0.5, else +x
 

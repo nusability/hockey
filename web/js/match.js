@@ -7,6 +7,24 @@ import { updateTeamAI } from './ai.js';
  * stole passes aimed near the goal from range. Here so the two can be played back to back.
  */
 const OLD_AIM = typeof location !== 'undefined' && new URLSearchParams(location.search).get('aim') === 'old';
+
+/**
+ * Who picks the corner a shot goes to — `?corner=`:
+ *
+ *   `keeper`  the old rule: always the far side of the keeper, whatever the arrow said. The owner's
+ *             complaint — "if a player releases as the arrow is to the right of the keeper, it often
+ *             still shoots to the left, if the system decides that is better. This choice should be
+ *             with the player."
+ *   `side`    the arrow picks which **side of the keeper**; the corner itself is still the full
+ *             ±(3.0 − 0.85) the old rule aimed at.
+ *   `arrow`   (default) the arrow picks the **spot**: where the release is pointing, on the goal
+ *             line, kept inside ±(3.0 − 0.85) so it never aims at a post. The keeper stops steering
+ *             the ball at all.
+ *
+ * With either new rule the 25 % pull-to-30 % draw is left to the AI: on the player's own shot it is
+ * the same override by another name, one shot in four dragged back to the middle.
+ */
+const CORNER = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('corner')) || 'arrow';
 import { formationById, DEFAULT_FORMATION } from './formations.js';
 
 const HW = RINK.width / 2;
@@ -360,14 +378,42 @@ export class Match {
     return ok;
   }
 
+  /**
+   * Where a release from p at orbit angle a crosses the line z = gz, or null when it points away
+   * from it. This is what the arrow is pointing at — measured from the carrier, as a release is
+   * (§5.4), not from the puck on its orbit.
+   */
+  aimCrossing(p, a, gz) {
+    const dz = Math.cos(a);
+    const run = gz - p.z;
+    if (dz * run <= 1e-9) return null;
+    return p.x + Math.sin(a) * (run / dz);
+  }
+
   shootAtGoal(p, opts = {}) {
     const acc = opts.accuracy ?? 1;
     const power = opts.power ?? ORBIT.shotSpeed;
     const gz = this.attackGoalZ(p.team);
     const goalie = this.goalie(1 - p.team);
     const half = RINK.goalWidth / 2 - 0.85;
-    let aimX = goalie ? (goalie.x > 0 ? -half : half) : (Math.random() < 0.5 ? -half : half);
-    if (Math.random() < 0.25) aimX *= 0.3;
+    // The angle that snapped, which is not always the one the orbit is on now: the late grace (§5.3
+    // rule 2) winds the angle back to find the snap and then restores it, and with the arrow picking
+    // the corner, a quarter of a second of orbit is most of the goal.
+    const a = opts.aimAngle ?? this.puck.orbit;
+    // Only the player's own release has an arrow, and only the player is being denied a choice. An
+    // AI carrier lines its orbit up on the goal *centre* to within a wide tolerance (ai.js) and has
+    // no side in mind, so reading a corner off its angle would be reading noise: it keeps the
+    // keeper-aware corner it always had.
+    const cross = (!opts.byPlayer || CORNER === 'keeper') ? null : this.aimCrossing(p, a, gz);
+    let aimX;
+    if (cross === null) {
+      aimX = goalie ? (goalie.x > 0 ? -half : half) : (Math.random() < 0.5 ? -half : half);
+    } else if (CORNER === 'side') {
+      aimX = cross >= (goalie ? goalie.x : 0) ? half : -half;
+    } else {
+      aimX = clamp(cross, -half, half);
+    }
+    if ((cross === null || acc < 1) && Math.random() < 0.25) aimX *= 0.3;
     aimX += noise(1.5 * (1.2 - acc));
     return this.release(p, aimX - p.x, gz - p.z, power, 'shot');
   }
@@ -378,7 +424,10 @@ export class Match {
     const snap = opts.assist === false ? null : this.aimTarget(p);
     const acc = opts.accuracy ?? 1;
     if (snap?.kind === 'pass') return this.passTo(p, snap.target, { accuracy: acc });
-    if (snap?.kind === 'goal') return this.shootAtGoal(p, { accuracy: acc, power: ORBIT.shotSpeed });
+    if (snap?.kind === 'goal') {
+      return this.shootAtGoal(p, { accuracy: acc, power: ORBIT.shotSpeed, byPlayer: true,
+                                   aimAngle: this.puck.orbit });
+    }
     const d = this.aimDirection();
     return this.release(p, d.x, d.z, ORBIT.freeSpeed, 'shot');
   }
@@ -405,7 +454,9 @@ export class Match {
         this.puck.orbit = saved;
         if (!hit) continue;
         if (hit.kind === 'pass') return this.passTo(c, hit.target, { accuracy: 1 });
-        return this.shootAtGoal(c, { accuracy: 1, power: ORBIT.shotSpeed });
+        // The angle that snapped, not the one the orbit has moved on to.
+        return this.shootAtGoal(c, { accuracy: 1, power: ORBIT.shotSpeed, byPlayer: true,
+                                     aimAngle: saved - this.orbitSpeed * t * this.puck.orbitDir });
       }
     }
     const saved = this.puck.orbit;

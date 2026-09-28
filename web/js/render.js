@@ -506,9 +506,11 @@ export class Renderer {
 
     // A bar across the goal mouth, lit while a flick from here would be a shot. It is the only
     // thing that tells you the goal is live without an aim arrow to turn pink.
-    this.goalBar = new THREE.Mesh(new THREE.PlaneGeometry(RINK.goalWidth, 1.1),
-      new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.5,
-        depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    // Normal blending, not additive: additive pink over a bright green pitch washes out to a
+    // white smear that reads as a lighting artefact rather than as the goal being live.
+    this.goalBar = new THREE.Mesh(new THREE.PlaneGeometry(RINK.goalWidth, 1.8),
+      new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.55,
+        depthWrite: false, side: THREE.DoubleSide }));
     this.goalBar.rotation.x = -Math.PI / 2;
     this.goalBar.position.y = 0.03;
     this.goalBar.visible = false;
@@ -577,7 +579,7 @@ export class Renderer {
     if (Math.hypot(c.x, gz - c.z) <= GOAL_AIM.snapRange) {
       this.goalBar.visible = true;
       this.goalBar.position.set(0, 0.03, gz);
-      this.goalBar.material.opacity = 0.3 + Math.sin(this.time * 6) * 0.1;
+      this.goalBar.material.opacity = 0.5 + Math.sin(this.time * 6) * 0.12;
     }
   }
 

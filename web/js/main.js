@@ -364,17 +364,6 @@ showMenu();
       }
     };
     requestAnimationFrame(paint);
-      const held = input.steerId !== null;
-      rings.style.opacity = held ? '1' : '0';
-      if (!held) return;
-      rings.style.left = `${input.originX}px`;
-      rings.style.top = `${input.originY}px`;
-      const d = Math.hypot(input.curX - input.originX, input.curY - input.originY);
-      // each ring brightens as the thumb reaches it, so the edge is visible before it is crossed
-      rDead.style.borderColor = d >= DRAG.deadzone ? 'rgba(56,189,248,.9)' : 'rgba(56,189,248,.35)';
-      rFull.style.borderColor = d >= DRAG.full ? 'rgba(125,211,252,.95)' : 'rgba(56,189,248,.22)';
-    };
-    requestAnimationFrame(paint);
   }
 }
 

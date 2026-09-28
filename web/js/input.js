@@ -118,10 +118,15 @@ export class Input {
    * The current steering order, or null when nothing is being steered.
    *
    * The camera looks straight down +Z and never yaws (render.js
-   * `cameraPosition`), so screen right is world +x and screen up is world +z.
-   * That is the whole of the screen-to-pitch mapping, and it only stays this
-   * simple while the camera has no yaw — a rotating camera would have to
-   * rotate this vector by the camera's heading.
+   * `cameraPosition`), so screen up is world +z — and screen right is world
+   * **−x**, not +x. Looking along +Z with up +Y mirrors the x axis: a player
+   * standing at x = +10 is drawn on the *left* of the screen. (Checked by
+   * projecting through the game's own camera, not reasoned about — reasoning
+   * about it is what got the sign wrong the first time and made dragging right
+   * run the player left.)
+   *
+   * This stays this simple only while the camera has no yaw; a rotating camera
+   * would have to rotate this vector by the camera's heading instead.
    */
   get steer() {
     if (this.steerId === null) return null;
@@ -132,7 +137,7 @@ export class Input {
     const span = Math.max(1e-3, DRAG.full - DRAG.deadzone);
     const t = Math.min(1, (d - DRAG.deadzone) / span);
     return {
-      x: dx / d,
+      x: -dx / d,
       z: -dy / d,
       speed: DRAG.minSpeed + (1 - DRAG.minSpeed) * t,
       atFull: d >= DRAG.full,

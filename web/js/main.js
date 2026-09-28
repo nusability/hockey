@@ -273,12 +273,32 @@ showMenu();
 {
   const scheme = new URLSearchParams(location.search).get('control') || 'touch';
   if (scheme !== 'touch') {
+    const build = document.querySelector('meta[name="build"]')?.content || 'dev';
     const tag = document.createElement('div');
-    tag.textContent = `control: ${scheme}`;
-    tag.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:50;font:600 11px/1 ui-monospace,monospace;'
-      + 'letter-spacing:.08em;color:#38bdf8;background:rgba(2,6,23,.55);padding:5px 8px;border-radius:5px;'
-      + 'pointer-events:none;text-transform:uppercase';
+    tag.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:50;font:600 11px/1.5 ui-monospace,monospace;'
+      + 'letter-spacing:.06em;color:#38bdf8;background:rgba(2,6,23,.62);padding:6px 9px;border-radius:5px;'
+      + 'pointer-events:none;white-space:pre';
     document.body.appendChild(tag);
+
+    // The steering readout. The left/right sign has now been argued about twice and shipped
+    // wrong once, because the maths can be checked here but the *feel* only exists on the phone.
+    // So the phone reports the numbers itself: what the finger did, what the world vector became,
+    // and which way the player actually went. One drag to the right settles it, and the build id
+    // is on screen so there is never a question of which version is in your hand.
+    const fmt = (n) => (n >= 0 ? '+' : '') + n.toFixed(2);
+    setInterval(() => {
+      const s = input.steer;
+      const p = match?.controlled;
+      const lines = [`${scheme}  ${build.slice(0, 7)}`];
+      if (s) {
+        lines.push(`finger dx ${fmt(input.curX - input.originX)}`);
+        lines.push(`world  x  ${fmt(s.x)}  z ${fmt(s.z)}`);
+      } else {
+        lines.push('finger —  (deadzone)');
+      }
+      lines.push(p ? `player vx ${fmt(p.vx)}  #${p.id}` : 'player —');
+      tag.textContent = lines.join('\n');
+    }, 100);
   }
 }
 

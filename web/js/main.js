@@ -237,6 +237,7 @@ function frame(now) {
     // the finger's order is read fresh for the frame, not queued: nothing sits between the
     // pointer event and the step that acts on it (A0)
     match.setSteer(input.steer);
+    match.armed = input.armed;      // past the third ring: a lift shoots, and the pitch says so
     while (acc >= STEP) { match.update(STEP); acc -= STEP; }
     ui.updateHud(match);
     // count down the last five seconds
@@ -316,6 +317,9 @@ showMenu();
     };
     const gDead = mk('circle', { r: DRAG.deadzone, fill: 'none', stroke: '#38bdf8', 'stroke-width': 1.5 });
     const gFull = mk('circle', { r: DRAG.full, fill: 'none', stroke: '#38bdf8', 'stroke-width': 2.5 });
+    // the third ring: cross it and a lift becomes an aimed shot
+    const gShoot = mk('circle', { r: DRAG.shoot, fill: 'none', stroke: '#f472b6',
+      'stroke-width': 3, 'stroke-dasharray': '10 8' });
     const gLive = mk('path', { d: HEAD, fill: '#7dd3fc', filter: 'url(#sg)' });
 
     // screen angle, not the world one: this sits under the thumb, so it follows the thumb. (The
@@ -330,22 +334,28 @@ showMenu();
       requestAnimationFrame(paint);
       const held = input.steerId !== null;
 
-      for (const el of [gDead, gFull, gLive]) set(el, held ? 1 : 0);
+      for (const el of [gDead, gFull, gShoot, gLive]) set(el, held ? 1 : 0);
       if (held) {
         const cx = input.originX, cy = input.originY;
-        gDead.setAttribute('cx', cx); gDead.setAttribute('cy', cy);
-        gFull.setAttribute('cx', cx); gFull.setAttribute('cy', cy);
+        for (const el of [gDead, gFull, gShoot]) { el.setAttribute('cx', cx); el.setAttribute('cy', cy); }
         const dx = input.curX - cx, dy = input.curY - cy;
         const d = Math.hypot(dx, dy);
         const past = d >= DRAG.deadzone;
+        const armed = d >= DRAG.shoot;
         gDead.style.stroke = past ? 'rgba(56,189,248,.95)' : 'rgba(56,189,248,.4)';
         gFull.style.stroke = d >= DRAG.full ? 'rgba(125,211,252,1)' : 'rgba(56,189,248,.3)';
+        // the shot ring only really shows once the thumb is on its way out to it, so it does not
+        // clutter an ordinary steer, and it lights when crossed
+        set(gShoot, armed ? 1 : Math.max(0, (d - DRAG.full) / Math.max(1, DRAG.shoot - DRAG.full)) * 0.75);
+        gShoot.style.stroke = armed ? 'rgba(244,114,182,1)' : 'rgba(244,114,182,.5)';
         set(gLive, past ? 1 : 0);
         if (past) {
           // rides the outer ring whatever the drag length, so the angle is always read off the
-          // same circle — that is what makes two flicks comparable to the eye
+          // same circle — that is what makes two gestures comparable to the eye. Armed, it moves
+          // out to the shot ring and turns the shot's colour: the triangle is then the aim.
           const t = Math.min(1, (d - DRAG.deadzone) / Math.max(1, DRAG.full - DRAG.deadzone));
-          place(gLive, cx, cy, dx, dy, DRAG.full, 0.8 + t * 0.45);
+          gLive.style.fill = armed ? '#f9a8d4' : '#7dd3fc';
+          place(gLive, cx, cy, dx, dy, armed ? DRAG.shoot : DRAG.full, armed ? 1.5 : 0.8 + t * 0.45);
         }
       }
 

@@ -568,6 +568,14 @@ export class Renderer {
     this.passTex = this.passLine.material.map;
     this.passTex.wrapS = THREE.RepeatWrapping; this.passTex.wrapT = THREE.RepeatWrapping;
     this.scene.add(this.passGroup);
+
+    // where the ball is actually going: ahead of the receiver, not on them
+    this.leadRing = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.85, 24),
+      new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.35,
+        depthWrite: false, side: THREE.DoubleSide }));
+    this.leadRing.rotation.x = -Math.PI / 2;
+    this.leadRing.visible = false;
+    this.scene.add(this.leadRing);
   }
 
   /** The shot trace: planted where the ball left, held, then faded. */
@@ -616,6 +624,14 @@ export class Renderer {
 
     const s = p.steer;
     if (!s) { this.controlGroup.visible = false; return; }
+    // Armed, the steering triangle is also the aim, so it takes the shot's colour. The two say
+    // the same thing — the drag steers and aims at once past the third ring — so this is one
+    // fact in two places, not two arrows to read.
+    const armed = !!match.armed && match.noOrbit;
+    const body = armed ? 0xf9a8d4 : 0x38bdf8;
+    const halo = armed ? 0xf472b6 : 0x7dd3fc;
+    if (this.steerTri.material.color.getHex() !== body) this.steerTri.material.color.setHex(body);
+    if (this.steerHalo.material.color.getHex() !== halo) this.steerHalo.material.color.setHex(halo);
     this.controlGroup.visible = true;
     this.controlGroup.position.set(p.x, 0, p.z);
     this.controlGroup.rotation.y = Math.atan2(s.x, s.z);
@@ -626,7 +642,7 @@ export class Renderer {
     this.steerHalo.position.z = this.steerTri.position.z;
     // Bigger and brighter than it was: this is now the only arrow in the scheme, so it carries
     // the whole of "where am I going" rather than sharing the job with an orbit.
-    const scale = 1.05 + t * 0.7;
+    const scale = (armed ? 1.5 : 1.05) + t * 0.7;
     this.steerTri.scale.setScalar(scale);
     this.steerHalo.scale.setScalar(scale * 1.45);
     this.steerTri.material.opacity = 0.62 + t * 0.38;
@@ -644,16 +660,23 @@ export class Renderer {
     this.lastDt = dt;
     this.goalBar.visible = false;
     this.passGroup.visible = false;
+    this.leadRing.visible = false;
     if (!match?.noOrbit) return;
     const c = match.puck.carrier;
     if (!c || !match.isUserCarrier(c) || match.state !== 'play') return;
 
-    const mate = match.passTarget(c);
+    const mate = match.passTarget();
     if (mate) {
       const m = this.playerMeshes.get(mate.id);
       if (m) { m.ring.visible = true; m.ring.scale.setScalar(1 + Math.sin(this.time * 10) * 0.08); }
-      // the line from the ball to them, stopping short so it does not run over either
-      const dx = mate.x - c.x, dz = mate.z - c.z;
+      // The line runs to the *lead* point, which is where the ball is actually going — ahead of
+      // the receiver by as far as they travel while it is in flight. Drawn to the receiver
+      // instead it points at a player and the ball lands on the grass in front of them.
+      const lead = match.leadPoint(c, mate);
+      this.leadRing.visible = true;
+      this.leadRing.position.set(lead.x, 0.032, lead.z);
+      this.leadRing.material.opacity = 0.32 + Math.sin(this.time * 7) * 0.1;
+      const dx = lead.x - c.x, dz = lead.z - c.z;
       const d = Math.hypot(dx, dz);
       if (d > 2.2) {
         const from = 1.0, len = d - 1.1 - from;

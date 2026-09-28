@@ -65,6 +65,13 @@ export const DRAG = {
   deadzone: 16,
   /** at this distance and beyond the player runs flat out */
   full: 96,
+  /**
+   * Past this third ring a lift is a **shot** along the drag, not a pass. The flick is fast and
+   * instinctive but hard to aim; this is its deliberate twin — you push out to the ring, take as
+   * long as you like lining the triangle up, and let go. Speed is already capped at `full`, so
+   * the band beyond it was carrying no information anyway.
+   */
+  shoot: num('ring3', 165),
   /** speed floor the moment the deadzone is crossed, so the step off it is felt */
   minSpeed: 0.35,
 };
@@ -139,12 +146,14 @@ export class Input {
       // only the outward crossings are worth a buzz; sliding back in is silent
       if (z === 'steer' && this.zone === 'dead') vibrate(12);
       else if (z === 'full') vibrate([8, 26, 8]);
+      else if (z === 'shoot') vibrate([14, 20, 14, 20, 14]);   // armed: a lift now shoots
       this.zone = z;
     }
   }
 
   zoneOf(d) {
     if (d < DRAG.deadzone) return 'dead';
+    if (d >= DRAG.shoot) return 'shoot';
     return d >= DRAG.full ? 'full' : 'steer';
   }
 
@@ -195,10 +204,26 @@ export class Input {
    * What the lift meant. `flick` carries a direction in world axes (same mapping as `steer`);
    * a plain lift carries none, and the game passes to whoever is marked.
    */
+  /** True while the thumb is past the third ring, where a lift becomes a shot. */
+  get armed() {
+    if (this.steerId === null) return false;
+    return Math.hypot(this.curX - this.originX, this.curY - this.originY) >= DRAG.shoot;
+  }
+
   releaseGesture() {
     // A finger at rest produces no pointermove events, so its newest sample ages out and
     // gesture() returns null — sweeping across the pitch, pausing, then calmly letting go is a
     // pass, not a shot. That freshness test lives in gesture() so both callers share it.
+    // Past the third ring the lift is a shot whatever the thumb's speed: this is the aimed
+    // shot, and it must not need a flourish at the end to count. Direction comes from the drag
+    // itself, which is what the triangle has been showing all along.
+    const dx = this.curX - this.originX, dy = this.curY - this.originY;
+    const dist = Math.hypot(dx, dy);
+    if (dist >= DRAG.shoot) {
+      vibrate([12, 16, 18]);
+      this.lastFlick = { dx, dy, cx: this.originX, cy: this.originY, at: performance.now() / 1000 };
+      return { flick: true, aimed: true, x: -dx / dist, z: -dy / dist, speed: 0 };
+    }
     const g = this.gesture();
     if (!g || g.speed < FLICK.speed || g.dist < 1e-3) return { flick: false };
     vibrate([10, 18, 14]);

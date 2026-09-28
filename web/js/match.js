@@ -59,6 +59,8 @@ const CONTROL_TUNE = {
   passForward: num('fwd', 3),
   /** metres beyond the post a flick may cross and still count as a shot */
   flickGenerosity: num('gen', 1.5),
+  /** how much better a rival receiver must score before the mark moves off the held one */
+  markStick: num('mark', 3),
   /**
    * Seconds an AI carrier holds the ball with no orbit — the orbit wait's replacement.
    * It has to clear `settleTime` (0.45 s, the grace after winning the ball) by a real margin or
@@ -126,6 +128,7 @@ export class Match {
     this.noOrbitWindup = CONTROL_TUNE.windup;
     this.steerInput = null;      // the finger's order this frame, from Input#steer
     this.controlled = null;      // the player it is steering, or null
+    this.marked = null;          // the receiver a lift would pass to (see updateMarked)
     this.attacking = null;       // latched attack/defend read (see userAttacking)
     this.attackingFor = 0;       // how long the raw read has disagreed with it
     this.lastDt = 1 / 60;
@@ -220,27 +223,52 @@ export class Match {
    * The choice the owner cares about is not taken here: the shot is flicked, and goes exactly
    * where it is flicked (see userRelease).
    */
-  passTarget(p) {
-    if (!p) return null;
+  /** How good a receiver `m` would be for `p`, or null when they are not a candidate at all. */
+  receiverScore(p, m) {
+    if (!m || m === p || m.role === 'G' || m.role === 'O' || m.behavior !== 'active') return null;
+    if (m.team !== p.team) return null;
+    const d = Math.hypot(m.x - p.x, m.z - p.z);
+    if (d < 3) return null;
     const dir = this.dirOf(p.team);
-    // where the player is going: the finger if it is steering, else the way they face
     const s = this.controlled === p ? this.steerInput : null;
     const runAng = s ? Math.atan2(s.x, s.z) : p.facing;
-    let best = null, bs = -Infinity;
-    for (const m of this.teamPlayers(p.team)) {
-      if (m === p || m.role === 'G' || m.role === 'O' || m.behavior !== 'active') continue;
-      const d = Math.hypot(m.x - p.x, m.z - p.z);
-      if (d < 3) continue;
-      let open = 9;
-      for (const o of this.opponents(p.team)) open = Math.min(open, Math.hypot(o.x - m.x, o.z - m.z));
-      const ang = Math.atan2(m.x - p.x, m.z - p.z);
-      const forward = Math.cos(angleDiff(ang, runAng));   // 1 dead ahead, −1 behind
-      const score = open + dir * (m.z - p.z) * 0.4 - Math.max(0, d - 18) * 0.5
-                  + forward * CONTROL_TUNE.passForward;
-      if (score > bs) { bs = score; best = m; }
-    }
-    return best;
+    let open = 9;
+    for (const o of this.opponents(p.team)) open = Math.min(open, Math.hypot(o.x - m.x, o.z - m.z));
+    const ang = Math.atan2(m.x - p.x, m.z - p.z);
+    const forward = Math.cos(angleDiff(ang, runAng));   // 1 dead ahead, −1 behind
+    return open + dir * (m.z - p.z) * 0.4 - Math.max(0, d - 18) * 0.5
+         + forward * CONTROL_TUNE.passForward;
   }
+
+  /**
+   * Hold the marked receiver steady while the ball is carried.
+   *
+   * The mark is a promise: the lift has to send the ball to whoever is ringed. Recomputed from
+   * scratch at the moment of release it is not — the score moves every frame, so the best
+   * receiver can change between the frame the player looked at and the frame their finger came
+   * up, and the ball goes to someone they never chose. It is worst for a receiver *behind* the
+   * run, because the "progress up the pitch" term falls away every frame you run from them.
+   *
+   * So whoever is marked keeps it until they stop being a candidate, or until someone else is
+   * better by a clear margin.
+   */
+  updateMarked() {
+    const c = this.puck.carrier;
+    if (!this.noOrbit || !c || !this.isUserCarrier(c) || this.state !== 'play') { this.marked = null; return; }
+    let best = null, bs = -Infinity;
+    for (const m of this.teamPlayers(c.team)) {
+      const sc = this.receiverScore(c, m);
+      if (sc !== null && sc > bs) { bs = sc; best = m; }
+    }
+    const held = this.marked;
+    const heldScore = held ? this.receiverScore(c, held) : null;
+    if (held && heldScore !== null && best && best !== held
+        && bs - heldScore < CONTROL_TUNE.markStick) return;
+    this.marked = best;
+  }
+
+  /** Who a lift would pass to — the held mark, so it is exactly what is drawn on the pitch. */
+  passTarget() { return this.marked; }
 
   /**
    * Would a flick along `dir` be a shot on goal, and where would it cross the line?
@@ -618,14 +646,24 @@ export class Match {
     return true;
   }
 
-  passTo(p, receiver, opts = {}) {
-    const acc = opts.accuracy ?? 1;
-    const dx0 = receiver.x - p.x, dz0 = receiver.z - p.z;
-    const d = Math.hypot(dx0, dz0);
+  /**
+   * Where a pass to `receiver` is actually aimed: not at them, but ahead of them, by how far
+   * they will travel while the ball is in flight (§5.4). The renderer draws to this same point,
+   * because drawing to the receiver instead is a lie whenever they are moving — the line points
+   * at a player and the ball goes to the grass in front of them.
+   */
+  leadPoint(p, receiver) {
+    const d = Math.hypot(receiver.x - p.x, receiver.z - p.z);
     const speed = clamp(ORBIT.passSpeedMin + d * ORBIT.passSpeedPerMetre, ORBIT.passSpeedMin, ORBIT.passSpeedMax);
     const t = d / speed;
-    let tx = receiver.x + receiver.vx * t * 0.8;
-    let tz = receiver.z + receiver.vz * t * 0.8;
+    return { x: receiver.x + receiver.vx * t * 0.8, z: receiver.z + receiver.vz * t * 0.8, speed };
+  }
+
+  passTo(p, receiver, opts = {}) {
+    const acc = opts.accuracy ?? 1;
+    const lead = this.leadPoint(p, receiver);
+    const speed = lead.speed;
+    let tx = lead.x, tz = lead.z;
     tx += noise(1.6 * (1.15 - acc)); tz += noise(1.6 * (1.15 - acc));
     const ok = this.release(p, tx - p.x, tz - p.z, speed, 'pass');
     if (ok) { receiver.ai.expectPass = 1.6; receiver.ai.timer = 0; }
@@ -827,6 +865,7 @@ export class Match {
     if (live) { updateTeamAI(this, 0, dt); updateTeamAI(this, 1, dt); }
     // after the AI has set its targets, so a steered player overrides its own
     this.applyControl();
+    this.updateMarked();
     for (const p of this.players) this.movePlayer(p, dt, live);
     this.collidePlayers();
     for (const p of this.players) this.constrainPlayer(p);

@@ -30,8 +30,13 @@ final class MatchHud: Screen {
         super.init(hudOf: game)
         let m = motion
         let b = Self.board
-        board = part(Panel(size: [Float(b.boardWidth), 0.38, 0.12], colour: C.board, entrance: .drop, motion: m),
+        board = part(Panel(size: [Float(b.boardWidth), 0.38, Self.boardDepth], colour: C.board, entrance: .drop, motion: m),
                      at: at(-0.12, top - 0.26))
+        // §16.4: the board is a **box, seen from below** — the HUD hangs at the top of the screen, so
+        // its underside is in view and its silhouette reaches further down than the face the cards
+        // stand on. Everything on that face therefore sits a fraction of the board's depth below its
+        // centre, or the whole row reads high on the board, which is what the owner saw.
+        board.content.position.y -= Self.boardDepth * DesignTokens.Size.boardContentDrop
         if let goals = drillGoals {
             let digits = child(FlipDigits(Scoreboard.drill(scored: 0, target: goals), cardSize: Self.card,
                                           id: "match_goals", label: L(.hudGoals), motion: m),
@@ -77,6 +82,7 @@ final class MatchHud: Screen {
 
     /// The board's measures (§16.4), derived once from one card so both apps lay it out the same:
     /// two cards a side, a colon between them, a team chip outside each.
+    static let boardDepth: Float = 0.12
     static let card = SIMD2<Float>(0.14, 0.20)
     static let chip: Float = 0.30
     static let board = Scoreboard.metrics(card: Double(card.x), gap: Double(card.x) * 0.08,

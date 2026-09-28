@@ -9,8 +9,9 @@ import SmashCore
 @MainActor
 private final class FlipCard {
     let entity = Entity()
-    private let faceNodes: [Entity]
+    private var faceNodes: [Entity]
     private var faces: [ModelEntity?]
+    private let depth: Float
     private let ink: Int
     private var turn: Spring
     private var flips = 0
@@ -26,6 +27,7 @@ private final class FlipCard {
         self.clacks = clacks
         shown = c
         self.textHeight = textHeight
+        self.depth = depth
         self.ink = ink
         turn = Spring(motion.spring(.snappy))
         let tile = Blocks.slab([size.x, size.y, depth], cardColour, corner: min(size.x, size.y) * 0.12)
@@ -78,9 +80,36 @@ private final class FlipCard {
         if clacks { KitSound.flip() }
     }
 
+    /// A card comes to rest **square to the camera, on its front face**, whatever it has just done.
+    ///
+    /// The 3D UI's colour is toon-shaded from the object's own normal (`Materials.ui`), so a tile
+    /// left standing a half revolution over has the light on the wrong side of it and reads as a
+    /// different, much darker colour — on a navy board it stops looking like a card at all, which
+    /// is what the owner saw: the digit right, the card behind it gone (SMASH-61). Every card that
+    /// had flipped an odd number of times was dark and every other one was not, which is why it
+    /// looked intermittent and why it followed the score rather than the digit.
+    ///
+    /// Turning is what a split-flap does; *staying* turned is not. So on landing the two faces
+    /// change places and the card squares up — the same picture, drawn the right way round.
+    private func restOnFront() {
+        if flips % 2 == 1 {
+            faceNodes.swapAt(0, 1)
+            faces.swapAt(0, 1)
+            faceNodes[0].position.z = depth / 2
+            faceNodes[0].orientation = simd_quatf()
+            faceNodes[1].position.z = -depth / 2
+            faceNodes[1].orientation = simd_quatf(angle: .pi, axis: [1, 0, 0])
+        }
+        flips = 0
+        turn.snap(to: 0)
+    }
+
     func update(_ dt: Double, reduceMotion: Bool) {
         let wasFlipping = flipping
         if reduceMotion { turn.snap(to: turn.target) } else { turn.advance(dt) }
+        // Before the orientation is written, so the swap and the square-up land in the same frame
+        // and no frame shows the far face of a card that has already changed places.
+        if wasFlipping && !flipping { restOnFront() }
         entity.orientation = simd_quatf(angle: Float(turn.value), axis: [1, 0, 0])
         if wasFlipping && !flipping { onLanded?() }
         if !flipping, let q = queued {

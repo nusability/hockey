@@ -23,6 +23,7 @@ private class FlipCard(
     private val clacks: Boolean,
 ) {
     val node = kit.node(parent)
+    private val depth = depth
     private val faceNodes: Array<UiNode>
     private val faces = arrayOfNulls<UiNode>(2)
     private val ink = ink
@@ -76,9 +77,42 @@ private class FlipCard(
         turn.target = flips * Math.PI
     }
 
+    /**
+     * A card comes to rest **square to the camera, on its front face**, whatever it has just done.
+     *
+     * The 3D UI's colour is toon-shaded from the object's own normal, so a tile left standing a half
+     * revolution over has the light on the wrong side of it and reads as a different, much darker
+     * colour — on a navy board it stops looking like a card at all: the digit right, the card behind
+     * it gone (SMASH-61). Every card that had flipped an odd number of times was dark and every
+     * other one was not, which is why it looked intermittent and why it followed the score rather
+     * than the digit.
+     *
+     * Turning is what a split-flap does; *staying* turned is not. So on landing the two faces change
+     * places and the card squares up — the same picture, drawn the right way round.
+     */
+    private fun restOnFront() {
+        if (flips % 2 == 1) {
+            val front = faceNodes[0]
+            faceNodes[0] = faceNodes[1]
+            faceNodes[1] = front
+            val face = faces[0]
+            faces[0] = faces[1]
+            faces[1] = face
+            faceNodes[0].setPosition(0f, 0f, depth / 2)
+            faceNodes[0].setRotation(Quat())
+            faceNodes[1].setPosition(0f, 0f, -depth / 2)
+            faceNodes[1].setRotation(Quat().axisAngle(Math.PI.toFloat(), 1f, 0f, 0f))
+        }
+        flips = 0
+        turn.snap(0.0)
+    }
+
     fun update(dt: Double, reduceMotion: Boolean) {
         val wasFlipping = flipping
         if (reduceMotion) turn.snap(turn.target) else turn.advance(dt)
+        // Before the rotation is written, so the swap and the square-up land in the same frame and
+        // no frame shows the far face of a card that has already changed places.
+        if (wasFlipping && !flipping) restOnFront()
         node.transform.rot.axisAngle(turn.value.toFloat(), 1f, 0f, 0f)
         node.changed()
         if (wasFlipping && !flipping) onLanded?.invoke()

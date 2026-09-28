@@ -44,6 +44,7 @@ enum DesignTokens {
         static let textButton: Float = 0.12
         static let textBody: Float = 0.075
         static let textSmall: Float = 0.055
+        static let boardContentDrop: Float = 0.2
         static let slabDepth: Float = 0.1
         static let rowHeight: Float = 0.105
         static let rowGap: Float = 0.018

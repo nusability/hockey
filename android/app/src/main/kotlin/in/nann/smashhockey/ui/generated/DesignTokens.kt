@@ -47,6 +47,7 @@ object DesignTokens {
         const val TEXT_BUTTON: Float = 0.12f
         const val TEXT_BODY: Float = 0.075f
         const val TEXT_SMALL: Float = 0.055f
+        const val BOARD_CONTENT_DROP: Float = 0.2f
         const val SLAB_DEPTH: Float = 0.1f
         const val ROW_HEIGHT: Float = 0.105f
         const val ROW_GAP: Float = 0.018f

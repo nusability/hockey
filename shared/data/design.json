@@ -112,6 +112,7 @@
     "text_button": 0.12,
     "text_body": 0.075,
     "text_small": 0.055,
+    "board_content_drop": 0.2,
     "slab_depth": 0.1,
     "row_height": 0.105,
     "row_gap": 0.018,

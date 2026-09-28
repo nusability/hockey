@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.30.0
+Spec-Version: 0.31.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -1396,7 +1396,23 @@ label, which *is* declared copy (§14). In overtime **OT** takes the clock's pla
 the board. The board holds **two cards a side**, the tens card blank below ten, so a side may reach
 99 without the board changing shape or running into the short codes: the tenth goal flips the tens
 card from blank to 1 like any other change, and every card stands in the same place at 0:0 and at
-12:11. The result slab (§16.5) counts up on the same two cards a side. The pause panel: **Resume** and **Quit** — quitting a season match says it forfeits 0–3
+12:11. The result slab (§16.5) counts up on the same two cards a side.
+
+**A card comes to rest square, on its front face.** Turning is what a split-flap does; *staying*
+turned is not. The 3D UI's colour is toon-shaded from each object's own normal, so a tile left
+standing a half revolution over has the light on the wrong side of it and reads as a different,
+much darker colour — on the navy board it stops looking like a card at all, and what the player
+sees is the digit floating with nothing behind it. So when a flip lands, the card's two faces
+change places and the card squares up: the same picture, drawn the right way round, and a card's
+look never depends on how many times it has turned.
+
+**The board's contents sit a little below its middle.** The board is a box and it hangs at the top
+of the screen, so its underside is in view: its silhouette reaches further down than the face the
+cards and chips stand on, and a row centred on that face reads high on the board. Everything on it
+is therefore dropped by a fraction of the board's own depth, declared once for both apps
+(`shared/data/design.json`, `board_content_drop`).
+
+The pause panel: **Resume** and **Quit** — quitting a season match says it forfeits 0–3
 before it does (§8.7).
 
 **The offside mark** (the ice sport only, §8.9). A player the core reports offside wears a **faded

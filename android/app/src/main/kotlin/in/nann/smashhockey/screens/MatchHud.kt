@@ -13,6 +13,7 @@ import `in`.nann.smashhockey.game.L
 import `in`.nann.smashhockey.game.MatchPlan
 import `in`.nann.smashhockey.game.Names
 import `in`.nann.smashhockey.ui.BlockButton
+import `in`.nann.smashhockey.ui.generated.DesignTokens.Size
 import `in`.nann.smashhockey.ui.Entrance
 import `in`.nann.smashhockey.ui.FlipDigits
 import `in`.nann.smashhockey.ui.KitSound
@@ -32,8 +33,14 @@ import `in`.nann.smashhockey.ui.WaveText
  */
 class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Screen(game) {
     private val drillGoals = kickoff.drillGoals
-    private val board: Panel = part(Panel(kit, BOARD.boardWidth.toFloat(), 0.38f, 0.12f, C.BOARD, Entrance.Drop),
-        at(-0.12f, top - 0.26f))
+    private val board: Panel = part(Panel(kit, BOARD.boardWidth.toFloat(), 0.38f, BOARD_DEPTH, C.BOARD, Entrance.Drop),
+        at(-0.12f, top - 0.26f)).also {
+        // §16.4: the board is a **box, seen from below** — the HUD hangs at the top of the screen, so
+        // its underside is in view and its silhouette reaches further down than the face the cards
+        // stand on. Everything on that face therefore sits a fraction of the board's depth below its
+        // centre, or the whole row reads high on the board, which is what the owner saw.
+        it.content.setPosition(0f, -BOARD_DEPTH * Size.BOARD_CONTENT_DROP, BOARD_DEPTH / 2)
+    }
     private val scores = arrayOfNulls<FlipDigits>(2)
     private val shownScore = intArrayOf(0, 0)
     private val clock: FlipDigits
@@ -206,6 +213,7 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
     private companion object {
         /** The board's measures (§16.4), derived once from one card so both apps lay it out the
          *  same: two cards a side, a colon between them, a team chip outside each. */
+        const val BOARD_DEPTH = 0.12f
         const val CARD_W = 0.14f
         const val CARD_H = 0.20f
         const val CHIP = 0.30f

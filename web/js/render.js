@@ -549,15 +549,25 @@ export class Renderer {
     // Where a lift would send the ball, as a line along the ground. The ring on the receiver is
     // not enough on its own: they can be most of a pitch away, which makes the ring both small
     // and easy to lose among everyone else's.
+    // In a group, like the shot mark — and for the same reason. The heading cannot live on the
+    // mesh: with the default XYZ Euler order its own `rotation.y` is composed *before* the −90°
+    // X rotation that lays it flat, and the plane's length axis is local Y, which a Y-rotation
+    // leaves untouched. Every pass line came out pointing along world −Z whoever it was aimed
+    // at. The group turns in world space, after the mesh is already flat.
+    this.passGroup = new THREE.Group();
+    this.passGroup.visible = false;
     this.passLine = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 1),
       new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.55,
         depthWrite: false, side: THREE.DoubleSide, map: this.dashTex.clone() }));
-    this.passLine.rotation.x = -Math.PI / 2;
+    // +90°, not −90°: this lays the plane down with its local +Y toward the group's +Z, which
+    // is the receiver. The axis then points the way the pass goes, so the scrolling chevrons
+    // run toward the receiver instead of away from them.
+    this.passLine.rotation.x = Math.PI / 2;
     this.passLine.position.y = 0.035;
-    this.passLine.visible = false;
+    this.passGroup.add(this.passLine);
     this.passTex = this.passLine.material.map;
     this.passTex.wrapS = THREE.RepeatWrapping; this.passTex.wrapT = THREE.RepeatWrapping;
-    this.scene.add(this.passLine);
+    this.scene.add(this.passGroup);
   }
 
   /** The shot trace: planted where the ball left, held, then faded. */
@@ -633,13 +643,12 @@ export class Renderer {
   updateFlickMarks(match, dt) {
     this.lastDt = dt;
     this.goalBar.visible = false;
-    this.passLine.visible = false;
+    this.passGroup.visible = false;
     if (!match?.noOrbit) return;
     const c = match.puck.carrier;
     if (!c || !match.isUserCarrier(c) || match.state !== 'play') return;
 
     const mate = match.passTarget(c);
-    this.passLine.visible = false;
     if (mate) {
       const m = this.playerMeshes.get(mate.id);
       if (m) { m.ring.visible = true; m.ring.scale.setScalar(1 + Math.sin(this.time * 10) * 0.08); }
@@ -647,15 +656,14 @@ export class Renderer {
       const dx = mate.x - c.x, dz = mate.z - c.z;
       const d = Math.hypot(dx, dz);
       if (d > 2.2) {
-        const from = 1.0, to = d - 1.1, len = to - from;
-        this.passLine.visible = true;
-        this.passLine.position.set(c.x, 0.035, c.z);
-        this.passLine.rotation.y = Math.atan2(dx, dz);
-        this.passLine.scale.set(1, len, 1);   // local Y becomes world Z after the rotation
-        this.passLine.position.x += Math.sin(this.passLine.rotation.y) * (from + len / 2);
-        this.passLine.position.z += Math.cos(this.passLine.rotation.y) * (from + len / 2);
+        const from = 1.0, len = d - 1.1 - from;
+        this.passGroup.visible = true;
+        this.passGroup.position.set(c.x, 0, c.z);
+        this.passGroup.rotation.y = Math.atan2(dx, dz);
+        this.passLine.scale.set(1, len, 1);          // local Y, laid down to group Z
+        this.passLine.position.z = from + len / 2;   // group space: +z is the receiver
         this.passTex.repeat.set(1, len / 1.5);
-        this.passTex.offset.y -= this.lastDt * 1.6;   // chevrons run toward the receiver
+        this.passTex.offset.y -= this.lastDt * 1.6;  // chevrons run toward the receiver
         this.passLine.material.opacity = 0.42 + Math.sin(this.time * 7) * 0.12;
       }
     }

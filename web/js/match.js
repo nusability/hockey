@@ -69,6 +69,13 @@ const CONTROL_TUNE = {
    * toward one-touch's.
    */
   windup: num('windup', 1.2),
+  /**
+   * The keeper's own, far shorter. The outfield wind-up exists to give a tackle a window; a
+   * keeper standing in their own goal with the ball is the last player who should be given one.
+   * Made to serve it, their median hold went from 0.67 s to 1.20 s and they took the ball three
+   * times as often — which is a goal waiting to happen, not a tackle window.
+   */
+  keeperWindup: num('gkwindup', 0.35),
 };
 
 function num(key, dflt) {
@@ -126,6 +133,7 @@ export class Match {
     this.noOrbit = this.control === 'flick';
     /** how long an AI carrier holds the ball before releasing, standing in for the orbit wait */
     this.noOrbitWindup = CONTROL_TUNE.windup;
+    this.keeperWindup = CONTROL_TUNE.keeperWindup;
     this.steerInput = null;      // the finger's order this frame, from Input#steer
     this.controlled = null;      // the player it is steering, or null
     this.marked = null;          // the receiver a lift would pass to (see updateMarked)
@@ -911,6 +919,45 @@ export class Match {
       const d = Math.hypot(dx, dz);
       const want = Math.min(p.maxSpeed, d * 6);
       if (d > 0.02) { dvx = (dx / d) * want; dvz = (dz / d) * want; }
+    }
+    // A turn has to be led into. A human plants, loads and then comes round, so the first part
+    // of a change of direction is slow and the rest is quick; a player who simply steers at the
+    // new bearing swaps ends in a single frame and reads as a machine.
+    //
+    // The player therefore carries an *intended bearing* that swings toward the demanded one at
+    // a limited rate, and the desired velocity is taken along that bearing. The rate ramps from
+    // `turnRateMin` to `turnRateMax` over `turnLead` from the moment the turn starts.
+    //
+    // It has to be its own bearing rather than a clamp against the current heading: the velocity
+    // only closes about 8 % of the gap to the desired each step, so clamping against it puts one
+    // lag on top of another and the turn rate collapses to a twelfth of the limit — a full
+    // reversal took 3.2 s instead of the intended third of a second.
+    //
+    // Steered players are exempt: nothing may sit between the finger and the ball (A0).
+    if (live && !p.steer && (dvx || dvz)) {
+      const want = Math.atan2(dvx, dvz);
+      const sp = Math.hypot(p.vx, p.vz);
+      if (sp < 0.8) {
+        p.aimHeading = want;                       // standing still, a player may simply face about
+        p.turnFor = 0;
+      } else {
+        // starting from where they are actually going, never from where they want to be:
+        // seeding it with the demand hands over the whole turn on the first frame
+        if (p.aimHeading === undefined) p.aimHeading = Math.atan2(p.vx, p.vz);
+        const diff = angleDiff(want, p.aimHeading);
+        if (Math.abs(diff) > 0.12) p.turnFor = (p.turnFor || 0) + dt;
+        else p.turnFor = 0;
+        const ramp = clamp((p.turnFor || 0) / PLAYER.turnLead, 0, 1);
+        const rate = PLAYER.turnRateMin + (PLAYER.turnRateMax - PLAYER.turnRateMin) * ramp;
+        const step = rate * dt;
+        p.aimHeading += Math.abs(diff) <= step ? diff : Math.sign(diff) * step;
+      }
+      const mag = Math.hypot(dvx, dvz);
+      dvx = Math.sin(p.aimHeading) * mag;
+      dvz = Math.cos(p.aimHeading) * mag;
+    } else {
+      p.turnFor = 0;
+      if (p.steer) p.aimHeading = undefined;       // hand it back clean when the finger lets go
     }
     const k = 1 - Math.exp(-PLAYER.accel / 8 * dt);
     p.vx += (dvx - p.vx) * k;

@@ -39,6 +39,19 @@ export const PLAYER = {
   goalieSpeed: 4.8,
   goalieReaction: 0.16, // seconds before a goalie reacts to a shot (+ more for low skill)
   accel: 38,
+  /**
+   * How a player turns. Not a single rate: a human changing direction plants, loads and only
+   * then swings round, so the first part of a turn is slow and the rest is quick. Without it an
+   * AI player pivots on the spot at full pace, which reads as a machine and makes them
+   * impossible to lose.
+   *
+   * `turnLead` is how long it takes to reach full rate; the rate ramps from `turnRateMin` to
+   * `turnRateMax` across it. Applies to AI-driven players only — the player's own steered
+   * player answers the finger with nothing in between (A0).
+   */
+  turnLead: 0.28,
+  turnRateMin: 2.6,
+  turnRateMax: 13.0,
 };
 
 // The puck circles the carrier; lifting the finger releases it along the

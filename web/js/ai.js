@@ -636,7 +636,7 @@ function goalieAI(match, g, dt) {
     if (d) {
       const aim = d.target ? Math.atan2(d.target.x - g.x, d.target.z - g.z) : (dir > 0 ? 0 : Math.PI);
       const ready = match.noOrbit
-        ? g.ai.holdTime >= match.noOrbitWindup
+        ? g.ai.holdTime >= match.keeperWindup
         : Math.abs(angleDiff(aim, puck.orbit)) < 0.35;
       if (ready || g.ai.holdTime > 2.5) {
         if (d.target) match.passTo(g, d.target, { accuracy: 0.9 }); else match.releaseAimed(g, { assist: false });

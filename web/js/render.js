@@ -556,8 +556,8 @@ export class Renderer {
     // at. The group turns in world space, after the mesh is already flat.
     this.passGroup = new THREE.Group();
     this.passGroup.visible = false;
-    this.passLine = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 1),
-      new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.55,
+    this.passLine = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 1),
+      new THREE.MeshBasicMaterial({ color: 0x86efac, transparent: true, opacity: 0.55,
         depthWrite: false, side: THREE.DoubleSide, map: this.dashTex.clone() }));
     // +90°, not −90°: this lays the plane down with its local +Y toward the group's +Z, which
     // is the receiver. The axis then points the way the pass goes, so the scrolling chevrons
@@ -567,12 +567,33 @@ export class Renderer {
     this.passGroup.add(this.passLine);
     this.passTex = this.passLine.material.map;
     this.passTex.wrapS = THREE.RepeatWrapping; this.passTex.wrapT = THREE.RepeatWrapping;
+    // a bead that runs the line toward the receiver: the chevrons say which way, the bead says
+    // it again with movement, which is what the eye actually catches
+    this.passBead = new THREE.Mesh(new THREE.CircleGeometry(0.34, 18),
+      new THREE.MeshBasicMaterial({ color: 0xbbf7d0, transparent: true, opacity: 0.9,
+        depthWrite: false, blending: THREE.AdditiveBlending }));
+    this.passBead.rotation.x = -Math.PI / 2;
+    this.passBead.position.y = 0.05;
+    this.passGroup.add(this.passBead);
     this.scene.add(this.passGroup);
 
-    // where the ball is actually going: ahead of the receiver, not on them
-    this.leadRing = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.85, 24),
-      new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.35,
+    // A ring that swells out of the marked receiver and fades, over and over. A static ring
+    // half a pitch away is small and sits among ten other discs; something that *moves* is found
+    // without being looked for, which is the whole difficulty being reported here.
+    this.markPing = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.15, 32),
+      new THREE.MeshBasicMaterial({ color: 0x86efac, transparent: true, opacity: 0.5,
         depthWrite: false, side: THREE.DoubleSide }));
+    this.markPing.rotation.x = -Math.PI / 2;
+    this.markPing.position.y = 0.031;
+    this.markPing.visible = false;
+    this.scene.add(this.markPing);
+
+    // where the ball is actually going: ahead of the receiver, not on them
+    // pale and additive: the same green as the line reads almost black against the grass, and
+    // this is the one mark that says where the ball will really be
+    this.leadRing = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.82, 24),
+      new THREE.MeshBasicMaterial({ color: 0xd9f99d, transparent: true, opacity: 0.8,
+        depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
     this.leadRing.rotation.x = -Math.PI / 2;
     this.leadRing.visible = false;
     this.scene.add(this.leadRing);
@@ -661,6 +682,7 @@ export class Renderer {
     this.goalBar.visible = false;
     this.passGroup.visible = false;
     this.leadRing.visible = false;
+    this.markPing.visible = false;
     if (!match?.noOrbit) return;
     const c = match.puck.carrier;
     if (!c || !match.isUserCarrier(c) || match.state !== 'play') return;
@@ -669,25 +691,40 @@ export class Renderer {
     if (mate) {
       const m = this.playerMeshes.get(mate.id);
       if (m) { m.ring.visible = true; m.ring.scale.setScalar(1 + Math.sin(this.time * 10) * 0.08); }
+      const ping = (this.time % 1.15) / 1.15;                  // one swell every 1.15 s
+      this.markPing.visible = true;
+      this.markPing.position.set(mate.x, 0.031, mate.z);
+      this.markPing.scale.setScalar(0.75 + ping * 1.5);
+      this.markPing.material.opacity = 0.55 * (1 - ping) * (1 - ping);
       // The line runs to the *lead* point, which is where the ball is actually going — ahead of
       // the receiver by as far as they travel while it is in flight. Drawn to the receiver
       // instead it points at a player and the ball lands on the grass in front of them.
+      // The line runs to the receiver, because that is who the pass is *for* and it is what the
+      // eye is looking for. Where the ball is actually put — ahead of them, by as far as they
+      // travel while it is in flight — is marked separately by the lead ring, so the leading is
+      // still visible without the line pointing at empty grass.
       const lead = match.leadPoint(c, mate);
       this.leadRing.visible = true;
       this.leadRing.position.set(lead.x, 0.032, lead.z);
-      this.leadRing.material.opacity = 0.32 + Math.sin(this.time * 7) * 0.1;
-      const dx = lead.x - c.x, dz = lead.z - c.z;
+      this.leadRing.material.opacity = 0.7 + Math.sin(this.time * 7) * 0.25;
+      this.leadRing.scale.setScalar(0.92 + Math.sin(this.time * 7) * 0.14);
+      const dx = mate.x - c.x, dz = mate.z - c.z;
       const d = Math.hypot(dx, dz);
       if (d > 2.2) {
         const from = 1.0, len = d - 1.1 - from;
         this.passGroup.visible = true;
+        this.passBead.visible = true;
         this.passGroup.position.set(c.x, 0, c.z);
         this.passGroup.rotation.y = Math.atan2(dx, dz);
         this.passLine.scale.set(1, len, 1);          // local Y, laid down to group Z
         this.passLine.position.z = from + len / 2;   // group space: +z is the receiver
         this.passTex.repeat.set(1, len / 1.5);
         this.passTex.offset.y -= this.lastDt * 1.6;  // chevrons run toward the receiver
-        this.passLine.material.opacity = 0.42 + Math.sin(this.time * 7) * 0.12;
+        this.passLine.material.opacity = 0.62 + Math.sin(this.time * 7) * 0.16;
+        const bead = (this.time % 0.9) / 0.9;
+        this.passBead.position.z = from + bead * len;
+        this.passBead.material.opacity = 0.85 * Math.sin(bead * Math.PI);   // fades in and out
+        this.passBead.scale.setScalar(0.8 + Math.sin(bead * Math.PI) * 0.5);
       }
     }
     // "in range" is asked of the goal straight ahead, not of any particular flick: the bar says
@@ -832,6 +869,12 @@ export class Renderer {
         this.ball.rotation.z -= (puck.vx * dt) / r;
       }
       this.ballGlow.position.set(puck.x, 0.02, puck.z);
+      // breathing, and a swell for a moment after the ball is struck — the ball is the one
+      // thing that must never be lost on a busy pitch
+      const since = match ? match.time - (puck.shotTime ?? -9) : 9;
+      const hit = Math.max(0, 1 - since / 0.45);
+      this.ballGlow.scale.setScalar(1 + Math.sin(this.time * 4.5) * 0.1 + hit * 0.9);
+      this.ballGlow.material.opacity = 0.32 + Math.sin(this.time * 4.5) * 0.07 + hit * 0.35;
       const psp = Math.hypot(puck.vx, puck.vz);
       const tr = puck.trail;
       for (let i = 0; i < this.trail.length; i++) {

@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
-import { RINK, ORBIT, FACEOFF_SPOTS, SPORTS } from './config.js';
+import { RINK, ORBIT, FACEOFF_SPOTS, SPORTS, PLAYER } from './config.js';
+import { DRAG } from './input.js';
 import { clamp, lerp, rand, pick, noise, sdRoundRect } from './math.js';
 
 const HW = RINK.width / 2;
@@ -457,6 +458,88 @@ export class Renderer {
     this.scene.add(this.aimGroup);
     this.dashTex = dashTex;
     this.aimLenMax = 16;
+    this.buildControl();
+  }
+
+  /**
+   * Direct player control's own marks (`?control=drag`, SMASH-71). Two things, and they answer
+   * the two questions the prototype exists to ask:
+   *
+   *   - a **collar** under whoever the finger is steering, so the hand-over is something you can
+   *     see happen rather than infer from a player suddenly moving. It flashes bright the frame
+   *     control arrives, then settles;
+   *   - a **triangle** ahead of them along the steering heading, whose fill says how far into
+   *     the ramp the drag is: hollow at the deadzone edge, solid and haloed at full speed. On
+   *     iOS this is the only cue there is — the web has no haptic API there — so it has to be
+   *     readable at a glance without ever looking at the finger.
+   *
+   * Deliberately NOT the aim arrow's vocabulary: the aim arrow is pink/green/yellow and says
+   * where the ball goes; this is cyan and says where the legs go. Confusing the two would make
+   * the release feel like it had changed when it has not.
+   */
+  buildControl() {
+    this.controlGroup = new THREE.Group();
+    this.controlGroup.visible = false;
+    const tri = new THREE.Shape();
+    tri.moveTo(0, 0.95); tri.lineTo(-0.62, -0.5); tri.lineTo(0.62, -0.5); tri.closePath();
+    this.steerTri = new THREE.Mesh(new THREE.ShapeGeometry(tri),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+    this.steerTri.rotation.x = -Math.PI / 2;
+    this.steerTri.rotation.z = Math.PI;
+    this.steerTri.position.y = 0.05;
+    this.steerHalo = new THREE.Mesh(new THREE.ShapeGeometry(tri),
+      new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    this.steerHalo.rotation.copy(this.steerTri.rotation);
+    this.steerHalo.position.y = 0.045;
+    this.steerHalo.scale.setScalar(1.45);
+    this.controlGroup.add(this.steerHalo, this.steerTri);
+    this.scene.add(this.controlGroup);
+
+    this.controlCollar = new THREE.Mesh(new THREE.RingGeometry(PLAYER.radius + 0.3, PLAYER.radius + 0.52, 36),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+    this.controlCollar.rotation.x = -Math.PI / 2;
+    this.controlCollar.position.y = 0.03;
+    this.controlCollar.visible = false;
+    this.scene.add(this.controlCollar);
+    this.handoverFlash = 0;
+    this.lastControlled = null;
+  }
+
+  updateControl(match, dt) {
+    this.handoverFlash = Math.max(0, this.handoverFlash - dt * 3.2);
+    const p = match?.controlled;
+    if (!p) {
+      this.controlGroup.visible = false;
+      this.controlCollar.visible = false;
+      this.lastControlled = null;
+      return;
+    }
+    if (p !== this.lastControlled) { this.handoverFlash = 1; this.lastControlled = p; }
+
+    this.controlCollar.visible = true;
+    this.controlCollar.position.x = p.x;
+    this.controlCollar.position.z = p.z;
+    // the arrival is a flare that decays, so a jump between players is unmistakable
+    this.controlCollar.scale.setScalar(1 + this.handoverFlash * 0.55);
+    this.controlCollar.material.opacity = 0.55 + this.handoverFlash * 0.45;
+
+    const s = p.steer;
+    if (!s) { this.controlGroup.visible = false; return; }
+    this.controlGroup.visible = true;
+    this.controlGroup.position.set(p.x, 0, p.z);
+    this.controlGroup.rotation.y = Math.atan2(s.x, s.z);
+    // ramp: 0 at the deadzone edge, 1 flat out. It reads as the triangle pushing further out,
+    // growing, filling in and lighting its halo — four things saying one number.
+    const t = clamp((s.speed - DRAG.minSpeed) / Math.max(1e-3, 1 - DRAG.minSpeed), 0, 1);
+    this.steerTri.position.z = 1.5 + t * 1.1;
+    this.steerHalo.position.z = this.steerTri.position.z;
+    const scale = 0.72 + t * 0.5;
+    this.steerTri.scale.setScalar(scale);
+    this.steerHalo.scale.setScalar(scale * 1.45);
+    this.steerTri.material.opacity = 0.45 + t * 0.5;
+    // the halo only really lights at the top of the ramp: that is the "full speed" edge, and it
+    // is what stands in for the second haptic tick on a phone that has none
+    this.steerHalo.material.opacity = 0.08 + Math.pow(t, 3) * 0.5;
   }
 
   updateAim(match, dt) {
@@ -575,6 +658,7 @@ export class Renderer {
         m.disc.material.opacity = match.puck.carrier === p ? 0.55 : 0.2;
       }
       this.updateAim(match, dt);
+      this.updateControl(match, dt);
       const puck = match.puck;
       const isIce = this.sport?.id === 'ice';
       this.ball.position.set(puck.x, isIce ? 0.1 : 0.36, puck.z);

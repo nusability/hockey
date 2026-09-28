@@ -25,6 +25,38 @@ const OLD_AIM = typeof location !== 'undefined' && new URLSearchParams(location.
  * the same override by another name, one shot in four dragged back to the middle.
  */
 const CORNER = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('corner')) || 'arrow';
+
+/**
+ * Which control scheme is in play — `?control=`:
+ *
+ *   `touch`  (default) one-touch, exactly as spec §5 describes it: the user steers nobody,
+ *            every player skates on its own, and the finger only says "not yet".
+ *   `drag`   direct player control (SMASH-71): the same touch and the same release, and while
+ *            the finger is down it also steers one player. Prototype only — nothing of this is
+ *            spec'd, and web/ is the sandbox where it gets played before it is (ADR 0002).
+ *
+ * The two are here together so they can be played back to back on one build, the way `?aim=`
+ * and `?corner=` are.
+ */
+const CONTROL = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('control')) || 'touch';
+
+/**
+ * The two numbers that decide how often control changes hands — the prototype's real question.
+ * Both are overridable from the URL (`?stick=`, `?dwell=`) so the owner can feel a stickier or
+ * twitchier hand-over on the phone without a rebuild.
+ */
+const CONTROL_TUNE = {
+  /** metres another player must beat the held one by, measured to the ball, to take control */
+  stickMargin: num('stick', 4),
+  /** seconds the team must genuinely be going the other way before attack/defend flips */
+  flipDwell: num('dwell', 0.6),
+};
+
+function num(key, dflt) {
+  if (typeof location === 'undefined') return dflt;
+  const v = parseFloat(new URLSearchParams(location.search).get(key));
+  return Number.isFinite(v) ? v : dflt;
+}
 import { formationById, DEFAULT_FORMATION } from './formations.js';
 
 const HW = RINK.width / 2;
@@ -67,6 +99,15 @@ export class Match {
     this.formations = opts.formations || [DEFAULT_FORMATION, DEFAULT_FORMATION];
     this.sport = SPORTS[opts.sport] || SPORTS.field;
     this.corner = this.sport.corner;
+
+    // direct player control (?control=drag) — prototype, see CONTROL above
+    this.control = opts.control || CONTROL;
+    this.steerInput = null;      // the finger's order this frame, from Input#steer
+    this.controlled = null;      // the player it is steering, or null
+    this.attacking = null;       // latched attack/defend read (see userAttacking)
+    this.attackingFor = 0;       // how long the raw read has disagreed with it
+    this.lastDt = 1 / 60;
+    this.onHandover = null;      // called when that player changes, so the finger re-centres
 
     this.players = [];
     if (this.scenario) {
@@ -141,6 +182,115 @@ export class Match {
   opponents(team) { return this.players.filter((p) => p.team !== team); }
   carrierTeam() { return this.puck.carrier ? this.puck.carrier.team : -1; }
   isUserCarrier(p) { return p.team === this.userTeam && p.role !== 'G' && !this.autoUser; }
+
+  /** The finger's steering order for this frame (Input#steer), or null. */
+  setSteer(s) { this.steerInput = s; }
+
+  /**
+   * Whether the user's team reads as attacking right now: the average heading of its outfield
+   * players points toward the goal they attack. The owner's rule, taken literally — it is
+   * deliberately about where the team is *going*, not about who happens to hold the ball, so a
+   * side pushing up after losing it still gets the attacking pick.
+   */
+  userAttacking() {
+    const dir = this.dirOf(this.userTeam);
+    let sum = 0, n = 0;
+    for (const p of this.teamPlayers(this.userTeam)) {
+      if (p.role === 'G' || p.behavior !== 'active') continue;
+      sum += p.vz; n++;
+    }
+    if (!n) return this.attacking ?? true;
+    const now = (sum / n) * dir >= 0;
+
+    // Latched. Read raw, this flag flips about twenty times a minute — five players jostling
+    // average out to a heading that crosses zero constantly — and every flip swaps which goal
+    // the pick is measured against, which hands control to a different player. So the flag only
+    // turns over once the team has genuinely been going the other way for `flipDwell`.
+    if (this.attacking === null) { this.attacking = now; this.attackingFor = 0; return now; }
+    if (now === this.attacking) { this.attackingFor = 0; return this.attacking; }
+    this.attackingFor += this.lastDt;
+    if (this.attackingFor >= CONTROL_TUNE.flipDwell) { this.attacking = now; this.attackingFor = 0; }
+    return this.attacking;
+  }
+
+  /**
+   * Who the finger is steering, per SMASH-71:
+   *
+   *   - carrying: the carrier, always — you steer whoever has the ball;
+   *   - attacking without it: the nearest player standing between the ball and the goal we
+   *     attack, else simply the nearest to the ball;
+   *   - defending: the same, toward our own goal, and the keeper is eligible there.
+   *
+   * "Between" means the player's projection onto the ball-to-goal line falls inside that
+   * segment. Nobody is steered outside live play.
+   */
+  controlledPlayer() {
+    if (this.control !== 'drag' || this.state !== 'play' || this.autoUser) return null;
+    const carrier = this.puck.carrier;
+    if (carrier && carrier.team === this.userTeam) return carrier.role === 'G' ? null : carrier;
+
+    const attacking = this.userAttacking();
+    const gz = attacking ? this.attackGoalZ(this.userTeam) : this.ownGoalZ(this.userTeam);
+    const goal = { x: 0, z: gz };
+    const cands = this.teamPlayers(this.userTeam)
+      .filter((p) => p.behavior === 'active' && (attacking ? p.role !== 'G' : true));
+    if (!cands.length) return null;
+
+    const bx = this.puck.x, bz = this.puck.z;
+    const gx = goal.x - bx, gzz = goal.z - bz;
+    const len2 = gx * gx + gzz * gzz;
+    const between = len2 > 1e-6 ? cands.filter((p) => {
+      const t = ((p.x - bx) * gx + (p.z - bz) * gzz) / len2;
+      return t > 0 && t < 1;
+    }) : [];
+    const pool = between.length ? between : cands;
+    let best = null, bestD = Infinity;
+    for (const p of pool) {
+      const d = Math.hypot(p.x - bx, p.z - bz);
+      if (d < bestD) { bestD = d; best = p; }
+    }
+
+    // Hysteresis, and it has to be generous. Two things flicker here frame to frame: which
+    // players are "between" the ball and the goal (a binary test a jogging player crosses
+    // constantly) and which of them is nearest (two team-mates all but level trade the title
+    // every few frames). Read raw, that is around 1.4 hand-overs a *second* — the marker
+    // strobes, and since each hand-over costs a frame at neutral, the player barely moves.
+    //
+    // So the player we are already steering keeps it while they remain eligible at all, and only
+    // loses it to someone a clear `stickMargin` closer to the ball. Being "between" is what
+    // *wins* control, never what keeps it: once you have a player, only distance takes them away.
+    const held = this.controlled;
+    if (held && cands.includes(held)) {
+      const dHeld = Math.hypot(held.x - bx, held.z - bz);
+      if (dHeld - bestD < CONTROL_TUNE.stickMargin) return held;
+    }
+    return best;
+  }
+
+  /**
+   * Hand the finger to whoever it should be steering, and turn its order into a heading and a
+   * speed on that player.
+   *
+   * The hand-over never asks for a lift: when control moves to another player the finger
+   * re-centres where it is, so the new player starts neutral and only runs once the finger
+   * moves again. That is what keeps a turnover from flinging a player you were not looking at.
+   *
+   * Inside the deadzone there is no order at all and the player keeps the AI's target, so the
+   * team never freezes around a finger resting still.
+   */
+  applyControl() {
+    for (const p of this.players) p.steer = null;
+    if (this.control !== 'drag') { this.controlled = null; return; }
+    const next = this.controlledPlayer();
+    if (next !== this.controlled) {
+      this.controlled = next;
+      this.onHandover?.(next);
+      return;            // neutral for this frame: the finger has only just re-centred
+    }
+    const s = this.steerInput;
+    if (!next || !s) return;
+    next.steer = { x: s.x, z: s.z, speed: s.speed };
+  }
 
   emit(type, data = {}) {
     const e = { type, time: this.time, ...data };
@@ -479,6 +629,7 @@ export class Match {
   }
 
   step(dt) {
+    this.lastDt = dt;
     const puck = this.puck;
     switch (this.state) {
       case 'faceoff':
@@ -539,6 +690,8 @@ export class Match {
     }
     const moving = live || this.state === 'ready';
     if (live) { updateTeamAI(this, 0, dt); updateTeamAI(this, 1, dt); }
+    // after the AI has set its targets, so a steered player overrides its own
+    this.applyControl();
     for (const p of this.players) this.movePlayer(p, dt, live);
     this.collidePlayers();
     for (const p of this.players) this.constrainPlayer(p);
@@ -573,7 +726,13 @@ export class Match {
       return;
     }
     let dvx = 0, dvz = 0;
-    if (live && p.target) {
+    if (live && p.steer) {
+      // A steered player is given a heading and a speed outright, not a destination: there is no
+      // arrival ramp to fall down and nothing between the finger and the legs but the same
+      // acceleration every player has (A0).
+      dvx = p.steer.x * p.maxSpeed * p.steer.speed;
+      dvz = p.steer.z * p.maxSpeed * p.steer.speed;
+    } else if (live && p.target) {
       const dx = p.target.x - p.x, dz = p.target.z - p.z;
       const d = Math.hypot(dx, dz);
       const want = Math.min(p.maxSpeed, d * 6);

@@ -63,6 +63,8 @@ function startMatch(home, away, ctx) {
     sport: world.sport,
     onEvent: onMatchEvent,
   });
+  // control hands over without a lift: the finger re-centres where it already is
+  match.onHandover = () => input.recentre();
   renderer.setWorld(world);
   renderer.buildPlayers(match);
   renderer.focusZ = 0;
@@ -232,6 +234,9 @@ function frame(now) {
   if (match) director.update(dt, match);
   if (match && running && !paused) {
     acc += dt * director.timeScale;
+    // the finger's order is read fresh for the frame, not queued: nothing sits between the
+    // pointer event and the step that acts on it (A0)
+    match.setSteer(input.steer);
     while (acc >= STEP) { match.update(STEP); acc -= STEP; }
     ui.updateHud(match);
     // count down the last five seconds
@@ -260,6 +265,22 @@ function startDemo() {
   renderer.buildPlayers(match);
 }
 showMenu();
+
+// Which control scheme this build is playing, stated on screen. Both schemes live in one build
+// behind `?control=` and they are told apart only by how the game answers your finger — which is
+// exactly the thing being judged, so it must never be the thing you have to guess. Prototype
+// furniture; it costs nothing to delete with the rest of the experiment.
+{
+  const scheme = new URLSearchParams(location.search).get('control') || 'touch';
+  if (scheme !== 'touch') {
+    const tag = document.createElement('div');
+    tag.textContent = `control: ${scheme}`;
+    tag.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:50;font:600 11px/1 ui-monospace,monospace;'
+      + 'letter-spacing:.08em;color:#38bdf8;background:rgba(2,6,23,.55);padding:5px 8px;border-radius:5px;'
+      + 'pointer-events:none;text-transform:uppercase';
+    document.body.appendChild(tag);
+  }
+}
 
 // expose for debugging / automated tests
 window.__game = { get match() { return match; }, renderer, ui, input, director, sfx, startMatch, userTeam, TEAMS, LEVELS, worldById, WORLD_IDS, get season() { return season; }, get ctx() { return matchCtx; } };

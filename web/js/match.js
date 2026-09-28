@@ -581,8 +581,18 @@ export class Match {
     // goal: 19 % of shots went nowhere against 8 %, and conversion fell from 18.5 % to 4.1 %.
     // So when there is no orbit the aim is taken from where the ball actually is.
     if (this.noOrbit) {
-      const re = norm(p.x + dx - cp.x, p.z + dz - cp.z);
-      if (re.x !== 0 || re.z !== 0) n = re;
+      // …but only when (dx, dz) is a delta to a real target. This method is called two ways:
+      // with a vector to an actual point (passTo, shootAtGoal) and with a bare unit direction
+      // (a free flick, the AI's clear). Re-aiming a unit direction treats a point 1 m from the
+      // player as the target while the ball sits 1.5 m away in the running direction — so the
+      // ball leaves at an angle to the flick, and when the two are opposed it leaves backwards.
+      // That is the "I flick one way and it goes another".
+      const len = Math.hypot(dx, dz);
+      if (len > ORBIT.radius * 1.5) {
+        const re = norm(p.x + dx - cp.x, p.z + dz - cp.z);
+        if (re.x !== 0 || re.z !== 0) n = re;
+      }
+      // a bare direction needs no correction: the ball leaves the carry point along it already
     }
     if (Math.abs(cp.z) > RINK.goalLineZ - 0.3 && Math.abs(cp.x) < RINK.goalWidth / 2 + 0.6) {
       cp.x = p.x; cp.z = clamp(p.z, -(RINK.goalLineZ - 0.5), RINK.goalLineZ - 0.5);
@@ -596,6 +606,13 @@ export class Match {
     puck.releaseZ = puck.z; puck.releaseTeam = p.team; puck.untouched = true; puck.shotTime = this.time;
     p.pickupCooldown = 0.45;
     p.facing = Math.atan2(n.x, n.z);
+    // Where the player's own shot left, and along what line. The renderer leaves a mark there
+    // afterwards: a thumb cannot judge the angle it flicked, so the answer has to be readable
+    // once the gesture is over — and on the pitch, where the eye already is, not under the
+    // finger, where it is covered by the hand that made it.
+    if (kind === 'shot' && this.isUserCarrier(p)) {
+      this.lastUserShot = { x: cp.x, z: cp.z, dx: n.x, dz: n.z, at: this.time };
+    }
     if (kind === 'shot') this.stats.shots[p.team]++; else this.stats.passes[p.team]++;
     this.emit(kind, { by: p, speed });
     return true;

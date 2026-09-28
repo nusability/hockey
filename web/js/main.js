@@ -317,8 +317,6 @@ showMenu();
     const gDead = mk('circle', { r: DRAG.deadzone, fill: 'none', stroke: '#38bdf8', 'stroke-width': 1.5 });
     const gFull = mk('circle', { r: DRAG.full, fill: 'none', stroke: '#38bdf8', 'stroke-width': 2.5 });
     const gLive = mk('path', { d: HEAD, fill: '#7dd3fc', filter: 'url(#sg)' });
-    const gGhost = mk('path', { d: HEAD, fill: '#f472b6', filter: 'url(#sg)' });
-    const gGhostRing = mk('circle', { r: DRAG.full, fill: 'none', stroke: '#f472b6', 'stroke-width': 2 });
 
     // screen angle, not the world one: this sits under the thumb, so it follows the thumb. (The
     // world vector is the mirror of it — see Input#steer.)
@@ -328,7 +326,6 @@ showMenu();
     };
     const set = (el, o) => { el.style.opacity = o; };
 
-    const GHOST_HOLD = 0.35, GHOST_FADE = 1.1;
     const paint = () => {
       requestAnimationFrame(paint);
       const held = input.steerId !== null;
@@ -352,16 +349,6 @@ showMenu();
         }
       }
 
-      const f = input.lastFlick;
-      const age = f ? performance.now() / 1000 - f.at : 99;
-      const show = f && age < GHOST_HOLD + GHOST_FADE;
-      set(gGhost, 0); set(gGhostRing, 0);
-      if (show) {
-        const o = age < GHOST_HOLD ? 1 : 1 - (age - GHOST_HOLD) / GHOST_FADE;
-        place(gGhost, f.cx, f.cy, f.dx, f.dy, DRAG.full, 1.35);
-        gGhostRing.setAttribute('cx', f.cx); gGhostRing.setAttribute('cy', f.cy);
-        set(gGhost, o); set(gGhostRing, o * 0.35);
-      }
     };
     requestAnimationFrame(paint);
   }

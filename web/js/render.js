@@ -350,12 +350,13 @@ export class Renderer {
 
   // ---------------------------------------------------------------- players
   buildPlayers(match) {
-    for (const m of this.playerMeshes.values()) this.scene.remove(m.group);
+    for (const m of this.playerMeshes.values()) { this.scene.remove(m.group); this.scene.remove(m.flat); }
     this.playerMeshes.clear();
     for (const p of match.players) {
       const team = match.teams[p.team];
       const g = this.makePlayerMesh(p, team);
       this.scene.add(g.group);
+      this.scene.add(g.flat);
       this.playerMeshes.set(p.id, g);
     }
   }
@@ -384,16 +385,22 @@ export class Renderer {
       dot.rotation.x = -Math.PI / 2; dot.position.y = h + 0.01;
       group.add(dot);
     }
+    // The ring and the disc lie on the pitch, so they must NOT be children of `group`: that
+    // group is tilted for the running lean, which tips anything flat in it into the ground —
+    // the marked team-mate's ring visibly sank halfway under the pitch whenever they moved,
+    // and worse the faster they ran. They ride their own upright group instead, carried to the
+    // player's position each frame but never rotated.
+    const flat = new THREE.Group();
     const ring = new THREE.Mesh(new THREE.RingGeometry(r + 0.25, r + 0.55, 32), new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.03;
     ring.visible = false;
-    group.add(ring);
+    flat.add(ring);
     const disc = new THREE.Mesh(new THREE.CircleGeometry(r + 0.2, 24), new THREE.MeshBasicMaterial({ color: primary, transparent: true, opacity: 0.2, depthWrite: false }));
     disc.rotation.x = -Math.PI / 2;
     disc.position.y = 0.02;
-    group.add(disc);
-    return { group, body, ring, disc, baseY: h / 2 };
+    flat.add(disc);
+    return { group, flat, body, ring, disc, baseY: h / 2 };
   }
 
   // ---------------------------------------------------------------- aim
@@ -515,11 +522,72 @@ export class Renderer {
     this.goalBar.position.y = 0.03;
     this.goalBar.visible = false;
     this.scene.add(this.goalBar);
+
+    // Where the last shot left and along what line, drawn on the pitch and left there for a
+    // moment after the ball has gone. This is the answer to "which way did I actually flick",
+    // and it has to be on the ground by the player: under the finger it is hidden by the hand
+    // that made the gesture, and it is not where the eye is looking anyway.
+    this.shotMark = new THREE.Group();
+    this.shotMark.visible = false;
+    const spot = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.95, 28),
+      new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+    spot.rotation.x = -Math.PI / 2;
+    this.shotSpot = spot;
+    const beam = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 1),
+      new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+    beam.rotation.x = -Math.PI / 2;
+    this.shotBeam = beam;
+    const tip = new THREE.Shape();
+    tip.moveTo(0, 1.25); tip.lineTo(-0.85, -0.2); tip.lineTo(0, 0.28); tip.lineTo(0.85, -0.2); tip.closePath();
+    const head = new THREE.Mesh(new THREE.ShapeGeometry(tip),
+      new THREE.MeshBasicMaterial({ color: 0xf9a8d4, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+    head.rotation.x = -Math.PI / 2; head.rotation.z = Math.PI;
+    this.shotHead = head;
+    for (const o of [spot, beam, head]) { o.position.y = 0.04; this.shotMark.add(o); }
+    this.scene.add(this.shotMark);
+
+    // Where a lift would send the ball, as a line along the ground. The ring on the receiver is
+    // not enough on its own: they can be most of a pitch away, which makes the ring both small
+    // and easy to lose among everyone else's.
+    this.passLine = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 1),
+      new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.55,
+        depthWrite: false, side: THREE.DoubleSide, map: this.dashTex.clone() }));
+    this.passLine.rotation.x = -Math.PI / 2;
+    this.passLine.position.y = 0.035;
+    this.passLine.visible = false;
+    this.passTex = this.passLine.material.map;
+    this.passTex.wrapS = THREE.RepeatWrapping; this.passTex.wrapT = THREE.RepeatWrapping;
+    this.scene.add(this.passLine);
+  }
+
+  /** The shot trace: planted where the ball left, held, then faded. */
+  updateShotMark(match, dt) {
+    const s = match?.lastUserShot;
+    const HOLD = 0.6, FADE = 1.4;
+    const age = s ? match.time - s.at : 99;
+    if (!s || age > HOLD + FADE) { this.shotMark.visible = false; return; }
+    this.shotMark.visible = true;
+    this.shotMark.position.set(s.x, 0, s.z);
+    this.shotMark.rotation.y = Math.atan2(s.dx, s.dz);
+    const o = age < HOLD ? 1 : 1 - (age - HOLD) / FADE;
+    // the beam grows out along the shot for a moment, so the direction reads as a movement
+    const grow = Math.min(1, age / 0.18);
+    const len = 7 * grow;
+    // scale Y, not Z: a PlaneGeometry lies in its local XY plane and scale is applied before
+    // the −90° X rotation, so stretching Z stretches an axis the plane has no extent on and the
+    // beam simply never appears
+    this.shotBeam.scale.set(1, len, 1);
+    this.shotBeam.position.z = 1 + len / 2;
+    this.shotHead.position.z = 1 + len;
+    this.shotSpot.material.opacity = o;
+    this.shotBeam.material.opacity = o * 0.7;
+    this.shotHead.material.opacity = o;
   }
 
   updateControl(match, dt) {
     this.handoverFlash = Math.max(0, this.handoverFlash - dt * 3.2);
-    this.updateFlickMarks(match);
+    this.updateFlickMarks(match, dt);
+    this.updateShotMark(match, dt);
     const p = match?.controlled;
     if (!p) {
       this.controlGroup.visible = false;
@@ -562,16 +630,34 @@ export class Renderer {
    * The marked team-mate wears the pass ring — that is where a lift sends the ball — and the
    * goal mouth lights while a flick from here would be a shot rather than a throw.
    */
-  updateFlickMarks(match) {
+  updateFlickMarks(match, dt) {
+    this.lastDt = dt;
     this.goalBar.visible = false;
+    this.passLine.visible = false;
     if (!match?.noOrbit) return;
     const c = match.puck.carrier;
     if (!c || !match.isUserCarrier(c) || match.state !== 'play') return;
 
     const mate = match.passTarget(c);
+    this.passLine.visible = false;
     if (mate) {
       const m = this.playerMeshes.get(mate.id);
       if (m) { m.ring.visible = true; m.ring.scale.setScalar(1 + Math.sin(this.time * 10) * 0.08); }
+      // the line from the ball to them, stopping short so it does not run over either
+      const dx = mate.x - c.x, dz = mate.z - c.z;
+      const d = Math.hypot(dx, dz);
+      if (d > 2.2) {
+        const from = 1.0, to = d - 1.1, len = to - from;
+        this.passLine.visible = true;
+        this.passLine.position.set(c.x, 0.035, c.z);
+        this.passLine.rotation.y = Math.atan2(dx, dz);
+        this.passLine.scale.set(1, len, 1);   // local Y becomes world Z after the rotation
+        this.passLine.position.x += Math.sin(this.passLine.rotation.y) * (from + len / 2);
+        this.passLine.position.z += Math.cos(this.passLine.rotation.y) * (from + len / 2);
+        this.passTex.repeat.set(1, len / 1.5);
+        this.passTex.offset.y -= this.lastDt * 1.6;   // chevrons run toward the receiver
+        this.passLine.material.opacity = 0.42 + Math.sin(this.time * 7) * 0.12;
+      }
     }
     // "in range" is asked of the goal straight ahead, not of any particular flick: the bar says
     // the goal is available, the flick then says where in it.
@@ -692,6 +778,7 @@ export class Renderer {
         const m = this.playerMeshes.get(p.id);
         if (!m) continue;
         m.group.position.set(p.x, 0, p.z);
+        m.flat.position.set(p.x, 0, p.z);        // upright: never takes the lean
         const sp = Math.hypot(p.vx, p.vz);
         m.group.rotation.set(0, 0, 0);
         if (sp > 0.5) {

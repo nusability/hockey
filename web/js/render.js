@@ -334,7 +334,7 @@ export class Renderer {
       this.ballRings = [];
       for (let i = 0; i < 3; i++) {
         const r = new THREE.Mesh(new THREE.RingGeometry(0.86, 1.0, 32),
-          new THREE.MeshBasicMaterial({ color: 0xfde68a, transparent: true, opacity: 0,
+          new THREE.MeshBasicMaterial({ color: 0xfef3c7, transparent: true, opacity: 0,
             depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
         r.rotation.x = -Math.PI / 2;
         r.position.y = 0.021;
@@ -865,9 +865,12 @@ export class Renderer {
         const r = this.ballRings[i];
         const t = ((this.time / PERIOD) + i / this.ballRings.length) % 1;   // staggered thirds
         r.position.set(puck.x, 0.021, puck.z);
-        r.scale.setScalar(2.9 - t * 2.1);              // falls inward, ending at the ball
+        // Kept inside the yellow glow's own footprint: the glow is a disc of radius 0.8 and the
+        // ring's own radius is 0.93, so scale 0.86 sits exactly on its edge. Starting wider made
+        // this a marker for a patch of pitch rather than for the ball.
+        r.scale.setScalar(0.86 - t * 0.72);            // falls inward from the glow's edge
         // brightest on the way in, gone by the time it lands, so nothing flashes at the centre
-        r.material.opacity = 0.55 * Math.sin(t * Math.PI) * (1 - t * 0.35) + hit * 0.25;
+        r.material.opacity = 0.8 * Math.sin(t * Math.PI) * (1 - t * 0.3) + hit * 0.3;
       }
       const psp = Math.hypot(puck.vx, puck.vz);
       const tr = puck.trail;

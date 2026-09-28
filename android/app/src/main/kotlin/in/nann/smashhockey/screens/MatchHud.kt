@@ -57,7 +57,7 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
         val goals = drillGoals
         if (goals != null) {
             val digits = child(FlipDigits(kit, Scoreboard.drill(0, goals), CARD_W, CARD_H, "match_goals", L(CopyKey.HUD_GOALS)),
-                at(0f, 0f, z = 0.05f), board.content)
+                at(0f, 0f), board.content)
             digits.onLanded = { board.thud() }
             digits.show(0.0)
             scores[0] = digits
@@ -97,7 +97,12 @@ class MatchHud(game: Game, private val plan: MatchPlan, kickoff: Kickoff) : Scre
         val x = BOARD.scoreX.toFloat()
         val d = child(FlipDigits(kit, text, CARD_W, CARD_H, if (side == 0) "match_home_score" else "match_away_score",
             L(if (side == 0) CopyKey.MATCH_SCORE_HOME else CopyKey.MATCH_SCORE_AWAY)),
-            at(if (side == 0) -x else x, 0f, z = 0.05f), board.content)
+            // §16.4: on the board's face, exactly as the team chips and the colon are. A card pushed
+            // forward of them is nearer the camera, and the board hangs above the camera's line, so
+            // nearer reads as *higher*: the cards floated above the middle of the names beside them.
+            // Coplanar, they line up by construction rather than by a number that would have to be
+            // re-tuned for every board size.
+            at(if (side == 0) -x else x, 0f), board.content)
         d.onLanded = { board.thud() }
         d.show(0.0)
         return d

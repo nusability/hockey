@@ -40,7 +40,7 @@ final class MatchHud: Screen {
         if let goals = drillGoals {
             let digits = child(FlipDigits(Scoreboard.drill(scored: 0, target: goals), cardSize: Self.card,
                                           id: "match_goals", label: L(.hudGoals), motion: m),
-                               at: at(0, 0, z: 0.05), on: board.content)
+                               at: at(0, 0), on: board.content)
             digits.onLanded = { [weak self] in self?.board.thud() }
             digits.show(after: 0)
             scores[0] = digits
@@ -92,7 +92,12 @@ final class MatchHud: Screen {
         let x = Float(Self.board.scoreX)
         let d = child(FlipDigits(text, cardSize: Self.card, id: side == 0 ? "match_home_score" : "match_away_score",
                                  label: L(side == 0 ? .matchScoreHome : .matchScoreAway), motion: motion),
-                      at: at(side == 0 ? -x : x, 0, z: 0.05), on: board.content)
+                      // §16.4: on the board's face, exactly as the team chips and the colon are. A card
+                      // pushed forward of them is nearer the camera, and the board hangs above the
+                      // camera's line, so nearer reads as *higher*: the cards floated above the middle
+                      // of the names beside them. Coplanar, they line up by construction rather than by
+                      // a number that would have to be re-tuned for every board size.
+                      at: at(side == 0 ? -x : x, 0), on: board.content)
         d.onLanded = { [weak self] in self?.board.thud() }
         d.show(after: 0)
         return d

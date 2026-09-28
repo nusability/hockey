@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.31.0
+Spec-Version: 0.31.1
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -1411,6 +1411,12 @@ of the screen, so its underside is in view: its silhouette reaches further down 
 cards and chips stand on, and a row centred on that face reads high on the board. Everything on it
 is therefore dropped by a fraction of the board's own depth, declared once for both apps
 (`shared/data/design.json`, `board_content_drop`).
+
+And **everything on the board stands on the same face of it** — the cards as well as the chips and
+the colon. A card held forward of the others is nearer the camera, and the board hangs above the
+camera's line, so nearer reads as *higher*: the cards floated above the middle of the names beside
+them. Coplanar, they line up by construction, with no second number to re-tune whenever the board
+changes size.
 
 The pause panel: **Resume** and **Quit** — quitting a season match says it forfeits 0–3
 before it does (§8.7).

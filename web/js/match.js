@@ -31,9 +31,14 @@ const CORNER = (typeof location !== 'undefined' && new URLSearchParams(location.
  *
  *   `touch`  (default) one-touch, exactly as spec §5 describes it: the user steers nobody,
  *            every player skates on its own, and the finger only says "not yet".
- *   `drag`   direct player control (SMASH-71): the same touch and the same release, and while
- *            the finger is down it also steers one player. Prototype only — nothing of this is
- *            spec'd, and web/ is the sandbox where it gets played before it is (ADR 0002).
+ *   `drag`   direct player control (SMASH-71), orbit kept: the finger steers a player and the
+ *            ball still circles. Two arrows at once — the owner's verdict was that a brain
+ *            cannot read both, which is what `flick` answers. Kept to play against.
+ *   `flick`  direct control with **no orbit at all**. The ball is simply carried in front of the
+ *            runner. Lifting passes to the team-mate the game has marked; flicking shoots where
+ *            you flicked. Assistance goes on picking a receiver out of four, choice goes on
+ *            where in the goal the ball ends up — the split the owner asked for (SMASH item 2:
+ *            "this choice should be with the player").
  *
  * The two are here together so they can be played back to back on one build, the way `?aim=`
  * and `?corner=` are.
@@ -50,6 +55,18 @@ const CONTROL_TUNE = {
   stickMargin: num('stick', 4),
   /** seconds the team must genuinely be going the other way before attack/defend flips */
   flipDwell: num('dwell', 0.6),
+  /** how strongly the marked receiver is biased toward the way the runner is heading */
+  passForward: num('fwd', 3),
+  /** metres beyond the post a flick may cross and still count as a shot */
+  flickGenerosity: num('gen', 1.5),
+  /**
+   * Seconds an AI carrier holds the ball with no orbit — the orbit wait's replacement.
+   * It has to clear `settleTime` (0.45 s, the grace after winning the ball) by a real margin or
+   * a carrier is untouchable for its whole possession: at 0.5 s only 0.05 s of it is stealable
+   * and a six-minute match saw 0 steals. 1.2 s leaves 0.75 s open and brings the steal rate back
+   * toward one-touch's.
+   */
+  windup: num('windup', 1.2),
 };
 
 function num(key, dflt) {
@@ -102,6 +119,11 @@ export class Match {
 
     // direct player control (?control=drag) — prototype, see CONTROL above
     this.control = opts.control || CONTROL;
+    /** both direct-control schemes steer a player; only `flick` also drops the orbit */
+    this.steersPlayer = this.control === 'drag' || this.control === 'flick';
+    this.noOrbit = this.control === 'flick';
+    /** how long an AI carrier holds the ball before releasing, standing in for the orbit wait */
+    this.noOrbitWindup = CONTROL_TUNE.windup;
     this.steerInput = null;      // the finger's order this frame, from Input#steer
     this.controlled = null;      // the player it is steering, or null
     this.attacking = null;       // latched attack/defend read (see userAttacking)
@@ -187,6 +209,58 @@ export class Match {
   setSteer(s) { this.steerInput = s; }
 
   /**
+   * Who a plain lift would pass to, with no orbit to aim by (`?control=flick`).
+   *
+   * This is the assisted half of the split: picking one of four team-mates out of a moving
+   * picture is the fiddly thing a thumb is bad at, so the game marks the best one and the lift
+   * simply goes there. It is scored like §5.1's turn-toward target — how open they are, how far
+   * up the pitch they are, a penalty for being a long way off — plus a bias toward wherever the
+   * runner is heading, so the pass you get is the one the run was setting up.
+   *
+   * The choice the owner cares about is not taken here: the shot is flicked, and goes exactly
+   * where it is flicked (see userRelease).
+   */
+  passTarget(p) {
+    if (!p) return null;
+    const dir = this.dirOf(p.team);
+    // where the player is going: the finger if it is steering, else the way they face
+    const s = this.controlled === p ? this.steerInput : null;
+    const runAng = s ? Math.atan2(s.x, s.z) : p.facing;
+    let best = null, bs = -Infinity;
+    for (const m of this.teamPlayers(p.team)) {
+      if (m === p || m.role === 'G' || m.role === 'O' || m.behavior !== 'active') continue;
+      const d = Math.hypot(m.x - p.x, m.z - p.z);
+      if (d < 3) continue;
+      let open = 9;
+      for (const o of this.opponents(p.team)) open = Math.min(open, Math.hypot(o.x - m.x, o.z - m.z));
+      const ang = Math.atan2(m.x - p.x, m.z - p.z);
+      const forward = Math.cos(angleDiff(ang, runAng));   // 1 dead ahead, −1 behind
+      const score = open + dir * (m.z - p.z) * 0.4 - Math.max(0, d - 18) * 0.5
+                  + forward * CONTROL_TUNE.passForward;
+      if (score > bs) { bs = score; best = m; }
+    }
+    return best;
+  }
+
+  /**
+   * Would a flick along `dir` be a shot on goal, and where would it cross the line?
+   * Returns the crossing x, or null when the flick is not at the goal — in which case the ball
+   * is simply thrown that way instead (§5.2's "free" release by another name).
+   *
+   * Deliberately a question about the goal *mouth*, not about an angle: "did you flick at the
+   * goal" is what the thumb thinks it is doing, and an angular window would make the same flick
+   * mean different things at different distances.
+   */
+  flickCrossesGoal(p, dir) {
+    const gz = this.attackGoalZ(p.team);
+    if (Math.hypot(p.x, gz - p.z) > GOAL_AIM.snapRange) return null;
+    const cross = this.aimCrossing(p, Math.atan2(dir.x, dir.z), gz);
+    if (cross === null) return null;
+    // a little wider than the mouth, so flicking *at* a post still reads as a shot
+    return Math.abs(cross) <= RINK.goalWidth / 2 + CONTROL_TUNE.flickGenerosity ? cross : null;
+  }
+
+  /**
    * Whether the user's team reads as attacking right now: the average heading of its outfield
    * players points toward the goal they attack. The owner's rule, taken literally — it is
    * deliberately about where the team is *going*, not about who happens to hold the ball, so a
@@ -225,7 +299,7 @@ export class Match {
    * segment. Nobody is steered outside live play.
    */
   controlledPlayer() {
-    if (this.control !== 'drag' || this.state !== 'play' || this.autoUser) return null;
+    if (!this.steersPlayer || this.state !== 'play' || this.autoUser) return null;
     const carrier = this.puck.carrier;
     if (carrier && carrier.team === this.userTeam) return carrier.role === 'G' ? null : carrier;
 
@@ -280,7 +354,7 @@ export class Match {
    */
   applyControl() {
     for (const p of this.players) p.steer = null;
-    if (this.control !== 'drag') { this.controlled = null; return; }
+    if (!this.steersPlayer) { this.controlled = null; return; }
     const next = this.controlledPlayer();
     if (next !== this.controlled) {
       this.controlled = next;
@@ -300,7 +374,9 @@ export class Match {
 
   /** Where the puck sits while it circles the carrier. */
   carryPoint(p) {
-    const a = this.puck.carrier === p ? this.puck.orbit : p.facing;
+    // With no orbit the ball is simply held ahead of whoever has it, so the one arrow on screen
+    // is the steering triangle and nothing else competes with it.
+    const a = (this.puck.carrier === p && !this.noOrbit) ? this.puck.orbit : p.facing;
     return { x: p.x + Math.sin(a) * ORBIT.radius, z: p.z + Math.cos(a) * ORBIT.radius };
   }
 
@@ -568,6 +644,32 @@ export class Match {
     return this.release(p, aimX - p.x, gz - p.z, power, 'shot');
   }
 
+  /**
+   * The release when there is no orbit (`?control=flick`).
+   *
+   *   - **flicked at the goal** → a shot to exactly where the flick crosses the line, clamped
+   *     inside the posts. The keeper never re-aims it and there is no pull to the middle: this
+   *     is the choice the owner asked to be given back, so nothing may take it.
+   *   - **flicked anywhere else** → the ball is thrown that way. Not a pass to anyone in
+   *     particular, which is the point — it is the escape hatch from the assisted pass.
+   *   - **just lifted** → a pass to the marked team-mate, or, if there is nobody worth passing
+   *     to, the ball is knocked ahead of the runner.
+   */
+  flickRelease(p, gesture) {
+    if (gesture?.flick) {
+      const cross = this.flickCrossesGoal(p, gesture);
+      if (cross !== null) {
+        const gz = this.attackGoalZ(p.team);
+        const half = RINK.goalWidth / 2 - 0.85;
+        return this.release(p, clamp(cross, -half, half) - p.x, gz - p.z, ORBIT.shotSpeed, 'shot');
+      }
+      return this.release(p, gesture.x, gesture.z, ORBIT.shotSpeed, 'shot');
+    }
+    const mate = this.passTarget(p);
+    if (mate) return this.passTo(p, mate, { accuracy: 1 });
+    return this.release(p, Math.sin(p.facing), Math.cos(p.facing), ORBIT.freeSpeed, 'shot');
+  }
+
   /** Release along the current orbit direction, snapping to a team-mate or the goal. */
   releaseAimed(p, opts = {}) {
     if (this.puck.carrier !== p) return false;
@@ -586,9 +688,14 @@ export class Match {
    * The user lifted their finger. If the line is about to reach a target
    * within a fraction of a second, wait for it (forgives early taps).
    */
-  userRelease() {
+  userRelease(gesture = null) {
     const c = this.puck.carrier;
     if (!c || !this.isUserCarrier(c) || this.state !== 'play') return false;
+
+    // With no orbit there is nothing to time, so none of §5.3's grace applies: the gesture says
+    // everything. A flick is a shot where you flicked; a lift is a pass to whoever is marked.
+    if (this.noOrbit) return this.flickRelease(c, gesture);
+
     if (this.aimTarget(c)) return this.releaseAimed(c, { assist: true, accuracy: 1 });
     // A press that lands just after the window closed still counts. Pressing
     // early was always forgiven by the look-ahead below; being fractionally
@@ -697,7 +804,7 @@ export class Match {
     for (const p of this.players) this.constrainPlayer(p);
     if (live) this.updatePuck(dt);
     else if (puck.carrier) {
-      if (this.state === 'ready') puck.orbit += this.orbitSpeed * dt * puck.orbitDir;
+      if (this.state === 'ready' && !this.noOrbit) puck.orbit += this.orbitSpeed * dt * puck.orbitDir;
       const cp = this.carryPoint(puck.carrier); puck.x = cp.x; puck.z = cp.z;
     }
     if (live) this.checkRules();
@@ -813,9 +920,24 @@ export class Match {
     const puck = this.puck;
     if (puck.carrier) {
       const c = puck.carrier;
-      puck.orbit += this.orbitSpeed * dt * puck.orbitDir;
-      if (puck.orbit > Math.PI) puck.orbit -= Math.PI * 2;
-      if (puck.orbit < -Math.PI) puck.orbit += Math.PI * 2;
+      if (!this.noOrbit) {
+        puck.orbit += this.orbitSpeed * dt * puck.orbitDir;
+        if (puck.orbit > Math.PI) puck.orbit -= Math.PI * 2;
+        if (puck.orbit < -Math.PI) puck.orbit += Math.PI * 2;
+      } else if (!this.isUserCarrier(c)) {
+        // Every AI release — outfield and keeper alike — waits for the orbit to line up with
+        // what it wants to do (ai.js). With the orbit stopped that wait never ends, and the
+        // opposition would simply carry the ball until its 2.5 s panic timer fired. So for an AI
+        // carrier the angle is kept pointed at its own intention: the AI is unchanged, it just
+        // never has to wait for a circle that is no longer turning. The user's carrier needs
+        // none of this — the gesture says everything (flickRelease).
+        const want = c.role === 'G'
+          ? (c.ai?.decision?.target
+              ? Math.atan2(c.ai.decision.target.x - c.x, c.ai.decision.target.z - c.z)
+              : (this.dirOf(c.team) > 0 ? 0 : Math.PI))
+          : this.orbitAim(c);
+        puck.orbit = want ?? c.facing;
+      }
       const cp = this.carryPoint(c);
       puck.x = cp.x; puck.z = cp.z; puck.vx = c.vx; puck.vz = c.vz;
       const pr = this.pendingRelease;
@@ -930,6 +1052,11 @@ export class Match {
     if (this.time - (puck.wonAt ?? -9) < PLAYER.settleTime) return;
     for (const p of this.players) {
       if (p.team === carrier.team || p.pickupCooldown > 0 || !p.canSteal) continue;
+      // Measured to the ball in every scheme. It is tempting to aim the tackle at the player
+      // when there is no orbit — but the ball carried in front is not harder to reach, it is
+      // easier: a defender sits 0.74 m from it on average with no orbit, against 2.32 m with
+      // one. Aiming at the player instead is what cannot work, because two bodies collide at
+      // 1.59 m and the tackle reach is 0.9: no defender ever gets close enough to a *player*.
       const d = Math.hypot(puck.x - p.x, puck.z - p.z);
       const reach = p.role === 'G' ? p.r + 0.3 : PLAYER.stealReach;
       // a steal needs a moment of contact, so the circling puck can slip past

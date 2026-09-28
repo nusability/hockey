@@ -1,6 +1,6 @@
 import { Match } from './match.js';
 import { Renderer } from './render.js';
-import { Input } from './input.js';
+import { Input, DRAG } from './input.js';
 import { UI } from './ui.js';
 import { Sfx } from './audio.js';
 import { Director } from './director.js';
@@ -282,6 +282,39 @@ showMenu();
       + 'letter-spacing:.06em;color:#38bdf8;background:rgba(2,6,23,.55);padding:5px 8px;border-radius:5px;'
       + 'pointer-events:none';
     document.body.appendChild(tag);
+
+    // The rings under the thumb: the deadzone edge and the full-speed edge, drawn where the
+    // finger went down. They are the feedback half of what haptics would say — and on iOS they
+    // are the whole of it, since there is no web haptic API there at all. Screen furniture on
+    // purpose: in the apps this belongs in the 3D scene like the rest of the UI (conventions),
+    // and none of this is meant to survive the experiment.
+    const rings = document.createElement('div');
+    rings.style.cssText = 'position:fixed;z-index:40;pointer-events:none;opacity:0;'
+      + 'transition:opacity .12s;transform:translate(-50%,-50%)';
+    const ring = (px, colour, weight) => {
+      const el = document.createElement('div');
+      el.style.cssText = `position:absolute;left:50%;top:50%;width:${px * 2}px;height:${px * 2}px;`
+        + `margin:${-px}px 0 0 ${-px}px;border:${weight}px solid ${colour};border-radius:50%`;
+      rings.appendChild(el);
+      return el;
+    };
+    const rDead = ring(DRAG.deadzone, 'rgba(56,189,248,.55)', 1);
+    const rFull = ring(DRAG.full, 'rgba(56,189,248,.28)', 2);
+    document.body.appendChild(rings);
+
+    const paint = () => {
+      requestAnimationFrame(paint);
+      const held = input.steerId !== null;
+      rings.style.opacity = held ? '1' : '0';
+      if (!held) return;
+      rings.style.left = `${input.originX}px`;
+      rings.style.top = `${input.originY}px`;
+      const d = Math.hypot(input.curX - input.originX, input.curY - input.originY);
+      // each ring brightens as the thumb reaches it, so the edge is visible before it is crossed
+      rDead.style.borderColor = d >= DRAG.deadzone ? 'rgba(56,189,248,.9)' : 'rgba(56,189,248,.35)';
+      rFull.style.borderColor = d >= DRAG.full ? 'rgba(125,211,252,.95)' : 'rgba(56,189,248,.22)';
+    };
+    requestAnimationFrame(paint);
   }
 }
 

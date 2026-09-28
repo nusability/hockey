@@ -31,6 +31,24 @@
  * timing, which is what the prototype exists to answer.
  */
 
+/**
+ * What separates a flick from a lift (`?control=flick`).
+ *
+ * The finger has four things to offer — direction, distance, timing, and how it leaves the
+ * screen. Steering already spends direction and distance, so the shot is bought with the last
+ * one: leave the screen fast and it is a shot along the flick; just let go and it is a pass to
+ * whoever is marked. Measured over a short window rather than the last event, because a single
+ * pointer sample is noise.
+ */
+export const FLICK = {
+  /** px/s over `window` that counts as a flick rather than a lift */
+  speed: 900,
+  /** how far back to measure it */
+  window: 0.08,
+  /** history kept, a little longer than the window so there is always something in it */
+  keep: 0.2,
+};
+
 /** Drag distances in CSS pixels, measured from where the finger went down. */
 export const DRAG = {
   /** inside this the player is not steered at all — the AI still has it */
@@ -58,6 +76,10 @@ export class Input {
     this.curX = 0; this.curY = 0;
     /** which edge we last announced, so haptics fire on the crossing only */
     this.zone = 'dead';
+    /** recent samples of the steering pointer, for telling a flick from a lift */
+    this.hist = [];
+    /** the last steering vector taken while the finger was not flicking (see `steer`) */
+    this.slow = { dx: 0, dy: 0 };
 
     canvas.style.touchAction = 'none';
     canvas.addEventListener('pointerdown', (e) => this.down(e));
@@ -81,6 +103,9 @@ export class Input {
       this.originX = this.curX = e.clientX;
       this.originY = this.curY = e.clientY;
       this.zone = 'dead';
+      this.hist.length = 0;
+      this.slow = { dx: 0, dy: 0 };
+      this.sample();
     }
     this.onHoldChange?.(true);
   }
@@ -89,6 +114,13 @@ export class Input {
     if (e.pointerId !== this.steerId) return;
     this.curX = e.clientX;
     this.curY = e.clientY;
+    this.sample();
+    // Remember the heading from before the finger started moving flick-fast. A flick is a real
+    // movement of the finger, so without this the shot gesture would also be a hard swerve —
+    // the player would lurch sideways in the last 80 ms before the ball left them.
+    if (this.fingerSpeed() < FLICK.speed) {
+      this.slow = { dx: this.curX - this.originX, dy: this.curY - this.originY };
+    }
     const z = this.zoneOf(Math.hypot(this.curX - this.originX, this.curY - this.originY));
     if (z !== this.zone) {
       // only the outward crossings are worth a buzz; sliding back in is silent
@@ -101,6 +133,55 @@ export class Input {
   zoneOf(d) {
     if (d < DRAG.deadzone) return 'dead';
     return d >= DRAG.full ? 'full' : 'steer';
+  }
+
+  sample() {
+    const now = performance.now() / 1000;
+    this.hist.push({ t: now, x: this.curX, y: this.curY });
+    while (this.hist.length > 1 && now - this.hist[0].t > FLICK.keep) this.hist.shift();
+  }
+
+  /** How fast the finger is travelling right now, in px/s, over the flick window. */
+  fingerSpeed() {
+    const g = this.gesture();
+    return g ? g.speed : 0;
+  }
+
+  /**
+   * The finger's movement over the last `FLICK.window`, as speed and direction, or null when
+   * there is not enough history to say. Both the live steering freeze and the release decision
+   * read this, so a flick is judged the same way whether it is being watched or acted on.
+   */
+  gesture() {
+    const n = this.hist.length;
+    if (n < 2) return null;
+    const last = this.hist[n - 1];
+    let first = this.hist[0];
+    for (let i = n - 1; i >= 0; i--) {
+      first = this.hist[i];
+      if (last.t - this.hist[i].t >= FLICK.window) break;
+    }
+    const dt = last.t - first.t;
+    if (dt < 1e-3) return null;
+    const dx = last.x - first.x, dy = last.y - first.y;
+    const d = Math.hypot(dx, dy);
+    return { speed: d / dt, dx, dy, dist: d };
+  }
+
+  /**
+   * What the lift meant. `flick` carries a direction in world axes (same mapping as `steer`);
+   * a plain lift carries none, and the game passes to whoever is marked.
+   */
+  releaseGesture() {
+    // A finger that has come to rest stops producing pointermove events, so the history can
+    // still hold a fast movement from a moment ago. Without this, sweeping the player across
+    // the pitch, pausing, and then calmly letting go would fire a shot.
+    const last = this.hist[this.hist.length - 1];
+    if (!last || performance.now() / 1000 - last.t > FLICK.window * 1.5) return { flick: false };
+    const g = this.gesture();
+    if (!g || g.speed < FLICK.speed || g.dist < 1e-3) return { flick: false };
+    vibrate([10, 18, 14]);
+    return { flick: true, x: -g.dx / g.dist, z: -g.dy / g.dist, speed: g.speed };
   }
 
   /**
@@ -130,8 +211,11 @@ export class Input {
    */
   get steer() {
     if (this.steerId === null) return null;
-    const dx = this.curX - this.originX;
-    const dy = this.curY - this.originY;
+    // While the finger is flicking, steer on the heading from just before it started: the shot
+    // gesture must not double as a swerve.
+    const flicking = this.fingerSpeed() >= FLICK.speed;
+    const dx = flicking ? this.slow.dx : this.curX - this.originX;
+    const dy = flicking ? this.slow.dy : this.curY - this.originY;
     const d = Math.hypot(dx, dy);
     if (d < DRAG.deadzone) return null;
     const span = Math.max(1e-3, DRAG.full - DRAG.deadzone);
@@ -147,23 +231,29 @@ export class Input {
   up(e) {
     if (!this.active.has(e.pointerId)) return;
     this.active.delete(e.pointerId);
+    let gesture = { flick: false };
     if (e.pointerId === this.steerId) {
       // hand the steering pointer on to whichever finger is still down, from
       // neutral — lifting one of two fingers should not fling the player
+      gesture = this.releaseGesture();
       this.steerId = this.active.size > 0 ? [...this.active][0] : null;
       this.originX = this.curX; this.originY = this.curY;
       this.zone = 'dead';
+      this.hist.length = 0;
+      this.slow = { dx: 0, dy: 0 };
     }
     if (this.active.size > 0) return;
     this.onHoldChange?.(false);
     const match = this.getMatch();
-    if (match) match.userRelease();
+    if (match) match.userRelease(gesture);
   }
 
   clear() {
     this.active.clear();
     this.steerId = null;
     this.zone = 'dead';
+    this.hist.length = 0;
+    this.slow = { dx: 0, dy: 0 };
     this.onHoldChange?.(false);
   }
 }

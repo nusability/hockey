@@ -555,7 +555,14 @@ function carrierAI(match, p, dt, T, skill) {
         return;
       }
       const tol = 0.22 + (1 - skill) * 0.12 + (threatD < 2.2 ? 0.5 : 0);
-      if (Math.abs(angleDiff(aim, puck.orbit)) < tol) {
+      // With no orbit there is no angle to come round, so the wait becomes a wind-up instead.
+      // It cannot simply be dropped: the orbit wait is also what keeps a carrier holding the
+      // ball for a beat, and that beat is the window a tackle needs. Firing the moment the
+      // decision is made took steals to zero and made the game a passing metronome.
+      const ready = match.noOrbit
+        ? p.ai.holdTime >= match.noOrbitWindup
+        : Math.abs(angleDiff(aim, puck.orbit)) < tol;
+      if (ready) {
         if (d.kind === 'shoot') match.shootAtGoal(p, { accuracy, power: 20 + skill * 6 + Math.random() * 2 });
         else if (d.kind === 'pass') match.passTo(p, d.target, { accuracy });
         else match.releaseAimed(p, { assist: false });
@@ -628,7 +635,10 @@ function goalieAI(match, g, dt) {
     const d = g.ai.decision;
     if (d) {
       const aim = d.target ? Math.atan2(d.target.x - g.x, d.target.z - g.z) : (dir > 0 ? 0 : Math.PI);
-      if (Math.abs(angleDiff(aim, puck.orbit)) < 0.35 || g.ai.holdTime > 2.5) {
+      const ready = match.noOrbit
+        ? g.ai.holdTime >= match.noOrbitWindup
+        : Math.abs(angleDiff(aim, puck.orbit)) < 0.35;
+      if (ready || g.ai.holdTime > 2.5) {
         if (d.target) match.passTo(g, d.target, { accuracy: 0.9 }); else match.releaseAimed(g, { assist: false });
         g.ai.decision = null; g.ai.holdTime = 0;
       }

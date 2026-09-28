@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { RINK, ORBIT, FACEOFF_SPOTS, SPORTS, PLAYER } from './config.js';
+import { RINK, ORBIT, FACEOFF_SPOTS, SPORTS, PLAYER, GOAL_AIM } from './config.js';
 import { DRAG } from './input.js';
 import { clamp, lerp, rand, pick, noise, sdRoundRect } from './math.js';
 
@@ -503,10 +503,21 @@ export class Renderer {
     this.scene.add(this.controlCollar);
     this.handoverFlash = 0;
     this.lastControlled = null;
+
+    // A bar across the goal mouth, lit while a flick from here would be a shot. It is the only
+    // thing that tells you the goal is live without an aim arrow to turn pink.
+    this.goalBar = new THREE.Mesh(new THREE.PlaneGeometry(RINK.goalWidth, 1.1),
+      new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.5,
+        depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    this.goalBar.rotation.x = -Math.PI / 2;
+    this.goalBar.position.y = 0.03;
+    this.goalBar.visible = false;
+    this.scene.add(this.goalBar);
   }
 
   updateControl(match, dt) {
     this.handoverFlash = Math.max(0, this.handoverFlash - dt * 3.2);
+    this.updateFlickMarks(match);
     const p = match?.controlled;
     if (!p) {
       this.controlGroup.visible = false;
@@ -542,9 +553,38 @@ export class Renderer {
     this.steerHalo.material.opacity = 0.08 + Math.pow(t, 3) * 0.5;
   }
 
+  /**
+   * What the two release gestures would do, with no aim arrow to say it (`?control=flick`).
+   * The marked team-mate wears the pass ring — that is where a lift sends the ball — and the
+   * goal mouth lights while a flick from here would be a shot rather than a throw.
+   */
+  updateFlickMarks(match) {
+    this.goalBar.visible = false;
+    if (!match?.noOrbit) return;
+    const c = match.puck.carrier;
+    if (!c || !match.isUserCarrier(c) || match.state !== 'play') return;
+
+    const mate = match.passTarget(c);
+    if (mate) {
+      const m = this.playerMeshes.get(mate.id);
+      if (m) { m.ring.visible = true; m.ring.scale.setScalar(1 + Math.sin(this.time * 10) * 0.08); }
+    }
+    // "in range" is asked of the goal straight ahead, not of any particular flick: the bar says
+    // the goal is available, the flick then says where in it.
+    const gz = match.attackGoalZ(c.team);
+    if (Math.hypot(c.x, gz - c.z) <= GOAL_AIM.snapRange) {
+      this.goalBar.visible = true;
+      this.goalBar.position.set(0, 0.03, gz);
+      this.goalBar.material.opacity = 0.3 + Math.sin(this.time * 6) * 0.1;
+    }
+  }
+
   updateAim(match, dt) {
     const c = match.puck.carrier;
-    const show = c && match.isUserCarrier(c) && (match.state === 'play' || match.state === 'ready');
+    // With no orbit there is no aim arrow and no ring for the ball to run on: the steering
+    // triangle is the only arrow on screen, which is the whole point of that scheme.
+    const show = c && match.isUserCarrier(c) && !match.noOrbit
+      && (match.state === 'play' || match.state === 'ready');
     this.orbitRing.visible = !!show;
     this.aimGroup.visible = !!show;
     for (const m of this.playerMeshes.values()) m.ring.visible = false;

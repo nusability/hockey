@@ -570,9 +570,20 @@ export class Match {
   release(p, dx, dz, speed, kind = 'shot') {
     const puck = this.puck;
     if (puck.carrier !== p) return false;
-    const n = norm(dx, dz);
+    let n = norm(dx, dz);
     if (n.x === 0 && n.z === 0) return false;
     const cp = this.carryPoint(p);
+    // §5.4 has the ball leave from the carry point while the direction is measured from the
+    // player. With an orbit those agree in practice, because a release only happens once the
+    // orbit has swung onto the aim — the ball is between the player and the target. With no
+    // orbit the ball rides the running direction, so a player drifting across the slot launches
+    // it up to 1.5 m to the side of the line it was aimed along. From 9 m that misses a 6 m
+    // goal: 19 % of shots went nowhere against 8 %, and conversion fell from 18.5 % to 4.1 %.
+    // So when there is no orbit the aim is taken from where the ball actually is.
+    if (this.noOrbit) {
+      const re = norm(p.x + dx - cp.x, p.z + dz - cp.z);
+      if (re.x !== 0 || re.z !== 0) n = re;
+    }
     if (Math.abs(cp.z) > RINK.goalLineZ - 0.3 && Math.abs(cp.x) < RINK.goalWidth / 2 + 0.6) {
       cp.x = p.x; cp.z = clamp(p.z, -(RINK.goalLineZ - 0.5), RINK.goalLineZ - 0.5);
     }

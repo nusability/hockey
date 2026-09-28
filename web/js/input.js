@@ -80,6 +80,8 @@ export class Input {
     this.hist = [];
     /** the last steering vector taken while the finger was not flicking (see `steer`) */
     this.slow = { dx: 0, dy: 0 };
+    /** the last flick, in screen axes, for the overlay to replay (see releaseGesture) */
+    this.lastFlick = null;
 
     canvas.style.touchAction = 'none';
     canvas.addEventListener('pointerdown', (e) => this.down(e));
@@ -181,6 +183,14 @@ export class Input {
     const g = this.gesture();
     if (!g || g.speed < FLICK.speed || g.dist < 1e-3) return { flick: false };
     vibrate([10, 18, 14]);
+    // Kept in *screen* axes as well, and with the ring's centre, so the overlay can show the
+    // angle that was actually flicked once the finger has gone. A thumb cannot judge its own
+    // angle to the precision a goal mouth wants, so the answer has to arrive after the fact.
+    this.lastFlick = {
+      dx: g.dx, dy: g.dy,
+      cx: this.originX, cy: this.originY,
+      at: performance.now() / 1000,
+    };
     return { flick: true, x: -g.dx / g.dist, z: -g.dy / g.dist, speed: g.speed };
   }
 

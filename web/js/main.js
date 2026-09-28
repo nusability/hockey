@@ -283,27 +283,87 @@ showMenu();
       + 'pointer-events:none';
     document.body.appendChild(tag);
 
-    // The rings under the thumb: the deadzone edge and the full-speed edge, drawn where the
-    // finger went down. They are the feedback half of what haptics would say — and on iOS they
-    // are the whole of it, since there is no web haptic API there at all. Screen furniture on
-    // purpose: in the apps this belongs in the 3D scene like the rest of the UI (conventions),
-    // and none of this is meant to survive the experiment.
-    const rings = document.createElement('div');
-    rings.style.cssText = 'position:fixed;z-index:40;pointer-events:none;opacity:0;'
-      + 'transition:opacity .12s;transform:translate(-50%,-50%)';
-    const ring = (px, colour, weight) => {
-      const el = document.createElement('div');
-      el.style.cssText = `position:absolute;left:50%;top:50%;width:${px * 2}px;height:${px * 2}px;`
-        + `margin:${-px}px 0 0 ${-px}px;border:${weight}px solid ${colour};border-radius:50%`;
-      rings.appendChild(el);
+    // The dial under the thumb.
+    //
+    // Two rings — the deadzone edge and the full-speed edge — and a triangle riding the outer
+    // one at the angle the thumb is pointing. The triangle is the part that matters: a thumb
+    // cannot judge its own angle anywhere near the precision a goal mouth asks for, so after a
+    // flick the triangle stays behind at the angle that was actually flicked, holds, and fades.
+    // That is the only way to learn the gesture — you find out what you did while you can still
+    // remember doing it.
+    //
+    // SVG so the shapes stay crisp at any density and can carry a glow. Screen furniture on
+    // purpose: in the apps this belongs in the 3D scene with the rest of the UI (conventions),
+    // and none of it is meant to outlive the experiment.
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:40';
+    svg.innerHTML = `<defs>
+      <filter id="sg" x="-80%" y="-80%" width="260%" height="260%">
+        <feGaussianBlur stdDeviation="5" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>`;
+    document.body.appendChild(svg);
+
+    // pointing up the screen; rotated into place. A notched head, like the aim arrow's.
+    const HEAD = 'M 0,-15 L 10,7 L 0,1.5 L -10,7 Z';
+    const mk = (tag, attrs) => {
+      const el = document.createElementNS(NS, tag);
+      for (const k in attrs) el.setAttribute(k, attrs[k]);
+      svg.appendChild(el);
       return el;
     };
-    const rDead = ring(DRAG.deadzone, 'rgba(56,189,248,.55)', 1);
-    const rFull = ring(DRAG.full, 'rgba(56,189,248,.28)', 2);
-    document.body.appendChild(rings);
+    const gDead = mk('circle', { r: DRAG.deadzone, fill: 'none', stroke: '#38bdf8', 'stroke-width': 1.5 });
+    const gFull = mk('circle', { r: DRAG.full, fill: 'none', stroke: '#38bdf8', 'stroke-width': 2.5 });
+    const gLive = mk('path', { d: HEAD, fill: '#7dd3fc', filter: 'url(#sg)' });
+    const gGhost = mk('path', { d: HEAD, fill: '#f472b6', filter: 'url(#sg)' });
+    const gGhostRing = mk('circle', { r: DRAG.full, fill: 'none', stroke: '#f472b6', 'stroke-width': 2 });
 
+    // screen angle, not the world one: this sits under the thumb, so it follows the thumb. (The
+    // world vector is the mirror of it — see Input#steer.)
+    const place = (el, cx, cy, dx, dy, r, scale) => {
+      const deg = Math.atan2(dx, -dy) * 180 / Math.PI;
+      el.setAttribute('transform', `translate(${cx} ${cy}) rotate(${deg}) translate(0 ${-r}) scale(${scale})`);
+    };
+    const set = (el, o) => { el.style.opacity = o; };
+
+    const GHOST_HOLD = 0.35, GHOST_FADE = 1.1;
     const paint = () => {
       requestAnimationFrame(paint);
+      const held = input.steerId !== null;
+
+      for (const el of [gDead, gFull, gLive]) set(el, held ? 1 : 0);
+      if (held) {
+        const cx = input.originX, cy = input.originY;
+        gDead.setAttribute('cx', cx); gDead.setAttribute('cy', cy);
+        gFull.setAttribute('cx', cx); gFull.setAttribute('cy', cy);
+        const dx = input.curX - cx, dy = input.curY - cy;
+        const d = Math.hypot(dx, dy);
+        const past = d >= DRAG.deadzone;
+        gDead.style.stroke = past ? 'rgba(56,189,248,.95)' : 'rgba(56,189,248,.4)';
+        gFull.style.stroke = d >= DRAG.full ? 'rgba(125,211,252,1)' : 'rgba(56,189,248,.3)';
+        set(gLive, past ? 1 : 0);
+        if (past) {
+          // rides the outer ring whatever the drag length, so the angle is always read off the
+          // same circle — that is what makes two flicks comparable to the eye
+          const t = Math.min(1, (d - DRAG.deadzone) / Math.max(1, DRAG.full - DRAG.deadzone));
+          place(gLive, cx, cy, dx, dy, DRAG.full, 0.8 + t * 0.45);
+        }
+      }
+
+      const f = input.lastFlick;
+      const age = f ? performance.now() / 1000 - f.at : 99;
+      const show = f && age < GHOST_HOLD + GHOST_FADE;
+      set(gGhost, 0); set(gGhostRing, 0);
+      if (show) {
+        const o = age < GHOST_HOLD ? 1 : 1 - (age - GHOST_HOLD) / GHOST_FADE;
+        place(gGhost, f.cx, f.cy, f.dx, f.dy, DRAG.full, 1.35);
+        gGhostRing.setAttribute('cx', f.cx); gGhostRing.setAttribute('cy', f.cy);
+        set(gGhost, o); set(gGhostRing, o * 0.35);
+      }
+    };
+    requestAnimationFrame(paint);
       const held = input.steerId !== null;
       rings.style.opacity = held ? '1' : '0';
       if (!held) return;

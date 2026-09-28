@@ -542,12 +542,14 @@ export class Renderer {
     // ramp: 0 at the deadzone edge, 1 flat out. It reads as the triangle pushing further out,
     // growing, filling in and lighting its halo — four things saying one number.
     const t = clamp((s.speed - DRAG.minSpeed) / Math.max(1e-3, 1 - DRAG.minSpeed), 0, 1);
-    this.steerTri.position.z = 1.5 + t * 1.1;
+    this.steerTri.position.z = 1.7 + t * 1.2;
     this.steerHalo.position.z = this.steerTri.position.z;
-    const scale = 0.72 + t * 0.5;
+    // Bigger and brighter than it was: this is now the only arrow in the scheme, so it carries
+    // the whole of "where am I going" rather than sharing the job with an orbit.
+    const scale = 1.05 + t * 0.7;
     this.steerTri.scale.setScalar(scale);
     this.steerHalo.scale.setScalar(scale * 1.45);
-    this.steerTri.material.opacity = 0.45 + t * 0.5;
+    this.steerTri.material.opacity = 0.62 + t * 0.38;
     // the halo only really lights at the top of the ramp: that is the "full speed" edge, and it
     // is what stands in for the second haptic tick on a phone that has none
     this.steerHalo.material.opacity = 0.08 + Math.pow(t, 3) * 0.5;

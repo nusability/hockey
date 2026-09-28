@@ -24,8 +24,17 @@ height = 36.0
 back = 20.0
 look = -4.0
 follow = 0.85              # the focus eases toward clamp(ball z × follow, min_z, max_z) …
-min_z = -7.0
+min_z = -14.0
 max_z = 14.0
+# The camera stands behind the player's own goal, so the corners of their own end are the part of
+# the pitch nearest it and the first to fall outside the frame — measured on a 1206×2622 phone, only
+# |x| ≤ 12.1 of the pitch's 15 was on screen at z = −28. As the focus comes back into that end the
+# eye lifts and draws back in proportion, `t = clamp(−focus / deep_span, 0, 1)`; at t = 1 the whole
+# width is in frame with a little to spare. Nothing changes from the halfway line forward (t = 0):
+# the far corners are already far enough away to be in it.
+deep_span = 14.0
+deep_lift = 6.0
+deep_back = 4.0
 rate = 2.2                 # … at this rate
 half_width = 16.5          # the pitch's half-width (15) and a margin of 1.5
 fit_near = 8.0

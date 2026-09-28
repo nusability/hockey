@@ -15,8 +15,11 @@ object Presentation {
             const val back: Double = 20.0
             const val look: Double = -4.0
             const val follow: Double = 0.85
-            const val minZ: Double = -7.0
+            const val minZ: Double = -14.0
             const val maxZ: Double = 14.0
+            const val deepSpan: Double = 14.0
+            const val deepLift: Double = 6.0
+            const val deepBack: Double = 4.0
             const val rate: Double = 2.2
             const val halfWidth: Double = 16.5
             const val fitNear: Double = 8.0

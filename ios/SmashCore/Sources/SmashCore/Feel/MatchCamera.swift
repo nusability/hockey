@@ -29,6 +29,9 @@ public struct MatchCamera: Sendable {
     public struct Params: Sendable, Hashable {
         public var height: Double, back: Double, look: Double, follow: Double
         public var minZ: Double, maxZ: Double, rate: Double
+        /// §8.6: how far back the focus has to come for the deep-end lift to be full, and how much
+        /// the eye lifts and draws back by then.
+        public var deepSpan: Double, deepLift: Double, deepBack: Double
         public var halfWidth: Double, fitNear: Double, minFov: Double, maxFov: Double
         public var buildupHeight: Double, buildupBack: Double, buildupFov: Double
         public var buildupWeight: Double, buildupRate: Double
@@ -41,7 +44,8 @@ public struct MatchCamera: Sendable {
         public var goalLineZ: Double, postX: Double, postMargin: Double, shotHorizon: Double
 
         public init(height: Double, back: Double, look: Double, follow: Double, minZ: Double, maxZ: Double,
-                    rate: Double, halfWidth: Double, fitNear: Double, minFov: Double, maxFov: Double,
+                    rate: Double, deepSpan: Double, deepLift: Double, deepBack: Double,
+                    halfWidth: Double, fitNear: Double, minFov: Double, maxFov: Double,
                     buildupHeight: Double, buildupBack: Double, buildupFov: Double, buildupWeight: Double,
                     buildupRate: Double, goalRadius: Double, goalHeight: Double, goalRise: Double,
                     goalStartAngle: Double, goalSweep: Double, goalSweepSeconds: Double, goalLookHeight: Double,
@@ -50,6 +54,7 @@ public struct MatchCamera: Sendable {
                     postMargin: Double, shotHorizon: Double) {
             self.height = height; self.back = back; self.look = look; self.follow = follow
             self.minZ = minZ; self.maxZ = maxZ; self.rate = rate
+            self.deepSpan = deepSpan; self.deepLift = deepLift; self.deepBack = deepBack
             self.halfWidth = halfWidth; self.fitNear = fitNear; self.minFov = minFov; self.maxFov = maxFov
             self.buildupHeight = buildupHeight; self.buildupBack = buildupBack; self.buildupFov = buildupFov
             self.buildupWeight = buildupWeight; self.buildupRate = buildupRate
@@ -159,11 +164,18 @@ public struct MatchCamera: Sendable {
     /// High and steep behind the focus, looking up the pitch, the field of view fitted each frame so
     /// the pitch's width fills the screen.
     public static func playPose(focusZ f: Double, aspect: Double, _ p: Params) -> Pose {
-        let eyeZ = f - p.back, nearZ = f - p.fitNear
-        let d = (p.height * p.height + (eyeZ - nearZ) * (eyeZ - nearZ)).squareRoot()
+        // §8.6: the camera stands behind the player's own goal, so that end's corners are the part
+        // of the pitch nearest it and the first to leave the frame. As the focus comes back into
+        // that end the eye lifts and draws back in proportion; from the halfway line forward this
+        // is zero and the camera is exactly what it always was.
+        let deep = min(max(-f / p.deepSpan, 0), 1)
+        let height = p.height + p.deepLift * deep
+        let back = p.back + p.deepBack * deep
+        let eyeZ = f - back, nearZ = f - p.fitNear
+        let d = (height * height + (eyeZ - nearZ) * (eyeZ - nearZ)).squareRoot()
         let hfov = 2 * atan(p.halfWidth / d)
         let vfov = 2 * atan(tan(hfov / 2) / max(aspect, 0.01)) * 180 / .pi
-        return Pose(eyeX: 0, eyeY: p.height, eyeZ: eyeZ, atX: 0, atY: 0, atZ: f + p.look,
+        return Pose(eyeX: 0, eyeY: height, eyeZ: eyeZ, atX: 0, atY: 0, atZ: f + p.look,
                     fov: min(max(vfov, p.minFov), p.maxFov))
     }
 

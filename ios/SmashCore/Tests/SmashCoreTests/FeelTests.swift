@@ -820,7 +820,8 @@ import Testing
 
     /// `presentation.toml [camera]` and §8.6's shot window, as the apps hand them over.
     static let camera = MatchCamera.Params(
-        height: 36, back: 20, look: -4, follow: 0.85, minZ: -7, maxZ: 14, rate: 2.2,
+        height: 36, back: 20, look: -4, follow: 0.85, minZ: -14, maxZ: 14, rate: 2.2,
+        deepSpan: 14, deepLift: 6, deepBack: 4,
         halfWidth: 16.5, fitNear: 8, minFov: 45, maxFov: 78,
         buildupHeight: 8, buildupBack: 20, buildupFov: 44, buildupWeight: 0.4, buildupRate: 5,
         goalRadius: 13, goalHeight: 4.5, goalRise: 1.1, goalStartAngle: 1.8, goalSweep: 0.14,
@@ -836,6 +837,67 @@ import Testing
         [-14, -24], [-14, -31], [0, -33], [14, -31], [14, -24], [14, 0], [0, 0],
         [0, 33], [0, -33], [0, 0], [-14, 30], [14, -30], [0, 0],
     ]
+
+    /// Where a world point lands on screen, in normalised device coordinates: inside the frame when
+    /// both are within ±1, behind the camera when nil.
+    static func onScreen(_ x: Double, _ z: Double, _ pose: MatchCamera.Pose, aspect: Double) -> (x: Double, y: Double)? {
+        func sub(_ a: (Double, Double, Double), _ b: (Double, Double, Double)) -> (Double, Double, Double) {
+            (a.0 - b.0, a.1 - b.1, a.2 - b.2)
+        }
+        func dot(_ a: (Double, Double, Double), _ b: (Double, Double, Double)) -> Double { a.0 * b.0 + a.1 * b.1 + a.2 * b.2 }
+        func scaled(_ a: (Double, Double, Double), _ k: Double) -> (Double, Double, Double) { (a.0 * k, a.1 * k, a.2 * k) }
+        func unit(_ a: (Double, Double, Double)) -> (Double, Double, Double) { scaled(a, 1 / dot(a, a).squareRoot()) }
+        let eye = (pose.eyeX, pose.eyeY, pose.eyeZ)
+        let f = unit(sub((pose.atX, pose.atY, pose.atZ), eye))
+        let up = (0.0, 1.0, 0.0)
+        let u = unit(sub(up, scaled(f, dot(up, f))))
+        let r = (f.1 * u.2 - f.2 * u.1, f.2 * u.0 - f.0 * u.2, f.0 * u.1 - f.1 * u.0)
+        let v = sub((x, 0, z), eye)
+        let depth = dot(v, f)
+        guard depth > 0 else { return nil }
+        let ty = tan(pose.fov / 2 * .pi / 180)
+        return (dot(v, r) / depth / (ty * aspect), dot(v, u) / depth / ty)
+    }
+
+    /// The owner: "Bottom corners not visible — camera needs to drop further when the ball is down
+    /// there." The camera stands behind the player's own goal, so that end's corners are the part of
+    /// the pitch nearest it and the first to leave the frame: on a 1206×2622 phone only |x| ≤ 12.1
+    /// of the pitch's 15 was on screen at z = −28. With the play there, the whole width must be.
+    @Test func theCornersOfYourOwnEndAreOnScreenWhenThePlayIsThere() {
+        let aspect = 1206.0 / 2622
+        var camera = MatchCamera(Self.camera, aspect: aspect)
+        let ball = MatchCamera.Ball(x: 14, z: -29, vx: 0, vz: 0)
+        var pose = camera.pose
+        // Long enough for the focus to have eased all the way back.
+        for _ in 0..<600 { pose = camera.advance(1.0 / 60, mode: .play, ball: ball, aspect: aspect, reduceMotion: false) }
+        for x in [-15.0, -14.4, 14.4, 15.0] {
+            for z in [-24.0, -26.0, -28.0] {
+                guard let q = Self.onScreen(x, z, pose, aspect: aspect) else {
+                    Issue.record("(\(x), \(z)) is behind the camera")
+                    continue
+                }
+                #expect(q.x.magnitude <= 1 && q.y.magnitude <= 1,
+                        "(\(x), \(z)) is off screen at (\(q.x), \(q.y))")
+            }
+        }
+    }
+
+    /// And the far end is untouched by it: from the halfway line forward the lift is zero, so the
+    /// camera is exactly the pose it always was.
+    @Test func theDeepEndLiftIsNothingFromTheHalfwayLineForward() {
+        let aspect = 1206.0 / 2622
+        for f in [0.0, 4.0, 14.0] {
+            let pose = MatchCamera.playPose(focusZ: f, aspect: aspect, Self.camera)
+            #expect(pose.eyeY == Self.camera.height)
+            #expect(pose.eyeZ == f - Self.camera.back)
+        }
+        // And it grows in proportion, reaching its full lift where the focus stops.
+        let deep = MatchCamera.playPose(focusZ: -Self.camera.deepSpan, aspect: aspect, Self.camera)
+        #expect(deep.eyeY == Self.camera.height + Self.camera.deepLift)
+        #expect(deep.eyeZ == -Self.camera.deepSpan - Self.camera.back - Self.camera.deepBack)
+        let half = MatchCamera.playPose(focusZ: -Self.camera.deepSpan / 2, aspect: aspect, Self.camera)
+        #expect((half.eyeY - (Self.camera.height + Self.camera.deepLift / 2)).magnitude < 1e-12)
+    }
 
     /// The bug the owner saw: behind the goal line the camera shook between two poses at frame
     /// rate. A ball there is **not** a shot about to score — whichever way its z velocity happens to

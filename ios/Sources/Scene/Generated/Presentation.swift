@@ -14,8 +14,11 @@ enum Presentation {
             static let back: Double = 20.0
             static let look: Double = -4.0
             static let follow: Double = 0.85
-            static let minZ: Double = -7.0
+            static let minZ: Double = -14.0
             static let maxZ: Double = 14.0
+            static let deepSpan: Double = 14.0
+            static let deepLift: Double = 6.0
+            static let deepBack: Double = 4.0
             static let rate: Double = 2.2
             static let halfWidth: Double = 16.5
             static let fitNear: Double = 8.0

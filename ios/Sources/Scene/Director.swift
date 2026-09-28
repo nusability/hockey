@@ -113,7 +113,9 @@ struct Director {
     /// handed to the core's solve. Declared once; nothing else reads these.
     static let params = MatchCamera.Params(
         height: P.Play.height, back: P.Play.back, look: P.Play.look, follow: P.Play.follow,
-        minZ: P.Play.minZ, maxZ: P.Play.maxZ, rate: P.Play.rate, halfWidth: P.Play.halfWidth,
+        minZ: P.Play.minZ, maxZ: P.Play.maxZ, rate: P.Play.rate,
+        deepSpan: P.Play.deepSpan, deepLift: P.Play.deepLift, deepBack: P.Play.deepBack,
+        halfWidth: P.Play.halfWidth,
         fitNear: P.Play.fitNear, minFov: P.Play.minFov, maxFov: P.Play.maxFov,
         buildupHeight: P.Buildup.height, buildupBack: P.Buildup.back, buildupFov: P.Buildup.fov,
         buildupWeight: P.Buildup.weight, buildupRate: P.Buildup.rate,

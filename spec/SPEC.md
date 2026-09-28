@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.31.1
+Spec-Version: 0.32.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -912,6 +912,16 @@ both goal lines:
   point, and nothing frames it as one.
 - Once a build-up has chosen its goal it **keeps it** until the blend back to the play camera has
   run out. Changing the framed goal while the dramatic camera still carries weight is a cut.
+
+**The camera comes back and lifts for your own corners.** It stands behind the player's own goal, so
+that end's corners are the part of the pitch nearest it and the first to fall outside the frame: on a
+tall phone only `|x| ≤ 12.1` of the pitch's 15 was on screen at `z = −28`, and play in the corner you
+defend happened where you could not see it. The focus follows the ball back to **−14** rather than
+−7, and as it comes back the eye **lifts and draws back in proportion** — `t = clamp(−focus / 14, 0,
+1)`, the height and the distance behind growing by their own amounts at `t = 1` — so the whole width
+of that end is in frame with a little to spare. From the halfway line forward `t` is zero and the
+camera is exactly what it always was: the far corners are already far enough away to be in it. Both
+apps are tested on it, with the corners projected through the pose the play camera settles on.
 
 #### 8.7 Quitting
 A match can be paused (automatically when the app leaves the foreground) and quit from the pause.

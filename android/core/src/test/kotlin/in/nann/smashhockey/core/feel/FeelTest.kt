@@ -21,6 +21,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.sqrt
+import kotlin.math.tan
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -749,7 +750,8 @@ class FeelTest {
 
     /** `presentation.toml [camera]` and §8.6's shot window, as the apps hand them over. */
     private val camera = MatchCamera.Params(
-        height = 36.0, back = 20.0, look = -4.0, follow = 0.85, minZ = -7.0, maxZ = 14.0, rate = 2.2,
+        height = 36.0, back = 20.0, look = -4.0, follow = 0.85, minZ = -14.0, maxZ = 14.0, rate = 2.2,
+        deepSpan = 14.0, deepLift = 6.0, deepBack = 4.0,
         halfWidth = 16.5, fitNear = 8.0, minFov = 45.0, maxFov = 78.0,
         buildupHeight = 8.0, buildupBack = 20.0, buildupFov = 44.0, buildupWeight = 0.4, buildupRate = 5.0,
         goalRadius = 13.0, goalHeight = 4.5, goalRise = 1.1, goalStartAngle = 1.8, goalSweep = 0.14,
@@ -769,6 +771,74 @@ class FeelTest {
         14.0 to 0.0, 0.0 to 0.0, 0.0 to 33.0, 0.0 to -33.0, 0.0 to 0.0, -14.0 to 30.0, 14.0 to -30.0,
         0.0 to 0.0,
     )
+
+    /**
+     * Where a world point lands on screen, in normalised device coordinates: inside the frame when
+     * both are within ±1, null when it is behind the camera.
+     */
+    private fun onScreen(x: Double, z: Double, pose: MatchCamera.Pose, aspect: Double): Pair<Double, Double>? {
+        fun dot(a: Triple<Double, Double, Double>, b: Triple<Double, Double, Double>) =
+            a.first * b.first + a.second * b.second + a.third * b.third
+        fun sub(a: Triple<Double, Double, Double>, b: Triple<Double, Double, Double>) =
+            Triple(a.first - b.first, a.second - b.second, a.third - b.third)
+        fun scaled(a: Triple<Double, Double, Double>, k: Double) = Triple(a.first * k, a.second * k, a.third * k)
+        fun unit(a: Triple<Double, Double, Double>) = scaled(a, 1 / sqrt(dot(a, a)))
+        val eye = Triple(pose.eyeX, pose.eyeY, pose.eyeZ)
+        val f = unit(sub(Triple(pose.atX, pose.atY, pose.atZ), eye))
+        val up = Triple(0.0, 1.0, 0.0)
+        val u = unit(sub(up, scaled(f, dot(up, f))))
+        val r = Triple(
+            f.second * u.third - f.third * u.second,
+            f.third * u.first - f.first * u.third,
+            f.first * u.second - f.second * u.first,
+        )
+        val v = sub(Triple(x, 0.0, z), eye)
+        val depth = dot(v, f)
+        if (depth <= 0) return null
+        val ty = tan(pose.fov / 2 * PI / 180)
+        return Pair(dot(v, r) / depth / (ty * aspect), dot(v, u) / depth / ty)
+    }
+
+    /**
+     * The owner: "Bottom corners not visible — camera needs to drop further when the ball is down
+     * there." The camera stands behind the player's own goal, so that end's corners are the part of
+     * the pitch nearest it and the first to leave the frame: on a 1206×2622 phone only |x| ≤ 12.1 of
+     * the pitch's 15 was on screen at z = −28. With the play there, the whole width must be.
+     */
+    @Test fun theCornersOfYourOwnEndAreOnScreenWhenThePlayIsThere() {
+        val aspect = 1206.0 / 2622
+        val cam = MatchCamera(camera, aspect)
+        val ball = MatchCamera.Ball(14.0, -29.0, 0.0, 0.0)
+        var pose = cam.pose
+        // Long enough for the focus to have eased all the way back.
+        repeat(600) { pose = cam.advance(1.0 / 60, MatchCamera.Mode.Play, ball, aspect, false) }
+        for (x in listOf(-15.0, -14.4, 14.4, 15.0)) {
+            for (z in listOf(-24.0, -26.0, -28.0)) {
+                val q = onScreen(x, z, pose, aspect)
+                assertTrue("($x, $z) is behind the camera", q != null)
+                assertTrue("($x, $z) is off screen at $q", abs(q!!.first) <= 1 && abs(q.second) <= 1)
+            }
+        }
+    }
+
+    /**
+     * And the far end is untouched by it: from the halfway line forward the lift is zero, so the
+     * camera is exactly the pose it always was.
+     */
+    @Test fun theDeepEndLiftIsNothingFromTheHalfwayLineForward() {
+        val aspect = 1206.0 / 2622
+        for (f in listOf(0.0, 4.0, 14.0)) {
+            val pose = MatchCamera.playPose(f, aspect, camera)
+            assertEquals(camera.height, pose.eyeY, 0.0)
+            assertEquals(f - camera.back, pose.eyeZ, 0.0)
+        }
+        // And it grows in proportion, reaching its full lift where the focus stops.
+        val deep = MatchCamera.playPose(-camera.deepSpan, aspect, camera)
+        assertEquals(camera.height + camera.deepLift, deep.eyeY, 0.0)
+        assertEquals(-camera.deepSpan - camera.back - camera.deepBack, deep.eyeZ, 0.0)
+        val half = MatchCamera.playPose(-camera.deepSpan / 2, aspect, camera)
+        assertEquals(camera.height + camera.deepLift / 2, half.eyeY, 1e-12)
+    }
 
     /**
      * The bug the owner saw: behind the goal line the camera shook between two poses at frame

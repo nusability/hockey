@@ -38,6 +38,11 @@ class MatchCamera(val params: Params, aspect: Double) {
     data class Params(
         val height: Double, val back: Double, val look: Double, val follow: Double,
         val minZ: Double, val maxZ: Double, val rate: Double,
+        /**
+         * §8.6: how far back the focus has to come for the deep-end lift to be full, and how much
+         * the eye lifts and draws back by then.
+         */
+        val deepSpan: Double, val deepLift: Double, val deepBack: Double,
         val halfWidth: Double, val fitNear: Double, val minFov: Double, val maxFov: Double,
         val buildupHeight: Double, val buildupBack: Double, val buildupFov: Double,
         val buildupWeight: Double, val buildupRate: Double,
@@ -180,12 +185,19 @@ class MatchCamera(val params: Params, aspect: Double) {
          * so the pitch's width fills the screen.
          */
         fun playPose(focusZ: Double, aspect: Double, p: Params): Pose {
-            val eyeZ = focusZ - p.back
+            // §8.6: the camera stands behind the player's own goal, so that end's corners are the
+            // part of the pitch nearest it and the first to leave the frame. As the focus comes back
+            // into that end the eye lifts and draws back in proportion; from the halfway line
+            // forward this is zero and the camera is exactly what it always was.
+            val deep = (-focusZ / p.deepSpan).coerceIn(0.0, 1.0)
+            val height = p.height + p.deepLift * deep
+            val back = p.back + p.deepBack * deep
+            val eyeZ = focusZ - back
             val nearZ = focusZ - p.fitNear
-            val d = sqrt(p.height * p.height + (eyeZ - nearZ) * (eyeZ - nearZ))
+            val d = sqrt(height * height + (eyeZ - nearZ) * (eyeZ - nearZ))
             val hfov = 2 * atan(p.halfWidth / d)
             val vfov = 2 * atan(tan(hfov / 2) / max(aspect, 0.01)) * 180 / PI
-            return Pose(0.0, p.height, eyeZ, 0.0, 0.0, focusZ + p.look, vfov.coerceIn(p.minFov, p.maxFov))
+            return Pose(0.0, height, eyeZ, 0.0, 0.0, focusZ + p.look, vfov.coerceIn(p.minFov, p.maxFov))
         }
     }
 }

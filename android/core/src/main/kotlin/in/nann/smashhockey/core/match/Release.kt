@@ -115,10 +115,15 @@ fun Match.previewLift(): LiftOutcome {
     return LiftOutcome.UNASSISTED
 }
 
-private fun Match.lateSnap(c: Int): Snap? {
+/**
+ * The snap the late grace finds, **with the angle it was found at** — that angle is what aims a shot
+ * (§5.4), and it is not the angle the orbit is on now.
+ */
+internal fun Match.lateSnap(c: Int): Pair<Snap, Double>? {
     for (g in Tuning.Release.lateGrace) {
-        val s = snap(c, ball.orbit - omega * g * ball.orbitDirection)
-        if (s != null) return s
+        val a = ball.orbit - omega * g * ball.orbitDirection
+        val s = snap(c, a)
+        if (s != null) return Pair(s, a)
     }
     return null
 }
@@ -132,12 +137,12 @@ internal fun Match.playerLift() {
     val accuracy = Tuning.Release.playerAccuracy
     val now = snap(c, ball.orbit)
     if (now != null) {
-        release(c, now, accuracy)
+        release(c, now, ball.orbit, accuracy)
         return
     }
     val late = lateSnap(c)
     if (late != null) {
-        release(c, late, accuracy)
+        release(c, late.first, late.second, accuracy)
         return
     }
     val e = earlySnapInstant(c)
@@ -150,11 +155,27 @@ internal fun Match.playerLift() {
 
 // §5.4 — how the ball leaves
 
-internal fun Match.release(c: Int, snap: Snap, accuracy: Double) {
+/**
+ * [aim] is the orbit angle the release snapped on — the player's arrow, which aims a shot (§5.4).
+ * An AI carrier has no arrow and passes null.
+ */
+internal fun Match.release(c: Int, snap: Snap, aim: Double?, accuracy: Double) {
     when (snap) {
         is Snap.Pass -> pass(c, snap.to, accuracy)
-        Snap.Shot -> shoot(c, accuracy, Tuning.Release.shotSpeed)
+        Snap.Shot -> shoot(c, accuracy, Tuning.Release.shotSpeed, aim)
     }
+}
+
+/**
+ * Where a release from [c] at orbit angle [a] crosses the line `z = goalZ`, or null when it never
+ * does — the carrier level with the line, the arrow along it. Measured from the carrier's position,
+ * as a release's direction is (§5.4), not from the ball on its orbit.
+ */
+internal fun Match.goalLineCrossing(c: Int, a: Double, goalZ: Double): Double? {
+    val dz = DetMath.cos(a)
+    val run = goalZ - players[c].pos.z
+    if (dz * run <= 0) return null
+    return players[c].pos.x + DetMath.sin(a) * (run / dz)
 }
 
 internal fun Match.pass(c: Int, m: Int, accuracy: Double) {
@@ -173,25 +194,39 @@ internal fun Match.pass(c: Int, m: Int, accuracy: Double) {
     emit(MatchEvent.Pass(c, m))
 }
 
-internal fun Match.shoot(c: Int, accuracy: Double, power: Double) {
+/**
+ * §5.4. [aim] is the orbit angle the release snapped on: the player's arrow, and the whole of the
+ * player's choice of corner. An AI carrier passes null and takes the far side of the keeper.
+ */
+internal fun Match.shoot(c: Int, accuracy: Double, power: Double, aim: Double?) {
     val r = Tuning.Release
     val team = players[c].team
     val gz = Pitch.attackGoalZ(team)
-    var half = Tuning.Pitch.postX - r.shotPostInset
+    val half = Tuning.Pitch.postX - r.shotPostInset
+    // Where the arrow was pointing, on the goal line, kept off the posts. The keeper does not come
+    // into it: choosing the corner is the player's, and taking it away is what made the assistance
+    // feel invasive.
+    val arrowed = if (aim == null) null else goalLineCrossing(c, aim, gz)
+    var aimX = if (arrowed != null) {
+        Pitch.clamp(arrowed, -half, half)
+    } else {
+        val g = goalieOf(1 - team)
+        if (g != null) {
+            if (players[g].pos.x > 0) -half else half
+        } else {
+            if (rng.uniform() < r.shotSideChance) -half else half
+        }
+    }
     // §7.9: against an alerted defence, distance takes the corner away — from 20 out the shot goes
-    // straight at the keeper, from 10 in it still picks its side.
+    // straight at the keeper, from 10 in it still picks its side. It scales the corner and never
+    // crosses the middle, so the side the player chose survives it.
     if (alert[1 - team] > 0) {
         val a = Tuning.AI.Alert
         val d = Pitch.length(0.0 - players[c].pos.x, gz - players[c].pos.z)
-        half *= Pitch.clamp((a.placeFull - d) / a.placeSpan, 0.0, 1.0)
+        aimX *= Pitch.clamp((a.placeFull - d) / a.placeSpan, 0.0, 1.0)
     }
-    val g = goalieOf(1 - team)
-    var aimX = if (g != null) {
-        if (players[g].pos.x > 0) -half else half
-    } else {
-        if (rng.uniform() < r.shotSideChance) -half else half
-    }
-    if (rng.uniform() < r.shotPullChance) aimX *= r.shotPull
+    // A miss the AI makes. The player's chosen corner is not dragged back to the middle.
+    if (arrowed == null && rng.uniform() < r.shotPullChance) aimX *= r.shotPull
     aimX += rng.noise(r.shotNoise * (r.shotNoiseOffset - accuracy))
     if (!launch(c, aimX - players[c].pos.x, gz - players[c].pos.z, power)) return
     noteShot(c, ReleaseKind.SHOT)

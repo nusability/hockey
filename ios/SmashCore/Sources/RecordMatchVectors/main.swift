@@ -137,6 +137,24 @@ func scrimmageSeed(from: UInt64) -> UInt64 {
     }
 }
 
+/// The first seed from `from` whose moving-cones drill actually has a cone **block** the ball.
+///
+/// Drill 5's claim is that the patrolling dummies are in the way, and `MatchVectorTests` checks the
+/// corpus still covers it. Which seed produces a block moves whenever the shot changes — 0x5EED0005
+/// stopped producing one the day §5.4 handed the corner to the player and the bot started finishing
+/// the drill in a fifth of the ticks — so the seed is searched for rather than written down, the
+/// way drill 8's and the overtime one are.
+func movingSeed(from: UInt64) -> UInt64 {
+    var seed = from
+    while true {
+        var v = drill(.moving, seed: seed)
+        v.inputs = playTape(v, .shootFirst)
+        liftCounts = [:]
+        if v.run().contains(where: { $0.hasPrefix("e ") && $0.contains(" block ") }) { return seed }
+        seed += 1
+    }
+}
+
 /// The first seed from `from` whose cup match reaches sudden-death overtime.
 func overtimeSeed(from: UInt64) -> UInt64 {
     var seed = from
@@ -164,7 +182,7 @@ var entries = [
     Entry(file: "drill2-give-and-go.txt", about: "Drill 2 (§10): pass first, then shoot — goals count only after a pass.",
           vector: drill(.pass, seed: 0x5EED_0002), policy: .giveAndGo),
     Entry(file: "drill5-moving-cones.txt", about: "Drill 5 (§10): patrolling dummies block; the player shoots on a shot snap and passes only forward.",
-          vector: drill(.moving, seed: 0x5EED_0005), policy: .shootFirst),
+          vector: drill(.moving, seed: movingSeed(from: 0x5EED_0005)), policy: .shootFirst),
     Entry(file: "drill8-scrimmage.txt", about: "Drill 8 (§10): free play — both sides may score, every goal resets; the player shoots on a shot snap and passes only forward. Seed = the first from 0x5EED0008 the defence scores in.",
           vector: drill(.scrimmage, seed: scrimmageSeed(from: 0x5EED_0008)), policy: .shootFirst),
     Entry(file: "demo-field.txt", about: "A demo match (§9): Moss Foxes v Rocket Lynx, field hockey, 2-minute periods, both sides automatic.",

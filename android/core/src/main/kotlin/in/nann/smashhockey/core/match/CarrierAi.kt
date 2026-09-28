@@ -115,7 +115,7 @@ private fun Match.releaseIfAligned(i: Int, decision: CarrierDecision, threat: Do
     when (decision) {
         CarrierDecision.Shoot -> {
             val power = c.shotPowerBase + c.shotPowerPerSkill * s + c.shotPowerSpread * rng.uniform()
-            shoot(i, accuracy, power)
+            shoot(i, accuracy, power, null)   // §5.4: no arrow to read
         }
         is CarrierDecision.Pass -> pass(i, decision.to, accuracy)
         CarrierDecision.Clear -> releaseUnassisted(i, ReleaseKind.CLEAR)

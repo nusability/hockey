@@ -105,7 +105,7 @@ extension Match {
         switch decision {
         case .shoot:
             let power = C.shotPowerBase + C.shotPowerPerSkill * s + C.shotPowerSpread * rng.uniform()
-            shoot(i, accuracy: accuracy, power: power)
+            shoot(i, accuracy: accuracy, power: power, aim: nil)   // §5.4: no arrow to read
         case .pass(let m):
             pass(i, to: m, accuracy: accuracy)
         case .clear:

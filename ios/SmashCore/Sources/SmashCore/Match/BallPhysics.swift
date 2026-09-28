@@ -49,7 +49,7 @@ extension Match {
             if pending.player != c {
                 ball.pending = nil
             } else if let snap = snap(c, orbit: ball.orbit) {
-                release(c, to: snap, accuracy: Tuning.Release.playerAccuracy)
+                release(c, to: snap, aim: ball.orbit, accuracy: Tuning.Release.playerAccuracy)
                 return
             } else if time >= pending.deadline {
                 releaseUnassisted(c, kind: .unassisted)

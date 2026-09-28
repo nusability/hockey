@@ -61,7 +61,7 @@ private fun Match.moveCarriedBall(c: Int, dt: Double) {
         } else {
             val snap = snap(c, ball.orbit)
             if (snap != null) {
-                release(c, snap, Tuning.Release.playerAccuracy)
+                release(c, snap, ball.orbit, Tuning.Release.playerAccuracy)
                 return
             } else if (time >= pending.deadline) {
                 releaseUnassisted(c, ReleaseKind.UNASSISTED)

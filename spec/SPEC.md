@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.29.0
+Spec-Version: 0.30.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -431,14 +431,40 @@ Every release leaves **from the orbit point**; the direction of an aimed release
   (as in §5.2, at that speed), plus `noise(1.6 × (1.15 − accuracy))` on each axis. The receiver
   re-thinks at once and **expects the pass**: an expectation of 1.6 that drops by 0.2 at each of
   their re-thinks (§7).
-- **A shot** travels at **30** toward the far side of the goal from the goalie — `±(3.0 − 0.85)`
-  in x: −x when the goalie's x > 0, else +x (a random side if there is no goalie: −x on a draw
-  below 0.5) — pulled to 30 % of that on a 25 % draw, plus `noise(1.5 × (1.2 − accuracy))`, at
-  the goal line it attacks. **Against a defence on alert (§7.9) the corner goes away with
-  distance**: before the draws, the `±(3.0 − 0.85)` is multiplied by
-  `clamp((20 − d) / 10, 0, 1)`, `d` the carrier's distance to the goal centre — a shot from 20 out goes straight down the middle at the keeper, one from 10 in still
-  picks its side in full. Nothing else about the shot changes: not its speed, not its noise, and
-  not what the aim arrow (§5.2) showed — the arrow never promised a corner.
+- **A shot** travels at **30** at a point on the goal line it attacks. Where that point is, is
+  **the player's to choose**:
+
+  - **The player's own release goes where the arrow was pointing.** The aim point is where the
+    release's direction — measured from the carrier (above), at the orbit angle the release
+    **snapped on** — crosses that goal line, kept within `±(3.0 − 0.85)` so it never aims at a post.
+    The angle that snapped is not always the angle the orbit is on now: the late grace (§5.3 rule 2)
+    winds the angle back to find the snap, and a quarter-second of orbit is most of the goal, so it
+    is the wound-back angle that aims. A direction leading *away* from that goal line has no aim
+    point and falls to the rule below; one running nearly along the line has an aim point far
+    outside the mouth, which the clamp takes to the post's side.
+  - **An AI carrier's shot goes to the far side of the goal from the goalie** — `±(3.0 − 0.85)` in
+    x: −x when the goalie's x > 0, else +x (a random side if there is no goalie: −x on a draw below
+    0.5). It lines its orbit up on the goal **centre**, to a tolerance wide enough to be most of the
+    mouth (§7.6), and has no side in mind: there is no arrow there to read.
+
+  Then, in this order: **against a defence on alert (§7.9) the corner goes away with distance** —
+  the aim point's x is multiplied by `clamp((20 − d) / 10, 0, 1)`, `d` the carrier's distance to the
+  goal centre, so a shot from 20 out goes straight down the middle at the keeper and one from 10 in
+  still picks its side in full (this scales a corner, it never crosses the middle, so the side the
+  player chose survives it). Then an **AI** carrier's shot is pulled to 30 % of that on a 25 % draw —
+  **the player's is not**: once the player has chosen a corner, dragging one shot in four back to
+  the middle is the same override by another name. Then `noise(1.5 × (1.2 − accuracy))` on x, which
+  for the player's accuracy of 1 is a wobble of about a third of a metre and is the whole of the
+  difference between where they aimed and where it went.
+
+  **The keeper used to choose, and that was the bug.** The shot always went to the far side of the
+  keeper and the arrow's angle was never consulted at all — so aiming deliberately at the keeper's
+  own side sent the ball to the other one, every time, and the owner's word for it was "invasive".
+  Measured in the prototype over 5 760 shots: with the arrow past the keeper on the keeper's own
+  side, the old rule honoured the side **0 %** of the time and this one **100 %**; the mean distance
+  between the spot aimed at and the spot hit fell from 1.46 m to 0.13 m. The assistance that remains
+  is the part the player cannot do with a thumb: the goal window that decides this **is** a shot
+  (§5.2), and the clamp that keeps it off the posts.
 - **An unassisted release** travels at **24** along the orbit direction.
 - The player's own releases have accuracy 1. The ball also inherits 20 % of the carrier's
   velocity.

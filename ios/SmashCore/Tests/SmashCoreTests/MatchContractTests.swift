@@ -239,7 +239,7 @@ import Testing
         var m = Self.drill(.pass)
         m.players[0].pos = Vec(x: 0, z: 14)
         m.ball.orbit = 0
-        m.shoot(0, accuracy: 1, power: 30)
+        m.shoot(0, accuracy: 1, power: 30, aim: nil)
         for _ in 0..<60 { m.tick() }
         #expect(m.drainEvents().contains(.drillInterrupted(.noAssist)))
         #expect(m.score == [0, 0])
@@ -249,7 +249,7 @@ import Testing
         n.ball.lastTouch = 1
         n.takeBall(0, reorient: true)
         n.players[0].pos = Vec(x: 0, z: 14)
-        n.shoot(0, accuracy: 1, power: 30)
+        n.shoot(0, accuracy: 1, power: 30, aim: nil)
         for _ in 0..<60 { n.tick() }
         #expect(n.drainEvents().contains(.goal(team: 0, scorer: 0, assist: 1, ownGoal: false)))
         #expect(n.score == [1, 0])

@@ -98,9 +98,12 @@ extension Match {
         return .unassisted
     }
 
-    func lateSnap(_ c: Int) -> Snap? {
+    /// The snap the late grace finds, **with the angle it was found at** — that angle is what aims a
+    /// shot (§5.4), and it is not the angle the orbit is on now.
+    func lateSnap(_ c: Int) -> (snap: Snap, orbit: Double)? {
         for g in Tuning.Release.lateGrace {
-            if let s = snap(c, orbit: ball.orbit - omega * g * ball.orbitDirection) { return s }
+            let a = ball.orbit - omega * g * ball.orbitDirection
+            if let s = snap(c, orbit: a) { return (s, a) }
         }
         return nil
     }
@@ -112,8 +115,8 @@ extension Match {
     mutating func playerLift() {
         guard state == .play, let c = ball.carrier, isPlayerControlled(c) else { return }
         let accuracy = Tuning.Release.playerAccuracy
-        if let s = snap(c, orbit: ball.orbit) { release(c, to: s, accuracy: accuracy); return }
-        if let s = lateSnap(c) { release(c, to: s, accuracy: accuracy); return }
+        if let s = snap(c, orbit: ball.orbit) { release(c, to: s, aim: ball.orbit, accuracy: accuracy); return }
+        if let l = lateSnap(c) { release(c, to: l.snap, aim: l.orbit, accuracy: accuracy); return }
         if let e = earlySnapInstant(c) {
             ball.pending = PendingRelease(player: c, deadline: time + e + Tuning.Release.pendingFallback)
             return
@@ -123,11 +126,23 @@ extension Match {
 
     // MARK: §5.4 — how the ball leaves
 
-    mutating func release(_ c: Int, to snap: Snap, accuracy: Double) {
+    /// `aim` is the orbit angle the release snapped on — the player's arrow, which aims a shot
+    /// (§5.4). An AI carrier has no arrow and passes nil.
+    mutating func release(_ c: Int, to snap: Snap, aim: Double?, accuracy: Double) {
         switch snap {
         case .pass(let m): pass(c, to: m, accuracy: accuracy)
-        case .shot: shoot(c, accuracy: accuracy, power: Tuning.Release.shotSpeed)
+        case .shot: shoot(c, accuracy: accuracy, power: Tuning.Release.shotSpeed, aim: aim)
         }
+    }
+
+    /// Where a release from `c` at orbit angle `a` crosses the line `z = goalZ`, or nil when it never
+    /// does — the carrier level with the line, the arrow along it. Measured from the carrier's
+    /// position, as a release's direction is (§5.4), not from the ball on its orbit.
+    func goalLineCrossing(_ c: Int, orbit a: Double, goalZ: Double) -> Double? {
+        let dz = DetMath.cos(a)
+        let run = goalZ - players[c].pos.z
+        guard dz * run > 0 else { return nil }
+        return players[c].pos.x + DetMath.sin(a) * (run / dz)
     }
 
     mutating func pass(_ c: Int, to m: Int, accuracy: Double) {
@@ -146,25 +161,35 @@ extension Match {
         emit(.pass(from: c, to: m))
     }
 
-    mutating func shoot(_ c: Int, accuracy: Double, power: Double) {
+    /// §5.4. `aim` is the orbit angle the release snapped on: the player's arrow, and the whole of
+    /// the player's choice of corner. An AI carrier passes nil and takes the far side of the keeper.
+    mutating func shoot(_ c: Int, accuracy: Double, power: Double, aim: Double?) {
         typealias R = Tuning.Release
         let team = players[c].team
         let gz = Pitch.attackGoalZ(team)
-        var half = Tuning.Pitch.postX - R.shotPostInset
-        // §7.9: against an alerted defence, distance takes the corner away — from 20 out the shot
-        // goes straight at the keeper, from 10 in it still picks its side.
-        if alert[1 - team] > 0 {
-            typealias A = Tuning.AI.Alert
-            let d = Pitch.length(0.0 - players[c].pos.x, gz - players[c].pos.z)
-            half = half * Pitch.clamp((A.placeFull - d) / A.placeSpan, 0, 1)
-        }
+        let half = Tuning.Pitch.postX - R.shotPostInset
         var aimX: Double
-        if let g = goalie(of: 1 - team) {
+        // Where the arrow was pointing, on the goal line, kept off the posts. The keeper does not
+        // come into it: choosing the corner is the player's, and taking it away is what made the
+        // assistance feel invasive.
+        let arrowed = aim.flatMap { goalLineCrossing(c, orbit: $0, goalZ: gz) }
+        if let cross = arrowed {
+            aimX = Pitch.clamp(cross, -half, half)
+        } else if let g = goalie(of: 1 - team) {
             aimX = players[g].pos.x > 0 ? -half : half
         } else {
             aimX = rng.uniform() < R.shotSideChance ? -half : half
         }
-        if rng.uniform() < R.shotPullChance { aimX *= R.shotPull }
+        // §7.9: against an alerted defence, distance takes the corner away — from 20 out the shot
+        // goes straight at the keeper, from 10 in it still picks its side. It scales the corner and
+        // never crosses the middle, so the side the player chose survives it.
+        if alert[1 - team] > 0 {
+            typealias A = Tuning.AI.Alert
+            let d = Pitch.length(0.0 - players[c].pos.x, gz - players[c].pos.z)
+            aimX = aimX * Pitch.clamp((A.placeFull - d) / A.placeSpan, 0, 1)
+        }
+        // A miss the AI makes. The player's chosen corner is not dragged back to the middle.
+        if arrowed == nil && rng.uniform() < R.shotPullChance { aimX *= R.shotPull }
         aimX += rng.noise(R.shotNoise * (R.shotNoiseOffset - accuracy))
         guard launch(c, aimX - players[c].pos.x, gz - players[c].pos.z, speed: power) else { return }
         noteShot(c, kind: .shot)

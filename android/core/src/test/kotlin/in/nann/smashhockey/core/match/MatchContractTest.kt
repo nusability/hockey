@@ -266,7 +266,7 @@ class MatchContractTest {
         val m = drill(Drill.PASS)
         m.players[0].pos = Vec(0.0, 14.0)
         m.ball.orbit = 0.0
-        m.shoot(0, 1.0, 30.0)
+        m.shoot(0, 1.0, 30.0, null)
         repeat(60) { m.tick() }
         assertTrue(m.drainEvents().contains(MatchEvent.DrillInterrupted(DrillInterruption.NO_ASSIST)))
         assertEquals(listOf(0, 0), m.scores)
@@ -276,7 +276,7 @@ class MatchContractTest {
         n.ball.lastTouch = 1
         n.takeBall(0, reorient = true)
         n.players[0].pos = Vec(0.0, 14.0)
-        n.shoot(0, 1.0, 30.0)
+        n.shoot(0, 1.0, 30.0, null)
         repeat(60) { n.tick() }
         assertTrue(n.drainEvents().contains(MatchEvent.Goal(0, 0, 1, false)))
         assertEquals(listOf(1, 0), n.scores)

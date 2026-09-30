@@ -62,6 +62,17 @@ const CONTROL_TUNE = {
   /** how much better a rival receiver must score before the mark moves off the held one */
   markStick: num('mark', 3),
   /**
+   * How much of the tackle's required contact a full sprint takes away. A carrier at top pace
+   * has less of the ball than one moving at their own, so less contact dispossesses them: at
+   * 0.45 a sprinter needs only 55 % of the usual 0.18 s. Steals in open play roughly double.
+   *
+   * This is where the price of pace had to go. The obvious version — push the ball further
+   * ahead of a sprinter — does nothing at all: measured over 26 matches a side it moved steals
+   * by exactly zero (62 against 62), because a chaser is usually *behind* the carrier and a ball
+   * pushed forward only travels further from them.
+   */
+  sprintCost: num('sprint', 0.45),
+  /**
    * Seconds an AI carrier holds the ball with no orbit — the orbit wait's replacement.
    * It has to clear `settleTime` (0.45 s, the grace after winning the ball) by a real margin or
    * a carrier is untouchable for its whole possession: at 0.5 s only 0.05 s of it is stealable
@@ -134,6 +145,7 @@ export class Match {
     /** how long an AI carrier holds the ball before releasing, standing in for the orbit wait */
     this.noOrbitWindup = CONTROL_TUNE.windup;
     this.keeperWindup = CONTROL_TUNE.keeperWindup;
+    this.sprintCost = CONTROL_TUNE.sprintCost;
     this.steerInput = null;      // the finger's order this frame, from Input#steer
     this.controlled = null;      // the player it is steering, or null
     this.marked = null;          // the receiver a lift would pass to (see updateMarked)
@@ -1176,7 +1188,13 @@ export class Match {
       // a steal needs a moment of contact, so the circling puck can slip past
       if (d < reach) p.ai.stealCharge = (p.ai.stealCharge || 0) + dt;
       else p.ai.stealCharge = Math.max(0, (p.ai.stealCharge || 0) - dt * 2);
-      if (p.ai.stealCharge >= PLAYER.stealTime) { p.ai.stealCharge = 0; this.possess(p); return; }
+      // A carrier at a dead sprint has less of the ball than one moving at their own pace, so
+      // less contact is needed to take it off them. This is what a run through a line of
+      // defenders costs; pushing the ball further ahead instead does nothing, because a chaser
+      // is usually *behind* and a ball pushed forward only moves further from them.
+      const carrierSp = Math.hypot(carrier.vx, carrier.vz) / Math.max(1e-3, carrier.maxSpeed);
+      const need = PLAYER.stealTime * (1 - clamp(carrierSp, 0, 1) * this.sprintCost);
+      if (p.ai.stealCharge >= need) { p.ai.stealCharge = 0; this.possess(p); return; }
     }
   }
 

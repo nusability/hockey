@@ -656,7 +656,7 @@ function goalieAI(match, g, dt) {
   }
   const toPuck = norm(puck.x - 0, puck.z - gz);
   const out = 1.2 + skill * 0.5;
-  let x = toPuck.x * out * 1.6, z = gz + toPuck.z * out;
+  let x = toPuck.x * out * PLAYER.goalieSlide, z = gz + toPuck.z * out;
   if (towards) x = aimX * 0.9;
   x = clamp(x, -RINK.goalWidth / 2 - 0.4, RINK.goalWidth / 2 + 0.4);
   z = clamp(dir * (z - gz), 0.6, 2.4) * dir + gz;

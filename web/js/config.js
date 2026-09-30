@@ -38,6 +38,20 @@ export const PLAYER = {
   aiSpeedBase: 6.2,   // scaled by rating
   goalieSpeed: 4.8,
   goalieReaction: 0.16, // seconds before a goalie reacts to a shot (+ more for low skill)
+  /**
+   * How far a keeper drifts off centre as the ball moves wide, as a multiple of how far off the
+   * bisector they stand. It was 1.6, which put them at 2.1 of a 3.0 goal purely because a
+   * carrier stood wide — and no keeper alive covers the far post from there. A deliberate
+   * lure-and-shoot converted 44 % of the time; at 1.4 it converts 22 %, which rewards the move
+   * without making it free.
+   *
+   * This is the only number that mattered. A dive (a burst of pace once the shot is read) and a
+   * read error were both tried and both removed: the dive made the keeper *worse*, because
+   * boosting their speed toward a mispredicted spot only overshoots it faster — 28 % conceded
+   * with it against 20 % without — and the read error changed nothing at all until it was large
+   * enough to simply hand goals away.
+   */
+  goalieSlide: 1.4,
   accel: 38,
   /**
    * How a player turns. Not a single rate: a human changing direction plants, loads and only

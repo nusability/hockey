@@ -69,6 +69,11 @@ struct Config {
     /// Matches of §7-vs-§7 to harvest teaching samples from. Both teams teach, so this is doubled.
     var teachMatches = 10
     var bootstrapEpochs = 30
+    /// Rounds of DAgger after the first fit: roll the policy out, label the states *it* reached
+    /// with §7's advice, add those to the pile and refit. 0 is plain behavioural cloning.
+    var daggerRounds = 4
+    /// Matches harvested per DAgger round.
+    var daggerMatches = 6
     var bootstrapBatch = 256
     /// `--init <checkpoint>` starts the search from an existing checkpoint instead of random weights.
     var initFrom: String?
@@ -121,6 +126,8 @@ while let a = it.next() {
     case "--bootstrap": cfg.bootstrap = true
     case "--teach-matches": cfg.teachMatches = Int(num())
     case "--epochs": cfg.bootstrapEpochs = Int(num())
+    case "--dagger": cfg.daggerRounds = Int(num())
+    case "--dagger-matches": cfg.daggerMatches = Int(num())
     case "--init": cfg.initFrom = it.next()
     case "--self-play": cfg.selfPlay = num()
     case "--patience": cfg.patience = Int(num())
@@ -521,27 +528,58 @@ if C.bootstrap {
 
     var bp = Backprop(nIn: nIn, nH: C.hidden, nOut: nOut, seed: C.seed)
     var g = Gauss(seed: C.seed &+ 1)
-    for epoch in 1...C.bootstrapEpochs {
-        for i in stride(from: samples.count - 1, to: 0, by: -1) {
-            let j = Int(g.uniform() * Double(i + 1))
-            samples.swapAt(i, j)
+
+    func fit(_ epochs: Int, label: String) {
+        for epoch in 1...epochs {
+            for i in stride(from: samples.count - 1, to: 0, by: -1) {
+                let j = Int(g.uniform() * Double(i + 1))
+                samples.swapAt(i, j)
+            }
+            var total = 0.0, batches = 0
+            var start = 0
+            while start < samples.count {
+                let end = Swift.min(start + C.bootstrapBatch, samples.count)
+                total += bp.step(samples[start..<end])
+                batches += 1
+                start = end
+            }
+            if epoch == epochs {
+                let fitted = PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: bp.parameters)
+                let m = evaluate(fitted, cfg: C)
+                let a = String(format: "%.2f-%.2f", m.goalsFor, m.goalsAgainst)
+                print(String(format: "  %@  %6d samples  loss %.4f   goals %@  poss %.3f  recv %.2f  spread %4.1f  press %4.1f",
+                             label.padding(toLength: 9, withPad: " ", startingAt: 0),
+                             samples.count, total / Double(batches), a,
+                             m.possession, m.receivers, m.spread, m.pressure))
+            }
+            writeCheckpoint(bp.parameters, "bootstrap")
         }
-        var total = 0.0, batches = 0
-        var start = 0
-        while start < samples.count {
-            let end = Swift.min(start + C.bootstrapBatch, samples.count)
-            total += bp.step(samples[start..<end])
-            batches += 1
-            start = end
+    }
+
+    fit(C.bootstrapEpochs, label: "clone")
+
+    // DAgger. Each round plays matches with the *policy* in charge and records what §7 would have
+    // advised at the states the policy actually reached, which is where a plain clone is blind.
+    for round in 1...Swift.max(C.daggerRounds, 0) where C.daggerRounds > 0 {
+        let current = PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: bp.parameters)
+        var fresh: [TeachingSample] = []
+        for k in 0..<C.daggerMatches {
+            var m = Match(setup(1000 * round + k, periodSeconds: C.periodSeconds))
+            m.installPolicies([current, nil])
+            m.teach()
+            let maxTicks = Int(C.periodSeconds * 120.0 * 9.0)
+            while m.result == nil && m.ticks < maxTicks { m.tick() }
+            fresh += m.teaching
         }
-        let fitted = PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: bp.parameters)
-        if epoch % 5 == 0 || epoch == 1 {
-            let m = evaluate(fitted, cfg: C)
-            let a = String(format: "%.2f-%.2f", m.goalsFor, m.goalsAgainst)
-            print(String(format: "  epoch %2d  loss %.4f   goals %@  poss %.3f  recv %.2f  spread %4.1f  press %4.1f",
-                         epoch, total / Double(batches), a, m.possession, m.receivers, m.spread, m.pressure))
+        samples += fresh
+        if samples.count > cap {
+            for i in stride(from: samples.count - 1, to: 0, by: -1) {
+                let j = Int(g.uniform() * Double(i + 1))
+                samples.swapAt(i, j)
+            }
+            samples = Array(samples.prefix(cap))
         }
-        writeCheckpoint(bp.parameters, "bootstrap")
+        fit(Swift.max(C.bootstrapEpochs / 2, 1), label: "dagger \(round)")
     }
     let rules = evaluate(nil, cfg: C)
     let a = String(format: "%.2f-%.2f", rules.goalsFor, rules.goalsAgainst)

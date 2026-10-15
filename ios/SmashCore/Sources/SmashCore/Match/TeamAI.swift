@@ -28,11 +28,39 @@ extension Match {
                 // The learned policy stands in for §7.1–§7.5 entirely: one target, no shaping and no
                 // role assignment behind it. The draw above still happens, in the same place, so the
                 // stream advances identically whether or not a policy is set (§4.3).
+                let observation = teachingTape == nil ? [] : observe(i, ranking: ranking)
+                if teachingTape != nil {
+                    // **What would §7 have done here?** Ask it, record the answer, then throw its
+                    // decision away and let the policy play on.
+                    //
+                    // This is what makes a clone better than a clone. Fitting to matches §7 played
+                    // teaches the net §7's choices in the states *§7* reaches; the moment the policy
+                    // drifts somewhere §7 never went, it is guessing, and its own small errors carry
+                    // it further out. Labelling the states the **policy** visits closes that loop —
+                    // it is the difference between a map of someone else's route and directions from
+                    // wherever you actually are.
+                    //
+                    // `rethink` is not pure — it decays `expectPass` and assigns `mark` — so its
+                    // effect on this player is saved and put back. Asking the question must not
+                    // change the match.
+                    let savedTarget = players[i].target
+                    let savedMark = players[i].mark
+                    let savedExpect = players[i].expectPass
+                    rethink(i, possession: possession, ranking: ranking,
+                            challengers: challengers, blocker: blocker)
+                    if let advised = players[i].target {
+                        teachingTape!.append(TeachingSample(observation: observation,
+                                                            label: teachingLabel(i, target: advised)))
+                    }
+                    players[i].target = savedTarget
+                    players[i].mark = savedMark
+                    players[i].expectPass = savedExpect
+                }
                 players[i].target = policyTarget(i, net: net, ranking: ranking)
                 continue
             }
             rethink(i, possession: possession, ranking: ranking, challengers: challengers, blocker: blocker)
-            if teachingTape != nil, policies[team] == nil, let chosen = players[i].target {
+            if teachingTape != nil, let chosen = players[i].target {
                 teachingTape!.append(TeachingSample(observation: observe(i, ranking: ranking),
                                                     label: teachingLabel(i, target: chosen)))
             }

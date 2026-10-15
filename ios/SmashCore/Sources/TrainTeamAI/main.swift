@@ -436,15 +436,18 @@ func readCheckpoint(_ path: String) -> [Double] {
     }
 }
 
-/// Writes one seeded match, played by `theta`, as a scrubable HTML page.
+/// Writes one seeded match twice — once with `theta` on team 0, once with §7's rules on both
+/// sides — as a single scrubable page. Same seed, so the two pitches start identically and every
+/// difference after that is the policy rather than the draw.
 func writeReplay(_ theta: [Double], to file: String, seed: Int) {
     let loaded = PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: theta)
-    let r = Replay.record(loaded, policyTeams: [0], setup: setup(seed, periodSeconds: C.periodSeconds))
+    let s = setup(seed, periodSeconds: C.periodSeconds)
+    let tapes = [Replay.record([loaded, nil], setup: s, label: "learned v §7"),
+                 Replay.record([nil, nil], setup: s, label: "§7 v §7")]
     let name = (file as NSString).lastPathComponent
-    let page = Replay.html(title: "learned team (blue) v §7's rules (orange) — \(name)",
-                           frames: r.frames, roles: r.roles, teams: r.teams, score: r.score,
-                           halfWidth: Tuning.Pitch.halfWidth, halfLength: Tuning.Pitch.halfLength)
-    write(page, to: file)
+    write(Replay.html(title: name, tapes: tapes,
+                      halfWidth: Tuning.Pitch.halfWidth, halfLength: Tuning.Pitch.halfLength),
+          to: file)
 }
 
 if let path = C.evaluateOnly ?? C.replay {
@@ -454,7 +457,7 @@ if let path = C.evaluateOnly ?? C.replay {
         exit(1)
     }
     if C.replay != nil {
-        let file = path + ".html"
+        let file = path + String(format: "-seed%d.html", C.replaySeed)
         writeReplay(theta, to: file, seed: C.replaySeed)
         print("replay written: \(file)")
     } else {

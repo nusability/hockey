@@ -32,11 +32,13 @@ public enum PolicyInputs {
     public static let strengthCount = 1
     public static let goalieCount = 4
     public static let homeCount = 2
+    /// Where the ball is *going*, and whether one is coming to me (5).
+    public static let anticipationCount = 5
 
     public static let count = selfCount + ballCount + rankCount + alertCount + contextCount
         + strengthCount + styleCount
         + 2 * outfieldSlots * fieldsPerPlayer
-        + goalieCount + homeCount
+        + goalieCount + homeCount + anticipationCount
 
     /// Two outputs: where to stand, as an offset from the formation spot (§7).
     public static let outputCount = 2
@@ -182,6 +184,18 @@ extension Match {
         // it from the slot index.
         let (hx, hz) = place(me.home)
         o += [hx, hz]
+
+        // Anticipation (5): where the ball is going, and whether one is on its way here.
+        //
+        // These are **features, not rules**. The policy still decides where to stand; it simply no
+        // longer has to infer ballistics from a position and a velocity through two ReLU layers.
+        // Why they are here: measured over 40 seeds, the learned side held the ball 0.288 of the
+        // time against §7's 0.369 — it was losing the contest for a loose ball, which is the one
+        // part of §7 built on exactly these two quantities (§7.1). Giving a net better inputs is
+        // not the same as giving it the answer.
+        let (cx, cz) = offset(chasePoint(i))
+        let (ix, iz) = offset(interceptPoint(i))
+        o += [cx, cz, ix, iz, Pitch.clamp(me.expectPass, 0, 1)]
 
         precondition(o.count == P.count, "observe: built \(o.count) inputs, declared \(P.count)")
         return o

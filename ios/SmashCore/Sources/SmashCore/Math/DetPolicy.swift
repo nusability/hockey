@@ -22,11 +22,11 @@
 /// first-argument-on-a-tie rule never has to arbitrate a signed zero. Outputs are linear.
 ///
 /// The net draws nothing. Every random draw stays at the sites §4.3 enumerates.
-enum DetPolicy {
+public enum DetPolicy {
 
     /// `y = W · x + b`, accumulated in the declared order. `w` is row-major: output-major, so
     /// `w[o * nIn + i]` is the weight from input `i` to output `o`.
-    static func layer(_ x: [Double], weight w: [Double], bias b: [Double],
+    public static func layer(_ x: [Double], weight w: [Double], bias b: [Double],
                       inputs nIn: Int, outputs nOut: Int) -> [Double] {
         var y = [Double](repeating: 0, count: nOut)
         for o in 0..<nOut {
@@ -41,7 +41,7 @@ enum DetPolicy {
     }
 
     /// ReLU, in place, as a comparison (§4.4).
-    static func relu(_ x: inout [Double]) {
+    public static func relu(_ x: inout [Double]) {
         for i in x.indices {
             x[i] = x[i] > 0.0 ? x[i] : 0.0
         }
@@ -54,7 +54,7 @@ enum DetPolicy {
     /// perturbation of the weights behind it produces the identical pinned target, the fitness
     /// landscape goes flat, and the search has nothing left to climb. This squashes without ever
     /// fully saturating, so there is always a gradient to follow.
-    static func squash(_ x: Double) -> Double {
+    public static func squash(_ x: Double) -> Double {
         x / (1.0 + x.magnitude)
     }
 }
@@ -101,6 +101,17 @@ public struct PolicyNet: Sendable {
         b1 = take(nHidden)
         w2 = take(nOut * nHidden)
         b2 = take(nOut)
+    }
+
+    /// One forward pass, keeping both hidden layers — what `shared/vectors/policy/` pins, so a
+    /// divergence is caught at the layer it happens in rather than only where it reaches the pitch.
+    public func trace(_ observation: [Double]) -> (h0: [Double], h1: [Double], out: [Double]) {
+        precondition(observation.count == nIn, "PolicyNet: observation is \(observation.count), expected \(nIn)")
+        var h = DetPolicy.layer(observation, weight: w0, bias: b0, inputs: nIn, outputs: nHidden)
+        DetPolicy.relu(&h)
+        var g = DetPolicy.layer(h, weight: w1, bias: b1, inputs: nHidden, outputs: nHidden)
+        DetPolicy.relu(&g)
+        return (h, g, DetPolicy.layer(g, weight: w2, bias: b2, inputs: nHidden, outputs: nOut))
     }
 
     /// One forward pass, in the declared order (§4.4).

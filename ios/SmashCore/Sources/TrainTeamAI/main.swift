@@ -42,7 +42,7 @@ struct Config {
     var periodSeconds = 40.0     // three of these per match (§8)
     var hidden = 32
     var sigma = 0.05
-    var learningRate = 0.02
+    var learningRate = 0.002
     var decay = 0.001
     var seed: UInt64 = 0xA11CE
     /// `--reward victory` trains on goal difference alone. The shaping terms are still *measured*
@@ -76,7 +76,14 @@ struct Config {
     /// rules. Self-play is what stops the policy overfitting to one opponent's habits, and it is
     /// what produces the `strength` ladder — but on its own it is zero-sum and says nothing about
     /// absolute progress, so some matches always stay against §7 as a fixed yardstick.
-    var selfPlay = 0.5
+    var selfPlay = 0.25
+    /// Iterations the centre may fail to beat its own best before the search is pulled back to
+    /// that best and the step size cut. Evolution strategies estimate a gradient in 4,354
+    /// dimensions from a few dozen samples; that estimate is noisy enough that the update is part
+    /// signal and part random walk, and from a *good* starting point — an imitation bootstrap —
+    /// the walk can undo in an hour what the bootstrap bought in a minute. Measured: possession
+    /// against §7 fell 0.334 → 0.176 over 100 iterations while the reported best never improved.
+    var patience = 40
     var out = "../../.claude/worktrees-out/policy"
 }
 
@@ -108,6 +115,7 @@ while let a = it.next() {
     case "--epochs": cfg.bootstrapEpochs = Int(num())
     case "--init": cfg.initFrom = it.next()
     case "--self-play": cfg.selfPlay = num()
+    case "--patience": cfg.patience = Int(num())
     default: FileHandle.standardError.write("TrainTeamAI: unknown argument \(a)\n".data(using: .utf8)!)
     }
 }
@@ -285,12 +293,18 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, opponent: PolicyNet? = ni
     return s
 }
 
-/// Scores a candidate over `cfg.matches` seeded matches: the first share against the current
-/// centre (self-play), the rest against §7's rules.
-func evaluate(_ net: PolicyNet?, cfg: Config, offset: Int = 0, centre: PolicyNet? = nil) -> Score {
-    let selfPlayCount = centre == nil ? 0 : Int((Double(cfg.matches) * cfg.selfPlay).rounded())
+/// Scores a candidate over `cfg.matches` seeded matches against a pool of opponents.
+///
+/// The pool, not just the current centre. Self-play against one's immediate self is how a policy
+/// forgets: both sides drift together, the matches get easier in step, and competence that nothing
+/// is currently testing quietly rots. Mixing in §7's rules and *older* checkpoints keeps a side
+/// honest about the things it used to be able to do — the small-scale version of AlphaStar's
+/// league, and the reason a share of matches always stays against the fixed rules.
+func evaluate(_ net: PolicyNet?, cfg: Config, offset: Int = 0, pool: [PolicyNet] = []) -> Score {
+    let selfPlayCount = pool.isEmpty ? 0 : Int((Double(cfg.matches) * cfg.selfPlay).rounded())
     return Score.mean((0..<cfg.matches).map { k in
-        play(net, seed: offset + k, cfg: cfg, opponent: k < selfPlayCount ? centre : nil)
+        play(net, seed: offset + k, cfg: cfg,
+             opponent: k < selfPlayCount ? pool[k % pool.count] : nil)
     })
 }
 
@@ -533,6 +547,13 @@ print(" iter    goals     poss   recv  final  spread  press   terr    att    fit
 
 
 var best = -Double.greatestFiniteMagnitude
+var bestTheta = theta
+var stale = 0
+var sigma = C.sigma
+/// Past selves the candidates also have to beat. Capped: a handful of rungs is enough to stop the
+/// forgetting, and every extra one costs matches.
+var opponentPool: [PolicyNet] = []
+let poolLimit = 4
 let pairs = cfg.population / 2
 
 for iteration in 1...cfg.iterations {
@@ -542,14 +563,14 @@ for iteration in 1...cfg.iterations {
     // Antithetic: every perturbation is played in both directions, which cancels the noise that
     // would otherwise look like signal.
     let candidates: [[Double]] = epsilons.flatMap { eps -> [[Double]] in
-        [zip(theta, eps).map { $0 + cfg.sigma * $1 },
-         zip(theta, eps).map { $0 - cfg.sigma * $1 }]
+        [zip(theta, eps).map { $0 + sigma * $1 },
+         zip(theta, eps).map { $0 - sigma * $1 }]
     }
 
     let localCfg = cfg
-    let frozenCentre = net(theta)
+    let frozenPool = opponentPool
     let scores = parallelScores(candidates.count) { k in
-        evaluate(net(candidates[k]), cfg: localCfg, offset: iteration * 97, centre: frozenCentre)
+        evaluate(net(candidates[k]), cfg: localCfg, offset: iteration * 97, pool: frozenPool)
     }
     let fitnesses = scores.map(\.fitness)
     let ranks = centredRanks(fitnesses)
@@ -561,16 +582,40 @@ for iteration in 1...cfg.iterations {
         let eps = epsilons[p]
         for d in 0..<dim { gradient[d] += weight * eps[d] }
     }
-    let scale = cfg.learningRate / (Double(cfg.population) * cfg.sigma)
+    // Normalise the gradient to unit RMS before stepping, so `learningRate` *is* the per-weight
+    // step and means the same thing at any population or sigma. The textbook α/(nσ) scaling does
+    // not: at population 48 and σ 0.02 it worked out to ~18 % of a weight's magnitude per
+    // iteration, which is a stride, not a step — one update took the centre's fitness from 3.56 to
+    // 1.80. Weights here are O(0.15), so a learning rate of 0.002 moves about 1 % at a time.
+    var rms = 0.0
+    for d in 0..<dim { rms += gradient[d] * gradient[d] }
+    rms = (rms / Double(dim)).squareRoot()
+    let scale = rms > 1e-12 ? cfg.learningRate / rms : 0.0
     for d in 0..<dim {
         theta[d] = theta[d] + scale * gradient[d] - cfg.learningRate * cfg.decay * theta[d]
     }
 
     let mean = Score.mean(scores)
+    // The centre is always scored against §7's rules on fixed seeds, never against the pool, so
+    // this column means the same thing at iteration 10 and iteration 10,000. A self-play score is
+    // not comparable over time — the opponent moved.
     let centre = evaluate(net(theta), cfg: cfg)
     if centre.fitness > best {
         best = centre.fitness
+        bestTheta = theta
+        stale = 0
         writeCheckpoint(theta, "best")
+        if opponentPool.count >= poolLimit { opponentPool.removeFirst() }
+        opponentPool.append(net(theta))
+    } else {
+        stale += 1
+        if stale >= C.patience {
+            // Drifting. Go back to what demonstrably worked and search more finely around it.
+            theta = bestTheta
+            sigma *= 0.7
+            stale = 0
+            print(String(format: "  ↩ pulled back to best (%.3f); sigma now %.4f", best, sigma))
+        }
     }
     writeCheckpoint(theta, String(format: "iter-%04d", iteration))
     if C.replayEvery > 0 && iteration % C.replayEvery == 0 {

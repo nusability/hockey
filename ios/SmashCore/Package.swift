@@ -22,6 +22,8 @@ let package = Package(
         .executableTarget(name: "RecordTelemetryVectors", dependencies: ["SmashCore"]),
         // Measures automatic play over a sweep of seeded matches (spec §7). Not linked by the app.
         .executableTarget(name: "MeasureMatches", dependencies: ["SmashCore"]),
+        // Records shared/vectors/policy/ (spec §4.7, ADR 0010). Not linked by the app.
+        .executableTarget(name: "RecordPolicyVectors", dependencies: ["SmashCore"]),
         // Trains the team policy by self-play (spec §7, SMASH-72). Not linked by the app.
         .executableTarget(name: "TrainTeamAI", dependencies: ["SmashCore"]),
         .testTarget(name: "SmashCoreTests", dependencies: ["SmashCore"]),

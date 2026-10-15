@@ -266,7 +266,7 @@ enum GeneratedConstantBits {
         ("Tuning.AI.Movement.goalApproachPull", Tuning.AI.Movement.goalApproachPull, 0x3FF3333333333333),
         ("Tuning.AI.Goalie.outBase", Tuning.AI.Goalie.outBase, 0x3FF3333333333333),
         ("Tuning.AI.Goalie.outPerSkill", Tuning.AI.Goalie.outPerSkill, 0x3FE0000000000000),
-        ("Tuning.AI.Goalie.xScale", Tuning.AI.Goalie.xScale, 0x3FF999999999999A),
+        ("Tuning.AI.Goalie.xScale", Tuning.AI.Goalie.xScale, 0x3FF6666666666666),
         ("Tuning.AI.Goalie.xLimitExtra", Tuning.AI.Goalie.xLimitExtra, 0x3FD999999999999A),
         ("Tuning.AI.Goalie.frontMin", Tuning.AI.Goalie.frontMin, 0x3FE3333333333333),
         ("Tuning.AI.Goalie.frontMax", Tuning.AI.Goalie.frontMax, 0x4003333333333333),

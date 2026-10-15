@@ -265,7 +265,7 @@ internal object GeneratedConstantBits {
         Triple("Tuning.AI.Movement.goalApproachPull", Tuning.AI.Movement.goalApproachPull, 4608083138725491507L), // 0x3FF3333333333333
         Triple("Tuning.AI.Goalie.outBase", Tuning.AI.Goalie.outBase, 4608083138725491507L), // 0x3FF3333333333333
         Triple("Tuning.AI.Goalie.outPerSkill", Tuning.AI.Goalie.outPerSkill, 4602678819172646912L), // 0x3FE0000000000000
-        Triple("Tuning.AI.Goalie.xScale", Tuning.AI.Goalie.xScale, 4609884578576439706L), // 0x3FF999999999999A
+        Triple("Tuning.AI.Goalie.xScale", Tuning.AI.Goalie.xScale, 4608983858650965606L), // 0x3FF6666666666666
         Triple("Tuning.AI.Goalie.xLimitExtra", Tuning.AI.Goalie.xLimitExtra, 4600877379321698714L), // 0x3FD999999999999A
         Triple("Tuning.AI.Goalie.frontMin", Tuning.AI.Goalie.frontMin, 4603579539098121011L), // 0x3FE3333333333333
         Triple("Tuning.AI.Goalie.frontMax", Tuning.AI.Goalie.frontMax, 4612586738352862003L), // 0x4003333333333333

@@ -24,6 +24,8 @@ final class Actors {
     private var carrierShown: Int?
     private let ball: ModelEntity
     private let ballDisc: ModelEntity
+    /// §8.8: rings falling onto the ball's disc. Transform only — never repainted (SMASH-24).
+    private let ballRings: [ModelEntity]
     private let orbit: ModelEntity
     private let aim: AimArrowView
     private let trail: BallTrail
@@ -85,10 +87,26 @@ final class Actors {
         } else {
             ball = model(try Shapes.ball(radius: r).resource(), try materials.toon(B.field, look: look))
         }
-        ballDisc = model(try Shapes.disc().resource(), Materials.flat(B.disc, opacity: B.discOpacity))
+        // The disc breathes by its material's own beat, written once; its size never changes.
+        var discMaterial = feel.flat
+        FeelMaterials.colour(&discMaterial, B.disc)
+        FeelMaterials.opacity(&discMaterial, B.discOpacity, pulse: B.discBreath, rate: B.breathRate)
+        ballDisc = ModelEntity(mesh: try Shapes.disc().resource(), materials: [discMaterial])
         ballDisc.scale = SIMD3(repeating: Float(B.discRadius))
         DrawOrder.set(ballDisc, DrawOrder.disc)
         root.addChild(ballDisc)
+        // …and the rings that fall onto it. One mesh, one material, `rings` entities: all that
+        // ever changes is each one's scale, which thins its line as it closes on the ball.
+        let ringMesh = try Shapes.ring(inner: Float(1 - B.ringWidth), outer: 1).resource()
+        let ringMaterial = Materials.flat(B.ringColour, opacity: B.ringOpacity)
+        var rings: [ModelEntity] = []
+        for _ in 0..<B.rings {
+            let e = ModelEntity(mesh: ringMesh, materials: [ringMaterial])
+            DrawOrder.set(e, DrawOrder.disc)
+            root.addChild(e)
+            rings.append(e)
+        }
+        ballRings = rings
         root.addChild(ball)
 
         typealias A = Presentation.Aim
@@ -148,6 +166,13 @@ final class Actors {
         // The ring the ball circles on: only round the player's own carrier (§5.2).
         orbit.isEnabled = b.carrier != nil && s.playerCarrier && (s.state == .play || s.state == .ready)
         ballDisc.position = SIMD3(Float(ballPos.x), 0.02, Float(ballPos.y))
+        // The rings: evenly staggered round one period, each falling from the disc's edge inward.
+        typealias Ball = Presentation.Ball
+        for (i, ring) in ballRings.enumerated() {
+            let t = ((clock / Ball.ringPeriod) + Double(i) / Double(Ball.rings)).truncatingRemainder(dividingBy: 1)
+            ring.position = SIMD3(Float(ballPos.x), 0.021, Float(ballPos.y))
+            ring.scale = SIMD3(repeating: Float(Ball.discRadius * (Ball.ringStart + (Ball.ringEnd - Ball.ringStart) * t)))
+        }
         trail.update(ball: ballPos, time: s.time + ahead, loose: b.carrier == nil,
                      speed: (b.vx * b.vx + b.vz * b.vz).squareRoot())
         aim.update(s, positions: positions, angle: angle, clock: clock)

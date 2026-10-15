@@ -98,6 +98,15 @@ enum Presentation {
         static let disc: UInt32 = 0xFACC15
         static let discRadius: Double = 0.8
         static let discOpacity: Double = 0.35
+        static let ringColour: UInt32 = 0xFEF3C7
+        static let rings: Int = 3
+        static let ringPeriod: Double = 1.5
+        static let ringStart: Double = 1.075
+        static let ringEnd: Double = 0.175
+        static let ringWidth: Double = 0.14
+        static let ringOpacity: Double = 0.55
+        static let discBreath: Double = 0.16
+        static let breathRate: Double = 4.5
     }
     enum Aim {
         static let free: UInt32 = 0xFACC15

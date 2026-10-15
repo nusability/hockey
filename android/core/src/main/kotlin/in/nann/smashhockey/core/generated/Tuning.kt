@@ -321,7 +321,7 @@ object Tuning {
         object Goalie {
             const val outBase: Double = 1.2
             const val outPerSkill: Double = 0.5
-            const val xScale: Double = 1.6
+            const val xScale: Double = 1.4
             const val xLimitExtra: Double = 0.4
             const val frontMin: Double = 0.6
             const val frontMax: Double = 2.4

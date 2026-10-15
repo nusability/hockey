@@ -328,7 +328,7 @@ goal_approach_pull = 1.2
 [ai.goalie] # §7.8
 out_base = 1.2                  # (1.2 + 0.5 × skill) out
 out_per_skill = 0.5
-x_scale = 1.6
+x_scale = 1.4                   # §7.8: 1.6 walked the keeper to 2.1 of a 3.0 goal for free
 x_limit_extra = 0.4             # ±(3.0 + 0.4)
 front_min = 0.6
 front_max = 2.4

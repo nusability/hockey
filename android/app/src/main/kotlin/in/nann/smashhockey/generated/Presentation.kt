@@ -99,6 +99,15 @@ object Presentation {
         const val disc: Int = 0xFACC15
         const val discRadius: Double = 0.8
         const val discOpacity: Double = 0.35
+        const val ringColour: Int = 0xFEF3C7
+        const val rings: Int = 3
+        const val ringPeriod: Double = 1.5
+        const val ringStart: Double = 1.075
+        const val ringEnd: Double = 0.175
+        const val ringWidth: Double = 0.14
+        const val ringOpacity: Double = 0.55
+        const val discBreath: Double = 0.16
+        const val breathRate: Double = 4.5
     }
     object Aim {
         const val free: Int = 0xFACC15

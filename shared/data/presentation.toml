@@ -133,6 +133,21 @@ puck_height = 0.2
 disc = "#facc15"
 disc_radius = 0.8
 disc_opacity = 0.35
+# §8.8: the ball says where it is. `rings` rings fall inward onto the disc, evenly staggered round
+# ring_period seconds: each is drawn at ring_colour / ring_opacity and scaled from ring_start of
+# disc_radius down to ring_end, which thins its line (ring_width of disc_radius at scale 1) along
+# with it — that thinning is the whole of its fade, so no material is written while it falls. The
+# disc breathes by its material's own beat: disc_opacity × (1 ± disc_breath) at breath_rate radians
+# per second, set once and run by the shader (§8.8). The disc's size never changes.
+ring_colour = "#fef3c7"
+rings = 3
+ring_period = 1.5
+ring_start = 1.075              # of disc_radius, so the ring's own line sits on the disc's edge
+ring_end = 0.175
+ring_width = 0.14               # the ring's line, of disc_radius, at scale 1
+ring_opacity = 0.55
+disc_breath = 0.16              # of disc_opacity
+breath_rate = 4.5
 
 # §5.2: the aim arrow — the prototype's exactly — shown only for the player's own carrier. It is
 # anchored at the carrier's centre and turned by the orbit angle, so it points out through the ball,

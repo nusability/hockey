@@ -41,10 +41,11 @@ class Actors(
     colours: List<TeamColours>,
     private val sport: Sport,
     orbitPeriod: Double,
-    materials: Materials,
+    private val materials: Materials,
     look: WorldLook,
 ) {
     private val p = Presentation.Player
+    private val bp = Presentation.Ball      // the ball's look; `b` is taken by the ball snapshot
     private val omega = 2 * PI / orbitPeriod
     private val geometries = HashMap<String, Geometry>()
     private val entities = ArrayList<Int>()
@@ -54,6 +55,9 @@ class Actors(
     private var carrierShown: Int? = null
     private val ball: Node
     private val ballDisc: Node
+    private val ballDiscMat: MaterialInstance
+    /** §8.8: rings falling onto the ball's disc. Transform only — their fade is their thinning. */
+    private val ballRings: List<Node>
     private val ballRadius = first.ball.radius
     private val aim = AimArrow(engine, scene, parent, materials, sport.cornerRadius)
     private val trail = Trail(engine, scene, materials, first.ball.radius.toFloat())
@@ -95,12 +99,19 @@ class Actors(
             group
         }
 
-        val b = Presentation.Ball
         val r = first.ball.radius.toFloat()
-        ball = if (sport == Sport.ICE) part(geo("puck") { Shapes.puck(r, b.puckHeight.toFloat()) }, materials.toon(b.ice, look), parent)
-        else part(geo("ball") { Shapes.ball(r) }, materials.toon(b.field, look), parent)
-        ballDisc = part(geo("disc") { Shapes.disc() }, materials.flat(b.disc, b.discOpacity), parent, 5)
-        ballDisc.scale(b.discRadius.toFloat())
+        ball = if (sport == Sport.ICE) part(geo("puck") { Shapes.puck(r, bp.puckHeight.toFloat()) }, materials.toon(bp.ice, look), parent)
+        else part(geo("ball") { Shapes.ball(r) }, materials.toon(bp.field, look), parent)
+        // Its own instance, not the shared cache: this one's opacity is written every frame.
+        ballDiscMat = materials.flatOwned(bp.disc)
+        ballDisc = part(geo("disc") { Shapes.disc() }, ballDiscMat, parent, 5)
+        ballDisc.scale(bp.discRadius.toFloat())
+        // …and the rings that fall onto it: one mesh, one shared material, scale the only thing
+        // that ever changes — which thins each ring's line as it closes on the ball.
+        val ringMat = materials.flat(bp.ringColour, bp.ringOpacity)
+        ballRings = (0 until bp.rings).map {
+            part(geo("ballring") { Shapes.ring((1 - bp.ringWidth).toFloat(), 1f, 32) }, ringMat, parent, 5)
+        }
     }
 
     /** Draws snapshot [s], [ahead] match seconds past its tick; [celebrating]'s players hop on real [clock]. */
@@ -144,6 +155,15 @@ class Actors(
         roll(bx, bz, clock)
         ball.x = bx.toFloat(); ball.y = if (sport == Sport.ICE) 0f else ballRadius.toFloat(); ball.z = bz.toFloat(); ball.apply()
         ballDisc.x = bx.toFloat(); ballDisc.y = 0.02f; ballDisc.z = bz.toFloat(); ballDisc.apply()
+        // The disc breathes in opacity, never in size (§8.8); iOS runs the same beat in its shader.
+        materials.set(ballDiscMat, bp.disc, bp.discOpacity * (1 + bp.discBreath * sin(clock * bp.breathRate)))
+        // The rings: evenly staggered round one period, each falling from the disc's edge inward.
+        ballRings.forEachIndexed { i, ring ->
+            val t = ((clock / bp.ringPeriod) + i.toDouble() / bp.rings) % 1.0
+            ring.x = bx.toFloat(); ring.y = 0.021f; ring.z = bz.toFloat()
+            ring.scale((bp.discRadius * (bp.ringStart + (bp.ringEnd - bp.ringStart) * t)).toFloat())
+            ring.apply()
+        }
         trail.update(bx, bz, s.time + ahead, sqrt(b.vx * b.vx + b.vz * b.vz), c == null)
         aim.update(s, xs, zs, angle, clock)
         offside.update(s, xs, zs, dt)

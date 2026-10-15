@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.32.1
+Spec-Version: 0.33.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -702,7 +702,24 @@ It keeps out of its own crease and within the §7.5 clamp.
 
 #### 7.8 Goalies
 - **Positioning:** on the line from the goal centre toward the ball, `(1.2 + 0.5 × skill)` out,
-  x scaled by 1.6. It stays within `±(3.0 + 0.4)` in x and `0.6–2.4` in front of the line.
+  x scaled by **1.4**. It stays within `±(3.0 + 0.4)` in x and `0.6–2.4` in front of the line.
+
+  **The scale is how much of the goal a keeper may be walked out of, and 1.6 was too much.** At
+  1.6 a carrier merely *standing* wide put the keeper at 2.1 of a 3.0 goal — most of the mouth
+  open on the far side, with nothing having been done to earn it. Nothing can be done about it
+  afterwards either: a shot from 7 m arrives in about 0.3 s and the keeper moves at 4.8, so
+  anything it is not already standing on is a goal by arithmetic. Measured in the prototype over
+  144 attempts a side — wait for the carrier to drift wide, then release at the far corner —
+  the move converted 14 % at 1.6 and 10 % at 1.4; under direct control, where the carrier could be
+  walked wide deliberately, the same move went from 44 % to 22 %. It still works, which it should:
+  pulling a keeper and finishing the other side is a real move and it is meant to pay. It is no
+  longer free.
+
+  **A dive and a misread were both tried here and neither is in this spec.** Giving the keeper a
+  burst of pace once it reads a shot made it *worse* — 28 % conceded against 20 % — because speed
+  toward a mispredicted spot only overshoots it sooner. Giving its prediction an error changed
+  nothing at all until the error was large enough to simply hand goals away. One number carries
+  this; two more would only have hidden it.
 - **Reading a shot:** once `0.16 + 0.2 × (1 − skill)` s have passed since the last release of any
   kind, a **loose** ball whose velocity toward the goal line (its z-component) exceeds 4 **and which
   reaches that line within 2.5 s** sets the goalie's x to 0.9 × the predicted crossing x (lead factor
@@ -938,6 +955,28 @@ never a banner, a sound or a haptic.
 
 - **The ball.** A field ball rolls along its travel; a puck spins. A loose ball faster than 6 draws
   a tapered, fading ribbon behind it in the ball's yellow, through where it was over the last 0.16 s.
+- **The ball says where it is.** Under it sits its disc, and onto that disc **rings fall inward** —
+  three of them, evenly staggered round one period so one is always on its way in, each shrinking
+  from the disc's own edge to almost nothing and starting again. A ring thins as it falls, because
+  it shrinks whole: by the time it reaches the middle its line is a fraction of what it was and
+  there is nothing left to flash. The disc itself **breathes** — its opacity, never its size.
+
+  **The motion points at the ball without changing how big the ball looks.** Breathing the disc's
+  *size* was tried first and reads as the ball growing and shrinking, which is the one thing a ball
+  may not appear to do; and rings that start wider than the disc stop marking the ball and start
+  marking a patch of pitch, swamping whatever stands near it. So the rings live inside the disc's
+  own footprint and the disc holds its size.
+
+  **Nothing here is drawn by writing a material each frame.** The rings move by their transform
+  alone and their fade is the thinning, and the disc's breath is its material's own beat, set once
+  (§16's `Opacity · (1 + Pulse · sin(t · Rate))`). A mark that repaints every frame is how SMASH-24
+  ended with the part no longer drawn, and a mark that is on screen for the whole match is the last
+  place to risk it. The two platforms run that beat off their own clocks, so the breath is not in
+  phase between them; it is a breath, and no player sees two phones at once.
+
+  This is the only moving mark drawn whoever has the ball and whether or not anyone has it — the
+  player has to be able to find the ball on a busy pitch, which is not a thing that waits for
+  possession.
 - **The flat marks are drawn everywhere.** The discs under the players and the ball, the ring the
   ball circles on, the pops, the offside rings (§16.4) and the aim's own marks (§5.2) lie on the
   pitch and are drawn over it wherever the play is, in one stated order that never depends on where

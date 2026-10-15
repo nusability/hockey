@@ -320,7 +320,7 @@ public enum Tuning {
         public enum Goalie {
             public static let outBase: Double = 1.2
             public static let outPerSkill: Double = 0.5
-            public static let xScale: Double = 1.6
+            public static let xScale: Double = 1.4
             public static let xLimitExtra: Double = 0.4
             public static let frontMin: Double = 0.6
             public static let frontMax: Double = 2.4

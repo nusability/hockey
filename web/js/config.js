@@ -41,31 +41,16 @@ export const PLAYER = {
   /**
    * How far a keeper drifts off centre as the ball moves wide, as a multiple of how far off the
    * bisector they stand. It was 1.6, which put them at 2.1 of a 3.0 goal purely because a
-   * carrier stood wide — and no keeper alive covers the far post from there. A deliberate
-   * lure-and-shoot converted 44 % of the time; at 1.4 it converts 22 %, which rewards the move
-   * without making it free.
+   * carrier stood wide — and no keeper covers the far post from there. A deliberate
+   * lure-and-shoot converted 44 % against them; at 1.4 it converts 22 %.
    *
-   * This is the only number that mattered. A dive (a burst of pace once the shot is read) and a
-   * read error were both tried and both removed: the dive made the keeper *worse*, because
-   * boosting their speed toward a mispredicted spot only overshoots it faster — 28 % conceded
-   * with it against 20 % without — and the read error changed nothing at all until it was large
-   * enough to simply hand goals away.
+   * A dive (a burst of pace once the shot is read) and a read error were both tried and both
+   * dropped: the dive made the keeper *worse*, because speeding them toward a mispredicted spot
+   * only overshoots it faster, and the read error changed nothing until it was large enough to
+   * hand goals away. This one number carried all of it.
    */
   goalieSlide: 1.4,
   accel: 38,
-  /**
-   * How a player turns. Not a single rate: a human changing direction plants, loads and only
-   * then swings round, so the first part of a turn is slow and the rest is quick. Without it an
-   * AI player pivots on the spot at full pace, which reads as a machine and makes them
-   * impossible to lose.
-   *
-   * `turnLead` is how long it takes to reach full rate; the rate ramps from `turnRateMin` to
-   * `turnRateMax` across it. Applies to AI-driven players only — the player's own steered
-   * player answers the finger with nothing in between (A0).
-   */
-  turnLead: 0.28,
-  turnRateMin: 2.6,
-  turnRateMax: 13.0,
 };
 
 // The puck circles the carrier; lifting the finger releases it along the

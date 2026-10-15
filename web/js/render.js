@@ -1,6 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { RINK, ORBIT, FACEOFF_SPOTS, SPORTS, PLAYER, GOAL_AIM } from './config.js';
-import { DRAG } from './input.js';
+import { RINK, ORBIT, FACEOFF_SPOTS, SPORTS } from './config.js';
 import { clamp, lerp, rand, pick, noise, sdRoundRect } from './math.js';
 
 const HW = RINK.width / 2;
@@ -325,22 +324,24 @@ export class Renderer {
     this.scene.add(this.ball);
     if (!this.ballGlow) {
       this.ballGlow = new THREE.Mesh(new THREE.CircleGeometry(0.8, 20), new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.35, depthWrite: false }));
+      // Rings falling inward onto the ball, staggered so one is always on its way in, and kept
+      // inside the glow's own footprint — the glow is a disc of radius 0.8 and the ring's own
+      // radius is 0.93, so 0.86 sits exactly on its edge. Movement is what the eye catches, and
+      // this kind points *at* the ball; swelling the glow instead only made the ball itself look
+      // like it was changing size.
+      this.ballRings = [];
+      for (let i = 0; i < 3; i++) {
+        const ring = new THREE.Mesh(new THREE.RingGeometry(0.86, 1.0, 32),
+          new THREE.MeshBasicMaterial({ color: 0xfef3c7, transparent: true, opacity: 0,
+            depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.021;
+        this.ballRings.push(ring);
+        this.scene.add(ring);
+      }
       this.ballGlow.rotation.x = -Math.PI / 2;
       this.ballGlow.position.y = 0.02;
       this.scene.add(this.ballGlow);
-      // Rings falling inward onto the ball, staggered so one is always on its way in. Movement
-      // is what catches the eye, and this kind points *at* the ball — where swelling the glow
-      // instead just made the ball itself look like it was changing size.
-      this.ballRings = [];
-      for (let i = 0; i < 3; i++) {
-        const r = new THREE.Mesh(new THREE.RingGeometry(0.86, 1.0, 32),
-          new THREE.MeshBasicMaterial({ color: 0xfef3c7, transparent: true, opacity: 0,
-            depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
-        r.rotation.x = -Math.PI / 2;
-        r.position.y = 0.021;
-        this.ballRings.push(r);
-        this.scene.add(r);
-      }
       this.trail = [];
       for (let i = 0; i < 12; i++) {
         const t = new THREE.Mesh(new THREE.CircleGeometry(0.3, 12), new THREE.MeshBasicMaterial({ color: 0xfde68a, transparent: true, opacity: 0, depthWrite: false }));
@@ -399,10 +400,10 @@ export class Renderer {
       group.add(dot);
     }
     // The ring and the disc lie on the pitch, so they must NOT be children of `group`: that
-    // group is tilted for the running lean, which tips anything flat in it into the ground —
-    // the marked team-mate's ring visibly sank halfway under the pitch whenever they moved,
-    // and worse the faster they ran. They ride their own upright group instead, carried to the
-    // player's position each frame but never rotated.
+    // group is tilted for the running lean, which tips anything flat in it into the ground. The
+    // lock-on ring on a marked team-mate (§5.2) visibly sank halfway under the pitch whenever
+    // they moved, and the faster they ran the worse it got. They ride their own upright group,
+    // carried to the player's position each frame but never rotated.
     const flat = new THREE.Group();
     const ring = new THREE.Mesh(new THREE.RingGeometry(r + 0.25, r + 0.55, 32), new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2;
@@ -478,256 +479,11 @@ export class Renderer {
     this.scene.add(this.aimGroup);
     this.dashTex = dashTex;
     this.aimLenMax = 16;
-    this.buildControl();
-  }
-
-  /**
-   * Direct player control's own marks (`?control=drag`, SMASH-71). Two things, and they answer
-   * the two questions the prototype exists to ask:
-   *
-   *   - a **collar** under whoever the finger is steering, so the hand-over is something you can
-   *     see happen rather than infer from a player suddenly moving. It flashes bright the frame
-   *     control arrives, then settles;
-   *   - a **triangle** ahead of them along the steering heading, whose fill says how far into
-   *     the ramp the drag is: hollow at the deadzone edge, solid and haloed at full speed. On
-   *     iOS this is the only cue there is — the web has no haptic API there — so it has to be
-   *     readable at a glance without ever looking at the finger.
-   *
-   * Deliberately NOT the aim arrow's vocabulary: the aim arrow is pink/green/yellow and says
-   * where the ball goes; this is cyan and says where the legs go. Confusing the two would make
-   * the release feel like it had changed when it has not.
-   */
-  buildControl() {
-    this.controlGroup = new THREE.Group();
-    this.controlGroup.visible = false;
-    const tri = new THREE.Shape();
-    tri.moveTo(0, 0.95); tri.lineTo(-0.62, -0.5); tri.lineTo(0.62, -0.5); tri.closePath();
-    this.steerTri = new THREE.Mesh(new THREE.ShapeGeometry(tri),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
-    this.steerTri.rotation.x = -Math.PI / 2;
-    this.steerTri.rotation.z = Math.PI;
-    this.steerTri.position.y = 0.05;
-    this.steerHalo = new THREE.Mesh(new THREE.ShapeGeometry(tri),
-      new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
-    this.steerHalo.rotation.copy(this.steerTri.rotation);
-    this.steerHalo.position.y = 0.045;
-    this.steerHalo.scale.setScalar(1.45);
-    this.controlGroup.add(this.steerHalo, this.steerTri);
-    this.scene.add(this.controlGroup);
-
-    this.controlCollar = new THREE.Mesh(new THREE.RingGeometry(PLAYER.radius + 0.3, PLAYER.radius + 0.52, 36),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
-    this.controlCollar.rotation.x = -Math.PI / 2;
-    this.controlCollar.position.y = 0.03;
-    this.controlCollar.visible = false;
-    this.scene.add(this.controlCollar);
-    this.handoverFlash = 0;
-    this.lastControlled = null;
-
-    // A bar across the goal mouth, lit while a flick from here would be a shot. It is the only
-    // thing that tells you the goal is live without an aim arrow to turn pink.
-    // Normal blending, not additive: additive pink over a bright green pitch washes out to a
-    // white smear that reads as a lighting artefact rather than as the goal being live.
-    this.goalBar = new THREE.Mesh(new THREE.PlaneGeometry(RINK.goalWidth, 1.8),
-      new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.55,
-        depthWrite: false, side: THREE.DoubleSide }));
-    this.goalBar.rotation.x = -Math.PI / 2;
-    this.goalBar.position.y = 0.03;
-    this.goalBar.visible = false;
-    this.scene.add(this.goalBar);
-
-    // Where the last shot left and along what line, drawn on the pitch and left there for a
-    // moment after the ball has gone. This is the answer to "which way did I actually flick",
-    // and it has to be on the ground by the player: under the finger it is hidden by the hand
-    // that made the gesture, and it is not where the eye is looking anyway.
-    this.shotMark = new THREE.Group();
-    this.shotMark.visible = false;
-    const spot = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.95, 28),
-      new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
-    spot.rotation.x = -Math.PI / 2;
-    this.shotSpot = spot;
-    const beam = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 1),
-      new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
-    beam.rotation.x = -Math.PI / 2;
-    this.shotBeam = beam;
-    const tip = new THREE.Shape();
-    tip.moveTo(0, 1.25); tip.lineTo(-0.85, -0.2); tip.lineTo(0, 0.28); tip.lineTo(0.85, -0.2); tip.closePath();
-    const head = new THREE.Mesh(new THREE.ShapeGeometry(tip),
-      new THREE.MeshBasicMaterial({ color: 0xf9a8d4, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
-    head.rotation.x = -Math.PI / 2; head.rotation.z = Math.PI;
-    this.shotHead = head;
-    for (const o of [spot, beam, head]) { o.position.y = 0.04; this.shotMark.add(o); }
-    this.scene.add(this.shotMark);
-
-    // Where a lift would send the ball, as a line along the ground. The ring on the receiver is
-    // not enough on its own: they can be most of a pitch away, which makes the ring both small
-    // and easy to lose among everyone else's.
-    // In a group, like the shot mark — and for the same reason. The heading cannot live on the
-    // mesh: with the default XYZ Euler order its own `rotation.y` is composed *before* the −90°
-    // X rotation that lays it flat, and the plane's length axis is local Y, which a Y-rotation
-    // leaves untouched. Every pass line came out pointing along world −Z whoever it was aimed
-    // at. The group turns in world space, after the mesh is already flat.
-    this.passGroup = new THREE.Group();
-    this.passGroup.visible = false;
-    this.passLine = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 1),
-      new THREE.MeshBasicMaterial({ color: 0x86efac, transparent: true, opacity: 0.55,
-        depthWrite: false, side: THREE.DoubleSide, map: this.dashTex.clone() }));
-    // +90°, not −90°: this lays the plane down with its local +Y toward the group's +Z, which
-    // is the receiver. The axis then points the way the pass goes, so the scrolling chevrons
-    // run toward the receiver instead of away from them.
-    this.passLine.rotation.x = Math.PI / 2;
-    this.passLine.position.y = 0.035;
-    this.passGroup.add(this.passLine);
-    this.passTex = this.passLine.material.map;
-    this.passTex.wrapS = THREE.RepeatWrapping; this.passTex.wrapT = THREE.RepeatWrapping;
-    this.scene.add(this.passGroup);
-
-    // A ring that swells out of the marked receiver and fades, over and over. A static ring
-    // half a pitch away is small and sits among ten other discs; something that *moves* is found
-    // without being looked for, which is the whole difficulty being reported here.
-    this.markPing = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.15, 32),
-      new THREE.MeshBasicMaterial({ color: 0x86efac, transparent: true, opacity: 0.5,
-        depthWrite: false, side: THREE.DoubleSide }));
-    this.markPing.rotation.x = -Math.PI / 2;
-    this.markPing.position.y = 0.031;
-    this.markPing.visible = false;
-    this.scene.add(this.markPing);
-
-    // where the ball is actually going: ahead of the receiver, not on them
-  }
-
-  /** The shot trace: planted where the ball left, held, then faded. */
-  updateShotMark(match, dt) {
-    const s = match?.lastUserShot;
-    const HOLD = 0.6, FADE = 1.4;
-    const age = s ? match.time - s.at : 99;
-    if (!s || age > HOLD + FADE) { this.shotMark.visible = false; return; }
-    this.shotMark.visible = true;
-    this.shotMark.position.set(s.x, 0, s.z);
-    this.shotMark.rotation.y = Math.atan2(s.dx, s.dz);
-    const o = age < HOLD ? 1 : 1 - (age - HOLD) / FADE;
-    // the beam grows out along the shot for a moment, so the direction reads as a movement
-    const grow = Math.min(1, age / 0.18);
-    const len = 7 * grow;
-    // scale Y, not Z: a PlaneGeometry lies in its local XY plane and scale is applied before
-    // the −90° X rotation, so stretching Z stretches an axis the plane has no extent on and the
-    // beam simply never appears
-    this.shotBeam.scale.set(1, len, 1);
-    this.shotBeam.position.z = 1 + len / 2;
-    this.shotHead.position.z = 1 + len;
-    this.shotSpot.material.opacity = o;
-    this.shotBeam.material.opacity = o * 0.7;
-    this.shotHead.material.opacity = o;
-  }
-
-  updateControl(match, dt) {
-    this.handoverFlash = Math.max(0, this.handoverFlash - dt * 3.2);
-    this.updateFlickMarks(match, dt);
-    this.updateShotMark(match, dt);
-    const p = match?.controlled;
-    if (!p) {
-      this.controlGroup.visible = false;
-      this.controlCollar.visible = false;
-      this.lastControlled = null;
-      return;
-    }
-    if (p !== this.lastControlled) { this.handoverFlash = 1; this.lastControlled = p; }
-
-    this.controlCollar.visible = true;
-    this.controlCollar.position.x = p.x;
-    this.controlCollar.position.z = p.z;
-    // the arrival is a flare that decays, so a jump between players is unmistakable
-    this.controlCollar.scale.setScalar(1 + this.handoverFlash * 0.55);
-    this.controlCollar.material.opacity = 0.55 + this.handoverFlash * 0.45;
-
-    const s = p.steer;
-    if (!s) { this.controlGroup.visible = false; return; }
-    // Armed, the steering triangle is also the aim, so it takes the shot's colour. The two say
-    // the same thing — the drag steers and aims at once past the third ring — so this is one
-    // fact in two places, not two arrows to read.
-    const armed = !!match.armed && match.noOrbit;
-    const body = armed ? 0xf9a8d4 : 0x38bdf8;
-    const halo = armed ? 0xf472b6 : 0x7dd3fc;
-    if (this.steerTri.material.color.getHex() !== body) this.steerTri.material.color.setHex(body);
-    if (this.steerHalo.material.color.getHex() !== halo) this.steerHalo.material.color.setHex(halo);
-    this.controlGroup.visible = true;
-    this.controlGroup.position.set(p.x, 0, p.z);
-    this.controlGroup.rotation.y = Math.atan2(s.x, s.z);
-    // ramp: 0 at the deadzone edge, 1 flat out. It reads as the triangle pushing further out,
-    // growing, filling in and lighting its halo — four things saying one number.
-    const t = clamp((s.speed - DRAG.minSpeed) / Math.max(1e-3, 1 - DRAG.minSpeed), 0, 1);
-    this.steerTri.position.z = 1.7 + t * 1.2;
-    this.steerHalo.position.z = this.steerTri.position.z;
-    // Bigger and brighter than it was: this is now the only arrow in the scheme, so it carries
-    // the whole of "where am I going" rather than sharing the job with an orbit.
-    const scale = (armed ? 1.5 : 1.05) + t * 0.7;
-    this.steerTri.scale.setScalar(scale);
-    this.steerHalo.scale.setScalar(scale * 1.45);
-    this.steerTri.material.opacity = 0.62 + t * 0.38;
-    // the halo only really lights at the top of the ramp: that is the "full speed" edge, and it
-    // is what stands in for the second haptic tick on a phone that has none
-    this.steerHalo.material.opacity = 0.08 + Math.pow(t, 3) * 0.5;
-  }
-
-  /**
-   * What the two release gestures would do, with no aim arrow to say it (`?control=flick`).
-   * The marked team-mate wears the pass ring — that is where a lift sends the ball — and the
-   * goal mouth lights while a flick from here would be a shot rather than a throw.
-   */
-  updateFlickMarks(match, dt) {
-    this.lastDt = dt;
-    this.goalBar.visible = false;
-    this.passGroup.visible = false;
-    this.markPing.visible = false;
-    if (!match?.noOrbit) return;
-    const c = match.puck.carrier;
-    if (!c || !match.isUserCarrier(c) || match.state !== 'play') return;
-
-    const mate = match.passTarget();
-    if (mate) {
-      const m = this.playerMeshes.get(mate.id);
-      if (m) { m.ring.visible = true; m.ring.scale.setScalar(1 + Math.sin(this.time * 10) * 0.08); }
-      const ping = (this.time % 1.15) / 1.15;                  // one swell every 1.15 s
-      this.markPing.visible = true;
-      this.markPing.position.set(mate.x, 0.031, mate.z);
-      this.markPing.scale.setScalar(0.75 + ping * 1.5);
-      this.markPing.material.opacity = 0.55 * (1 - ping) * (1 - ping);
-      // The line runs to the *lead* point, which is where the ball is actually going — ahead of
-      // the receiver by as far as they travel while it is in flight. Drawn to the receiver
-      // instead it points at a player and the ball lands on the grass in front of them.
-      // The line runs to the receiver: that is who the pass is for and what the eye hunts for.
-      // The ball is still put ahead of them (`leadPoint`, §5.4) but that is no longer drawn —
-      // a second mark out in front of the receiver was one thing too many to read.
-      const dx = mate.x - c.x, dz = mate.z - c.z;
-      const d = Math.hypot(dx, dz);
-      if (d > 2.2) {
-        const from = 1.0, len = d - 1.1 - from;
-        this.passGroup.visible = true;
-        this.passGroup.position.set(c.x, 0, c.z);
-        this.passGroup.rotation.y = Math.atan2(dx, dz);
-        this.passLine.scale.set(1, len, 1);          // local Y, laid down to group Z
-        this.passLine.position.z = from + len / 2;   // group space: +z is the receiver
-        this.passTex.repeat.set(1, len / 1.5);
-        this.passTex.offset.y -= this.lastDt * 1.6;  // chevrons run toward the receiver
-        this.passLine.material.opacity = 0.62 + Math.sin(this.time * 7) * 0.16;
-      }
-    }
-    // "in range" is asked of the goal straight ahead, not of any particular flick: the bar says
-    // the goal is available, the flick then says where in it.
-    const gz = match.attackGoalZ(c.team);
-    if (Math.hypot(c.x, gz - c.z) <= GOAL_AIM.snapRange) {
-      this.goalBar.visible = true;
-      this.goalBar.position.set(0, 0.03, gz);
-      this.goalBar.material.opacity = 0.5 + Math.sin(this.time * 6) * 0.12;
-    }
   }
 
   updateAim(match, dt) {
     const c = match.puck.carrier;
-    // With no orbit there is no aim arrow and no ring for the ball to run on: the steering
-    // triangle is the only arrow on screen, which is the whole point of that scheme.
-    const show = c && match.isUserCarrier(c) && !match.noOrbit
-      && (match.state === 'play' || match.state === 'ready');
+    const show = c && match.isUserCarrier(c) && (match.state === 'play' || match.state === 'ready');
     this.orbitRing.visible = !!show;
     this.aimGroup.visible = !!show;
     for (const m of this.playerMeshes.values()) m.ring.visible = false;
@@ -842,7 +598,6 @@ export class Renderer {
         m.disc.material.opacity = match.puck.carrier === p ? 0.55 : 0.2;
       }
       this.updateAim(match, dt);
-      this.updateControl(match, dt);
       const puck = match.puck;
       const isIce = this.sport?.id === 'ice';
       this.ball.position.set(puck.x, isIce ? 0.1 : 0.36, puck.z);
@@ -854,23 +609,19 @@ export class Renderer {
         this.ball.rotation.z -= (puck.vx * dt) / r;
       }
       this.ballGlow.position.set(puck.x, 0.02, puck.z);
-      // The glow itself barely moves — the ball must not look like it is changing size. The
-      // life comes from the rings dropping onto it instead.
-      const since = match ? match.time - (puck.shotTime ?? -9) : 9;
-      const hit = Math.max(0, 1 - since / 0.45);
+      // The glow barely moves — the ball must not look like it is changing size. The life comes
+      // from the rings dropping onto it, plus a brief swell whenever the ball is struck.
+      const sinceHit = match ? match.time - (puck.shotTime ?? -9) : 9;
+      const hit = Math.max(0, 1 - sinceHit / 0.45);
       this.ballGlow.scale.setScalar(1 + Math.sin(this.time * 4.5) * 0.03 + hit * 0.18);
       this.ballGlow.material.opacity = 0.32 + Math.sin(this.time * 4.5) * 0.05 + hit * 0.3;
-      const PERIOD = 1.5;
       for (let i = 0; i < this.ballRings.length; i++) {
-        const r = this.ballRings[i];
-        const t = ((this.time / PERIOD) + i / this.ballRings.length) % 1;   // staggered thirds
-        r.position.set(puck.x, 0.021, puck.z);
-        // Kept inside the yellow glow's own footprint: the glow is a disc of radius 0.8 and the
-        // ring's own radius is 0.93, so scale 0.86 sits exactly on its edge. Starting wider made
-        // this a marker for a patch of pitch rather than for the ball.
-        r.scale.setScalar(0.86 - t * 0.72);            // falls inward from the glow's edge
-        // brightest on the way in, gone by the time it lands, so nothing flashes at the centre
-        r.material.opacity = 0.8 * Math.sin(t * Math.PI) * (1 - t * 0.3) + hit * 0.3;
+        const ring = this.ballRings[i];
+        const t = ((this.time / 1.5) + i / this.ballRings.length) % 1;   // staggered thirds
+        ring.position.set(puck.x, 0.021, puck.z);
+        ring.scale.setScalar(0.86 - t * 0.72);           // falls inward from the glow's edge
+        // brightest on the way in, gone before it lands, so nothing flashes at the centre
+        ring.material.opacity = 0.8 * Math.sin(t * Math.PI) * (1 - t * 0.3) + hit * 0.3;
       }
       const psp = Math.hypot(puck.vx, puck.vz);
       const tr = puck.trail;

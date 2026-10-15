@@ -1,6 +1,6 @@
 import { Match } from './match.js';
 import { Renderer } from './render.js';
-import { Input, DRAG } from './input.js';
+import { Input } from './input.js';
 import { UI } from './ui.js';
 import { Sfx } from './audio.js';
 import { Director } from './director.js';
@@ -63,8 +63,6 @@ function startMatch(home, away, ctx) {
     sport: world.sport,
     onEvent: onMatchEvent,
   });
-  // control hands over without a lift: the finger re-centres where it already is
-  match.onHandover = () => input.recentre();
   renderer.setWorld(world);
   renderer.buildPlayers(match);
   renderer.focusZ = 0;
@@ -234,10 +232,6 @@ function frame(now) {
   if (match) director.update(dt, match);
   if (match && running && !paused) {
     acc += dt * director.timeScale;
-    // the finger's order is read fresh for the frame, not queued: nothing sits between the
-    // pointer event and the step that acts on it (A0)
-    match.setSteer(input.steer);
-    match.armed = input.armed;      // past the third ring: a lift shoots, and the pitch says so
     while (acc >= STEP) { match.update(STEP); acc -= STEP; }
     ui.updateHud(match);
     // count down the last five seconds
@@ -266,103 +260,6 @@ function startDemo() {
   renderer.buildPlayers(match);
 }
 showMenu();
-
-// Which control scheme this build is playing, stated on screen. Both schemes live in one build
-// behind `?control=` and they are told apart only by how the game answers your finger — which is
-// exactly the thing being judged, so it must never be the thing you have to guess. Prototype
-// furniture; it costs nothing to delete with the rest of the experiment.
-{
-  const scheme = new URLSearchParams(location.search).get('control') || 'touch';
-  if (scheme !== 'touch') {
-    // The build id stays. A stale tab spent a round of this experiment masquerading as an
-    // inverted control, and one line on screen is cheaper than finding that out twice.
-    const build = document.querySelector('meta[name="build"]')?.content || 'dev';
-    const tag = document.createElement('div');
-    tag.textContent = `${scheme}  ${build.slice(0, 7)}`;
-    tag.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:50;font:600 11px/1 ui-monospace,monospace;'
-      + 'letter-spacing:.06em;color:#38bdf8;background:rgba(2,6,23,.55);padding:5px 8px;border-radius:5px;'
-      + 'pointer-events:none';
-    document.body.appendChild(tag);
-
-    // The dial under the thumb.
-    //
-    // Two rings — the deadzone edge and the full-speed edge — and a triangle riding the outer
-    // one at the angle the thumb is pointing. The triangle is the part that matters: a thumb
-    // cannot judge its own angle anywhere near the precision a goal mouth asks for, so after a
-    // flick the triangle stays behind at the angle that was actually flicked, holds, and fades.
-    // That is the only way to learn the gesture — you find out what you did while you can still
-    // remember doing it.
-    //
-    // SVG so the shapes stay crisp at any density and can carry a glow. Screen furniture on
-    // purpose: in the apps this belongs in the 3D scene with the rest of the UI (conventions),
-    // and none of it is meant to outlive the experiment.
-    const NS = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(NS, 'svg');
-    svg.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:40';
-    svg.innerHTML = `<defs>
-      <filter id="sg" x="-80%" y="-80%" width="260%" height="260%">
-        <feGaussianBlur stdDeviation="5" result="b"/>
-        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-    </defs>`;
-    document.body.appendChild(svg);
-
-    // pointing up the screen; rotated into place. A notched head, like the aim arrow's.
-    const HEAD = 'M 0,-15 L 10,7 L 0,1.5 L -10,7 Z';
-    const mk = (tag, attrs) => {
-      const el = document.createElementNS(NS, tag);
-      for (const k in attrs) el.setAttribute(k, attrs[k]);
-      svg.appendChild(el);
-      return el;
-    };
-    const gDead = mk('circle', { r: DRAG.deadzone, fill: 'none', stroke: '#38bdf8', 'stroke-width': 1.5 });
-    const gFull = mk('circle', { r: DRAG.full, fill: 'none', stroke: '#38bdf8', 'stroke-width': 2.5 });
-    // the third ring: cross it and a lift becomes an aimed shot
-    const gShoot = mk('circle', { r: DRAG.shoot, fill: 'none', stroke: '#f472b6',
-      'stroke-width': 3, 'stroke-dasharray': '10 8' });
-    const gLive = mk('path', { d: HEAD, fill: '#7dd3fc', filter: 'url(#sg)' });
-
-    // screen angle, not the world one: this sits under the thumb, so it follows the thumb. (The
-    // world vector is the mirror of it — see Input#steer.)
-    const place = (el, cx, cy, dx, dy, r, scale) => {
-      const deg = Math.atan2(dx, -dy) * 180 / Math.PI;
-      el.setAttribute('transform', `translate(${cx} ${cy}) rotate(${deg}) translate(0 ${-r}) scale(${scale})`);
-    };
-    const set = (el, o) => { el.style.opacity = o; };
-
-    const paint = () => {
-      requestAnimationFrame(paint);
-      const held = input.steerId !== null;
-
-      for (const el of [gDead, gFull, gShoot, gLive]) set(el, held ? 1 : 0);
-      if (held) {
-        const cx = input.originX, cy = input.originY;
-        for (const el of [gDead, gFull, gShoot]) { el.setAttribute('cx', cx); el.setAttribute('cy', cy); }
-        const dx = input.curX - cx, dy = input.curY - cy;
-        const d = Math.hypot(dx, dy);
-        const past = d >= DRAG.deadzone;
-        const armed = d >= DRAG.shoot;
-        gDead.style.stroke = past ? 'rgba(56,189,248,.95)' : 'rgba(56,189,248,.4)';
-        gFull.style.stroke = d >= DRAG.full ? 'rgba(125,211,252,1)' : 'rgba(56,189,248,.3)';
-        // the shot ring only really shows once the thumb is on its way out to it, so it does not
-        // clutter an ordinary steer, and it lights when crossed
-        set(gShoot, armed ? 1 : Math.max(0, (d - DRAG.full) / Math.max(1, DRAG.shoot - DRAG.full)) * 0.75);
-        gShoot.style.stroke = armed ? 'rgba(244,114,182,1)' : 'rgba(244,114,182,.5)';
-        set(gLive, past ? 1 : 0);
-        if (past) {
-          // rides the outer ring whatever the drag length, so the angle is always read off the
-          // same circle — that is what makes two gestures comparable to the eye. Armed, it moves
-          // out to the shot ring and turns the shot's colour: the triangle is then the aim.
-          const t = Math.min(1, (d - DRAG.deadzone) / Math.max(1, DRAG.full - DRAG.deadzone));
-          gLive.style.fill = armed ? '#f9a8d4' : '#7dd3fc';
-          place(gLive, cx, cy, dx, dy, armed ? DRAG.shoot : DRAG.full, armed ? 1.5 : 0.8 + t * 0.45);
-        }
-      }
-
-    };
-    requestAnimationFrame(paint);
-  }
-}
 
 // expose for debugging / automated tests
 window.__game = { get match() { return match; }, renderer, ui, input, director, sfx, startMatch, userTeam, TEAMS, LEVELS, worldById, WORLD_IDS, get season() { return season; }, get ctx() { return matchCtx; } };

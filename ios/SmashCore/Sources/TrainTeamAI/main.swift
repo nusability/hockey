@@ -79,6 +79,12 @@ struct Config {
     var diagnose = false
     /// How often the policy's memory inputs are hidden during the fit. See `Backprop.step`.
     var memoryDropout = 0.5
+    /// The step size never anneals below this. See the pull-back below.
+    var sigmaFloor = 0.01
+    /// `--analyse <checkpoint>` measures the stated objectives — shape, legible roles, no
+    /// ball-chasing — for the policy and for §7 side by side, then exits. None of them are trained
+    /// on, which is the point: a measure you optimise stops being a measure.
+    var analyse: String?
     var bootstrapBatch = 256
     /// `--init <checkpoint>` starts the search from an existing checkpoint instead of random weights.
     var initFrom: String?
@@ -135,6 +141,8 @@ while let a = it.next() {
     case "--dagger-matches": cfg.daggerMatches = Int(num())
     case "--diagnose": cfg.diagnose = true
     case "--memory-dropout": cfg.memoryDropout = num()
+    case "--sigma-floor": cfg.sigmaFloor = num()
+    case "--analyse": cfg.analyse = it.next()
     case "--init": cfg.initFrom = it.next()
     case "--self-play": cfg.selfPlay = num()
     case "--patience": cfg.patience = Int(num())
@@ -157,6 +165,7 @@ struct Score {
     var pressure = 0.0        // mean distance from the ball to this side's nearest outfielder
     var territory = 0.0       // mean carry position up the pitch, −1 (own goal) to 1 (theirs)
     var attacking = 0.0       // share of play ticks spent carrying inside the attacking third
+    var width = 0.0           // standard deviation of outfield x: does the side use the pitch
     /// Set from the run's configuration; it selects which of the two rewards `fitness` returns.
     var victoryOnly = false
 
@@ -182,6 +191,7 @@ struct Score {
             - 0.15 * pressure
             + 0.5 * territory
             + 2.0 * attacking
+            + 0.5 * width
     }
 
     static func mean(_ xs: [Score]) -> Score {
@@ -198,6 +208,7 @@ struct Score {
         m.pressure = xs.reduce(0) { $0 + $1.pressure } / n
         m.territory = xs.reduce(0) { $0 + $1.territory } / n
         m.attacking = xs.reduce(0) { $0 + $1.attacking } / n
+        m.width = xs.reduce(0) { $0 + $1.width } / n
         return m
     }
 }
@@ -231,6 +242,7 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, opponent: PolicyNet? = ni
     var spreadTotal = 0.0
     var spreadSamples = 0
     var pressureTotal = 0.0
+    var widthTotal = 0.0
 
     let goalZ = Tuning.Pitch.goalLineZ
     // A match of three periods runs ~18.6k ticks at a 40 s period. A policy that cannot get the
@@ -262,6 +274,26 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, opponent: PolicyNet? = ni
                 spreadTotal += nearest > 12 ? 12 : nearest   // capped: standing apart is not a tactic
                 spreadSamples += 1
             }
+        }
+
+        // Width: the standard deviation of outfield x.
+        //
+        // Added because the objectives were finally measured directly rather than by proxy, and the
+        // policy was using half the pitch: 3.3 m of x-spread against §7's 6.5 m, a side filing down
+        // the middle. Nothing in the reward had ever mentioned the width — `spread` is the distance
+        // to the nearest team-mate, which a single file satisfies perfectly. The lesson is the one
+        // the whole night taught: a proxy only constrains what it actually names.
+        //
+        // The other measures from `Analyse` are deliberately NOT trained on, so they stay honest
+        // checks: swarm, role churn and whether the deepest defender is goal-side.
+        if !mine.isEmpty {
+            let meanX = mine.reduce(0.0) { $0 + snap.players[$1].x } / Double(mine.count)
+            var variance = 0.0
+            for i in mine {
+                let d = snap.players[i].x - meanX
+                variance += d * d
+            }
+            widthTotal += (variance / Double(mine.count)).squareRoot()
         }
 
         // How far the ball is from this side's nearest outfielder: the dense term.
@@ -319,6 +351,7 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, opponent: PolicyNet? = ni
     s.attacking = playTicks > 0 ? Double(finalTicks) / Double(playTicks) : 0
     s.spread = spreadSamples > 0 ? spreadTotal / Double(spreadSamples) : 0
     s.pressure = playTicks > 0 ? pressureTotal / Double(playTicks) : 0
+    s.width = playTicks > 0 ? widthTotal / Double(playTicks) : 0
     return s
 }
 
@@ -501,6 +534,31 @@ if let path = C.evaluateOnly ?? C.replay {
             print(label.padding(toLength: 10, withPad: " ", startingAt: 0) + "  " + a + "   " + b)
         }
     }
+    exit(0)
+}
+
+if let path = C.analyse {
+    let theta = readCheckpoint(path)
+    guard theta.count == dim else {
+        FileHandle.standardError.write("TrainTeamAI: \(path) holds \(theta.count) parameters, this shape wants \(dim)\n".data(using: .utf8)!)
+        exit(1)
+    }
+    let learned = PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: theta)
+    print("analysing \(C.matches) seeded matches each way...")
+    print("")
+    let a = Analyse.Report.mean((0..<C.matches).map {
+        Analyse.match([learned, nil], setup: setup($0, periodSeconds: C.periodSeconds))
+    })
+    let b = Analyse.Report.mean((0..<C.matches).map {
+        Analyse.match([nil, nil], setup: setup($0, periodSeconds: C.periodSeconds))
+    })
+    print(Analyse.table([("learned", a), ("\u{00A7}7 rules", b)]))
+    print("  swarm      mean distance from the ball to EVERY outfielder. Higher is less of a pack.")
+    print("  churn/min  how often the nearest pair to the ball changes. Lower is more legible.")
+    print("  depth      how far the deepest defender sits behind the ball. Positive is goal-side.")
+    print("  goal-side  share of play with that defender actually goal-side of the ball.")
+    print("  width      standard deviation of outfield x. Higher uses the pitch.")
+    print("  spacing    distance to the nearest team-mate.")
     exit(0)
 }
 
@@ -782,9 +840,13 @@ for iteration in 1...cfg.iterations {
     } else {
         stale += 1
         if stale >= C.patience {
-            // Drifting. Go back to what demonstrably worked and search more finely around it.
+            // Drifting. Go back to what demonstrably worked and search more finely around it —
+            // but never below a floor. Annealing without one is how the safety net becomes the
+            // cage: three pull-backs took sigma from 0.02 to 0.0069 and the search spent two
+            // hundred iterations exploring a ball a third of its original size, unable to beat a
+            // checkpoint it could no longer reach away from.
             theta = bestTheta
-            sigma *= 0.7
+            sigma = Swift.max(sigma * 0.7, C.sigmaFloor)
             stale = 0
             print(String(format: "  ↩ pulled back to best (%.3f); sigma now %.4f", best, sigma))
         }

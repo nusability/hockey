@@ -56,6 +56,27 @@ public struct Match: Sendable {
     public internal(set) var offsideEntries = 0
     public internal(set) var offsideStrays = 0
     public internal(set) var offsideMissed = 0
+    // MARK: The learned policy (§7)
+
+    /// The trained policy driving off-ball outfield play, or `nil` for §7's written rules.
+    ///
+    /// Set by the trainer and the bench only. The shipped app leaves it `nil`, so with it unset the
+    /// match is the one the golden vectors already pin — which is how this hook is kept honest: if
+    /// `shared/vectors/match/` stays green, nothing here changed a tick. It is exposed for the same
+    /// reason `streamState` and `temperament` are (§4.7).
+    /// One entry per team: a trained policy, or `nil` for §7's written rules. Per team rather than
+    /// one net and a list, because the two sides are routinely *different* nets — a candidate is
+    /// scored against §7 for an absolute yardstick and against the current best for self-play, and
+    /// late on, two rungs of the `strength` ladder meet each other.
+    var policies: [PolicyNet?] = [nil, nil]
+    /// When non-nil, every hand-written re-think appends what it saw and what it chose, so a net
+    /// can be fitted to §7's rules before self-play starts improving on them.
+    var teachingTape: [TeachingSample]?
+    /// Each team's `strength` (§7): the one dial on how well the policy plays. 1 is its best.
+    var strength = [1.0, 1.0]
+    /// Each team's style vector (§7) — what makes two clubs play unlike each other.
+    var style = [[Double]](repeating: [Double](repeating: 0, count: PolicyInputs.styleCount), count: 2)
+
     /// The outfield carrier watched for a crossing of the centre line, and their z last step (§7.9).
     var crossingCarrier: Int?
     var crossingZ = 0.0

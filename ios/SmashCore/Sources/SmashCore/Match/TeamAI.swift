@@ -24,7 +24,18 @@ extension Match {
             }
             if players[i].thinkTimer > 0 { continue }
             players[i].thinkTimer = Tuning.AI.thinkBase + Tuning.AI.thinkSpread * rng.uniform()
+            if let net = policies[team] {
+                // The learned policy stands in for §7.1–§7.5 entirely: one target, no shaping and no
+                // role assignment behind it. The draw above still happens, in the same place, so the
+                // stream advances identically whether or not a policy is set (§4.3).
+                players[i].target = policyTarget(i, net: net, ranking: ranking)
+                continue
+            }
             rethink(i, possession: possession, ranking: ranking, challengers: challengers, blocker: blocker)
+            if teachingTape != nil, policies[team] == nil, let chosen = players[i].target {
+                teachingTape!.append(TeachingSample(observation: observe(i, ranking: ranking),
+                                                    label: teachingLabel(i, target: chosen)))
+            }
         }
     }
 

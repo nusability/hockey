@@ -74,6 +74,11 @@ struct Config {
     var daggerRounds = 4
     /// Matches harvested per DAgger round.
     var daggerMatches = 6
+    /// `--diagnose` measures whether §7's target is a *function* of the observation at all, then
+    /// exits. See the mode below for what it answers and why it matters.
+    var diagnose = false
+    /// How often the policy's memory inputs are hidden during the fit. See `Backprop.step`.
+    var memoryDropout = 0.5
     var bootstrapBatch = 256
     /// `--init <checkpoint>` starts the search from an existing checkpoint instead of random weights.
     var initFrom: String?
@@ -128,6 +133,8 @@ while let a = it.next() {
     case "--epochs": cfg.bootstrapEpochs = Int(num())
     case "--dagger": cfg.daggerRounds = Int(num())
     case "--dagger-matches": cfg.daggerMatches = Int(num())
+    case "--diagnose": cfg.diagnose = true
+    case "--memory-dropout": cfg.memoryDropout = num()
     case "--init": cfg.initFrom = it.next()
     case "--self-play": cfg.selfPlay = num()
     case "--patience": cfg.patience = Int(num())
@@ -497,6 +504,108 @@ if let path = C.evaluateOnly ?? C.replay {
     exit(0)
 }
 
+if C.diagnose {
+    // **Is §7's target a function of the observation?**
+    //
+    // Squared-error regression can only ever return one answer per input, and the answer it
+    // returns is the *mean* of the answers it saw. That is fine when similar states call for
+    // similar targets. It is a disaster when they do not: if half the time a state means "chase
+    // the ball" and half the time it means "hold your slot", the fitted net steers to the midpoint
+    // of the two, which is neither, and no amount of capacity or data fixes it.
+    //
+    // So: take probe samples, find each one's nearest neighbours *in observation space*, and
+    // measure how far apart their targets are. Compare that local spread against the spread of
+    // targets across the whole corpus. If the local spread is a small fraction of the global one,
+    // the mapping is well-behaved and regression is the right tool. If it approaches the global
+    // spread, the targets are multimodal and the architecture is wrong, not the training.
+    //
+    // Reported in metres, by converting the pre-squash labels back through the action decode.
+    print("harvesting §7's decisions from \(C.teachMatches) matches…")
+    var samples: [TeachingSample] = []
+    for k in 0..<C.teachMatches {
+        var m = Match(setup(k, periodSeconds: C.periodSeconds))
+        m.teach()
+        let maxTicks = Int(C.periodSeconds * 120.0 * 9.0)
+        while m.result == nil && m.ticks < maxTicks { m.tick() }
+        samples += m.teaching
+    }
+    print("  \(samples.count) samples")
+
+    /// A label as a point on the pitch, in metres, in the attacking frame.
+    func point(_ label: [Double]) -> (Double, Double) {
+        (DetPolicy.squash(label[0]) * PolicyInputs.actionXScale,
+         DetPolicy.squash(label[1]) * PolicyInputs.actionZScale)
+    }
+    func gap(_ a: [Double], _ b: [Double]) -> Double {
+        let (ax, az) = point(a), (bx, bz) = point(b)
+        return ((ax - bx) * (ax - bx) + (az - bz) * (az - bz)).squareRoot()
+    }
+
+    var g = Gauss(seed: 99)
+    let probes = 150
+    let neighbours = 12
+
+    // Global spread: the mean distance between two targets picked at random.
+    var globalTotal = 0.0
+    for _ in 0..<5000 {
+        let a = samples[Int(g.uniform() * Double(samples.count))]
+        let b = samples[Int(g.uniform() * Double(samples.count))]
+        globalTotal += gap(a.label, b.label)
+    }
+    let global = globalTotal / 5000.0
+
+    var localTotal = 0.0
+    var obsTotal = 0.0
+    for _ in 0..<probes {
+        let probe = samples[Int(g.uniform() * Double(samples.count))]
+        // The `neighbours` closest observations, by Euclidean distance over the whole vector.
+        var best: [(d: Double, k: Int)] = []
+        for (k, other) in samples.enumerated() {
+            var d = 0.0
+            for i in 0..<nIn {
+                let e = probe.observation[i] - other.observation[i]
+                d += e * e
+            }
+            if d <= 0 { continue }
+            if best.count < neighbours {
+                best.append((d, k))
+                best.sort { $0.d < $1.d }
+            } else if d < best[neighbours - 1].d {
+                best[neighbours - 1] = (d, k)
+                best.sort { $0.d < $1.d }
+            }
+        }
+        obsTotal += best.map { $0.d.squareRoot() }.reduce(0, +) / Double(best.count)
+        // How far apart are the targets of these near-identical states?
+        var pairs = 0.0, total = 0.0
+        for a in 0..<best.count {
+            for b in (a + 1)..<best.count {
+                total += gap(samples[best[a].k].label, samples[best[b].k].label)
+                pairs += 1
+            }
+        }
+        if pairs > 0 { localTotal += total / pairs }
+    }
+    let local = localTotal / Double(probes)
+
+    print("")
+    print(String(format: "  mean observation distance to the %d nearest neighbours : %.4f", neighbours, obsTotal / Double(probes)))
+    print(String(format: "  mean distance between two targets, picked at random    : %6.2f m", global))
+    print(String(format: "  mean distance between targets of NEAR-IDENTICAL states : %6.2f m", local))
+    print(String(format: "  local spread as a share of global                      : %5.1f %%", 100 * local / global))
+    print("")
+    if local > 0.5 * global {
+        print("  → Multimodal. Near-identical states call for targets almost as far apart as")
+        print("    random pairs, so there is no single right answer to regress toward and the mean")
+        print("    of the answers is not one of them. A bigger net cannot fix this; a different")
+        print("    action head can — classify over candidate targets instead of regressing a point.")
+    } else {
+        print("  → Well-behaved. Similar states call for similar targets, so regression is the right")
+        print("    tool and the gap to §7 is a matter of fit or of training, not of architecture.")
+    }
+    exit(0)
+}
+
 if C.bootstrap {
     // Harvest. Both teams are driven by §7's rules and both teach: the observation is written in
     // the thinking player's own attacking frame, so a sample from team 1 is as good as one from
@@ -539,7 +648,10 @@ if C.bootstrap {
             var start = 0
             while start < samples.count {
                 let end = Swift.min(start + C.bootstrapBatch, samples.count)
-                total += bp.step(samples[start..<end])
+                total += bp.step(samples[start..<end],
+                             dropTail: PolicyInputs.memoryCount,
+                             dropProbability: C.memoryDropout,
+                             rng: &g)
                 batches += 1
                 start = end
             }

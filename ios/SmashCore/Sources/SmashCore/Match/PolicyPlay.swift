@@ -34,11 +34,13 @@ public enum PolicyInputs {
     public static let homeCount = 2
     /// Where the ball is *going*, and whether one is coming to me (5).
     public static let anticipationCount = 5
+    /// What this player decided last time (2) — the policy's own memory. See `observe`.
+    public static let memoryCount = 2
 
     public static let count = selfCount + ballCount + rankCount + alertCount + contextCount
         + strengthCount + styleCount
         + 2 * outfieldSlots * fieldsPerPlayer
-        + goalieCount + homeCount + anticipationCount
+        + goalieCount + homeCount + anticipationCount + memoryCount
 
     /// Two outputs: where to stand, as an offset from the formation spot (§7).
     public static let outputCount = 2
@@ -196,6 +198,21 @@ extension Match {
         let (cx, cz) = offset(chasePoint(i))
         let (ix, iz) = offset(interceptPoint(i))
         o += [cx, cz, ix, iz, Pitch.clamp(me.expectPass, 0, 1)]
+
+        // Memory (2): where this player was already heading, in the same frame and scale the
+        // action is written in, so "carry on" is the easiest thing for the net to say.
+        //
+        // Without this the policy is memoryless, and a memoryless policy re-decides from nothing
+        // every 0.12–0.22 s. That is precisely the failure §7.2 exists to prevent — "the ordering
+        // re-runs at every re-think and its tiebreaks flip as the two defenders move, so they swap
+        // jobs several times a second … and they arrive in a bunch". §7 solves it with a 0.7 s
+        // commitment held in `challengeUntil`; the policy cannot read that (it is §7's private
+        // state, and the policy replaces §7), so it needs a memory of its own to build commitment
+        // out of. It is also why §7's choices looked like noise to a regressor: §7's decision is a
+        // function of the match **and its own memory**, and only the first half was on the input.
+        let previous = me.target ?? me.home
+        o += [dir * (previous.x - me.home.x) / PolicyInputs.actionXScale,
+              dir * (previous.z - me.home.z) / PolicyInputs.actionZScale]
 
         precondition(o.count == P.count, "observe: built \(o.count) inputs, declared \(P.count)")
         return o

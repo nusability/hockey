@@ -57,7 +57,17 @@ struct Backprop {
     var parameters: [Double] { w0 + b0 + w1 + b1 + w2 + b2 }
 
     /// One Adam step on the mean squared error over `batch`. Returns the loss before the step.
-    mutating func step(_ batch: ArraySlice<TeachingSample>) -> Double {
+    ///
+    /// `dropTail` hides the last few inputs on a random `dropProbability` of samples. It exists for
+    /// exactly one input group — the policy's memory of its own previous target — and for one
+    /// reason: without it the fit is a fraud. §7's target barely moves between re-thinks, so
+    /// "repeat what you said last time" drives squared error to almost nothing (measured: 0.0584
+    /// → 0.0012) while learning nothing about hockey. At rollout that is a fixed point: every
+    /// player freezes wherever it first went, possession collapses to 0.21 and the side concedes
+    /// 1.83 a match. Hiding the memory half the time forces the net to solve the task from the
+    /// state, and to treat its own history as a tiebreak rather than an answer.
+    mutating func step(_ batch: ArraySlice<TeachingSample>, dropTail: Int = 0,
+                       dropProbability: Double = 0, rng: inout Gauss) -> Double {
         let n = Double(batch.count)
         var gw0 = [Double](repeating: 0, count: w0.count), gb0 = [Double](repeating: 0, count: nH)
         var gw1 = [Double](repeating: 0, count: w1.count), gb1 = [Double](repeating: 0, count: nH)
@@ -65,7 +75,10 @@ struct Backprop {
         var loss = 0.0
 
         for sample in batch {
-            let x = sample.observation
+            var x = sample.observation
+            if dropTail > 0 && rng.uniform() < dropProbability {
+                for k in (x.count - dropTail)..<x.count { x[k] = 0 }
+            }
 
             // Forward, keeping the pre-activations so the backward pass can gate on them.
             var z0 = b0

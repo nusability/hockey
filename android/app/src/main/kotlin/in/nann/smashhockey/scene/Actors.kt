@@ -49,7 +49,7 @@ class Actors(
     private val geometries = HashMap<String, Geometry>()
     private val entities = ArrayList<Int>()
     private val players: List<Node>
-    private class Shadow(val entity: Int, val rest: MaterialInstance, val carrier: MaterialInstance)
+    private class Shadow(val node: Node, val rest: MaterialInstance, val carrier: MaterialInstance)
     private val shadows = ArrayList<Shadow>()
     private var carrierShown: Int? = null
     private val ball: Node
@@ -86,8 +86,12 @@ class Actors(
                 else -> part(geo("dot$r") { Shapes.dot(r, h) }, materials.flat(secondary), group.entity, 5)
             }
             val rest = materials.flat(primary, p.shadowOpacity)
-            val shadow = part(geo("shadow$r") { Shapes.shadow(r) }, rest, group.entity, 5)
-            shadows += Shadow(shadow.entity, rest, materials.flat(primary, p.carrierShadowOpacity))
+            // The disc lies on the pitch, so it hangs off the match root and not off `group`: the
+            // group is tilted for the running lean and lifted for the celebration hop, and a flat
+            // disc parented to it takes both — its far edge passing under the pitch at speed, and
+            // the whole disc floating off the ground mid-hop (§16.4).
+            val shadow = part(geo("shadow$r") { Shapes.shadow(r) }, rest, parent, 5)
+            shadows += Shadow(shadow, rest, materials.flat(primary, p.carrierShadowOpacity))
             group
         }
 
@@ -114,14 +118,18 @@ class Actors(
             n.pitch = if (speed > 0.5) (pl.vz / speed * lean).toFloat() else 0f
             n.roll = if (speed > 0.5) (-pl.vx / speed * lean).toFloat() else 0f
             n.apply()
+            // …and the disc stays flat on the pitch under them, taking neither the lean nor the hop.
+            val sh = shadows[i].node
+            sh.x = xs[i].toFloat(); sh.y = 0f; sh.z = zs[i].toFloat()
+            sh.apply()
         }
 
         // The disc under the carrier darkens.
         val carrier = s.ball.carrier
         if (carrier != carrierShown) {
             val rm = engine.renderableManager
-            carrierShown?.let { rm.setMaterialInstanceAt(rm.getInstance(shadows[it].entity), 0, shadows[it].rest) }
-            carrier?.let { rm.setMaterialInstanceAt(rm.getInstance(shadows[it].entity), 0, shadows[it].carrier) }
+            carrierShown?.let { rm.setMaterialInstanceAt(rm.getInstance(shadows[it].node.entity), 0, shadows[it].rest) }
+            carrier?.let { rm.setMaterialInstanceAt(rm.getInstance(shadows[it].node.entity), 0, shadows[it].carrier) }
             carrierShown = carrier
         }
 

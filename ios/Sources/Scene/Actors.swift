@@ -68,7 +68,11 @@ final class Actors {
             let rest = Materials.flat(primary, opacity: P.shadowOpacity)
             let shadow = model(try mesh("shadow\(r)", Shapes.shadow(radius: r)), rest)
             DrawOrder.set(shadow, DrawOrder.disc)
-            group.addChild(shadow)
+            // The disc lies on the pitch, so it is a sibling of the player and not a child: the
+            // player's entity is tilted for the running lean and lifted for the celebration hop,
+            // and a flat disc parented to it takes both — its far edge passing under the pitch at
+            // speed, and the whole disc floating off the ground mid-hop (§16.4).
+            root.addChild(shadow)
             shadows.append((shadow, rest, Materials.flat(primary, opacity: P.carrierShadowOpacity)))
             root.addChild(group)
             players.append(group)
@@ -118,6 +122,8 @@ final class Actors {
             let lean = speed > 0.5 ? min(speed * P.lean, P.maxLean) : 0
             let pitch = speed > 0.5 ? Float(p.vz / speed * lean) : 0, roll = speed > 0.5 ? Float(-p.vx / speed * lean) : 0
             e.orientation = simd_quatf(angle: pitch, axis: [1, 0, 0]) * simd_quatf(angle: roll, axis: [0, 0, 1])
+            // …and the disc stays flat on the pitch under them, taking neither the lean nor the hop.
+            shadows[i].entity.position = SIMD3(Float(pos.x), 0, Float(pos.y))
         }
 
         // The disc under the carrier darkens.

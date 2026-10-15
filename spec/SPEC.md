@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.32.0
+Spec-Version: 0.32.1
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -1437,6 +1437,15 @@ around a pass receiver (§5.2), but pale, unpulsed and drawn under the player ra
 It appears and fades over 0.12 s as the core's answer changes, and it is the whole of the warning:
 a player who is about to be whistled is visibly marked before it happens, and the aim arrow is
 already refusing to go green for them. Nothing else on the HUD changes.
+
+**What lies on the pitch stays on the pitch.** A running player leans into its run and the scorers
+hop when a goal goes in, so a player's body is tilted and lifted on the way past — but the marks
+drawn flat on the ground beneath them are not part of that body. The disc under a player, the ring
+the ball circles on, the lock-on ring around a receiver and the offside mark above all sit on the
+pitch and take neither the lean nor the hop; they follow only where the player stands. A flat mark
+that takes the lean turns its far edge under the pitch — a fifth of a metre at the extreme, and the
+faster a player runs the more of the mark is missing — and one that takes the hop leaves the ground
+entirely during a celebration, which is the one thing a shadow may never do.
 
 In a drill the HUD shows goals scored of the target and the clock — the target sets the width, so a
 target of ten or more gets two cards a side — and the drill's hint is the intro card before

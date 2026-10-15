@@ -84,6 +84,14 @@ struct Config {
     /// the walk can undo in an hour what the bootstrap bought in a minute. Measured: possession
     /// against §7 fell 0.334 → 0.176 over 100 iterations while the reported best never improved.
     var patience = 40
+    /// Seeded matches used to score the **centre**, as opposed to a candidate.
+    ///
+    /// Larger than `matches`, and that matters more than it looks. The best-so-far is the maximum
+    /// of this estimate over thousands of iterations, so if the estimate is noisy the best is
+    /// partly luck — and then nothing can beat it, the pull-back fires forever, and sigma anneals
+    /// to nothing chasing a number that was never real. Measured: a centre scored 6.92 on 6 seeds
+    /// and lost to §7 on 40.
+    var centreMatches = 24
     var out = "../../.claude/worktrees-out/policy"
 }
 
@@ -116,6 +124,7 @@ while let a = it.next() {
     case "--init": cfg.initFrom = it.next()
     case "--self-play": cfg.selfPlay = num()
     case "--patience": cfg.patience = Int(num())
+    case "--centre-matches": cfg.centreMatches = Int(num())
     default: FileHandle.standardError.write("TrainTeamAI: unknown argument \(a)\n".data(using: .utf8)!)
     }
 }
@@ -146,13 +155,19 @@ struct Score {
     /// it asks **one** player to contest, not all of them, which is exactly §7.2's rule.
     var fitness: Double {
         if victoryOnly { return goalsFor - goalsAgainst }
-        return 1.0 * (goalsFor - goalsAgainst)
-            + 6.0 * possession
-            + 2.0 * receivers
-            + 0.25 * spread
-            - 0.30 * pressure
-            + 3.0 * territory
-            + 8.0 * attacking
+        // Goals lead now, and by a margin. The first weighting had the shaping terms outvote the
+        // result: the search happily gave up possession (0.369 → 0.288) and goal difference
+        // (+0.63 → +0.20) to buy receiving options (1.00 → 1.50), because at weight 2.0 against
+        // possession's 6.0 that trade still paid. It was optimising the proxy against the thing
+        // the proxy was standing in for. The shaping is scaffolding; it should tip a choice
+        // between two equally successful policies, never buy its way past a worse result.
+        return 4.0 * (goalsFor - goalsAgainst)
+            + 4.0 * possession
+            + 0.6 * receivers
+            + 0.10 * spread
+            - 0.15 * pressure
+            + 0.5 * territory
+            + 2.0 * attacking
     }
 
     static func mean(_ xs: [Score]) -> Score {
@@ -537,7 +552,9 @@ if C.bootstrap {
     exit(0)
 }
 
-let baseline = evaluate(nil, cfg: cfg)
+var baselineCfg = cfg
+baselineCfg.matches = cfg.centreMatches
+let baseline = evaluate(nil, cfg: baselineCfg)
 let baseGoals: String = String(format: "%.2f–%.2f", baseline.goalsFor, baseline.goalsAgainst)
 let baseRest: String = String(format: "poss %.2f  recv %.2f (final %.2f)  spread %.1f m  press %.1f m  terr %+.2f  att %.3f  fitness %.3f",
                               baseline.possession, baseline.receivers, baseline.receiversFinal,
@@ -602,7 +619,9 @@ for iteration in 1...cfg.iterations {
     // The centre is always scored against §7's rules on fixed seeds, never against the pool, so
     // this column means the same thing at iteration 10 and iteration 10,000. A self-play score is
     // not comparable over time — the opponent moved.
-    let centre = evaluate(net(theta), cfg: cfg)
+    var centreCfg = cfg
+    centreCfg.matches = cfg.centreMatches
+    let centre = evaluate(net(theta), cfg: centreCfg)
     if centre.fitness > best {
         best = centre.fitness
         bestTheta = theta

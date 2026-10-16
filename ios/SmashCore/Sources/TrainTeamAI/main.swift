@@ -90,6 +90,12 @@ struct Config {
     /// offset moves the measurement onto seeds it has never been scored against — which is the
     /// only kind of number worth quoting, as two retracted claims tonight attest.
     var evalOffset = 0
+    /// How dearly shape deviation is charged, against goals at weight 4.0. Each of the six shape
+    /// terms is capped at 9, so this times 54 is the most the shape can ever cost — at 0.15 that
+    /// ceiling is 8.1, under which a single goal (4.0) buys a lot of deviation. A high-capacity net
+    /// finds more ways to trade shape for goals than a small one, and at 0.15 the 128-unit run gave
+    /// away the clone's spread (7.3 → 5.5 m) inside forty iterations.
+    var shapeWeight = 0.15
     var bootstrapBatch = 256
     /// `--init <checkpoint>` starts the search from an existing checkpoint instead of random weights.
     var initFrom: String?
@@ -149,6 +155,7 @@ while let a = it.next() {
     case "--sigma-floor": cfg.sigmaFloor = num()
     case "--analyse": cfg.analyse = it.next()
     case "--eval-offset": cfg.evalOffset = Int(num())
+    case "--shape-weight": cfg.shapeWeight = num()
     case "--init": cfg.initFrom = it.next()
     case "--self-play": cfg.selfPlay = num()
     case "--patience": cfg.patience = Int(num())
@@ -214,7 +221,7 @@ struct Score {
 /// `receivers` is left one-sided on purpose — offering a carrier more passing options is not a
 /// thing to do in moderation, and §7's own §7.4 is the part of the spec the shape bench was written
 /// to measure as *deficient*.
-func fitness(_ s: Score, reference r: Score) -> Double {
+func fitness(_ s: Score, reference r: Score, shapeWeight: Double = 0.15) -> Double {
     if s.victoryOnly { return s.goalsFor - s.goalsAgainst }
 
     /// Squared deviation in units of a tolerance, capped so one wayward term cannot drown the rest.
@@ -232,7 +239,7 @@ func fitness(_ s: Score, reference r: Score) -> Double {
 
     return 4.0 * (s.goalsFor - s.goalsAgainst)
         + 0.6 * Swift.max(s.receivers - r.receivers, 0)
-        - 0.15 * shape
+        - shapeWeight * shape
 }
 
 let clubs = Club.allCases
@@ -837,7 +844,7 @@ for iteration in 1...cfg.iterations {
     let scores = parallelScores(candidates.count) { k in
         evaluate(net(candidates[k]), cfg: localCfg, offset: iteration * 97, pool: frozenPool)
     }
-    let fitnesses = scores.map { fitness($0, reference: baseline) }
+    let fitnesses = scores.map { fitness($0, reference: baseline, shapeWeight: localCfg.shapeWeight) }
     let ranks = centredRanks(fitnesses)
 
     // θ ← θ + α · (1 / (n σ)) · Σ rank_k · ε_k, antithetic pairs differenced.
@@ -867,8 +874,8 @@ for iteration in 1...cfg.iterations {
     var centreCfg = cfg
     centreCfg.matches = cfg.centreMatches
     let centre = evaluate(net(theta), cfg: centreCfg)
-    if fitness(centre, reference: baseline) > best {
-        best = fitness(centre, reference: baseline)
+    if fitness(centre, reference: baseline, shapeWeight: C.shapeWeight) > best {
+        best = fitness(centre, reference: baseline, shapeWeight: C.shapeWeight)
         bestTheta = theta
         stale = 0
         writeCheckpoint(theta, "best")
@@ -898,7 +905,7 @@ for iteration in 1...cfg.iterations {
     let rest: String = String(format: "%.3f  %.2f  %.2f   %5.1f  %5.1f  %+.2f  %.3f   %7.3f  %7.3f   %5.1f",
                               centre.possession, centre.receivers, centre.receiversFinal,
                               centre.spread, centre.pressure, centre.territory, centre.attacking,
-                              fitness(centre, reference: baseline), best, secs)
+                              fitness(centre, reference: baseline, shapeWeight: C.shapeWeight), best, secs)
     print(String(format: "%5d  ", iteration) + goals + "   " + rest)
     _ = mean
 }

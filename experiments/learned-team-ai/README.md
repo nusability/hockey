@@ -38,7 +38,7 @@ different clubs with different ratings).
 | | goals | goal difference | gap to §7 |
 |---|---|---|---|
 | `winner.txt` | 0.76–0.38 | **+0.38** | **+0.46** |
-| `balanced.txt` | 0.78–0.55 | **+0.23** | **+0.31** |
+| `balanced.txt` | 0.79–0.44 | **+0.35** | **+0.43** |
 | §7 rules | 0.80–0.88 | −0.08 | — |
 
 Both beat the hand-written AI, and both do it **by defending**: §7 concedes 0.88 a match, the
@@ -52,10 +52,16 @@ None of these are trained on except width, deliberately, so that most of them st
 |---|---|---|---|---|---|---|
 | `clone.txt` | 9.46 m | 60.7 | +4.98 m | 71 % | 4.9 m | 4.9 m |
 | `winner.txt` | 10.17 m | 48.6 | +4.24 m | 64 % | 4.2 m | 6.2 m |
-| `balanced.txt` | 10.07 m | **49.6** | **+5.70 m** | **73 %** | 4.8 m | **6.7 m** |
+| `balanced.txt` | 10.13 m | **49.6** | +4.89 m | **71 %** | 4.6 m | **6.6 m** |
 | §7 rules | 11.02 m | 52.2 | +5.45 m | 72 % | **6.5 m** | 7.0 m |
 
-`balanced.txt` matches or beats §7 on depth, goal-side discipline, spacing and role churn.
+`balanced.txt` matches §7 on goal-side discipline and beats it on role churn, and comes within
+0.4 m on spacing and 0.6 m on depth — while beating it by **+0.43 goals a match**, within a
+rounding error of what the shape-blind `winner.txt` manages. The trade-off that looked real an
+hour earlier (0.15 goals for the shape) largely dissolved as the search continued: it learned to
+do both. An earlier checkpoint of the same run read depth +5.70 m, goal-side 73 %, width 4.8 m at
+a gap of +0.31; the differences in shape between the two are inside what 24 seeds can resolve,
+and the difference in goals is not.
 **Width is the exception, in every policy, including the faithful clone.**
 
 That is not a tuning failure, it is the architecture. Depth, goal-side position and

@@ -42,7 +42,7 @@ different clubs with different ratings).
 | §7 rules | 0.80–0.88 | −0.08 | — |
 
 Both beat the hand-written AI, and both do it **by defending**: §7 concedes 0.88 a match, the
-learned sides 0.38 and 0.55.
+learned sides 0.38 and 0.44. They score no more than §7 does; they let in half as much.
 
 ## Shape, on 24 unseen seeds — and the one that will not come
 

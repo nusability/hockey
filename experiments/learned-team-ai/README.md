@@ -1,13 +1,16 @@
 # Learned team AI — the experiment's artifacts (SMASH-72)
 
-Four policy checkpoints from the night of 2026-10-15/16, and what they measure.
+Five policy checkpoints from the night of 2026-10-15/16, and what they measure. Together they are
+a **measured trade-off curve** between playing like §7 and beating §7 — which is a better thing to
+choose from than one recommendation.
 
 **Nothing here ships.** The shipped path for weights is `shared/assets/policy/` with a declaration
 in `shared/data/policy.toml` and a spec change (ADR `0010`). These are experiment outputs, kept
 because they cost hours of compute and because the numbers below only mean anything next to the
 weights that produced them.
 
-All four are `107 → 32 → 32 → 2`, 4,578 parameters, one hex IEEE-754 double per line in
+Four are `107 → 32 → 32 → 2` (4,578 parameters); `faithful.txt` is `107 → 128 → 128 → 2`
+(30,594), so it needs `--hidden 128`. One hex IEEE-754 double per line, in
 `PolicyNet.parameters` order.
 
 ```
@@ -33,6 +36,7 @@ was ever scored against.
 | `winner.txt` | Goals + shape proxies, **maximised** | Wins; worst to watch |
 | `balanced.txt` | Beat §7 on goals, **match** §7's shape | **The recommendation** |
 | `stronger.txt` | Same objective, 200 iterations later | Wins most; spent the depth to do it |
+| `faithful.txt` | 128 units, shape charged 4× dearer | Looks most like §7; wins nothing |
 
 ## Results — 120 unseen seeds
 
@@ -56,6 +60,34 @@ reproduces §7's *habits* and loses its *results* — small errors compound in a
 gain above comes from the search, not the imitation; the bootstrap only supplies a starting point
 that is not noise.
 
+## The curve
+
+Every row measured on unseen seeds. Read down it: **shape fidelity and goal advantage trade off
+monotonically, and the end points are both useless.**
+
+| | units | shape weight | gap to §7 | width | spacing | goal-side | depth |
+|---|---|---|---|---|---|---|---|
+| `clone.txt` | 32 | imitation only | **−0.73** | 4.9 m | 4.9 m | 71 % | +4.98 m |
+| `winner.txt` | 32 | maximised | +0.46 | 4.2 m | 6.2 m | 64 % | +4.24 m |
+| `stronger.txt` | 32 | 0.15 | **+0.54** | 5.1 m | 6.8 m | 62 % | +2.35 m |
+| `balanced.txt` | 32 | 0.15 | +0.43 | 4.6 m | 6.6 m | **71 %** | +4.89 m |
+| `faithful.txt` | 128 | 0.60 | +0.02 | **5.9 m** | **7.0 m** | **73 %** | +4.25 m |
+| §7 rules | — | — | 0 | 6.5 m | 7.0 m | 72 % | +5.45 m |
+
+The two ends teach the same lesson from opposite directions. **Imitation alone loses** (−0.73):
+copying §7's habits does not reproduce its results, because small errors compound in a closed
+loop. **Constraint alone wins nothing** (+0.02): told firmly enough to match §7 on six statistics,
+the optimum is to *be* §7 — you cannot beat a thing while being required to resemble it closely.
+
+`faithful.txt` is the best-looking policy here by a clear margin — width 5.9 m against every other
+run's 4.2–5.1, spacing exactly §7's 7.0, goal-side discipline 73 %. It is also the only one with no
+advantage over §7 whatsoever. If the goal is "§7 but learned", it is done. If the goal is "better
+than §7", it is the wrong end of the curve.
+
+**The choice this frames:** `balanced.txt` for +0.43 goals a match with most of §7's shape, or
+`faithful.txt` for §7's shape almost exactly and no gain, or somewhere between at a shape weight
+of roughly 0.3 — the obvious untried experiment, and the one I would run next.
+
 ## Shape — 32 unseen seeds
 
 Only `width` and (in later runs) `depth` are trained on. `swarm`, `churn` and `goal-side` are
@@ -67,6 +99,7 @@ deliberately left out of every reward so they stay honest checks.
 | `winner.txt` | 10.17 m | 48.6 | +4.24 m | 64 % | 4.2 m | 6.2 m |
 | `balanced.txt` | 10.13 m | **49.6** | +4.89 m | **71 %** | 4.6 m | **6.6 m** |
 | `stronger.txt` | 9.97 m | **50.4** | +2.35 m | 62 % | 5.1 m | **6.8 m** |
+| `faithful.txt` | 9.92 m | 53.4 | +4.25 m | **73 %** | **5.9 m** | **7.0 m** |
 | §7 rules | 11.02 m | 52.2 | +5.45 m | 72 % | **6.5 m** | 7.0 m |
 
 Read as: *swarm* = mean distance from the ball to **every** outfielder (higher is less of a pack);
@@ -111,11 +144,11 @@ spacing and gives up depth. No mechanism is missing.
 
 ## Next, in order
 
-1. **Train at 64–128 hidden units under the reference-matching objective, with depth in the
-   reward.** The budget is affordable: ADR `0010` measured a 9,472-MAC pass at 3.73 µs on an M1 and
-   ~2 % of a 16.7 ms frame on the OnePlus. Capacity alone is not enough either — the 128-unit clone
-   fits §7's shape and plays *worse* — so it needs the search on top. This is the combination the
-   night never completed.
+1. **A shape weight near 0.3, at 128 units.** The curve above has been measured at both ends and
+   not in the middle. 0.15 at 128 units sells the shape (spacing 7.3 → 5.5 m inside forty
+   iterations); 0.60 holds it exactly and wins nothing. The interesting region is between, and
+   nothing has looked there. Capacity is affordable — ADR `0010` measured a 9,472-MAC pass at
+   3.73 µs on an M1 and ~2 % of a 16.7 ms frame on the OnePlus.
 2. **Start from a plain clone, not a DAgger'd one, when shape matters.** DAgger reliably collapses
    it: spacing 7.3 → 5.1 m at 96 units, 6.6 → 3.9 m at 32. It labels the states the policy drifts
    into, so clustered states come to dominate the data. It buys possession and spends shape.

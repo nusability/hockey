@@ -85,6 +85,11 @@ struct Config {
     /// ball-chasing — for the policy and for §7 side by side, then exits. None of them are trained
     /// on, which is the point: a measure you optimise stops being a measure.
     var analyse: String?
+    /// Seed offset for `--evaluate` and `--analyse`. The search selects its best on seeds 0..<
+    /// `centreMatches`, so a number measured there is a number the search was allowed to fit. An
+    /// offset moves the measurement onto seeds it has never been scored against — which is the
+    /// only kind of number worth quoting, as two retracted claims tonight attest.
+    var evalOffset = 0
     var bootstrapBatch = 256
     /// `--init <checkpoint>` starts the search from an existing checkpoint instead of random weights.
     var initFrom: String?
@@ -143,6 +148,7 @@ while let a = it.next() {
     case "--memory-dropout": cfg.memoryDropout = num()
     case "--sigma-floor": cfg.sigmaFloor = num()
     case "--analyse": cfg.analyse = it.next()
+    case "--eval-offset": cfg.evalOffset = Int(num())
     case "--init": cfg.initFrom = it.next()
     case "--self-play": cfg.selfPlay = num()
     case "--patience": cfg.patience = Int(num())
@@ -523,8 +529,11 @@ if let path = C.evaluateOnly ?? C.replay {
         writeReplay(theta, to: file, seed: C.replaySeed)
         print("replay written: \(file)")
     } else {
-        let learned = evaluate(PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: theta), cfg: C)
-        let rules = evaluate(nil, cfg: C)
+        let learned = evaluate(PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: theta),
+                               cfg: C, offset: C.evalOffset)
+        let rules = evaluate(nil, cfg: C, offset: C.evalOffset)
+        print("seeds \(C.evalOffset)..<\(C.evalOffset + C.matches)"
+              + (C.evalOffset == 0 ? "  (WARNING: the search selects on these)" : "  (unseen by the search)"))
         print("                goals      poss   recv  final  spread  press   terr    att")
         for (label, m) in [("learned", learned), ("§7 rules", rules)] {
             let a = String(format: "%.2f-%.2f", m.goalsFor, m.goalsAgainst)
@@ -547,10 +556,10 @@ if let path = C.analyse {
     print("analysing \(C.matches) seeded matches each way...")
     print("")
     let a = Analyse.Report.mean((0..<C.matches).map {
-        Analyse.match([learned, nil], setup: setup($0, periodSeconds: C.periodSeconds))
+        Analyse.match([learned, nil], setup: setup(C.evalOffset + $0, periodSeconds: C.periodSeconds))
     })
     let b = Analyse.Report.mean((0..<C.matches).map {
-        Analyse.match([nil, nil], setup: setup($0, periodSeconds: C.periodSeconds))
+        Analyse.match([nil, nil], setup: setup(C.evalOffset + $0, periodSeconds: C.periodSeconds))
     })
     print(Analyse.table([("learned", a), ("\u{00A7}7 rules", b)]))
     print("  swarm      mean distance from the ball to EVERY outfielder. Higher is less of a pack.")

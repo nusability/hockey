@@ -28,7 +28,8 @@ never been scored against.
 |---|---|---|
 | `clone.txt` | Imitation of §7 (Adam) + 3 DAgger rounds | The faithful copy. The control. |
 | `winner.txt` | Maximise goals + shape proxies | Best at the game, worst to watch |
-| `balanced.txt` | Beat §7 on goals, **match** §7's shape | The recommended one |
+| `balanced.txt` | Beat §7 on goals, **match** §7's shape | **The recommended one** |
+| `stronger.txt` | The same objective, 200 iterations later | Wins most; defends from a high line |
 
 ## Results, on 120 unseen seeds
 
@@ -39,6 +40,7 @@ different clubs with different ratings).
 |---|---|---|---|
 | `winner.txt` | 0.76–0.38 | **+0.38** | **+0.46** |
 | `balanced.txt` | 0.79–0.44 | **+0.35** | **+0.43** |
+| `stronger.txt` | 0.82–0.36 | **+0.46** | **+0.54** |
 | §7 rules | 0.80–0.88 | −0.08 | — |
 
 Both beat the hand-written AI, and both do it **by defending**: §7 concedes 0.88 a match, the
@@ -53,7 +55,18 @@ None of these are trained on except width, deliberately, so that most of them st
 | `clone.txt` | 9.46 m | 60.7 | +4.98 m | 71 % | 4.9 m | 4.9 m |
 | `winner.txt` | 10.17 m | 48.6 | +4.24 m | 64 % | 4.2 m | 6.2 m |
 | `balanced.txt` | 10.13 m | **49.6** | +4.89 m | **71 %** | 4.6 m | **6.6 m** |
+| `stronger.txt` | 9.97 m | **50.4** | **+2.35 m** | **62 %** | 5.1 m | **6.8 m** |
 | §7 rules | 11.02 m | 52.2 | +5.45 m | 72 % | **6.5 m** | 7.0 m |
+
+`stronger.txt` is the same run 200 iterations on, and it is the clearest demonstration in this
+directory of why untrained measures matter. It wins more than anything else here — a +0.54 gap,
+better than the shape-blind `winner.txt` — and its **depth collapsed from +5.70 m to +2.35 m**
+along the way, with goal-side discipline falling to 62 %. Depth was not in that run's reward (it
+was added afterwards, for exactly this reason), so the search spent it. What it found is a side
+that defends from a high line: a style, not better hockey, and not something anyone asked for.
+
+`balanced.txt` remains the recommendation. It gives up 0.11 goals a match and keeps §7's
+defensive shape.
 
 `balanced.txt` matches §7 on goal-side discipline and beats it on role churn, and comes within
 0.4 m on spacing and 0.6 m on depth — while beating it by **+0.43 goals a match**, within a

@@ -96,6 +96,11 @@ struct Config {
     /// finds more ways to trade shape for goals than a small one, and at 0.15 the 128-unit run gave
     /// away the clone's spread (7.3 → 5.5 m) inside forty iterations.
     var shapeWeight = 0.15
+    /// Start with both nets open, and close them once the policy can finish. See `Match.openNets`.
+    var openNets = false
+    /// Goals a match, measured on the centre, at which the keepers come back. Once closed they
+    /// stay closed — a curriculum that oscillates teaches the policy to straddle both worlds.
+    var closeNetsAt = 1.5
     var bootstrapBatch = 256
     /// `--init <checkpoint>` starts the search from an existing checkpoint instead of random weights.
     var initFrom: String?
@@ -156,6 +161,8 @@ while let a = it.next() {
     case "--analyse": cfg.analyse = it.next()
     case "--eval-offset": cfg.evalOffset = Int(num())
     case "--shape-weight": cfg.shapeWeight = num()
+    case "--open-nets": cfg.openNets = true
+    case "--close-nets-at": cfg.closeNetsAt = num()
     case "--init": cfg.initFrom = it.next()
     case "--self-play": cfg.selfPlay = num()
     case "--patience": cfg.patience = Int(num())
@@ -260,6 +267,7 @@ func length(_ x: Double, _ z: Double) -> Double { (x * x + z * z).squareRoot() }
 func play(_ net: PolicyNet?, seed n: Int, cfg: Config, opponent: PolicyNet? = nil) -> Score {
     var m = Match(setup(n, periodSeconds: cfg.periodSeconds))
     m.installPolicies([net, opponent])
+    m.openNets = cfg.openNets
 
     var s = Score()
     s.victoryOnly = cfg.victoryOnly
@@ -490,8 +498,21 @@ if let path = C.initFrom {
     precondition(theta.count == dim, "--init: \(path) holds \(theta.count) parameters, this shape wants \(dim)")
     print("starting from \(path)")
 } else {
-    theta = (0..<dim).map { _ in gauss.normal() * 0.1 }
-    for k in (dim - nOut * cfg.hidden - nOut)..<dim { theta[k] *= 0.01 }
+    // From scratch. He-scaled, so activations neither vanish nor explode through two layers, with
+    // the output layer small so the first targets sit near the formation spot rather than pinned
+    // to a corner.
+    var k = 0
+    theta = [Double](repeating: 0, count: dim)
+    func fill(_ n: Int, _ scale: Double) {
+        for _ in 0..<n { theta[k] = gauss.normal() * scale; k += 1 }
+    }
+    fill(cfg.hidden * nIn, (2.0 / Double(nIn)).squareRoot())
+    fill(cfg.hidden, 0)
+    fill(cfg.hidden * cfg.hidden, (2.0 / Double(cfg.hidden)).squareRoot())
+    fill(cfg.hidden, 0)
+    fill(nOut * cfg.hidden, 0.01)
+    fill(nOut, 0)
+    print("starting from scratch — \(dim) random parameters, nothing of §7 in them")
 }
 
 print("reward: " + (C.victoryOnly ? "victory alone (goal difference)" : "shaped"))
@@ -874,6 +895,18 @@ for iteration in 1...cfg.iterations {
     var centreCfg = cfg
     centreCfg.matches = cfg.centreMatches
     let centre = evaluate(net(theta), cfg: centreCfg)
+
+    // Keepers come back once the policy can finish. Once closed they stay closed: a curriculum
+    // that oscillates teaches a policy to straddle both worlds and master neither. The best-so-far
+    // is reset with them, because scores earned against an open net are not comparable.
+    if cfg.openNets && centre.goalsFor >= cfg.closeNetsAt {
+        cfg.openNets = false
+        print(String(format: "  = scoring %.2f a match with the nets open - keepers back on from here",
+                     centre.goalsFor))
+        best = -Double.greatestFiniteMagnitude
+        bestTheta = theta
+        stale = 0
+    }
     if fitness(centre, reference: baseline, shapeWeight: C.shapeWeight) > best {
         best = fitness(centre, reference: baseline, shapeWeight: C.shapeWeight)
         bestTheta = theta

@@ -72,6 +72,13 @@ public struct Match: Sendable {
     /// When non-nil, every hand-written re-think appends what it saw and what it chose, so a net
     /// can be fitted to §7's rules before self-play starts improving on them.
     var teachingTape: [TeachingSample]?
+    /// Training only: both keepers stand aside, leaving the nets open (§7.8 untouched otherwise).
+    ///
+    /// A curriculum step, not a rule. A policy learning from random weights never scores, so a
+    /// goal-difference reward is flat and teaches nothing — the search cannot climb what it cannot
+    /// reach. With the nets open a shot on target counts, so "move the ball toward their goal"
+    /// becomes learnable, and the keepers come back once it can finish.
+    public var openNets = false
     /// Each team's `strength` (§7): the one dial on how well the policy plays. 1 is its best.
     var strength = [1.0, 1.0]
     /// Each team's style vector (§7) — what makes two clubs play unlike each other.

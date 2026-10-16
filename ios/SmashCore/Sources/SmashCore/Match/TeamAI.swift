@@ -14,7 +14,14 @@ extension Match {
         for i in rosters[team] where !players[i].isDummy {
             players[i].thinkTimer -= dt
             if players[i].isGoalie {
-                thinkGoalie(i, dt)
+                if openNets {
+                    // Aside, on their own line, well clear of the mouth.
+                    let dir = Pitch.direction(players[i].team)
+                    players[i].target = Match.clampToPlay(
+                        Vec(x: players[i].pos.x >= 0 ? 13.0 : -13.0, z: -dir * Tuning.Pitch.goalLineZ))
+                } else {
+                    thinkGoalie(i, dt)
+                }
                 continue
             }
             if carrier == i {

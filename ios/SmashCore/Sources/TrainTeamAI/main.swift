@@ -229,7 +229,19 @@ struct Score {
 /// thing to do in moderation, and §7's own §7.4 is the part of the spec the shape bench was written
 /// to measure as *deficient*.
 func fitness(_ s: Score, reference r: Score, shapeWeight: Double = 0.15) -> Double {
-    if s.victoryOnly { return s.goalsFor - s.goalsAgainst }
+    if s.victoryOnly {
+        // Goals, and one reflex: how far the ball is from this side's **nearest** player.
+        //
+        // Nearest, not average. Paying every player to approach the ball buys the huddle — §7.2's
+        // "pack of children following the ball". Paying only for the nearest asks exactly one
+        // player to go, which is the reflex, not the tactic. Where the other nine stand is left
+        // entirely open, which is the part meant to emerge.
+        //
+        // It is here because victory alone never found it: 1,000 iterations of self-play produced a
+        // side whose nearest player sat 13.5 m from the ball against §7's 3.7, and which lost
+        // 0.50–2.37. Both sides of a self-play pair can decline to contest and neither is punished.
+        return (s.goalsFor - s.goalsAgainst) - 0.12 * s.pressure
+    }
 
     /// Squared deviation in units of a tolerance, capped so one wayward term cannot drown the rest.
     func off(_ x: Double, _ target: Double, _ tolerance: Double) -> Double {
@@ -264,9 +276,26 @@ func length(_ x: Double, _ z: Double) -> Double { (x * x + z * z).squareRoot() }
 
 /// Plays one match with `net` driving team 0 (or nothing driving it, for the baseline) and §7's
 /// written rules driving team 1, and scores team 0.
-func play(_ net: PolicyNet?, seed n: Int, cfg: Config, opponent: PolicyNet? = nil) -> Score {
+/// Who a candidate is made to play. Past selves keep it honest about its own lineage, §7 is the
+/// absolute yardstick, and the two scripted sides punish the laziness a self-play pair will
+/// happily agree on.
+enum Rival {
+    case rules
+    case policy(PolicyNet)
+    case scripted(Sparring)
+}
+
+func play(_ net: PolicyNet?, seed n: Int, cfg: Config, rival: Rival = .rules) -> Score {
     var m = Match(setup(n, periodSeconds: cfg.periodSeconds))
-    m.installPolicies([net, opponent])
+    switch rival {
+    case .rules:
+        m.installPolicies([net, nil])
+    case .policy(let other):
+        m.installPolicies([net, other])
+    case .scripted(let style):
+        m.installPolicies([net, nil])
+        m.sparring = [nil, style]
+    }
     m.openNets = cfg.openNets
 
     var s = Score()
@@ -411,11 +440,21 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, opponent: PolicyNet? = ni
 /// is currently testing quietly rots. Mixing in §7's rules and *older* checkpoints keeps a side
 /// honest about the things it used to be able to do — the small-scale version of AlphaStar's
 /// league, and the reason a share of matches always stays against the fixed rules.
-func evaluate(_ net: PolicyNet?, cfg: Config, offset: Int = 0, pool: [PolicyNet] = []) -> Score {
-    let selfPlayCount = pool.isEmpty ? 0 : Int((Double(cfg.matches) * cfg.selfPlay).rounded())
+func evaluate(_ net: PolicyNet?, cfg: Config, offset: Int = 0, pool: [PolicyNet] = [],
+              league: Bool = true) -> Score {
+    // The rota, in order, so every candidate in an iteration meets the same opponents on the same
+    // seeds — a paired comparison, which is most of the variance reduction ES gets for free.
+    var rivals: [Rival] = []
+    if league {
+        let scripted = Swift.max(Int(Double(cfg.matches) * 0.15), 1)
+        for k in 0..<scripted { rivals.append(.scripted(k % 2 == 0 ? .chaser : .blocker)) }
+    }
+    let selfPlay = pool.isEmpty ? 0 : Int((Double(cfg.matches) * cfg.selfPlay).rounded())
+    for k in 0..<selfPlay { rivals.append(.policy(pool[k % pool.count])) }
+    while rivals.count < cfg.matches { rivals.append(.rules) }
+
     return Score.mean((0..<cfg.matches).map { k in
-        play(net, seed: offset + k, cfg: cfg,
-             opponent: k < selfPlayCount ? pool[k % pool.count] : nil)
+        play(net, seed: offset + k, cfg: cfg, rival: rivals[k % rivals.count])
     })
 }
 
@@ -586,8 +625,8 @@ if let path = C.evaluateOnly ?? C.replay {
         print("replay written: \(file)")
     } else {
         let learned = evaluate(PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: theta),
-                               cfg: C, offset: C.evalOffset)
-        let rules = evaluate(nil, cfg: C, offset: C.evalOffset)
+                               cfg: C, offset: C.evalOffset, league: false)
+        let rules = evaluate(nil, cfg: C, offset: C.evalOffset, league: false)
         print("seeds \(C.evalOffset)..<\(C.evalOffset + C.matches)"
               + (C.evalOffset == 0 ? "  (WARNING: the search selects on these)" : "  (unseen by the search)"))
         print("                goals      poss   recv  final  spread  press   terr    att")
@@ -827,7 +866,7 @@ if C.bootstrap {
 
 var baselineCfg = cfg
 baselineCfg.matches = cfg.centreMatches
-let baseline = evaluate(nil, cfg: baselineCfg)
+let baseline = evaluate(nil, cfg: baselineCfg, league: false)
 let baseGoals: String = String(format: "%.2f–%.2f", baseline.goalsFor, baseline.goalsAgainst)
 let baseRest: String = String(format: "poss %.2f  recv %.2f (final %.2f)  spread %.1f m  press %.1f m  terr %+.2f  att %.3f  fitness %.3f",
                               baseline.possession, baseline.receivers, baseline.receiversFinal,
@@ -846,6 +885,15 @@ var sigma = C.sigma
 /// Past selves the candidates also have to beat. Capped: a handful of rungs is enough to stop the
 /// forgetting, and every extra one costs matches.
 var opponentPool: [PolicyNet] = []
+/// A frozen earlier self, and what the centre is scored against.
+///
+/// Not §7. Scoring the centre against a much stronger fixed opponent selects for *not conceding*,
+/// because against a side you cannot beat, standing still is the best goal difference available —
+/// and with the training gradient coming from self-play, selection and gradient then pull opposite
+/// ways. Measured: possession against §7 fell to 0.10 while the search was nominally improving.
+/// "Can I beat who I was" is stationary, aligned with what is being trained, and the standard way
+/// to read progress in self-play.
+var benchmark: PolicyNet?
 let poolLimit = 4
 let pairs = cfg.population / 2
 
@@ -894,7 +942,10 @@ for iteration in 1...cfg.iterations {
     // not comparable over time — the opponent moved.
     var centreCfg = cfg
     centreCfg.matches = cfg.centreMatches
-    let centre = evaluate(net(theta), cfg: centreCfg)
+    centreCfg.selfPlay = 1.0
+    // Against the frozen earlier self when there is one; against §7 until then.
+    let centre = benchmark.map { evaluate(net(theta), cfg: centreCfg, pool: [$0], league: false) }
+        ?? evaluate(net(theta), cfg: centreCfg, league: false)
 
     // Keepers come back once the policy can finish. Once closed they stay closed: a curriculum
     // that oscillates teaches a policy to straddle both worlds and master neither. The best-so-far
@@ -906,6 +957,8 @@ for iteration in 1...cfg.iterations {
         best = -Double.greatestFiniteMagnitude
         bestTheta = theta
         stale = 0
+        // Freeze this as the thing to beat, now that the real game has started.
+        benchmark = net(theta)
     }
     if fitness(centre, reference: baseline, shapeWeight: C.shapeWeight) > best {
         best = fitness(centre, reference: baseline, shapeWeight: C.shapeWeight)

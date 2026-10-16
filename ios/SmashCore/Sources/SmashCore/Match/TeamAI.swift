@@ -1,8 +1,32 @@
 /// Automatic play, one team at a time (spec §7): who thinks when, the alert window (§7.9), the
 /// loose ball (§7.1), the challengers (§7.2) and defending (§7.3). Support and shape are in
 /// `Shape.swift`, the carrier in `CarrierAI.swift`, the goalie in `GoalieAI.swift`.
+/// A scripted sparring opponent (training only). Crude by design — see `Match.sparring`.
+public enum Sparring: Sendable {
+    /// Everyone goes for the ball. The huddle, which is exactly what punishes a side that will not
+    /// contest: it loses every loose ball to a team of children.
+    case chaser
+    /// Everyone falls between the ball and their own goal, staggered. Punishes a side that only
+    /// knows how to walk the ball forward.
+    case blocker
+}
+
 extension Match {
     enum Possession { case own, theirs, loose }
+
+    /// Where a scripted sparring player goes.
+    func sparringTarget(_ i: Int, _ style: Sparring) -> Vec {
+        switch style {
+        case .chaser:
+            return Match.clampToPlay(ball.pos)
+        case .blocker:
+            let gz = Pitch.ownGoalZ(players[i].team)
+            // Staggered down the line to the goal, so they screen rather than stack.
+            let t = 0.2 + 0.18 * Double(players[i].slot % 5)
+            return Match.clampToPlay(Vec(x: ball.pos.x * (1.0 - t),
+                                         z: ball.pos.z + (gz - ball.pos.z) * t))
+        }
+    }
 
     mutating func thinkTeam(_ team: Int, _ dt: Double) {
         let carrier = ball.carrier
@@ -31,6 +55,10 @@ extension Match {
             }
             if players[i].thinkTimer > 0 { continue }
             players[i].thinkTimer = Tuning.AI.thinkBase + Tuning.AI.thinkSpread * rng.uniform()
+            if let style = sparring[team] {
+                players[i].target = sparringTarget(i, style)
+                continue
+            }
             if let net = policies[team] {
                 // The learned policy stands in for §7.1–§7.5 entirely: one target, no shaping and no
                 // role assignment behind it. The draw above still happens, in the same place, so the

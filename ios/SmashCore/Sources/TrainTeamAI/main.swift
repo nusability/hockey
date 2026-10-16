@@ -172,6 +172,7 @@ struct Score {
     var territory = 0.0       // mean carry position up the pitch, −1 (own goal) to 1 (theirs)
     var attacking = 0.0       // share of play ticks spent carrying inside the attacking third
     var width = 0.0           // standard deviation of outfield x: does the side use the pitch
+    var depth = 0.0           // how far the deepest defender sits behind the ball, in metres
 
     /// Set from the run's configuration; it selects which reward `fitness(_:reference:)` returns.
     var victoryOnly = false
@@ -191,6 +192,7 @@ struct Score {
         m.territory = xs.reduce(0) { $0 + $1.territory } / n
         m.attacking = xs.reduce(0) { $0 + $1.attacking } / n
         m.width = xs.reduce(0) { $0 + $1.width } / n
+        m.depth = xs.reduce(0) { $0 + $1.depth } / n
         return m
     }
 }
@@ -226,6 +228,7 @@ func fitness(_ s: Score, reference r: Score) -> Double {
         + off(s.width, r.width, 1.0)
         + off(s.pressure, r.pressure, 0.5)
         + off(s.attacking, r.attacking, 0.03)
+        + off(s.depth, r.depth, 1.0)
 
     return 4.0 * (s.goalsFor - s.goalsAgainst)
         + 0.6 * Swift.max(s.receivers - r.receivers, 0)
@@ -262,6 +265,7 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, opponent: PolicyNet? = ni
     var spreadSamples = 0
     var pressureTotal = 0.0
     var widthTotal = 0.0
+    var depthTotal = 0.0
 
     let goalZ = Tuning.Pitch.goalLineZ
     // A match of three periods runs ~18.6k ticks at a 40 s period. A policy that cannot get the
@@ -313,6 +317,16 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, opponent: PolicyNet? = ni
                 variance += d * d
             }
             widthTotal += (variance / Double(mine.count)).squareRoot()
+        }
+
+        // Depth: how far the deepest defender sits behind the ball. Added to the *trained* reward
+        // rather than left as an honest check, because "leave the defenders back" is one of the
+        // stated objectives and an untrained property drifts — the 128-unit clone that matched §7's
+        // width exactly sat at +2.13 m of depth against §7's +5.45. Swarm and role churn stay
+        // untrained, so something is still watching from outside.
+        let defenders = mine.filter { snap.players[$0].role == .defender }
+        if let deepest = defenders.min(by: { snap.players[$0].z < snap.players[$1].z }) {
+            depthTotal += snap.ball.z - snap.players[deepest].z
         }
 
         // How far the ball is from this side's nearest outfielder: the dense term.
@@ -371,6 +385,7 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, opponent: PolicyNet? = ni
     s.spread = spreadSamples > 0 ? spreadTotal / Double(spreadSamples) : 0
     s.pressure = playTicks > 0 ? pressureTotal / Double(playTicks) : 0
     s.width = playTicks > 0 ? widthTotal / Double(playTicks) : 0
+    s.depth = playTicks > 0 ? depthTotal / Double(playTicks) : 0
     return s
 }
 

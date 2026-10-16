@@ -172,33 +172,9 @@ struct Score {
     var territory = 0.0       // mean carry position up the pitch, −1 (own goal) to 1 (theirs)
     var attacking = 0.0       // share of play ticks spent carrying inside the attacking third
     var width = 0.0           // standard deviation of outfield x: does the side use the pitch
-    /// Set from the run's configuration; it selects which of the two rewards `fitness` returns.
-    var victoryOnly = false
 
-    /// The single number ES climbs.
-    ///
-    /// `pressure` is the term that makes the first few hundred iterations possible. Possession and
-    /// goals are both *sparse* — a side that has not yet learned to move toward the ball scores
-    /// identically badly however its weights are perturbed, which is a flat landscape. "How far is
-    /// the ball from your nearest player" always has a slope, and it is the right thing to shape on:
-    /// it asks **one** player to contest, not all of them, which is exactly §7.2's rule.
-    var fitness: Double {
-        if victoryOnly { return goalsFor - goalsAgainst }
-        // Goals lead now, and by a margin. The first weighting had the shaping terms outvote the
-        // result: the search happily gave up possession (0.369 → 0.288) and goal difference
-        // (+0.63 → +0.20) to buy receiving options (1.00 → 1.50), because at weight 2.0 against
-        // possession's 6.0 that trade still paid. It was optimising the proxy against the thing
-        // the proxy was standing in for. The shaping is scaffolding; it should tip a choice
-        // between two equally successful policies, never buy its way past a worse result.
-        return 4.0 * (goalsFor - goalsAgainst)
-            + 4.0 * possession
-            + 0.6 * receivers
-            + 0.10 * spread
-            - 0.15 * pressure
-            + 0.5 * territory
-            + 2.0 * attacking
-            + 0.5 * width
-    }
+    /// Set from the run's configuration; it selects which reward `fitness(_:reference:)` returns.
+    var victoryOnly = false
 
     static func mean(_ xs: [Score]) -> Score {
         guard !xs.isEmpty else { return Score() }
@@ -217,6 +193,43 @@ struct Score {
         m.width = xs.reduce(0) { $0 + $1.width } / n
         return m
     }
+}
+
+
+/// What the search climbs: **beat §7 on goals, resemble §7 in shape.**
+///
+/// Every shape term in the earlier rewards was monotone — more width better, more spacing better —
+/// and that is the wrong shape of objective for the thing being bought. Realism is a *range*, not
+/// an extreme: a side whose players stand as far apart as possible is no more a hockey team than
+/// one filing down the middle, and maximising a proxy walks straight out of the range that made it
+/// a good proxy. Measured consequence: the policy that maximised these terms ended up narrower
+/// (4.2 m against §7's 6.5), deeper and more packed than the rules it replaced, while winning.
+///
+/// So the shape terms now penalise *deviation from §7* rather than rewarding extremes. §7 is the
+/// reference because it was hand-tuned until it looked right and nothing better has shipped. Goals
+/// stay a one-sided drive: resemble §7's shape, and beat it at the result.
+///
+/// `receivers` is left one-sided on purpose — offering a carrier more passing options is not a
+/// thing to do in moderation, and §7's own §7.4 is the part of the spec the shape bench was written
+/// to measure as *deficient*.
+func fitness(_ s: Score, reference r: Score) -> Double {
+    if s.victoryOnly { return s.goalsFor - s.goalsAgainst }
+
+    /// Squared deviation in units of a tolerance, capped so one wayward term cannot drown the rest.
+    func off(_ x: Double, _ target: Double, _ tolerance: Double) -> Double {
+        let d = (x - target) / tolerance
+        return Swift.min(d * d, 9.0)
+    }
+
+    let shape = off(s.possession, r.possession, 0.05)
+        + off(s.spread, r.spread, 1.0)
+        + off(s.width, r.width, 1.0)
+        + off(s.pressure, r.pressure, 0.5)
+        + off(s.attacking, r.attacking, 0.03)
+
+    return 4.0 * (s.goalsFor - s.goalsAgainst)
+        + 0.6 * Swift.max(s.receivers - r.receivers, 0)
+        - 0.15 * shape
 }
 
 let clubs = Club.allCases
@@ -776,7 +789,7 @@ let baseGoals: String = String(format: "%.2f–%.2f", baseline.goalsFor, baselin
 let baseRest: String = String(format: "poss %.2f  recv %.2f (final %.2f)  spread %.1f m  press %.1f m  terr %+.2f  att %.3f  fitness %.3f",
                               baseline.possession, baseline.receivers, baseline.receiversFinal,
                               baseline.spread, baseline.pressure, baseline.territory,
-                              baseline.attacking, baseline.fitness)
+                              baseline.attacking, fitness(baseline, reference: baseline))
 print("baseline  §7's written rules vs itself   goals " + baseGoals + "  " + baseRest)
 print("")
 print(" iter    goals     poss   recv  final  spread  press   terr    att    fitness    best      secs")
@@ -809,7 +822,7 @@ for iteration in 1...cfg.iterations {
     let scores = parallelScores(candidates.count) { k in
         evaluate(net(candidates[k]), cfg: localCfg, offset: iteration * 97, pool: frozenPool)
     }
-    let fitnesses = scores.map(\.fitness)
+    let fitnesses = scores.map { fitness($0, reference: baseline) }
     let ranks = centredRanks(fitnesses)
 
     // θ ← θ + α · (1 / (n σ)) · Σ rank_k · ε_k, antithetic pairs differenced.
@@ -839,8 +852,8 @@ for iteration in 1...cfg.iterations {
     var centreCfg = cfg
     centreCfg.matches = cfg.centreMatches
     let centre = evaluate(net(theta), cfg: centreCfg)
-    if centre.fitness > best {
-        best = centre.fitness
+    if fitness(centre, reference: baseline) > best {
+        best = fitness(centre, reference: baseline)
         bestTheta = theta
         stale = 0
         writeCheckpoint(theta, "best")
@@ -870,10 +883,11 @@ for iteration in 1...cfg.iterations {
     let rest: String = String(format: "%.3f  %.2f  %.2f   %5.1f  %5.1f  %+.2f  %.3f   %7.3f  %7.3f   %5.1f",
                               centre.possession, centre.receivers, centre.receiversFinal,
                               centre.spread, centre.pressure, centre.territory, centre.attacking,
-                              centre.fitness, best, secs)
+                              fitness(centre, reference: baseline), best, secs)
     print(String(format: "%5d  ", iteration) + goals + "   " + rest)
     _ = mean
 }
 
 print("")
-print(String(format: "done — best fitness %.3f, baseline %.3f. Checkpoints in %@", best, baseline.fitness, outDir))
+print(String(format: "done — best fitness %.3f, baseline %.3f. Checkpoints in %@",
+             best, fitness(baseline, reference: baseline), outDir))

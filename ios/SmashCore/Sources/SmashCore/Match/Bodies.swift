@@ -33,6 +33,10 @@ struct Athlete: Sendable {
     /// times a second and end up in the same place.
     var onTheBall = false
     var thinkTimer = 0.0
+    /// What is left in the legs, 1 down to 0 (training only, behind `Match.stamina`).
+    var energy = 1.0
+    /// Steps since the learned carrier last consulted its policy (§7.6).
+    var policyThink = 0
     /// A patrolling dummy's next step reports zero velocity (§10: zero across a reset).
     var patrolFresh = true
 

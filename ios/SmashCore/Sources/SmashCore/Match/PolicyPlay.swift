@@ -36,14 +36,20 @@ public enum PolicyInputs {
     public static let anticipationCount = 5
     /// What this player decided last time (2) — the policy's own memory. See `observe`.
     public static let memoryCount = 2
+    /// The ball on this player's stick (15): where the aim points **relative to the things worth
+    /// aiming at**, and how soon it will point at each of them.
+    public static let carryCount = 15
 
     public static let count = selfCount + ballCount + rankCount + alertCount + contextCount
         + strengthCount + styleCount
         + 2 * outfieldSlots * fieldsPerPlayer
-        + goalieCount + homeCount + anticipationCount + memoryCount
+        + goalieCount + homeCount + anticipationCount + memoryCount + carryCount
 
-    /// Two outputs: where to stand, as an offset from the formation spot (§7).
-    public static let outputCount = 2
+    /// Three outputs: where to stand as an offset from the formation spot, and — when carrying —
+    /// whether to let the ball go right now (§5.3, §7).
+    public static let outputCount = 3
+    /// The index of the release output.
+    public static let releaseOutput = 2
 
     // The action's scales, which are deliberately **not** the observation's. The offset is measured
     // from the formation spot, so it must span the pitch twice over: a player whose spot is at
@@ -214,6 +220,69 @@ extension Match {
         o += [dir * (previous.x - me.home.x) / PolicyInputs.actionXScale,
               dir * (previous.z - me.home.z) / PolicyInputs.actionZScale]
 
+        // The ball on the stick (15): am I carrying, where the aim points **relative to the goal
+        // and to each team-mate**, how soon it will swing onto each of them, which way it is
+        // turning, how long I have held it, and what a release right now would hit.
+        //
+        // Relative, not absolute. An orbit angle of 29° means nothing on its own — the net would
+        // have to combine it with the goal's bearing and five team-mates' bearings through two
+        // ReLU layers to recover the only thing that matters, which is *how far round until the
+        // aim points at something worth hitting*. Handing it that difference directly costs eight
+        // numbers and saves the net from doing trigonometry it is poorly suited to.
+        //
+        // The turn fractions are the human reading: "a quarter turn until it points at the goal,
+        // a tenth until it points at the winger". That is what holding on for one more beat is
+        // *for*, and §5.2's auto-aim is what makes it pay.
+        if carrier == i {
+            let gz = Pitch.attackGoalZ(team)
+            let toGoal = Pitch.heading(0.0 - me.pos.x, gz - me.pos.z)
+            let offGoal = Pitch.angleDiff(toGoal, ball.orbit)
+
+            /// How much of a full turn until the aim sweeps onto `target`, going the way it is
+            /// going: 0 means it points there now, 0.5 means half a revolution away.
+            func turnsUntil(_ target: Double) -> Double {
+                var travel = Pitch.angleDiff(target, ball.orbit) * ball.orbitDirection
+                if travel < 0 { travel += Pitch.twoPi }
+                return travel / Pitch.twoPi
+            }
+
+            var snapPass = 0.0, snapShot = 0.0, snapNone = 0.0
+            var targetDistance = 0.0
+            switch snap(i, orbit: ball.orbit) {
+            case .pass(let m)?:
+                snapPass = 1
+                targetDistance = Pitch.distance(me.pos, players[m].pos) / P.zScale
+            case .shot?:
+                snapShot = 1
+                targetDistance = Pitch.distance(me.pos, Vec(x: 0, z: gz)) / P.zScale
+            case nil:
+                snapNone = 1
+            }
+
+            o += [1,
+                  DetMath.sin(offGoal), DetMath.cos(offGoal),
+                  turnsUntil(toGoal),
+                  ball.orbitDirection,
+                  Pitch.clamp(me.holdTime / 3.5, 0, 1),
+                  snapPass, snapShot, snapNone,
+                  Pitch.clamp(targetDistance, 0, 2)]
+
+            // And the same reading for each team-mate slot, in roster order: how far round until
+            // the aim points at them. 1 for a slot nobody fills, which reads as "never".
+            let mates = outfield(team)
+            for slot in 0..<P.outfieldSlots {
+                if slot < mates.count, mates[slot] != i {
+                    let m = mates[slot]
+                    o.append(turnsUntil(Pitch.heading(players[m].pos.x - me.pos.x,
+                                                      players[m].pos.z - me.pos.z)))
+                } else {
+                    o.append(1)
+                }
+            }
+        } else {
+            o += [Double](repeating: 0, count: P.carryCount)
+        }
+
         precondition(o.count == P.count, "observe: built \(o.count) inputs, declared \(P.count)")
         return o
     }
@@ -257,7 +326,14 @@ extension Match {
     /// This is a parameterisation, not a rule the policy obeys: the offset spans the pitch, so any
     /// target remains reachable from any spot. Nothing here decides where a player goes.
     func policyTarget(_ i: Int, net: PolicyNet, ranking: [(index: Int, distance: Double)]) -> Vec {
-        let out = net.forward(observe(i, ranking: ranking))
+        decodeTarget(i, net.forward(observe(i, ranking: ranking)))
+    }
+
+    /// The target an already-computed forward pass asks for. Split out so a carrier — which needs
+    /// the release output on the same step — pays for **one** pass rather than two. The carrier
+    /// thinks every step (§7.6), so that doubling was most of the simulation's cost: it ran the
+    /// net 240 times a second per carrier where the off-ball players run it eight.
+    func decodeTarget(_ i: Int, _ out: [Double]) -> Vec {
         let dir = Pitch.direction(players[i].team)
         let fx = DetPolicy.squash(out[0]) * PolicyInputs.actionXScale
         let fz = DetPolicy.squash(out[1]) * PolicyInputs.actionZScale

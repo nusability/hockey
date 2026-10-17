@@ -1,6 +1,28 @@
 /// How players move (spec §3, §8.1, §10): toward their target in play, easing to a stop outside
 /// it, patrolling dummies on their rails, contact between players, and the boundary and nets.
 extension Match {
+
+    /// A player's top speed right now: their rated pace, scaled by what is left in the legs.
+    /// Identical to the rated pace unless `stamina` is on, so no vector moves.
+    func topSpeedNow(_ i: Int) -> Double {
+        guard stamina else { return players[i].topSpeed }
+        // At empty, 65 % of pace. Tired players are slower, never stranded.
+        return players[i].topSpeed * (0.65 + 0.35 * players[i].energy)
+    }
+
+    /// Spends and recovers energy for one step. Sprinting drains; walking pays back, more slowly.
+    mutating func spendEnergy(_ dt: Double) {
+        guard stamina else { return }
+        for i in players.indices where players[i].isOutfield {
+            let speed = Pitch.length(players[i].vel.x, players[i].vel.z)
+            let share = speed / Pitch.greater(players[i].topSpeed, 1.0)
+            // A full-pace sprint empties the legs in about 50 s; standing refills them in about 90.
+            let drain = share * share * dt / 50.0
+            let recovery = (1.0 - share) * dt / 90.0
+            players[i].energy = Pitch.clamp(players[i].energy - drain + recovery, 0, 1)
+        }
+    }
+
     // MARK: §4.5 step 5
 
     mutating func movePlayers(_ dt: Double, live: Bool) {
@@ -17,7 +39,7 @@ extension Match {
                 let dz = t.z - players[i].pos.z
                 let d = Pitch.length(dx, dz)
                 if d > Tuning.Player.arriveDeadZone {
-                    let speed = Pitch.lesser(players[i].topSpeed, Tuning.Player.arriveGain * d)
+                    let speed = Pitch.lesser(topSpeedNow(i), Tuning.Player.arriveGain * d)
                     want = Vec(x: dx / d * speed, z: dz / d * speed)
                 }
             }

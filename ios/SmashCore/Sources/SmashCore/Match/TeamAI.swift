@@ -50,7 +50,7 @@ extension Match {
             }
             if carrier == i {
                 players[i].holdTime += dt
-                thinkCarrier(i)
+                thinkCarrier(i, ranking: ranking)
                 continue
             }
             if players[i].thinkTimer > 0 { continue }

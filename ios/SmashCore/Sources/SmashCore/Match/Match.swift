@@ -87,6 +87,30 @@ public struct Match: Sendable {
     /// only chases, and one that only blocks, cannot sign that kind of truce. They are deliberately
     /// too stupid to be worth imitating; their job is to punish laziness, not to teach play.
     public var sparring: [Sparring?] = [nil, nil]
+    /// Training only: running costs something.
+    ///
+    /// Without it, covering the pitch end to end at top speed is free, and a side that collapses
+    /// every player onto its own goal and then sprints them all forward again pays nothing for it.
+    /// That is most of why the bus is such a strong strategy here and such a weak one in a real
+    /// match — real legs run out. Drains with speed, recovers while slow, and never takes a player
+    /// below `Tuning` minimum pace, so a tired side is slower, not stranded.
+    public var stamina = false
+    /// Training only: how play restarts, instead of at a face-off spot. `nil` is the real game.
+    ///
+    /// The cure for a reward that cannot be reached. From random weights the chain needed to score
+    /// — win the ball, carry it, turn, wait for the orbit, release on the right beat — is far too
+    /// long to stumble into, so every match ends 0–0 and the search has nothing to climb.
+    ///
+    /// The rungs chain backwards from the goal. Handed the ball six metres out, the last link is
+    /// learnable on its own; back away and it joins the links one at a time. The later rungs take
+    /// the ball *away* again, because a ladder made only of `ours` teaches finishing and never
+    /// teaches winning possession — measured, after 110 iterations of full matches: a side that
+    /// offered nearly twice §7's passing options and reached the attacking third a quarter as often.
+    ///
+    /// **It shapes which situations the policy meets, never what it should do in them.**
+    public var trainingSpawn: TrainingStart?
+    /// Draws for the training spawn. Its own stream: the match's (§4.3) must not move.
+    public var spawnRNG = SplitMix64(seed: 0)
     /// Each team's `strength` (§7): the one dial on how well the policy plays. 1 is its best.
     var strength = [1.0, 1.0]
     /// Each team's style vector (§7) — what makes two clubs play unlike each other.
@@ -255,6 +279,7 @@ public struct Match: Sendable {
             thinkTeam(1, dt)
         }
         movePlayers(dt, live: live)                          // 5
+        spendEnergy(dt)
         resolveContacts()                                    // 6
         constrainPlayers()
         if live { moveLiveBall(dt) } else { moveIdleBall(dt) } // 7

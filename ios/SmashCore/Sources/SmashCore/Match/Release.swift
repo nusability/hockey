@@ -112,6 +112,32 @@ extension Match {
         Tuning.Release.earlyLook.first { snap(c, orbit: ball.orbit + omega * $0 * ball.orbitDirection) != nil }
     }
 
+    /// A learned carrier letting the ball go, down the player's own path (§5.2, §5.3).
+    ///
+    /// Deliberately the player's route and not §7.6's. The written rules choose a target and then
+    /// wait for the orbit to swing round to it; a person holds, watches the aim, and releases on
+    /// the instant they like. Letting the policy do the same is the point of giving it the ball —
+    /// the timing *is* the skill, and it is the one part of this game a human actually plays.
+    ///
+    /// Accuracy stays the AI's, scaled by rating (§7.6), not the player's flat figure: the policy
+    /// should play by a person's rules, not with better hands than one.
+    ///
+    /// Returns false when nothing was released, so the caller can carry on dribbling.
+    mutating func policyLift(_ c: Int) -> Bool {
+        typealias C = Tuning.AI.Carrier
+        guard state == .play, ball.carrier == c else { return false }
+        let accuracy = C.accuracyBase + C.accuracyPerSkill * skill[players[c].team]
+        if let s = snap(c, orbit: ball.orbit) {
+            release(c, to: s, aim: ball.orbit, accuracy: accuracy)
+            return true
+        }
+        if let l = lateSnap(c) {
+            release(c, to: l.snap, aim: l.orbit, accuracy: accuracy)
+            return true
+        }
+        return false
+    }
+
     mutating func playerLift() {
         guard state == .play, let c = ball.carrier, isPlayerControlled(c) else { return }
         let accuracy = Tuning.Release.playerAccuracy

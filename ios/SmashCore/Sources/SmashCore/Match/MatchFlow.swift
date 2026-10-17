@@ -165,6 +165,10 @@ extension Match {
 
     /// A face-off (§8.2): the ball on the spot, each team lined up by roster slot around it.
     mutating func setUpFaceOff(at spot: Spot) {
+        if let start = trainingSpawn {
+            spawnTraining(start)
+            return
+        }
         enter(.faceOff, for: Tuning.Match.faceoffTime)
         clearForRestart()
         ball.pos = Vec(x: spot.x, z: spot.z)
@@ -195,6 +199,90 @@ extension Match {
 
     /// A drill reset (§10): everyone to their start, the ball orbiting from behind the named player,
     /// then 1.4 s of "get ready".
+}
+
+/// How a training restart places the ball (training only). See `Match.trainingSpawn`.
+public enum TrainingStart: Sendable {
+    /// Team 0 holds it, this far from the goal it attacks. Teaches finishing.
+    case ours(Double)
+    /// Nobody holds it, this far from the goal team 0 attacks. Teaches winning a loose ball.
+    case loose(Double)
+    /// Team 1 holds it, this far from the goal **team 0 defends**. Teaches taking it back.
+    case theirs(Double)
+}
+
+extension Match {
+
+    /// Restarts play from a training situation rather than a face-off.
+    ///
+    /// Everyone is jittered so the policy meets a spread of positions rather than one rehearsed
+    /// tableau, and the side without the ball is placed goal-side of it so the situation is a real
+    /// contest and not a walk-in.
+    mutating func spawnTraining(_ start: TrainingStart) {
+        enter(.ready, for: Tuning.Training.ready)
+        clearForRestart()
+
+        func jitter(_ scale: Double) -> Double { (spawnRNG.uniform() * 2.0 - 1.0) * scale }
+
+        let dir = Pitch.direction(0)
+        let ballX = jitter(8.0)
+        let ballZ: Double
+        switch start {
+        case .ours(let d), .loose(let d): ballZ = Pitch.attackGoalZ(0) - dir * d
+        case .theirs(let d): ballZ = Pitch.ownGoalZ(0) + dir * d
+        }
+
+        /// Places one side: `holds` gets the ball, the other is pushed goal-side of it.
+        /// `defendingTeam` is the side whose goal the ball is heading toward.
+        func place(_ team: Int, holds: Bool) -> Int? {
+            var holder: Int?
+            let toward = Pitch.direction(team)
+            for (n, i) in rosters[team].enumerated() {
+                if players[i].isGoalie {
+                    players[i].pos = Vec(x: 0, z: Pitch.ownGoalZ(team) + toward * 2.5)
+                } else if holds && holder == nil {
+                    holder = i
+                    players[i].pos = Match.clampToPlay(Vec(x: ballX, z: ballZ))
+                } else {
+                    // With the ball: spread behind it, i.e. back toward our own goal. Without:
+                    // between the ball and the goal we **defend**, which is the opposite way again.
+                    //
+                    // `toward` is the direction this team attacks, so goal-side of the ball for a
+                    // defender is `-toward`. Getting that sign wrong put every defender upfield of
+                    // the ball and turned each rung into a walk-in: one arm was scoring 14 goals a
+                    // match from 24 m before this was caught.
+                    let along = holds ? -toward * (2.0 + Double(n) * 2.0)
+                                      : -toward * (1.6 + Double(n) * 1.4)
+                    players[i].pos = Match.clampToPlay(
+                        Vec(x: ballX + jitter(holds ? 10.0 : 7.0), z: ballZ + along + jitter(3.5)))
+                }
+                players[i].vel = .zero
+                players[i].facing = Pitch.heading(0 - players[i].pos.x,
+                                                  Pitch.attackGoalZ(team) - players[i].pos.z)
+            }
+            return holder
+        }
+
+        var holder: Int?
+        switch start {
+        case .ours:
+            holder = place(0, holds: true); _ = place(1, holds: false)
+        case .theirs:
+            _ = place(0, holds: false); holder = place(1, holds: true)
+        case .loose:
+            // Neither side holds it and neither is favoured: both arrive from their own side.
+            _ = place(0, holds: false); _ = place(1, holds: false)
+            ball.pos = Match.clampToPlay(Vec(x: ballX, z: ballZ))
+            ball.vel = .zero
+        }
+
+        if let h = holder {
+            ball.orbit = Pitch.wrap(players[h].facing + Pitch.pi)
+            takeBall(h, reorient: false)
+        }
+        emit(.ready)
+    }
+
     mutating func resetDrill() {
         guard let drill else { return }
         enter(.ready, for: Tuning.Training.ready)

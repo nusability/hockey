@@ -1,9 +1,29 @@
 /// An outfield carrier (spec §7.6–§7.7): the AI's decision and its wait for the orbit to line up,
 /// and every carrier's movement — the player's carriers included.
 extension Match {
-    mutating func thinkCarrier(_ i: Int) {
+    mutating func thinkCarrier(_ i: Int, ranking: [(index: Int, distance: Double)] = []) {
         typealias C = Tuning.AI.Carrier
         let threat = nearestThreat(to: i)
+        if let net = policies[players[i].team], !isPlayerControlled(i) {
+            // The policy has the ball. One decision, the same one a person makes: let go, or keep
+            // hold. What it hits is the auto-aim's business (§5.2), which is why the orbit and the
+            // current snap are on the observation.
+            // Every fourth step — 60 Hz, not the step rate.
+            //
+            // A carrier thinks every step under §7.6, and at 240 Hz a 122-value observation plus a
+            // forward pass dominated the whole simulation: it was four fifths of the cost of a
+            // match. The resolution is not needed. The orbit takes about two seconds to come round,
+            // and §7.6's own alignment tolerance is some twelve degrees; 60 Hz resolves the orbit
+            // to six. Between consultations the carrier keeps running at the target it was given.
+            players[i].policyThink += 1
+            if players[i].policyThink >= 4 {
+                players[i].policyThink = 0
+                let out = net.forward(observe(i, ranking: ranking))
+                if out[PolicyInputs.releaseOutput] > 0.0, policyLift(i) { return }
+                players[i].target = decodeTarget(i, out)
+            }
+            return
+        }
         if !isPlayerControlled(i) {
             if players[i].thinkTimer <= 0 && players[i].holdTime > C.decideAfter {
                 players[i].thinkTimer = C.rethinkBase + C.rethinkSpread * rng.uniform()

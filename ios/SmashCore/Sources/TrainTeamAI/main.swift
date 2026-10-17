@@ -90,6 +90,8 @@ struct Config {
     /// offset moves the measurement onto seeds it has never been scored against — which is the
     /// only kind of number worth quoting, as two retracted claims tonight attest.
     var evalOffset = 0
+    /// `--versus <checkpoint>` puts another policy on team 1 instead of §7, for a head-to-head.
+    var versus: String?
     /// How dearly shape deviation is charged, against goals at weight 4.0. Each of the six shape
     /// terms is capped at 9, so this times 54 is the most the shape can ever cost — at 0.15 that
     /// ceiling is 8.1, under which a single goal (4.0) buys a lot of deviation. A high-capacity net
@@ -98,9 +100,39 @@ struct Config {
     var shapeWeight = 0.15
     /// Start with both nets open, and close them once the policy can finish. See `Match.openNets`.
     var openNets = false
+    /// Running costs something. See `Match.stamina`.
+    var stamina = false
     /// Goals a match, measured on the centre, at which the keepers come back. Once closed they
     /// stay closed — a curriculum that oscillates teaches the policy to straddle both worlds.
     var closeNetsAt = 1.5
+    /// How far from the goal play restarts, rung by rung, before the real game takes over.
+    ///
+    /// Six metres is a tap-in; the last link of the chain and the only one learnable on its own.
+    /// Each rung is climbed when the side scores `closeNetsAt` a match, so it joins the chain
+    /// backwards. The final rung is the real thing: ordinary face-offs, keepers on.
+    /// Finish, then build, then win it back. The first four rungs hand over the ball and back
+    /// away; the last three take it away again, because a ladder made only of `ours` teaches
+    /// finishing and nothing else.
+    var spawnLadder: [TrainingStart] = [
+        .ours(6), .ours(14), .ours(24),
+        .loose(18), .loose(30),
+        .theirs(24),
+    ]
+    /// The goals a match each rung asks for before the next one.
+    ///
+    /// One bar for every rung is wrong: 2.5 a match from a ball handed to you six metres out is
+    /// trivial, and from the opponent's possession it may be unreachable. The bar falls as the
+    /// situation gets harder, so the ladder keeps moving instead of stalling on rung four.
+    var rungBar: [Double] = [3.0, 2.5, 2.0, 1.5, 1.0, 0.8]
+    /// Iterations on one rung before it is climbed regardless. A rung nobody can clear should not
+    /// swallow a whole night — a forced promotion is logged, so a policy stranded above its ability
+    /// is visible rather than silent.
+    var rungPatience = 400
+    var rung = 0
+    /// Consecutive iterations above the threshold before a rung is climbed. One good iteration is
+    /// luck — a random net scores 2.6 a match from six metres — and promoting on it strands the
+    /// policy a rung above what it can actually do.
+    var holdFor = 4
     var bootstrapBatch = 256
     /// `--init <checkpoint>` starts the search from an existing checkpoint instead of random weights.
     var initFrom: String?
@@ -160,9 +192,14 @@ while let a = it.next() {
     case "--sigma-floor": cfg.sigmaFloor = num()
     case "--analyse": cfg.analyse = it.next()
     case "--eval-offset": cfg.evalOffset = Int(num())
+    case "--versus": cfg.versus = it.next()
     case "--shape-weight": cfg.shapeWeight = num()
     case "--open-nets": cfg.openNets = true
+    case "--stamina": cfg.stamina = true
+    case "--seed": cfg.seed = UInt64(Swift.max(num(), 0))
     case "--close-nets-at": cfg.closeNetsAt = num()
+    case "--no-ladder": cfg.spawnLadder = []
+    case "--hold-for": cfg.holdFor = Int(num())
     case "--init": cfg.initFrom = it.next()
     case "--self-play": cfg.selfPlay = num()
     case "--patience": cfg.patience = Int(num())
@@ -186,6 +223,8 @@ struct Score {
     var territory = 0.0       // mean carry position up the pitch, −1 (own goal) to 1 (theirs)
     var attacking = 0.0       // share of play ticks spent carrying inside the attacking third
     var width = 0.0           // standard deviation of outfield x: does the side use the pitch
+    var wins = 0.0            // 1 for a win, 0 otherwise — a league's currency, not goal difference
+    var draws = 0.0
     var depth = 0.0           // how far the deepest defender sits behind the ball, in metres
 
     /// Set from the run's configuration; it selects which reward `fitness(_:reference:)` returns.
@@ -206,6 +245,8 @@ struct Score {
         m.territory = xs.reduce(0) { $0 + $1.territory } / n
         m.attacking = xs.reduce(0) { $0 + $1.attacking } / n
         m.width = xs.reduce(0) { $0 + $1.width } / n
+        m.wins = xs.reduce(0) { $0 + $1.wins } / n
+        m.draws = xs.reduce(0) { $0 + $1.draws } / n
         m.depth = xs.reduce(0) { $0 + $1.depth } / n
         return m
     }
@@ -230,17 +271,30 @@ struct Score {
 /// to measure as *deficient*.
 func fitness(_ s: Score, reference r: Score, shapeWeight: Double = 0.15) -> Double {
     if s.victoryOnly {
-        // Goals, and one reflex: how far the ball is from this side's **nearest** player.
+        // **League points, not goal difference** — plus one reflex the search cannot discover.
         //
-        // Nearest, not average. Paying every player to approach the ball buys the huddle — §7.2's
-        // "pack of children following the ball". Paying only for the nearest asks exactly one
-        // player to go, which is the reflex, not the tactic. Where the other nine stand is left
-        // entirely open, which is the part meant to emerge.
+        // Points, because a league pays 3 for a win and 1 for a draw, and that is most of why no
+        // real side parks the bus for ninety minutes: a draw is nearly worthless. Goal difference
+        // pays the opposite way. Conceding 0.17 while scoring 0.60 is an excellent return, and the
+        // search found exactly that — a side that defends its own goal with everybody, which is
+        // effective and miserable to play against. Goal difference stays as a small tiebreak,
+        // because three coarse outcomes per match leave the search little to climb between.
         //
-        // It is here because victory alone never found it: 1,000 iterations of self-play produced a
-        // side whose nearest player sat 13.5 m from the ball against §7's 3.7, and which lost
-        // 0.50–2.37. Both sides of a self-play pair can decline to contest and neither is punished.
-        return (s.goalsFor - s.goalsAgainst) - 0.12 * s.pressure
+        // The reflex is the distance from the ball to this side's **nearest** player. Nearest, not
+        // average: paying every player to approach the ball buys the huddle §7.2 warns about, while
+        // paying only for the nearest asks exactly one player to go. Where the other nine stand is
+        // left entirely open, which is the part meant to emerge. It is here because victory alone
+        // never found it — 1,000 iterations of self-play produced a side whose nearest player sat
+        // 13.5 m from the ball against §7's 3.7, because when neither side of a self-play pair
+        // contests, neither is punished.
+        // A draw is worth **nothing**, where a league pays 1. Deliberate: holding the ball and
+        // never releasing it banks a guaranteed 0–0, and at 1 point a draw that is the safest
+        // policy on the board — do nothing, risk nothing, collect. The net duly learned exactly
+        // that and never discovered how to shoot. With draws worthless the only way to score
+        // points is to win, which needs a goal, which needs letting the ball go.
+        return (s.wins * 3.0)
+            + 0.15 * (s.goalsFor - s.goalsAgainst)
+            - 0.12 * s.pressure
     }
 
     /// Squared deviation in units of a tolerance, capped so one wayward term cannot drown the rest.
@@ -263,12 +317,27 @@ func fitness(_ s: Score, reference r: Score, shapeWeight: Double = 0.15) -> Doub
 
 let clubs = Club.allCases
 
+/// A seeded match. The clubs vary, and so does each side's **formation**.
+///
+/// Every AI side plays `balanced` in the shipped game (§3), so without this the policy would only
+/// ever see one opening shape and one set of home spots — and it would see it again after every
+/// goal, since a face-off resets to it. Drawing one of §3's five formations a side is the cheap
+/// version of varied starting states: different structures, different home spots, no surgery on
+/// the state machine. It also exercises the reason the policy is per-player rather than one net
+/// for the team — it has to work for whatever roster shape it is handed.
 func setup(_ n: Int, periodSeconds: Double) -> MatchSetup {
     let home = clubs[(n * 3) % clubs.count]
     var away = clubs[(n * 3 + 1 + n / clubs.count) % clubs.count]
     if away == home { away = clubs[(clubs.firstIndex(of: home)! + 1) % clubs.count] }
+
+    let shapes = Formation.allCases
+    var h = SideSetup.club(home)
+    var a = SideSetup.club(away)
+    h.formation = shapes[(n * 7) % shapes.count]
+    a.formation = shapes[(n * 11 + 2) % shapes.count]
+
     return MatchSetup(seed: 0x5EED_0000 &+ UInt64(n), sport: .field,
-                      home: .club(home), away: .club(away), periodSeconds: periodSeconds,
+                      home: h, away: a, periodSeconds: periodSeconds,
                       orbitPeriod: Tuning.Orbit.demoPeriod, cup: false, control: .automatic)
 }
 
@@ -297,6 +366,11 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, rival: Rival = .rules) ->
         m.sparring = [nil, style]
     }
     m.openNets = cfg.openNets
+    m.stamina = cfg.stamina
+    if cfg.rung < cfg.spawnLadder.count {
+        m.trainingSpawn = cfg.spawnLadder[cfg.rung]
+        m.spawnRNG = SplitMix64(seed: UInt64(bitPattern: Int64(n &* 7919 &+ 13)))
+    }
 
     var s = Score()
     s.victoryOnly = cfg.victoryOnly
@@ -421,6 +495,8 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, rival: Rival = .rules) ->
 
     s.goalsFor = Double(m.score[0])
     s.goalsAgainst = Double(m.score[1])
+    s.wins = m.score[0] > m.score[1] ? 1 : 0
+    s.draws = m.score[0] == m.score[1] ? 1 : 0
     s.possession = playTicks > 0 ? Double(ownTicks) / Double(playTicks) : 0
     s.receivers = carryTicks > 0 ? receiverTotal / Double(carryTicks) : 0
     s.receiversFinal = finalTicks > 0 ? receiverFinalTotal / Double(finalTicks) : 0
@@ -442,6 +518,16 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, rival: Rival = .rules) ->
 /// league, and the reason a share of matches always stays against the fixed rules.
 func evaluate(_ net: PolicyNet?, cfg: Config, offset: Int = 0, pool: [PolicyNet] = [],
               league: Bool = true) -> Score {
+    // **While the nets are open, play only itself.** §7 takes the ball back inside half a second,
+    // and a side that never holds the ball cannot practise the one thing it is missing — when to
+    // let it go. An equal opponent keeps the ball in play long enough for both to learn to finish.
+    // Real opponents arrive with the keepers, which is the same promotion, so difficulty steps up
+    // once rather than twice.
+    if cfg.openNets && !pool.isEmpty {
+        return Score.mean((0..<cfg.matches).map { k in
+            play(net, seed: offset + k, cfg: cfg, rival: .policy(pool[k % pool.count]))
+        })
+    }
     // The rota, in order, so every candidate in an iteration meets the same opponents on the same
     // seeds — a paired comparison, which is most of the variance reduction ES gets for free.
     var rivals: [Rival] = []
@@ -624,9 +710,20 @@ if let path = C.evaluateOnly ?? C.replay {
         writeReplay(theta, to: file, seed: C.replaySeed)
         print("replay written: \(file)")
     } else {
-        let learned = evaluate(PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: theta),
-                               cfg: C, offset: C.evalOffset, league: false)
-        let rules = evaluate(nil, cfg: C, offset: C.evalOffset, league: false)
+        let me = PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: theta)
+        let other = C.versus.map { (path: String) -> PolicyNet in
+            PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: readCheckpoint(path))
+        }
+        let learned = other.map { (o: PolicyNet) -> Score in
+            Score.mean((0..<C.matches).map { k in
+                play(me, seed: C.evalOffset + k, cfg: C, rival: .policy(o))
+            })
+        } ?? evaluate(me, cfg: C, offset: C.evalOffset, league: false)
+        let rules = other.map { (o: PolicyNet) -> Score in
+            Score.mean((0..<C.matches).map { k in
+                play(o, seed: C.evalOffset + k, cfg: C, rival: .policy(me))
+            })
+        } ?? evaluate(nil, cfg: C, offset: C.evalOffset, league: false)
         print("seeds \(C.evalOffset)..<\(C.evalOffset + C.matches)"
               + (C.evalOffset == 0 ? "  (WARNING: the search selects on these)" : "  (unseen by the search)"))
         print("                goals      poss   recv  final  spread  press   terr    att")
@@ -874,6 +971,7 @@ let baseRest: String = String(format: "poss %.2f  recv %.2f (final %.2f)  spread
                               baseline.attacking, fitness(baseline, reference: baseline))
 print("baseline  §7's written rules vs itself   goals " + baseGoals + "  " + baseRest)
 print("")
+print("  (goals/poss/etc are measured against the frozen earlier self, not against §7)")
 print(" iter    goals     poss   recv  final  spread  press   terr    att    fitness    best      secs")
 
 
@@ -881,9 +979,13 @@ print(" iter    goals     poss   recv  final  spread  press   terr    att    fit
 var best = -Double.greatestFiniteMagnitude
 var bestTheta = theta
 var stale = 0
+var atThreshold = 0
+var onRung = 0
 var sigma = C.sigma
 /// Past selves the candidates also have to beat. Capped: a handful of rungs is enough to stop the
 /// forgetting, and every extra one costs matches.
+/// Seeded with the starting weights so there is always an equal opponent, even at iteration one
+/// before anything has been judged good enough to keep.
 var opponentPool: [PolicyNet] = []
 /// A frozen earlier self, and what the centre is scored against.
 ///
@@ -896,6 +998,7 @@ var opponentPool: [PolicyNet] = []
 var benchmark: PolicyNet?
 let poolLimit = 4
 let pairs = cfg.population / 2
+opponentPool.append(net(theta))   // an equal to play from the first iteration
 
 for iteration in 1...cfg.iterations {
     let started = Date()
@@ -950,15 +1053,47 @@ for iteration in 1...cfg.iterations {
     // Keepers come back once the policy can finish. Once closed they stay closed: a curriculum
     // that oscillates teaches a policy to straddle both worlds and master neither. The best-so-far
     // is reset with them, because scores earned against an open net are not comparable.
-    if cfg.openNets && centre.goalsFor >= cfg.closeNetsAt {
-        cfg.openNets = false
-        print(String(format: "  = scoring %.2f a match with the nets open - keepers back on from here",
-                     centre.goalsFor))
-        best = -Double.greatestFiniteMagnitude
-        bestTheta = theta
-        stale = 0
-        // Freeze this as the thing to beat, now that the real game has started.
-        benchmark = net(theta)
+    // One ladder, climbed in order: tap-in, then further out, then the real game. Scores earned on
+    // an easier rung are not comparable, so the best-so-far resets with each promotion.
+    let bar = cfg.rung < cfg.rungBar.count ? cfg.rungBar[cfg.rung] : cfg.closeNetsAt
+    atThreshold = centre.goalsFor >= bar ? atThreshold + 1 : 0
+    onRung += 1
+    if onRung >= cfg.rungPatience && cfg.rung < cfg.spawnLadder.count {
+        print(String(format: "  = %d iterations on this rung without clearing %.1f - moving on anyway",
+                     onRung, bar))
+        atThreshold = cfg.holdFor
+    }
+    if atThreshold >= cfg.holdFor {
+        onRung = 0
+        atThreshold = 0
+        if cfg.rung < cfg.spawnLadder.count {
+            func describe(_ r: TrainingStart) -> String {
+                switch r {
+                case .ours(let d): return String(format: "our ball, %.0f m out", d)
+                case .loose(let d): return String(format: "a loose ball, %.0f m out", d)
+                case .theirs(let d): return String(format: "their ball, %.0f m from our goal", d)
+                }
+            }
+            print("  = scoring " + String(format: "%.2f", centre.goalsFor) + " a match on "
+                  + describe(cfg.spawnLadder[cfg.rung]) + " - moving to "
+                  + (cfg.rung + 1 < cfg.spawnLadder.count
+                     ? describe(cfg.spawnLadder[cfg.rung + 1]) : "the real game"))
+            cfg.rung += 1
+            best = -Double.greatestFiniteMagnitude
+            bestTheta = theta
+            stale = 0
+            if cfg.rung >= cfg.spawnLadder.count {
+                cfg.openNets = false
+                benchmark = net(theta)
+            }
+        } else if cfg.openNets {
+            cfg.openNets = false
+            benchmark = net(theta)
+            best = -Double.greatestFiniteMagnitude
+            bestTheta = theta
+            stale = 0
+            print("  = keepers back on from here")
+        }
     }
     if fitness(centre, reference: baseline, shapeWeight: C.shapeWeight) > best {
         best = fitness(centre, reference: baseline, shapeWeight: C.shapeWeight)

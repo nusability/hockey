@@ -98,6 +98,9 @@ struct Config {
     /// finds more ways to trade shape for goals than a small one, and at 0.15 the 128-unit run gave
     /// away the clone's spread (7.3 → 5.5 m) inside forty iterations.
     var shapeWeight = 0.15
+    /// `--turnover-weight` prices a steal won off an opponent carrier (§6.4) in the victory-only
+    /// reward. See the term in `fitness`; 0 restores the reward as it was before 2026-10-18.
+    var turnoverWeight = 0.5
     /// Start with both nets open, and close them once the policy can finish. See `Match.openNets`.
     var openNets = false
     /// `--ease-collect` forgives §6.3.1 while the policy learns to gather a ball at all, then
@@ -206,6 +209,7 @@ while let a = it.next() {
     case "--eval-offset": cfg.evalOffset = Int(num())
     case "--versus": cfg.versus = it.next()
     case "--shape-weight": cfg.shapeWeight = num()
+    case "--turnover-weight": cfg.turnoverWeight = num()
     case "--open-nets": cfg.openNets = true
     case "--ease-collect": cfg.easeCollect = true
     case "--stamina": cfg.stamina = true
@@ -239,6 +243,22 @@ struct Score {
     var wins = 0.0            // 1 for a win, 0 otherwise — a league's currency, not goal difference
     var draws = 0.0
     var depth = 0.0           // how far the deepest defender sits behind the ball, in metres
+    /// Steals won off an opponent carrier, per match (§6.4). **The chase, counted.**
+    ///
+    /// A steal is the engine's own name for taking the ball off a carrier - hold contact within
+    /// reach of it for 0.18 s - so it is the act itself and not a proxy for it. Possession share
+    /// was the obvious alternative and is the wrong one: holding the ball and never releasing it
+    /// maximises possession, which is the policy this fitness already had to be rewritten to stop
+    /// (see the draw being worth nothing, below). A steal cannot be earned by keep-ball.
+    ///
+    /// Loose-ball recoveries are deliberately *not* counted. The observation shows a player who
+    /// has the ball and which opponent that is, but for a loose ball it shows only "loose" and
+    /// never whose touch was last - so a reward for recovering *their* spilled ball pays for
+    /// something the policy cannot see to aim at.
+    var turnovers = 0.0
+    /// Steals conceded, per match. Measured and reported, not trained on: a side that holds the
+    /// ball more is stolen from more, so charging for it would quietly charge for possession.
+    var turnoversLost = 0.0
 
     /// Set from the run's configuration; it selects which reward `fitness(_:reference:)` returns.
     var victoryOnly = false
@@ -261,6 +281,8 @@ struct Score {
         m.wins = xs.reduce(0) { $0 + $1.wins } / n
         m.draws = xs.reduce(0) { $0 + $1.draws } / n
         m.depth = xs.reduce(0) { $0 + $1.depth } / n
+        m.turnovers = xs.reduce(0) { $0 + $1.turnovers } / n
+        m.turnoversLost = xs.reduce(0) { $0 + $1.turnoversLost } / n
         return m
     }
 }
@@ -282,7 +304,8 @@ struct Score {
 /// `receivers` is left one-sided on purpose — offering a carrier more passing options is not a
 /// thing to do in moderation, and §7's own §7.4 is the part of the spec the shape bench was written
 /// to measure as *deficient*.
-func fitness(_ s: Score, reference r: Score, shapeWeight: Double = 0.15) -> Double {
+func fitness(_ s: Score, reference r: Score, shapeWeight: Double = 0.15,
+             turnoverWeight: Double = 0.5) -> Double {
     if s.victoryOnly {
         // **League points, not goal difference** — plus one reflex the search cannot discover.
         //
@@ -305,9 +328,26 @@ func fitness(_ s: Score, reference r: Score, shapeWeight: Double = 0.15) -> Doub
         // policy on the board — do nothing, risk nothing, collect. The net duly learned exactly
         // that and never discovered how to shoot. With draws worthless the only way to score
         // points is to win, which needs a goal, which needs letting the ball go.
+        // **Steals won, paid per steal.** The press term above asks the nearest player to stand
+        // near the ball; it never asks anyone to take it, and measured on 24 unseen seeds the
+        // policy obliged exactly that distinction - 0.4 steals a match against §7's 2.2, while
+        // standing 6.0 m from the ball against §7's 4.2. A side that waits for the ball cannot be
+        // told apart from one that wins it by any term that was in here before.
+        //
+        // Per steal rather than a share, because a steal is an event the policy can aim at: the
+        // observation carries which opponent is carrying and whether this player is the nearest of
+        // its team-mates to the ball. Possession share was the alternative and is the trap - it is
+        // maximised by holding the ball and never releasing it, the policy this function already
+        // had to be rewritten to kill.
+        //
+        // At 0.5 closing the whole gap to §7 is worth 0.9, under a third of a win, so the ladder
+        // stays goals-first: a side that hunts the ball and never scores still loses to one that
+        // scores. Steals *conceded* are measured but not charged - holding the ball more means
+        // being stolen from more, so charging for it would charge for possession by the back door.
         return (s.wins * 3.0)
             + 0.15 * (s.goalsFor - s.goalsAgainst)
             - 0.12 * s.pressure
+            + turnoverWeight * s.turnovers
     }
 
     /// Squared deviation in units of a tolerance, capped so one wayward term cannot drown the rest.
@@ -400,6 +440,10 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, rival: Rival = .rules) ->
     var pressureTotal = 0.0
     var widthTotal = 0.0
     var depthTotal = 0.0
+    var stealsWon = 0, stealsLost = 0
+    // Which team each roster index belongs to, read once: membership cannot change inside a match,
+    // and `Match.players` is not public, so the alternative is a snapshot per steal.
+    let teamOf = m.snapshot.players.map(\.team)
 
     let goalZ = Tuning.Pitch.goalLineZ
     // A match of three periods runs ~18.6k ticks at a 40 s period. A policy that cannot get the
@@ -412,6 +456,13 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, rival: Rival = .rules) ->
     var sinceSample = 0
     while m.result == nil && m.ticks < maxTicks {
         m.tick()
+        // Every tick, not on the sampling stride: a steal is an instant, and the stride is 12 ticks
+        // wide. Nothing else consumes the trainer's events, and draining keeps the match's event
+        // array from growing for the whole run.
+        for e in m.drainEvents() {
+            guard case .steal(let by, _) = e else { continue }
+            if by < teamOf.count, teamOf[by] == 0 { stealsWon += 1 } else { stealsLost += 1 }
+        }
         sinceSample += 1
         guard sinceSample >= stride else { continue }
         sinceSample = 0
@@ -522,6 +573,8 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, rival: Rival = .rules) ->
     s.pressure = playTicks > 0 ? pressureTotal / Double(playTicks) : 0
     s.width = playTicks > 0 ? widthTotal / Double(playTicks) : 0
     s.depth = playTicks > 0 ? depthTotal / Double(playTicks) : 0
+    s.turnovers = Double(stealsWon)
+    s.turnoversLost = Double(stealsLost)
     return s
 }
 
@@ -754,12 +807,12 @@ if let path = C.evaluateOnly ?? C.replay {
         } ?? evaluate(nil, cfg: C, offset: C.evalOffset, league: false)
         print("seeds \(C.evalOffset)..<\(C.evalOffset + C.matches)"
               + (C.evalOffset == 0 ? "  (WARNING: the search selects on these)" : "  (unseen by the search)"))
-        print("                goals      poss   recv  final  spread  press   terr    att")
+        print("                goals      poss   recv  final  spread  press   terr    att   steals")
         for (label, m) in [("learned", learned), ("§7 rules", rules)] {
             let a = String(format: "%.2f-%.2f", m.goalsFor, m.goalsAgainst)
-            let b = String(format: "%.3f  %.2f  %.2f   %5.1f  %5.1f  %+.2f  %.3f",
+            let b = String(format: "%.3f  %.2f  %.2f   %5.1f  %5.1f  %+.2f  %.3f  %4.1f-%.1f",
                            m.possession, m.receivers, m.receiversFinal, m.spread,
-                           m.pressure, m.territory, m.attacking)
+                           m.pressure, m.territory, m.attacking, m.turnovers, m.turnoversLost)
             print(label.padding(toLength: 10, withPad: " ", startingAt: 0) + "  " + a + "   " + b)
         }
     }
@@ -993,10 +1046,11 @@ var baselineCfg = cfg
 baselineCfg.matches = cfg.centreMatches
 let baseline = evaluate(nil, cfg: baselineCfg, league: false)
 let baseGoals: String = String(format: "%.2f–%.2f", baseline.goalsFor, baseline.goalsAgainst)
-let baseRest: String = String(format: "poss %.2f  recv %.2f (final %.2f)  spread %.1f m  press %.1f m  terr %+.2f  att %.3f  fitness %.3f",
+let baseRest: String = String(format: "poss %.2f  recv %.2f (final %.2f)  spread %.1f m  press %.1f m  terr %+.2f  att %.3f  steals %.1f-%.1f  fitness %.3f",
                               baseline.possession, baseline.receivers, baseline.receiversFinal,
                               baseline.spread, baseline.pressure, baseline.territory,
-                              baseline.attacking, fitness(baseline, reference: baseline))
+                              baseline.attacking, baseline.turnovers, baseline.turnoversLost,
+                              fitness(baseline, reference: baseline, shapeWeight: C.shapeWeight, turnoverWeight: C.turnoverWeight))
 print("baseline  §7's written rules vs itself   goals " + baseGoals + "  " + baseRest)
 print("")
 print("  (goals/poss/etc are measured against the frozen earlier self, not against §7)")
@@ -1044,7 +1098,7 @@ for iteration in 1...cfg.iterations {
     let scores = parallelScores(candidates.count) { k in
         evaluate(net(candidates[k]), cfg: localCfg, offset: iteration * 97, pool: frozenPool)
     }
-    let fitnesses = scores.map { fitness($0, reference: baseline, shapeWeight: localCfg.shapeWeight) }
+    let fitnesses = scores.map { fitness($0, reference: baseline, shapeWeight: localCfg.shapeWeight, turnoverWeight: localCfg.turnoverWeight) }
     let ranks = centredRanks(fitnesses)
 
     // θ ← θ + α · (1 / (n σ)) · Σ rank_k · ε_k, antithetic pairs differenced.
@@ -1132,8 +1186,8 @@ for iteration in 1...cfg.iterations {
             print("  = keepers back on from here")
         }
     }
-    if fitness(centre, reference: baseline, shapeWeight: C.shapeWeight) > best {
-        best = fitness(centre, reference: baseline, shapeWeight: C.shapeWeight)
+    if fitness(centre, reference: baseline, shapeWeight: C.shapeWeight, turnoverWeight: C.turnoverWeight) > best {
+        best = fitness(centre, reference: baseline, shapeWeight: C.shapeWeight, turnoverWeight: C.turnoverWeight)
         bestTheta = theta
         stale = 0
         writeCheckpoint(theta, "best")
@@ -1163,11 +1217,11 @@ for iteration in 1...cfg.iterations {
     let rest: String = String(format: "%.3f  %.2f  %.2f   %5.1f  %5.1f  %+.2f  %.3f   %7.3f  %7.3f   %5.1f",
                               centre.possession, centre.receivers, centre.receiversFinal,
                               centre.spread, centre.pressure, centre.territory, centre.attacking,
-                              fitness(centre, reference: baseline, shapeWeight: C.shapeWeight), best, secs)
+                              fitness(centre, reference: baseline, shapeWeight: C.shapeWeight, turnoverWeight: C.turnoverWeight), best, secs)
     print(String(format: "%5d  ", iteration) + goals + "   " + rest)
     _ = mean
 }
 
 print("")
 print(String(format: "done — best fitness %.3f, baseline %.3f. Checkpoints in %@",
-             best, fitness(baseline, reference: baseline), outDir))
+             best, fitness(baseline, reference: baseline, shapeWeight: C.shapeWeight, turnoverWeight: C.turnoverWeight), outDir))

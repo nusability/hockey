@@ -220,6 +220,25 @@ swift run -c release TrainTeamAI --open-nets --hidden 128 --reward victory \
 
 `retrain.sh` now holds all of this, so the next run is a command rather than an excavation.
 
+## The two ladders judge different things and can fight
+
+The spawn ladder promotes on `centre.goalsFor >= rungBar`. The pull-back reverts `theta` to
+`bestTheta` when `fitness` has not improved for `patience` iterations, and victory-only fitness is
+`wins·3 + 0.15·(for − against) − 0.12·press`. **Goals are not fitness**, so a run can climb toward
+a rung bar and be reverted by a mechanism that cannot see it.
+
+Watched happening: an arm improved its centre from 2.12 to **3.17** goals over 39 iterations, past
+the 3.0 bar, while `press` drifted 9.3 → 11.0 m. The press penalty and the lost wins outweighed
+the better goal difference, so fitness never beat the value recorded at **iteration 2**, nothing
+was ever written as a new best, and the pull-back reverted forty iterations of exactly the drift
+the rung ladder was about to reward. The other arm of the same seed escaped it only because its
+fitness happened to improve at iteration 30.
+
+Consequences worth knowing before reading a short run: an early *lucky* centre estimate is worse
+than an early poor one, because nothing can beat it; and a rung reached by `rungPatience` forcing
+it is much weaker evidence than one that was earned. If this bites, the dials are `--centre-matches`
+(a less noisy estimate, so early luck is rarer) and `--patience`, not the ladder.
+
 ## Three things that cost time, recorded so they don't again
 
 - **Cloning loss is not evidence of a good policy.** The best loss of the night, 0.0012, came from

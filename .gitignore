@@ -36,3 +36,7 @@ ios/Info.plist
 # .example files say what goes in them; with them absent the client is inert (spec §18.7).
 ios/Telemetry.xcconfig
 android/telemetry.properties
+
+# TrainTeamAI's HTML replays, written beside the checkpoint they came from. Megabytes of
+# generated tape — regenerate with `--replay <checkpoint>` rather than committing one.
+*.txt-seed*.html

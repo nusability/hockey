@@ -685,13 +685,21 @@ func readCheckpoint(_ path: String) -> [Double] {
     }
 }
 
-/// Writes one seeded match twice — once with `theta` on team 0, once with §7's rules on both
-/// sides — as a single scrubable page. Same seed, so the two pitches start identically and every
-/// difference after that is the policy rather than the draw.
-func writeReplay(_ theta: [Double], to file: String, seed: Int) {
+/// Writes one seeded match three times — `theta` against §7, **`theta` against itself**, and §7
+/// against §7 — as a single scrubable page. Same seed, so all three pitches start identically and
+/// every difference after that is the policy rather than the draw.
+///
+/// **The self-play pitch is the one worth watching for shape.** Against §7 you are watching a
+/// policy exploit a known opponent, which tells you little about whether it plays hockey; against
+/// itself there is nobody to exploit, so what is left is what it actually believes a team should
+/// look like. `--versus B.txt` replaces that middle pitch with `theta` against B.
+func writeReplay(_ theta: [Double], to file: String, seed: Int, versus: [Double]? = nil) {
     let loaded = PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: theta)
+    let other = versus.map { PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: $0) }
     let s = setup(seed, periodSeconds: C.periodSeconds)
     let tapes = [Replay.record([loaded, nil], setup: s, label: "learned v §7"),
+                 Replay.record([loaded, other ?? loaded], setup: s,
+                               label: other == nil ? "learned v itself" : "learned v versus"),
                  Replay.record([nil, nil], setup: s, label: "§7 v §7")]
     let name = (file as NSString).lastPathComponent
     write(Replay.html(title: name, tapes: tapes,
@@ -707,7 +715,7 @@ if let path = C.evaluateOnly ?? C.replay {
     }
     if C.replay != nil {
         let file = path + String(format: "-seed%d.html", C.replaySeed)
-        writeReplay(theta, to: file, seed: C.replaySeed)
+        writeReplay(theta, to: file, seed: C.replaySeed, versus: C.versus.map(readCheckpoint))
         print("replay written: \(file)")
     } else {
         let me = PolicyNet(nIn: nIn, nHidden: C.hidden, nOut: nOut, parameters: theta)

@@ -96,8 +96,10 @@ enum Replay {
         <div class="legend" id="t"></div>
         <div class="legend">
           Blue is team 0, orange team 1. The yellow dot is the ball; the ring marks whoever carries it.
-          Faint circles are goalies. Both pitches start from the same seeded kick-off, so any difference
-          is the policy, not the draw.
+          Faint circles are goalies. Every pitch starts from the same seeded kick-off, so any difference
+          is the policy, not the draw. <b>Watch the middle pitch for shape:</b> with the same policy on
+          both sides there is no §7 to exploit, so what you see is what it believes a team should look
+          like.
         </div>
         <script>
         const TAPES = [\(tapes.map(json).joined(separator: ","))];

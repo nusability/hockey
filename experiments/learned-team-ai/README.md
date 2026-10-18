@@ -13,6 +13,13 @@ Four are `107 → 32 → 32 → 2` (4,578 parameters); `faithful.txt` is `107 �
 (30,594), so it needs `--hidden 128`. One hex IEEE-754 double per line, in
 `PolicyNet.parameters` order.
 
+> **The five original checkpoints no longer load.** The observation and the output grew with the
+> carrier decision (commit `95af629`): the shape is now `122 → h → h → 3`, so `--hidden 32` wants
+> **5,091** parameters and `--hidden 128` wants **32,643**. `clone/winner/balanced/stronger/
+> faithful.txt` hold 4,578 or 30,594 and are refused with a parameter-count error. They are kept
+> for the record below, not for replay. **`curriculum.txt` and `curriculum-seed777.txt` are the
+> current shape** (`--hidden 128`); they are the two arms of the night of 2026-10-17.
+
 ```
 cd ios/SmashCore
 swift run -c release TrainTeamAI --evaluate experiments/learned-team-ai/balanced.txt \
@@ -205,19 +212,60 @@ strongest shape available, and no reward or architecture will talk a search out 
 answer. **Width is not missing because the policy failed to find it; it is missing because it does
 not pay.**
 
+### The change that was made, 2026-10-18 — §6.3.1
+
+**A ball arriving from behind an outfield player is no longer reliably collected** (spec §6.3.1,
+`Spec-Version` 0.34.0). Within 60° of the player's facing nothing changed; past that the pressure
+climbs with the angle and with the ball's speed *relative* to them, and at the extreme — fast and
+straight from behind — the ball is gathered 8 % of the time, ricochets off them 37 %, and runs on
+past them 55 %. A slow roll (under 4 relative) is always collectable, so a gentle trailing pass
+still works. Goalies are exempt: §3 pins their facing. The human is not.
+
+**What makes it non-gameable is that facing is not a choice.** §3 derives it from the direction a
+player is actually moving, and only while they are moving — there is no aim for a net to spend. To
+meet a ball coming up behind you, you have to run back at it and give up the ground you were
+making. That is the cost, and it is the same cost for the human.
+
+**The measurement that says it bit.** `curriculum.txt` is the policy trained *before* this rule,
+on 48 seeds it was never scored against (`--eval-offset 5000`), in the shipped game:
+
+| | goals | poss | att |
+|---|---|---|---|
+| `curriculum.txt` **before** the rule (60 seeds) | 4.57–0.32 | 0.211 | 0.062 |
+| `curriculum.txt` **after** the rule (48 seeds) | **0.94–0.54** | **0.090** | **0.019** |
+| §7 rules, after the rule | 0.96–0.67 | 0.278 | 0.139 |
+
+Its whole game was free trailing passes: five times §7's scoring rate collapses to parity, and
+possession more than halves. §7 itself is barely touched (0.92–1.05 before, 0.96–0.67 after), which
+is the check that the rule taxed an exploit rather than breaking the sport. **This is not a verdict
+on the rule's feel** — it is an out-of-distribution policy meeting an engine it never trained in.
+It is only evidence that the thing the file depended on is gone.
+
+Fumbles in the re-recorded corpus, as a sense of rate: 24–33 ricochets and 33–48 run-ons per full
+match (~45,000 ticks, 22 players), 0 in `drill1-first-shot.txt`, which is why that one vector did
+not change.
+
+### The replay now shows the policy against itself
+
+`--replay` writes **three** pitches from one seed, not two: `learned v §7`, **`learned v itself`**,
+and `§7 v §7`. The middle one is the one to watch for shape — against §7 you are watching a policy
+exploit a known opponent, which says little about whether it plays hockey; against itself there is
+nobody to exploit, so what is left is what it believes a team should look like. `--versus B.txt`
+replaces the middle pitch with a head-to-head. Training-loop replays (`--replay-every`) get it too.
+
 ### The change to make next
 
-A ball arriving from **behind** the receiver should often fail to be collected.
+**Retrain from scratch under §6.3.1 and see whether width emerges on its own.** Nothing about the
+reward or the architecture changes — the point of fixing the engine rather than the AI is that the
+search should now find width because width pays, not because it was told to. Two arms, as before,
+one per Mac, `--open-nets --hidden 128`, the curriculum unchanged.
 
-- **Where:** the pickup loop in `Match/BallPhysics.swift` (~line 176–194), before `takeBall`.
-- **How:** compare the player's `facing` against the heading the ball arrives *from*
-  (`Pitch.heading(-ball.vel.x, -ball.vel.z)`); the wider that angle, the likelier the ball runs on.
-  Scale with the ball's speed, so a slow roll stays collectable.
-- The engine already turns players gradually (`Tuning.Player.turnRate`), so the "turning time" half
-  of the idea exists.
-- **Symmetric — it applies to the human player too**, which is the test of whether a rule is fair
-  or an AI handicap in disguise.
+What to look at, in this order:
 
-This is a behaviour change, not an experiment patch: spec diff in the same commit (§6 pickup),
-every vector in `shared/vectors/match/` re-recorded, and the constants declared in `shared/data/`
-rather than written as literals. Through the loop.
+1. **Watch the `learned v itself` pitch before reading any number.** Most of the impressive results
+   of 2026-10-15/16 were bugs, and two were caught only by looking. A policy that has learned to
+   stand still 1.4 m behind a team-mate and let the ball hit them is a new exploit, not width.
+2. **`width` and `spacing` in `--analyse`**, against §7's 6.5 m and 7.0 m. §7's own numbers move
+   under this rule too, so re-measure the §7 baseline rather than comparing against the table above.
+3. **Whether the fumble rate is sane.** A side fumbling constantly has not learned the rule; a side
+   that never fumbles may have learned to stop passing, which is worse than a single file.

@@ -164,6 +164,43 @@ spacing and gives up depth. No mechanism is missing.
    roster-agnostic, and it would restore the explainability ADR `0010` names as the main cost of
    going learned — you could see which slot each player was given.
 
+## Does width emerge once the trailing pass costs something? No — measured 2026-10-18
+
+The whole point of §6.3.1 was that width would pay once a pass into a team-mate's back stopped
+being free. It does not. `curriculum.txt` continued for 190 iterations on goal difference alone
+under the full rule, both rows on **48 unseen seeds**, measured identically:
+
+| | swarm | churn/min | depth | goal-side | **width** | spacing |
+|---|---|---|---|---|---|---|
+| `curriculum.txt`, before | 10.84 m | 44.9 | +8.84 m | 89 % | **1.2 m** | 4.6 m |
+| 190 iterations later | 11.78 m | 43.6 | **+7.23 m** | **85 %** | **1.3 m** | 4.2 m |
+| §7 rules | 11.62 m | 49.6 | +5.57 m | 72 % | **6.8 m** | 7.2 m |
+
+**Width 1.2 → 1.3 m is no movement.** Depth and goal-side did move, toward §7, so the policy is
+adapting to the rule — just never laterally. Swarm rose to §7's own value, so this is a coherent
+side throughout and not a scattered one.
+
+**The rule removed the reason the file was optimal; it did not create a reason for width to be.**
+The diagnosis behind the rule was right — the trailing pass *was* free and the policy's whole game
+rested on it, which is why removing it took 4.57–0.32 down to 0.94–0.54 on unseen seeds. But the
+answer the search found was to stop passing, not to spread out: it holds the ball 0.10 of the time
+against §7's 0.28 and wins by standing in a column in front of its own goal. Nothing in a
+victory-only objective pays for occupying lateral space, and a column concedes perfectly well.
+
+**Next, in order.** Pay for possession — run the same checkpoint on the shaped reward and see
+whether width moves when the objective values holding the ball; that tells you whether the rule is
+a necessary precondition or a dead end. Then **watch a `learned v itself` replay** before trusting
+any of the above, which is six numbers. The collection constants are the *last* lever, not the
+first: harsher collection makes passing worse, which makes not-passing better, which is the wrong
+direction.
+
+**A caution for anyone reading a width number here.** An arm mid-curriculum measured 6.0 m wide,
+almost exactly §7's 6.8, which is the result this experiment was looking for. It was a side that
+had stopped contesting the ball: `press` 12.6 m against §7's 4.2, depth **−12.08 m** (upfield of
+the ball), goal-side 28 %, losing 0.31–1.06 in a real match. Scattered players have high lateral
+variance for the same reason dropped marbles do. **Width is only meaningful next to `press`,
+`depth` and a scoreline.**
+
 ## The single file is a column — 1.2 m, measured 2026-10-18
 
 The shape tables above are **stale and far too kind**. They document 4.2–5.9 m of width for the

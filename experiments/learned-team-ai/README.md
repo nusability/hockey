@@ -164,35 +164,45 @@ spacing and gives up depth. No mechanism is missing.
    roster-agnostic, and it would restore the explainability ADR `0010` names as the main cost of
    going learned — you could see which slot each player was given.
 
-## Read any width number against this band, not against the previous run
+## Compare width within an objective, not across the whole table
 
-Put every width this project has produced in one place and the question changes shape:
+The widths this project has measured only mean something sorted by **what the run was paid for**.
+Pooling them hides the entire effect:
 
-| policy | width | trained how |
+| policy | width | objective |
 |---|---|---|
-| `winner.txt` | 4.2 m | shaped reward, old engine |
-| `balanced.txt` | 4.6 m | shaped reward, old engine |
+| `curriculum.txt` (nightA, old engine) | **1.2 m** | victory only |
+| `curriculum-seed777.txt` (nightB, old engine) | **1.3 m** | victory only |
+| arm A, 2026-10-18, iter 369, still training | **4.3 m** | victory only, **§6.3.1 + ease ladder** |
+| `winner.txt` | 4.2 m | shaped — pays for `spread` |
+| `balanced.txt` | 4.6 m | shaped |
 | `clone.txt` | 4.9 m | imitation of §7 |
-| `stronger.txt` | 5.1 m | shaped reward, old engine |
-| `faithful.txt` | 5.9 m | shaped, shape charged 4× dearer |
-| arm A (2026-10-18) | **5.1 m** | victory-only, **ease ladder**, §6.3.1 in force |
+| `stronger.txt` | 5.1 m | shaped |
+| `faithful.txt` | 5.9 m | shaped, shape charged 4× |
 | §7 rules | **6.8 m** | — |
-| `curriculum.txt` | **1.2 m** | victory-only, old engine |
 
-**Every learned policy sits in 4.2–5.9 m except `curriculum.txt`, which sits at 1.2 m.** So the
-thing that needs explaining is not how a run reaches 5 m — five runs did it on the old engine
-without §6.3.1 existing — it is how `curriculum.txt` ended up at a quarter of the band. The
-2026-10-18 arm raised under the ease ladder landed on **5.1 m with depth +2.20 m and a 51 %
-goal-side share**, which is `stronger.txt`'s profile almost exactly (5.1 m, +2.35 m, 62 %) — and
-`stronger.txt` predates the rule entirely.
+**Every victory-only run on the old engine collapsed to a 1.2–1.3 m column — both seeds.** The
+4.2–5.9 m band belongs to runs that were *paid* for shape, or that copied §7. So a 4–5 m width is
+only unremarkable for a shaped run; for a victory-only one it had never happened.
 
-Two consequences for reading this file:
+**The controlled comparison.** Same seed (777), same objective (goal difference alone), same spawn
+curriculum, same stamina, one variable — §6.3.1 plus the ease ladder:
 
-- **A 5 m width is not evidence that anything worked.** It is the house average. Only §7's 6.8 m
-  has ever been matched by a learned policy, and only by `faithful.txt`, which won nothing.
-- **The ease ladder's effect may be preventing a pathology rather than creating width.** That is a
-  weaker claim than "width emerges once the trailing pass costs something", and it is the one the
-  evidence currently supports.
+| | width | depth | goal-side |
+|---|---|---|---|
+| `curriculum-seed777.txt` — without | 1.3 m | +11.35 m | 94 % |
+| arm A — with | **4.3 m** | **+4.06 m** | **60 %** |
+| §7 | 6.8 m | +5.57 m | 72 % |
+
+3.3× the width, with depth and goal-side far closer to §7 as well. **§6.3.1 plus the ladder buys
+with a pure goal-difference objective roughly what previously required paying for shape outright.**
+
+**What is not settled.** Arm A was at iteration 369 of 1000 and its width was *eroding* — 5.5 m at
+its peak, 4.2–4.3 m a hundred iterations later — while its results climbed to 2.92–0.46. Width is
+still not in the objective, so the search still spends it; the ladder may only be delaying the
+collapse. `nightB`'s 1.3 m is a finished 708-iteration policy, so the endpoints are not comparable
+until arm A finishes. Arm B, converted to the rule rather than raised under it, creeps 1.2 → 1.6 m
+over 330 iterations: real but an order of magnitude too slow to matter.
 
 ## Does width emerge once the trailing pass costs something? No — measured 2026-10-18
 

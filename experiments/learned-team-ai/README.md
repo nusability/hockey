@@ -164,6 +164,37 @@ spacing and gives up depth. No mechanism is missing.
    roster-agnostic, and it would restore the explainability ADR `0010` names as the main cost of
    going learned — you could see which slot each player was given.
 
+## What 4.3 m of width actually looks like — watch the replay, the number lies
+
+`width` is the standard deviation of outfield x, and a standard deviation cannot tell a team using
+the pitch from a file with a clump bolted onto one side. Team 0's outfield x, sorted, sampled
+across a `learned v itself` match at iteration 375:
+
+```
+arm A    [-3.1, -1.3, -0.2,  1.1,  5.7,  5.8]
+         [-4.7, -3.1, -0.0,  0.1,  3.7,  5.4]
+         [-5.6, -1.7, -0.9,  0.2,  5.1,  5.3]
+         [-5.3, -3.0, -1.4, -0.3,  3.4,  3.5]
+
+§7       [-11.6, -7.8, -4.6, -3.2, -2.0,  9.0]
+         [ -9.9,  0.2,  3.1,  9.0,  9.2, 13.4]
+         [ -7.6, -6.7, -3.0, -1.9,  7.9,  9.4]
+```
+
+**Four players in the middle and two standing on top of each other out on the right.** The pair is
+within half a metre of itself every time (5.7/5.8, 5.1/5.3, 3.4/3.5) and always on the same flank.
+The mean largest gap between adjacent players is **4.50 m for arm A against §7's 7.33 m**, and §7
+reaches ±11 m where arm A barely passes ±6.
+
+So §6.3.1 plus the ladder genuinely moved the policy off the 1.3 m column — that part is
+seed-controlled and real — but what it bought is a lopsided four-plus-two, not width. And a doubled
+pair is the failure §7.2 names outright: "two players steering to one point is one player's job
+done twice, and it reads from the stands as a pack of children following the ball."
+
+**Add a measure that separates these before trusting `width` again.** The mean largest gap between
+adjacent sorted outfielders tells a queue-with-a-clump (4.5 m) from a spread side (7.3 m) where the
+standard deviation reads an encouraging 4.3 m for both.
+
 ## Compare width within an objective, not across the whole table
 
 The widths this project has measured only mean something sorted by **what the run was paid for**.

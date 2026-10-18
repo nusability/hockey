@@ -98,9 +98,13 @@ struct Config {
     /// finds more ways to trade shape for goals than a small one, and at 0.15 the 128-unit run gave
     /// away the clone's spread (7.3 → 5.5 m) inside forty iterations.
     var shapeWeight = 0.15
-    /// `--turnover-weight` prices a steal won off an opponent carrier (§6.4) in the victory-only
-    /// reward. See the term in `fitness`; 0 restores the reward as it was before 2026-10-18.
-    var turnoverWeight = 0.5
+    /// `--turnover-weight` is the **most** the turnover term can ever contribute, reached when the
+    /// side wins the ball as often as `turnoverTarget`. Against a win's 3.0 this is what keeps
+    /// chasing below winning by construction. 0 restores the reward as it was before 2026-10-18.
+    var turnoverWeight = 0.9
+    /// `--turnover-target`: steals a match at which the term saturates. §7's measured rate on 24
+    /// unseen seeds, which is a reference and not a law - see the term in `fitness`.
+    var turnoverTarget = 2.2
     /// Start with both nets open, and close them once the policy can finish. See `Match.openNets`.
     var openNets = false
     /// `--ease-collect` forgives §6.3.1 while the policy learns to gather a ball at all, then
@@ -210,6 +214,7 @@ while let a = it.next() {
     case "--versus": cfg.versus = it.next()
     case "--shape-weight": cfg.shapeWeight = num()
     case "--turnover-weight": cfg.turnoverWeight = num()
+    case "--turnover-target": cfg.turnoverTarget = num()
     case "--open-nets": cfg.openNets = true
     case "--ease-collect": cfg.easeCollect = true
     case "--stamina": cfg.stamina = true
@@ -262,12 +267,15 @@ struct Score {
 
     /// Set from the run's configuration; it selects which reward `fitness(_:reference:)` returns.
     var victoryOnly = false
+    /// Steals a match at which the turnover term saturates, from the run's configuration.
+    var turnoverTarget = 0.0
 
     static func mean(_ xs: [Score]) -> Score {
         guard !xs.isEmpty else { return Score() }
         let n = Double(xs.count)
         var m = Score()
         m.victoryOnly = xs[0].victoryOnly
+        m.turnoverTarget = xs[0].turnoverTarget
         m.goalsFor = xs.reduce(0) { $0 + $1.goalsFor } / n
         m.goalsAgainst = xs.reduce(0) { $0 + $1.goalsAgainst } / n
         m.possession = xs.reduce(0) { $0 + $1.possession } / n
@@ -328,26 +336,44 @@ func fitness(_ s: Score, reference r: Score, shapeWeight: Double = 0.15,
         // policy on the board — do nothing, risk nothing, collect. The net duly learned exactly
         // that and never discovered how to shoot. With draws worthless the only way to score
         // points is to win, which needs a goal, which needs letting the ball go.
-        // **Steals won, paid per steal.** The press term above asks the nearest player to stand
-        // near the ball; it never asks anyone to take it, and measured on 24 unseen seeds the
-        // policy obliged exactly that distinction - 0.4 steals a match against §7's 2.2, while
-        // standing 6.0 m from the ball against §7's 4.2. A side that waits for the ball cannot be
-        // told apart from one that wins it by any term that was in here before.
+        // **Steals won, paid up to a target and not a penny beyond.** The press term above asks
+        // the nearest player to stand near the ball; it never asks anyone to take it, and measured
+        // on 24 unseen seeds the policy obliged exactly that distinction - 0.4 steals a match
+        // against §7's 2.2, while standing 6.0 m from the ball against §7's 4.2. No term that was
+        // in here before could tell a side that waits for the ball from one that wins it.
         //
-        // Per steal rather than a share, because a steal is an event the policy can aim at: the
-        // observation carries which opponent is carrying and whether this player is the nearest of
-        // its team-mates to the ball. Possession share was the alternative and is the trap - it is
-        // maximised by holding the ball and never releasing it, the policy this function already
-        // had to be rewritten to kill.
+        // A steal, not possession share: a share is maximised by holding the ball and never
+        // releasing it, which is the policy this function already had to be rewritten to kill (see
+        // the draw being worth nothing). A steal cannot be earned by keep-ball, and it is an act
+        // the policy can aim at - the observation carries which opponent is carrying and whether
+        // this player is the nearest of its team-mates to the ball.
         //
-        // At 0.5 closing the whole gap to §7 is worth 0.9, under a third of a win, so the ladder
-        // stays goals-first: a side that hunts the ball and never scores still loses to one that
-        // scores. Steals *conceded* are measured but not charged - holding the ball more means
-        // being stolen from more, so charging for it would charge for possession by the back door.
+        // **Saturating, because a monotone term is the wrong shape of objective** - the lesson the
+        // experiment README already records: maximising a proxy walks out of the range that made it
+        // a good proxy. So the term is `weight × min(steals / target, 1)` and its contribution lies
+        // in `[0, weight]`. Two things follow that a per-steal price could not give:
+        //
+        //   * **The weight is the ceiling.** At 0.9 against a win's 3.0, chasing can never be worth
+        //     more than winning *by construction*, not by my arithmetic coming out right.
+        //   * **No reason to over-hunt.** Past the target the term is flat, so a side is never paid
+        //     to send more bodies at the ball - the huddle §7.2 warns about. It is not *penalised*
+        //     for exceeding it either: a side that genuinely wins the ball more than §7 is a better
+        //     side, not an unrealistic one, which is why this is one-sided and not `off()`'s
+        //     squared deviation.
+        //
+        // The target defaults to §7's measured 2.2 because that is the only ball-winning rate this
+        // game has ever been observed at - a reference, not a law, and `--turnover-target` moves it.
+        // §7 may well under-chase compared with a human; nobody has measured the human yet.
+        //
+        // Steals *conceded* are measured and reported but not charged: a side that holds the ball
+        // more is stolen from more, so charging for it would charge for possession by the back door.
+        let steals = s.turnoverTarget > 0
+            ? Swift.min(s.turnovers / s.turnoverTarget, 1.0)
+            : 0.0
         return (s.wins * 3.0)
             + 0.15 * (s.goalsFor - s.goalsAgainst)
             - 0.12 * s.pressure
-            + turnoverWeight * s.turnovers
+            + turnoverWeight * steals
     }
 
     /// Squared deviation in units of a tolerance, capped so one wayward term cannot drown the rest.
@@ -430,6 +456,7 @@ func play(_ net: PolicyNet?, seed n: Int, cfg: Config, rival: Rival = .rules) ->
 
     var s = Score()
     s.victoryOnly = cfg.victoryOnly
+    s.turnoverTarget = cfg.turnoverTarget
     var playTicks = 0, ownTicks = 0
     var carryTicks = 0, finalTicks = 0
     var receiverTotal = 0.0

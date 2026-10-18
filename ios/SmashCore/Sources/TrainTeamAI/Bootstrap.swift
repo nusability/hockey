@@ -56,6 +56,16 @@ struct Backprop {
 
     var parameters: [Double] { w0 + b0 + w1 + b1 + w2 + b2 }
 
+    /// Scatters a flat parameter vector back into the layers — the inverse of `parameters`, so a
+    /// gradient check can move one parameter at a time through the same forward pass.
+    mutating func load(_ flat: [Double]) {
+        var k = 0
+        func take(_ n: Int) -> [Double] { defer { k += n }; return Array(flat[k..<(k + n)]) }
+        w0 = take(nH * nIn); b0 = take(nH)
+        w1 = take(nH * nH);  b1 = take(nH)
+        w2 = take(nOut * nH); b2 = take(nOut)
+    }
+
     /// One Adam step on the mean squared error over `batch`. Returns the loss before the step.
     ///
     /// `dropTail` hides the last few inputs on a random `dropProbability` of samples. It exists for
@@ -69,9 +79,7 @@ struct Backprop {
     mutating func step(_ batch: ArraySlice<TeachingSample>, dropTail: Int = 0,
                        dropProbability: Double = 0, rng: inout Gauss) -> Double {
         let n = Double(batch.count)
-        var gw0 = [Double](repeating: 0, count: w0.count), gb0 = [Double](repeating: 0, count: nH)
-        var gw1 = [Double](repeating: 0, count: w1.count), gb1 = [Double](repeating: 0, count: nH)
-        var gw2 = [Double](repeating: 0, count: w2.count), gb2 = [Double](repeating: 0, count: nOut)
+        var g = Grads(nIn: nIn, nH: nH, nOut: nOut)
         var loss = 0.0
 
         for sample in batch {
@@ -79,57 +87,85 @@ struct Backprop {
             if dropTail > 0 && rng.uniform() < dropProbability {
                 for k in (x.count - dropTail)..<x.count { x[k] = 0 }
             }
-
-            // Forward, keeping the pre-activations so the backward pass can gate on them.
-            var z0 = b0
-            for o in 0..<nH { let r = o * nIn; var s = b0[o]; for i in 0..<nIn { s += w0[r + i] * x[i] }; z0[o] = s }
-            let a0 = z0.map { $0 > 0 ? $0 : 0 }
-            var z1 = b1
-            for o in 0..<nH { let r = o * nH; var s = b1[o]; for i in 0..<nH { s += w1[r + i] * a0[i] }; z1[o] = s }
-            let a1 = z1.map { $0 > 0 ? $0 : 0 }
-            var y = b2
-            for o in 0..<nOut { let r = o * nH; var s = b2[o]; for i in 0..<nH { s += w2[r + i] * a1[i] }; y[o] = s }
-
+            let f = forward(x)
             // dL/dy for the mean squared error, averaged over the batch and the outputs.
             var dy = [Double](repeating: 0, count: nOut)
             for o in 0..<nOut {
-                let e = y[o] - sample.label[o]
+                let e = f.y[o] - sample.label[o]
                 loss += e * e
                 dy[o] = 2.0 * e / (n * Double(nOut))
             }
-
-            // Output layer.
-            var da1 = [Double](repeating: 0, count: nH)
-            for o in 0..<nOut {
-                let r = o * nH
-                gb2[o] += dy[o]
-                for i in 0..<nH { gw2[r + i] += dy[o] * a1[i]; da1[i] += dy[o] * w2[r + i] }
-            }
-            // Second hidden layer, gated by its own pre-activation.
-            var da0 = [Double](repeating: 0, count: nH)
-            for o in 0..<nH {
-                let d = z1[o] > 0 ? da1[o] : 0
-                if d == 0 { continue }
-                let r = o * nH
-                gb1[o] += d
-                for i in 0..<nH { gw1[r + i] += d * a0[i]; da0[i] += d * w1[r + i] }
-            }
-            // First hidden layer.
-            for o in 0..<nH {
-                let d = z0[o] > 0 ? da0[o] : 0
-                if d == 0 { continue }
-                let r = o * nIn
-                gb0[o] += d
-                for i in 0..<nIn { gw0[r + i] += d * x[i] }
-            }
+            backward(x, f, dy: dy, into: &g)
         }
 
-        apply(gw0 + gb0 + gw1 + gb1 + gw2 + gb2)
+        apply(g.flat)
         return loss / (n * Double(nOut))
     }
 
+    /// The gradient sums for a batch, in `PolicyNet`'s parameter order.
+    struct Grads {
+        var w0: [Double], b0: [Double], w1: [Double], b1: [Double], w2: [Double], b2: [Double]
+
+        init(nIn: Int, nH: Int, nOut: Int) {
+            w0 = [Double](repeating: 0, count: nH * nIn); b0 = [Double](repeating: 0, count: nH)
+            w1 = [Double](repeating: 0, count: nH * nH);  b1 = [Double](repeating: 0, count: nH)
+            w2 = [Double](repeating: 0, count: nOut * nH); b2 = [Double](repeating: 0, count: nOut)
+        }
+
+        var flat: [Double] { w0 + b0 + w1 + b1 + w2 + b2 }
+    }
+
+    /// One forward pass, keeping the pre-activations the backward pass has to gate on.
+    func forward(_ x: [Double]) -> (y: [Double], z0: [Double], a0: [Double], z1: [Double], a1: [Double]) {
+        var z0 = b0
+        for o in 0..<nH { let r = o * nIn; var s = b0[o]; for i in 0..<nIn { s += w0[r + i] * x[i] }; z0[o] = s }
+        let a0 = z0.map { $0 > 0 ? $0 : 0 }
+        var z1 = b1
+        for o in 0..<nH { let r = o * nH; var s = b1[o]; for i in 0..<nH { s += w1[r + i] * a0[i] }; z1[o] = s }
+        let a1 = z1.map { $0 > 0 ? $0 : 0 }
+        var y = b2
+        for o in 0..<nOut { let r = o * nH; var s = b2[o]; for i in 0..<nH { s += w2[r + i] * a1[i] }; y[o] = s }
+        return (y, z0, a0, z1, a1)
+    }
+
+    /// Accumulates one sample's gradients into `g`, given `dy` = dL/dy from the caller.
+    ///
+    /// **One backward pass in this project, not two.** The imitation fit hands it the squared-error
+    /// gradient; a policy-gradient trainer hands it the surrogate's. Neither keeps its own copy of
+    /// the chain rule, because two copies is how a gradient goes quietly wrong — and a quietly wrong
+    /// gradient looks exactly like a policy that will not learn, which is a week of blaming the
+    /// reward.
+    func backward(_ x: [Double],
+                  _ f: (y: [Double], z0: [Double], a0: [Double], z1: [Double], a1: [Double]),
+                  dy: [Double], into g: inout Grads) {
+        // Output layer.
+        var da1 = [Double](repeating: 0, count: nH)
+        for o in 0..<nOut {
+            let r = o * nH
+            g.b2[o] += dy[o]
+            for i in 0..<nH { g.w2[r + i] += dy[o] * f.a1[i]; da1[i] += dy[o] * w2[r + i] }
+        }
+        // Second hidden layer, gated by its own pre-activation.
+        var da0 = [Double](repeating: 0, count: nH)
+        for o in 0..<nH {
+            let d = f.z1[o] > 0 ? da1[o] : 0
+            if d == 0 { continue }
+            let r = o * nH
+            g.b1[o] += d
+            for i in 0..<nH { g.w1[r + i] += d * f.a0[i]; da0[i] += d * w1[r + i] }
+        }
+        // First hidden layer.
+        for o in 0..<nH {
+            let d = f.z0[o] > 0 ? da0[o] : 0
+            if d == 0 { continue }
+            let r = o * nIn
+            g.b0[o] += d
+            for i in 0..<nIn { g.w0[r + i] += d * x[i] }
+        }
+    }
+
     /// Adam, over the flat parameter vector, then scattered back into the layers.
-    private mutating func apply(_ grad: [Double]) {
+    mutating func apply(_ grad: [Double]) {
         t += 1
         var flat = parameters
         let bc1 = 1.0 - Foundation.pow(beta1, Double(t))

@@ -98,6 +98,9 @@ struct Config {
     /// finds more ways to trade shape for goals than a small one, and at 0.15 the 128-unit run gave
     /// away the clone's spread (7.3 → 5.5 m) inside forty iterations.
     var shapeWeight = 0.15
+    /// `--gradcheck` checks the backward pass against finite differences and exits. The one piece
+    /// of a policy-gradient trainer that fails silently, so it is checked before anything is run.
+    var gradCheck = false
     /// `--pure` is self-play and nothing else: no §7, no scripted sparring, only the league of
     /// past selves. What the owner asked for - learn the game by playing itself.
     ///
@@ -225,6 +228,7 @@ while let a = it.next() {
     case "--eval-offset": cfg.evalOffset = Int(num())
     case "--versus": cfg.versus = it.next()
     case "--shape-weight": cfg.shapeWeight = num()
+    case "--gradcheck": cfg.gradCheck = true
     case "--pure": cfg.pureSelfPlay = true; cfg.selfPlay = 1.0
     case "--pool": cfg.poolLimit = Int(num())
     case "--turnover-weight": cfg.turnoverWeight = num()
@@ -754,6 +758,20 @@ if let path = C.initFrom {
     print("starting from scratch — \(dim) random parameters, nothing of §7 in them")
 }
 
+if C.gradCheck {
+    let e = PPO.gradientCheck()
+    print(String(format: "gradient check (relative error vs central differences)"))
+    print(String(format: "  squared error  %.2e   |grad| %.4f", e.mse, e.mseNorm))
+    print(String(format: "  PPO surrogate  %.2e   |grad| %.4f", e.surrogate, e.surrogateNorm))
+    // A gradient of nothing agrees with a finite difference of nothing, which proves nothing - so
+    // the magnitudes have to be real before the agreement means anything.
+    let agree = e.mse < 1e-5 && e.surrogate < 1e-5
+    let real = e.mseNorm > 1e-3 && e.surrogateNorm > 1e-3
+    print(agree && real ? "both agree, and both gradients are substantial - the backward pass is right"
+          : !real ? "VACUOUS - a gradient is ~0, so the agreement means nothing"
+          : "MISMATCH - do not train on this")
+    exit(agree && real ? 0 : 1)
+}
 print("reward: " + (C.victoryOnly ? "victory alone (goal difference)" : "shaped"))
 if C.easeCollect {
     print("§6.3.1: eased in over \(C.easeLadder.map { String(format: "%.1f", $0) }.joined(separator: " → "))"

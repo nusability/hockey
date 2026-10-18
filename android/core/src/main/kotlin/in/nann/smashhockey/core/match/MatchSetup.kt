@@ -90,6 +90,12 @@ sealed interface MatchEvent {
     data class Steal(val by: Int, val from: Int) : MatchEvent
     data class Save(val by: Int) : MatchEvent
     data class Block(val by: Int) : MatchEvent
+
+    /**
+     * A ball arriving from behind was not collected (§6.3.1): it ricocheted off the player, or ran
+     * on past them untouched. Either way it is their touch and they cannot have it back yet.
+     */
+    data class Fumble(val player: Int, val ricochet: Boolean) : MatchEvent
     data object Post : MatchEvent
     data class Board(val speed: Double) : MatchEvent
     data class Goal(val team: Int, val scorer: Int?, val assist: Int?, val ownGoal: Boolean) : MatchEvent

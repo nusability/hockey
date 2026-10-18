@@ -185,7 +185,7 @@ private fun Match.deflectOffPlayers(r: Double) {
 
 // Picking it up (§6.3)
 
-private fun Match.pickUp(r: Double) {
+internal fun Match.pickUp(r: Double) {
     var best: Int? = null
     var bestDistance = Double.POSITIVE_INFINITY
     for ((i, p) in players.withIndex()) {
@@ -206,7 +206,55 @@ private fun Match.pickUp(r: Double) {
         touch != null && players[touch].team == p.team -> Tuning.Ball.pickupLimitOwnTouch
         else -> Tuning.Ball.pickupLimitOther
     }
-    if (relative < limit) takeBall(i, reorient = true) else ball.lastTouch = i
+    if (relative >= limit) {
+        ball.lastTouch = i
+        return
+    }
+    if (collects(i, relative)) takeBall(i, reorient = true)
+}
+
+/**
+ * Whether player [i] actually gathers a ball that passed §6.3's limit, or fumbles it (§6.3.1).
+ *
+ * A ball arriving from **behind** an outfield player is not reliably collected. Goalies are exempt:
+ * §3 pins a goalie's facing down the pitch, so an angle measured from it would mean nothing. The
+ * angle is taken against the ball's velocity **relative** to the player — the same vector
+ * [relative] measures — so a trailing pass that barely catches its receiver is gentle in both terms
+ * and stays collectable.
+ *
+ * **The draw only happens under pressure.** A ball met inside the free cone, or dawdling, takes
+ * nothing from §4.3's stream, so every ordinary pickup in the corpus is unchanged.
+ */
+private fun Match.collects(i: Int, relative: Double): Boolean {
+    val b = Tuning.Ball
+    val p = players[i]
+    if (p.isGoalie || relative <= Tuning.Sim.contactEpsilon) return true
+    // cos of the angle between the player's facing and the direction the ball arrives FROM:
+    // +1 met head-on, -1 running up straight behind them.
+    val cosArrive = (DetMath.sin(p.facing) * -(ball.vel.x - p.vel.x) +
+        DetMath.cos(p.facing) * -(ball.vel.z - p.vel.z)) / relative
+    val behind = Pitch.clamp((b.collectFreeCos - cosArrive) / b.collectBehindSpan, 0.0, 1.0)
+    val speed = Pitch.clamp((relative - b.collectSlowSpeed) / b.collectSpeedSpan, 0.0, 1.0)
+    val pressure = behind * speed
+    if (pressure <= 0) return true
+
+    val draw = rng.uniform()
+    if (draw < 1 - pressure * b.collectPressureWeight) return true
+    // Fumbled. It ricochets off them or runs on past them, and either way it is their touch and
+    // they cannot have it back - nor steal it - for a moment, which is what makes this one event
+    // rather than a coin flipped every step the ball stays in reach.
+    if (draw < 1 - pressure * b.collectPressureWeight * (1 - b.collectRicochetShare)) {
+        val heading = Pitch.heading(ball.vel.x - p.vel.x, ball.vel.z - p.vel.z) +
+            (2 * rng.uniform() - 1) * b.collectRicochetSpread
+        val off = relative * b.collectRicochetKeep
+        ball.vel = Vec(p.vel.x + off * DetMath.sin(heading), p.vel.z + off * DetMath.cos(heading))
+        emit(MatchEvent.Fumble(i, ricochet = true))
+    } else {
+        emit(MatchEvent.Fumble(i, ricochet = false))
+    }
+    ball.lastTouch = i
+    players[i].pickupCooldown = b.collectFumbleCooldown
+    return false
 }
 
 /**

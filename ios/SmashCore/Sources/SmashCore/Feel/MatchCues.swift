@@ -144,6 +144,11 @@ public struct MatchCues: Sendable {
         case .block(let i):
             sound(.matchBlock, onPitch: true)
             out.append(.pop(.block, x: s.players[i].x, z: s.players[i].z))
+        case .fumble(let i, _):
+            // §6.3.1: a ball off a body is the same thing to the ear as a block, so a fumble
+            // borrows its sound and its ring rather than asking for assets of its own.
+            sound(.matchBlock, onPitch: true)
+            out.append(.pop(.block, x: s.players[i].x, z: s.players[i].z))
         case .save(let i):
             sound(.matchSave, onPitch: true)
             haptic(.sharp(p.hapticSharp))

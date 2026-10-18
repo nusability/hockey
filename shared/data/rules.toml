@@ -111,6 +111,18 @@ pickup_reach_goalie_extra = 0.35  # radius + ball radius + 0.35
 pickup_limit_goalie = 9.0
 pickup_limit_own_touch = 27.0
 pickup_limit_other = 17.0
+# §6.3.1 A ball arriving from behind an outfield player (goalies are exempt — §3 pins their
+# facing). The angle is measured from the player's facing against the direction the ball arrives
+# FROM, on the ball's velocity RELATIVE to them — the same vector the limits above are measured on.
+collect_free_cos = 0.5          # cos 60°: arriving within 60° of facing is unaffected …
+collect_behind_span = 1.5       # … and "behind" climbs over the remaining 0.5 − cos θ ∈ [0, 1.5]
+collect_slow_speed = 4.0        # a relative approach slower than this is always collectable …
+collect_speed_span = 10.0       # … and at 4 + 10 = 14 the angle bites in full
+collect_pressure_weight = 0.92  # collect chance = 1 − pressure × 0.92, so 8 % straight from behind
+collect_ricochet_share = 0.4    # of the failures, this share ricochet; the rest run on untouched
+collect_ricochet_spread = 2.0   # rad — the ricochet heading, uniform within ±2.0 of the incoming
+collect_ricochet_keep = 0.55    # the ricochet keeps this much of the relative approach speed
+collect_fumble_cooldown = 0.35  # a fumbler can neither pick up nor steal the ball this soon after
 settle_time = 0.45              # a carrier is safe this long after winning the ball
 steal_reach_outfield = 0.9
 steal_reach_goalie_extra = 0.3  # radius + 0.3

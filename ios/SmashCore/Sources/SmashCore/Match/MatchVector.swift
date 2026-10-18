@@ -75,6 +75,7 @@ public struct MatchVector: Sendable {
         case .steal(let by, let from): return "steal \(by) \(from)"
         case .save(let by): return "save \(by)"
         case .block(let by): return "block \(by)"
+        case .fumble(let player, let ricochet): return "fumble \(player) \(ricochet ? "ricochet" : "ranon")"
         case .post: return "post"
         case .board(let speed): return "board \(hex(speed))"
         case .goal(let team, let scorer, let assist, let own): return "goal \(team) \(who(scorer)) \(who(assist)) \(own ? 1 : 0)"

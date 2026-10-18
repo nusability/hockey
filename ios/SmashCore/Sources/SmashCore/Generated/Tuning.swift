@@ -115,6 +115,15 @@ public enum Tuning {
         public static let pickupLimitGoalie: Double = 9.0
         public static let pickupLimitOwnTouch: Double = 27.0
         public static let pickupLimitOther: Double = 17.0
+        public static let collectFreeCos: Double = 0.5
+        public static let collectBehindSpan: Double = 1.5
+        public static let collectSlowSpeed: Double = 4.0
+        public static let collectSpeedSpan: Double = 10.0
+        public static let collectPressureWeight: Double = 0.92
+        public static let collectRicochetShare: Double = 0.4
+        public static let collectRicochetSpread: Double = 2.0
+        public static let collectRicochetKeep: Double = 0.55
+        public static let collectFumbleCooldown: Double = 0.35
         public static let settleTime: Double = 0.45
         public static let stealReachOutfield: Double = 0.9
         public static let stealReachGoalieExtra: Double = 0.3

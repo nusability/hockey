@@ -110,6 +110,9 @@ public enum MatchEvent: Sendable, Hashable {
     case steal(by: Int, from: Int)
     case save(by: Int)
     case block(by: Int)
+    /// A ball arriving from behind was not collected (§6.3.1): it ricocheted off the player, or ran
+    /// on past them untouched. Either way it is their touch and they cannot have it back yet.
+    case fumble(player: Int, ricochet: Bool)
     case post
     case board(speed: Double)
     case goal(team: Int, scorer: Int?, assist: Int?, ownGoal: Bool)

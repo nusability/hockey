@@ -135,6 +135,12 @@ class MatchCues(private val p: Params, private val drill: Boolean, private val a
                 sound(SoundCue.MATCH_BLOCK, onPitch = true)
                 out += Cue.Pop(PopKind.BLOCK, s.players[e.by].x, s.players[e.by].z)
             }
+            is MatchEvent.Fumble -> {
+                // §6.3.1: a ball off a body is the same thing to the ear as a block, so a fumble
+                // borrows its sound and its ring rather than asking for assets of its own.
+                sound(SoundCue.MATCH_BLOCK, onPitch = true)
+                out += Cue.Pop(PopKind.BLOCK, s.players[e.player].x, s.players[e.player].z)
+            }
             is MatchEvent.Save -> {
                 sound(SoundCue.MATCH_SAVE, onPitch = true)
                 haptic(Haptic.Sharp(p.hapticSharp))

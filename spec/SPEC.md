@@ -9,7 +9,7 @@ Split axis (declared): CAPABILITY. When this file grows, split into spec/<capabi
 Rules: principles.md. Stack standards: conventions.md. Decisions: decisions/.
 -->
 
-Spec-Version: 0.33.0
+Spec-Version: 0.34.0
 Status: as-is — **the whole game, playable on both platforms.** The match, the drills, the
 season, the career and the save (§1–§12, §15) run in each platform's core and agree to the last
 bit, pinned by golden vectors; both apps put them on screen through the screens of §16 and keep
@@ -517,7 +517,58 @@ roster order on a tie) within reach
 cooldown takes it, **if** the ball's speed relative to them, measured after the deflections, is
 below a limit: **9** for a goalie; **27** when their own team touched the ball last; **17**
 otherwise. A faster ball becomes theirs as the last touch without being taken — so on the next
-step, still in reach, their limit is 27.
+step, still in reach, their limit is 27. A ball **inside** that limit is still only collected if
+§6.3.1 lets it be.
+
+##### 6.3.1 A ball arriving from behind
+**An outfield player cannot be relied on to collect a ball that arrives from behind them.** Goalies
+are exempt: §3 pins a goalie's facing down the pitch, so an arrival angle measured from it would
+mean nothing. Every other player is judged the same way, the human's included — this is a rule of
+the pitch, not a handicap on one side.
+
+Take the ball's velocity **relative to the player** (the same vector §6.3's limit is measured
+from), let `s` be its speed, and let `θ` be the angle between the player's facing (§3) and the
+direction the ball arrives **from** — so `θ = 0` is a ball met head-on and `θ = π` one running up
+behind them. Two factors, each 0 when the ball is easy and 1 when it is hardest:
+
+- **behind** = `clamp((0.5 − cos θ) / 1.5, 0, 1)`. A ball arriving **within 60° of the player's
+  facing is unaffected** (`cos θ ≥ 0.5`); past that it climbs to 1 straight from behind. Measuring
+  the cosine rather than the angle makes it bite through the over-the-shoulder band: 0.33 at 90°,
+  0.80 at 135°.
+- **speed** = `clamp((s − 4) / 10, 0, 1)`. **A slow roll is always collectable** — under **4**
+  relative, nothing below applies, however far behind it comes from. At **14** and above the angle
+  bites in full.
+
+Their product is the **pressure** on the touch. The chance of collecting it cleanly is
+`1 − pressure · 0.92`, so a ball met inside the cone, or dawdling, is taken as it always was, and
+one arriving fast from directly behind is collected **8 %** of the time. The player draws once,
+from the stream of §4.3, and one of three things happens:
+
+| Draw | What happens |
+|---|---|
+| below `1 − pressure · 0.92` | **Collected** — §6.3 as written, the ball is theirs. |
+| the next **40 %** of what is left | **Ricocheted** — it comes off them in a direction of its own (below). |
+| the rest | **Run on** — the ball keeps its velocity and goes past them untouched. |
+
+A ricochet leaves on a heading drawn uniformly within **±2.0 rad** of the direction the ball was
+already travelling relative to the player, keeping **55 %** of that relative speed, which is then
+taken back into the pitch's frame by adding the player's own velocity. So a ball barely catching
+its receiver trickles off them; one arriving at pace can end up anywhere, including in a net.
+
+Either failure is a **touch**: the player becomes the ball's last touch (§6.3's limit is 27 for
+their team from then on, §8.4's scorer and assist follow it, and it counts for §8.9's offside the
+way any touch does), they **emit a fumble**, and they may neither pick the ball up nor steal it for
+**0.35 s**. That cooldown is what makes this a single event rather than a coin flipped every step
+while the ball is in reach, and it is why a muffed ball is genuinely lost for a moment: the player
+has to turn and go after it.
+
+**Turning to meet a pass is allowed, and it costs what it should.** A player can get on the end of
+a ball coming from behind by turning to face it, limited by §3's turn rate. What stops that being a
+free trick — for the automatic play (§7) as much as for the human — is that **facing is not
+something anyone chooses**: §3 derives it from the direction a player is actually *moving*, and
+only while they are moving at all. There is no aim to spend. To face a ball coming up behind you,
+you have to run back at it and give up the ground you were making — which is precisely why a team
+offers itself square and in front instead, and why width is worth something.
 
 #### 6.4 Stealing it
 A carrier is safe for **0.45 s** after winning the ball. After that, each opponent in roster
@@ -998,8 +1049,10 @@ never a banner, a sound or a haptic.
   ripples as the ball reaches its cloth, like any other contact (above); the camera shakes (a kick
   of 1.2 falling off by 2.5 a second); the scorers hop (§16.4's banner, the horn and the crowd for a goal of ours, a sigh for one
   against).
-- **Knocks.** A post shakes the camera (0.5) and rings; the boards only sound. A save, a steal or a
-  block pops a quick ring at the spot. Reduce Motion keeps a fifth of every shake.
+- **Knocks.** A post shakes the camera (0.5) and rings; the boards only sound. A save, a steal, a
+  block or a **fumble** (§6.3.1) pops a quick ring at the spot. A fumble sounds and pops as a block
+  does — it is the same thing to the ear, a ball off a body — so neither needs anything new.
+  Reduce Motion keeps a fifth of every shake.
 - **The stadium.** Under every match of the player's — never the demo — a crowd of two, one behind
   each goal, and drums. Both are loops that start when the match does and never restart: only their
   level, their place across the stereo field and their rate ever move, so the room never seams. The

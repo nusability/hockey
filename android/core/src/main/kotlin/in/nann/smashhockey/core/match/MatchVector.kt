@@ -72,6 +72,7 @@ class MatchVector(val setup: Setup, val every: Int, val maxTicks: Int, val input
                 is MatchEvent.Steal -> "steal ${e.by} ${e.from}"
                 is MatchEvent.Save -> "save ${e.by}"
                 is MatchEvent.Block -> "block ${e.by}"
+                is MatchEvent.Fumble -> "fumble ${e.player} ${if (e.ricochet) "ricochet" else "ranon"}"
                 MatchEvent.Post -> "post"
                 is MatchEvent.Board -> "board ${hex(e.speed)}"
                 is MatchEvent.Goal -> "goal ${e.team} ${who(e.scorer)} ${who(e.assist)} ${if (e.ownGoal) 1 else 0}"

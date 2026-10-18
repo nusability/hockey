@@ -116,6 +116,15 @@ object Tuning {
         const val pickupLimitGoalie: Double = 9.0
         const val pickupLimitOwnTouch: Double = 27.0
         const val pickupLimitOther: Double = 17.0
+        const val collectFreeCos: Double = 0.5
+        const val collectBehindSpan: Double = 1.5
+        const val collectSlowSpeed: Double = 4.0
+        const val collectSpeedSpan: Double = 10.0
+        const val collectPressureWeight: Double = 0.92
+        const val collectRicochetShare: Double = 0.4
+        const val collectRicochetSpread: Double = 2.0
+        const val collectRicochetKeep: Double = 0.55
+        const val collectFumbleCooldown: Double = 0.35
         const val settleTime: Double = 0.45
         const val stealReachOutfield: Double = 0.9
         const val stealReachGoalieExtra: Double = 0.3

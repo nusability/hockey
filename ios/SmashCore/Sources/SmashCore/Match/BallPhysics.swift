@@ -190,11 +190,51 @@ extension Match {
         } else {
             limit = Tuning.Ball.pickupLimitOther
         }
-        if relative < limit {
-            takeBall(i, reorient: true)
+        guard relative < limit else { ball.lastTouch = i; return }
+        if collects(i, relative: relative) { takeBall(i, reorient: true) }
+    }
+
+    /// Whether player `i` actually gathers a ball that passed §6.3's limit, or fumbles it (§6.3.1).
+    ///
+    /// A ball arriving from **behind** an outfield player is not reliably collected. Goalies are
+    /// exempt: §3 pins a goalie's facing down the pitch, so an angle measured from it would mean
+    /// nothing. The angle is taken against the ball's velocity **relative** to the player — the
+    /// same vector `relative` measures — so a trailing pass that barely catches its receiver is
+    /// gentle in both terms and stays collectable.
+    ///
+    /// **The draw only happens under pressure.** A ball met inside the free cone, or dawdling,
+    /// takes nothing from §4.3's stream, so every ordinary pickup in the corpus is unchanged.
+    mutating func collects(_ i: Int, relative: Double) -> Bool {
+        typealias B = Tuning.Ball
+        let p = players[i]
+        guard !p.isGoalie, relative > Tuning.Sim.contactEpsilon else { return true }
+        // cos of the angle between the player's facing and the direction the ball arrives FROM:
+        // +1 met head-on, −1 running up straight behind them.
+        let cosArrive = (DetMath.sin(p.facing) * -(ball.vel.x - p.vel.x)
+                       + DetMath.cos(p.facing) * -(ball.vel.z - p.vel.z)) / relative
+        let behind = Pitch.clamp((B.collectFreeCos - cosArrive) / B.collectBehindSpan, 0, 1)
+        let speed = Pitch.clamp((relative - B.collectSlowSpeed) / B.collectSpeedSpan, 0, 1)
+        let pressure = behind * speed
+        guard pressure > 0 else { return true }
+
+        let draw = rng.uniform()
+        if draw < 1 - pressure * B.collectPressureWeight { return true }
+        // Fumbled. It ricochets off them or runs on past them, and either way it is their touch and
+        // they cannot have it back — nor steal it — for a moment, which is what makes this one
+        // event rather than a coin flipped every step the ball stays in reach.
+        if draw < 1 - pressure * B.collectPressureWeight * (1 - B.collectRicochetShare) {
+            let heading = Pitch.heading(ball.vel.x - p.vel.x, ball.vel.z - p.vel.z)
+                + (2 * rng.uniform() - 1) * B.collectRicochetSpread
+            let off = relative * B.collectRicochetKeep
+            ball.vel = Vec(x: p.vel.x + off * DetMath.sin(heading),
+                           z: p.vel.z + off * DetMath.cos(heading))
+            emit(.fumble(player: i, ricochet: true))
         } else {
-            ball.lastTouch = i
+            emit(.fumble(player: i, ricochet: false))
         }
+        ball.lastTouch = i
+        players[i].pickupCooldown = B.collectFumbleCooldown
+        return false
     }
 
     /// Player `p` wins the ball (§5.1, §6.3, §6.4). `reorient` is false only for a drill's start,

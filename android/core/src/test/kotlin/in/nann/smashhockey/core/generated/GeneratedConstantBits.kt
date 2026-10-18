@@ -92,6 +92,15 @@ internal object GeneratedConstantBits {
         Triple("Tuning.Ball.pickupLimitGoalie", Tuning.Ball.pickupLimitGoalie, 4621256167635550208L), // 0x4022000000000000
         Triple("Tuning.Ball.pickupLimitOwnTouch", Tuning.Ball.pickupLimitOwnTouch, 4628293042053316608L), // 0x403B000000000000
         Triple("Tuning.Ball.pickupLimitOther", Tuning.Ball.pickupLimitOther, 4625478292286210048L), // 0x4031000000000000
+        Triple("Tuning.Ball.collectFreeCos", Tuning.Ball.collectFreeCos, 4602678819172646912L), // 0x3FE0000000000000
+        Triple("Tuning.Ball.collectBehindSpan", Tuning.Ball.collectBehindSpan, 4609434218613702656L), // 0x3FF8000000000000
+        Triple("Tuning.Ball.collectSlowSpeed", Tuning.Ball.collectSlowSpeed, 4616189618054758400L), // 0x4010000000000000
+        Triple("Tuning.Ball.collectSpeedSpan", Tuning.Ball.collectSpeedSpan, 4621819117588971520L), // 0x4024000000000000
+        Triple("Tuning.Ball.collectPressureWeight", Tuning.Ball.collectPressureWeight, 4606461842859638129L), // 0x3FED70A3D70A3D71
+        Triple("Tuning.Ball.collectRicochetShare", Tuning.Ball.collectRicochetShare, 4600877379321698714L), // 0x3FD999999999999A
+        Triple("Tuning.Ball.collectRicochetSpread", Tuning.Ball.collectRicochetSpread, 4611686018427387904L), // 0x4000000000000000
+        Triple("Tuning.Ball.collectRicochetKeep", Tuning.Ball.collectRicochetKeep, 4603129179135383962L), // 0x3FE199999999999A
+        Triple("Tuning.Ball.collectFumbleCooldown", Tuning.Ball.collectFumbleCooldown, 4599976659396224614L), // 0x3FD6666666666666
         Triple("Tuning.Ball.settleTime", Tuning.Ball.settleTime, 4601778099247172813L), // 0x3FDCCCCCCCCCCCCD
         Triple("Tuning.Ball.stealReachOutfield", Tuning.Ball.stealReachOutfield, 4606281698874543309L), // 0x3FECCCCCCCCCCCCD
         Triple("Tuning.Ball.stealReachGoalieExtra", Tuning.Ball.stealReachGoalieExtra, 4599075939470750515L), // 0x3FD3333333333333

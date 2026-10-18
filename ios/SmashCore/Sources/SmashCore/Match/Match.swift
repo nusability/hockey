@@ -79,6 +79,23 @@ public struct Match: Sendable {
     /// reach. With the nets open a shot on target counts, so "move the ball toward their goal"
     /// becomes learnable, and the keepers come back once it can finish.
     public var openNets = false
+    /// Training only: how much of §6.3.1 to forgive, 0 for none and 1 for all of it.
+    ///
+    /// A curriculum step, not a rule. **0 is the shipped game** and the golden vectors, so nothing
+    /// a player meets depends on this; at 1 a ball from behind is collected exactly as it was
+    /// before §6.3.1 existed.
+    ///
+    /// Why it has to exist: §6.3.1 took away the free possession a random policy used to bootstrap
+    /// itself on. §7 is barely troubled by the rule — it assigns a chaser to the ball and holds it
+    /// 0.28 of the time — but a search starting from noise never gathers the ball at all, both
+    /// sides of a self-play pair stop contesting, neither is punished, and the reward goes flat:
+    /// measured, 91.6 % of a self-play match with the ball loose and a best fitness that did not
+    /// move in 56 iterations. Forgiving the rule early buys back the gradient, and tightening it
+    /// to 0 before anything is believed means the policy is finally judged under the real rule.
+    ///
+    /// **It only ever tightens.** A curriculum that loosens again teaches the policy to straddle
+    /// both worlds, the same reason the nets stay shut once they are shut (`openNets`).
+    public var collectEase = 0.0
     /// Training only: a crude scripted opponent per team, or `nil`.
     ///
     /// Sparring partners, not tactics. Self-play against one's own lineage drifts into private

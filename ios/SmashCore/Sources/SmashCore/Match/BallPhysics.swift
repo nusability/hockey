@@ -214,7 +214,10 @@ extension Match {
                        + DetMath.cos(p.facing) * -(ball.vel.z - p.vel.z)) / relative
         let behind = Pitch.clamp((B.collectFreeCos - cosArrive) / B.collectBehindSpan, 0, 1)
         let speed = Pitch.clamp((relative - B.collectSlowSpeed) / B.collectSpeedSpan, 0, 1)
-        let pressure = behind * speed
+        // `collectEase` is 0 in the shipped game and in every vector, so this multiply is the
+        // identity everywhere a player can reach. Training may forgive the rule while a policy
+        // learns to gather the ball at all; see `Match.collectEase`.
+        let pressure = behind * speed * (1 - collectEase)
         guard pressure > 0 else { return true }
 
         let draw = rng.uniform()

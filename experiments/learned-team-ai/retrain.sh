@@ -22,7 +22,33 @@ REMOTE_DIR=\$HOME/smash-trainer          # a plain rsync of ios/SmashCore, not a
 # 18 and 30, their ball 24 m from our own goal, then the real game. --hidden 128 is the capacity
 # ADR 0010 measured as affordable (3.73 us a pass on an M1, ~2 % of a frame on the OnePlus) and
 # the only width that ever reached §7's 6.5 m.
-COMMON=(--open-nets --hidden 128 --iterations 4000 --period 40 --replay-every 25)
+#
+# --reward victory is the whole point and is NOT the tool's default. The question this run asks
+# is whether width emerges **on its own** now that a trailing pass costs something. Trained on
+# the shaped reward, any width that appears is width we asked for (`spread` is one of its terms)
+# and the run answers nothing - and the README's own lesson is that an untrained measure is a
+# measure the search will spend. Goal difference alone is the only objective that can answer it.
+# It is also what the two arms of 2026-10-17 used, so the trajectories are comparable.
+#
+# --matches 20, likewise theirs: at 4 matches a candidate the fitness is mostly draw noise, and
+# victory-only has no dense term to lean on. It costs ~40 s an iteration instead of ~10.
+COMMON=(--hidden 128 --reward victory --matches 20 --period 40 --replay-every 25)
+
+# Two arms that ask the same question two ways, because neither is sound alone.
+#
+# A (from scratch, ease ladder): the strong result if it works - nothing inherited, so width that
+#   appears was found rather than kept. It needs --ease-collect because §6.3.1 took away the free
+#   possession a random policy bootstrapped on: measured, 91.6 % of a self-play match with the ball
+#   loose and a best fitness frozen for 56 iterations. The ladder forgives the rule, then tightens
+#   it to 0, so the end state is judged under the real rule.
+# B (continue curriculum.txt, full rule): the control, and the cleaner single-variable test - the
+#   same policy and the same objective that produced the single file, with only the rule changed.
+#   It also guards the risk in A: a policy that learns the file in the eased world first may patch
+#   around it rather than discover width.
+#
+# --no-ladder for B: curriculum.txt already finished the spawn curriculum, so rung 0 is a regression.
+ARM_A=(--open-nets --ease-collect --iterations 1000)
+ARM_B=(--no-ladder --init curriculum.txt --iterations 1000)
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
@@ -30,11 +56,11 @@ stamp="$(date +%Y%m%d-%H%M)"
 
 case "${1:-}" in
 local)
-    out="$repo/.claude/worktrees-out/behind-$stamp-seedA11CE"
+    out="$repo/.claude/worktrees-out/ease-$stamp-seedA11CE"
     mkdir -p "$out"
     cd "$repo/ios/SmashCore"
     echo "arm A (this Mac, seed 0xA11CE) -> $out"
-    exec swift run -c release TrainTeamAI "${COMMON[@]}" --out "$out" \
+    exec swift run -c release TrainTeamAI "${COMMON[@]}" "${ARM_A[@]}" --out "$out" \
         2>&1 | tee "$out/train.log"
     ;;
 remote)
@@ -44,9 +70,9 @@ remote)
         --exclude '.build' --exclude '.swiftpm' \
         "$repo/ios/SmashCore/" "$REMOTE_HOST:smash-trainer/"
     ssh "$REMOTE_HOST" "cd smash-trainer && swift build -c release 2>&1 | tail -3"
-    out="\$HOME/smash-out/behind-$stamp-seed777"
+    out="\$HOME/smash-out/init-$stamp-seed777"
     ssh "$REMOTE_HOST" "mkdir -p $out && cd smash-trainer && \
-        nohup swift run -c release TrainTeamAI ${COMMON[*]} --seed 777 --out $out \
+        nohup swift run -c release TrainTeamAI ${COMMON[*]} ${ARM_B[*]} --seed 777 --out $out \
         > $out/train.log 2>&1 & echo \"arm B (second Mac, seed 777) pid \$!  -> $out\""
     ;;
 *)

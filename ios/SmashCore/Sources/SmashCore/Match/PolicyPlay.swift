@@ -77,6 +77,13 @@ public struct TeachingSample: Sendable {
     public let label: [Double]
 }
 
+/// Training only: what a policy-gradient trainer substitutes for the net's own outputs.
+///
+/// Given the deciding player, its team, the tick, what it saw and what the net said, it returns the
+/// outputs to actually use — so the trainer can explore, and can record the triple it needs to
+/// learn from. Not spec'd and never set by an app; see `Match.policyHook`.
+public typealias PolicyHook = @Sendable (Int, Int, Int, [Double], [Double]) -> [Double]
+
 extension Match {
 
     /// The inverse of `DetPolicy.squash`: `y / (1 − |y|)`, so `squash(unsquash(y)) == y`.
@@ -326,7 +333,27 @@ extension Match {
     /// This is a parameterisation, not a rule the policy obeys: the offset spans the pitch, so any
     /// target remains reachable from any spot. Nothing here decides where a player goes.
     func policyTarget(_ i: Int, net: PolicyNet, ranking: [(index: Int, distance: Double)]) -> Vec {
-        decodeTarget(i, net.forward(observe(i, ranking: ranking)))
+        decodeTarget(i, policyOutputs(i, net: net, ranking: ranking))
+    }
+
+    /// The policy's outputs for player `i`, through `policyHook` when a trainer has set one.
+    ///
+    /// **The seam a policy-gradient trainer needs**, and the whole of it. Evolution strategies only
+    /// ever needed a score per match, so it could treat a match as a black box; a method that
+    /// assigns credit through time needs to see what the player saw, what the net said, and what was
+    /// actually done - and it needs to substitute an explored action for the net's own. All three
+    /// meet here, because both decision sites (§7.4's off-ball target and §7.6's carrier release)
+    /// run the same forward pass.
+    ///
+    /// Sampling deliberately lives in the trainer rather than here: the trainer owns the
+    /// distribution it explores with, so it can compute that distribution's log-density exactly
+    /// instead of this file approximating one. With no hook set this is `net.forward` and nothing
+    /// else - no allocation, no draw from §4.3's stream, bit-identical to before it existed, which
+    /// is what keeps `shared/vectors/match/` valid.
+    func policyOutputs(_ i: Int, net: PolicyNet, ranking: [(index: Int, distance: Double)]) -> [Double] {
+        guard let hook = policyHook else { return net.forward(observe(i, ranking: ranking)) }
+        let observation = observe(i, ranking: ranking)
+        return hook(i, players[i].team, ticks, observation, net.forward(observation))
     }
 
     /// The target an already-computed forward pass asks for. Split out so a carrier — which needs

@@ -18,7 +18,7 @@ extension Match {
             players[i].policyThink += 1
             if players[i].policyThink >= 4 {
                 players[i].policyThink = 0
-                let out = net.forward(observe(i, ranking: ranking))
+                let out = policyOutputs(i, net: net, ranking: ranking)
                 if out[PolicyInputs.releaseOutput] > 0.0, policyLift(i) { return }
                 players[i].target = decodeTarget(i, out)
             }

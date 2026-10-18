@@ -96,6 +96,13 @@ public struct Match: Sendable {
     /// **It only ever tightens.** A curriculum that loosens again teaches the policy to straddle
     /// both worlds, the same reason the nets stay shut once they are shut (`openNets`).
     public var collectEase = 0.0
+    /// Training only: a policy-gradient trainer's seam into every policy decision, or `nil`.
+    ///
+    /// Evolution strategies needed only a score per match and could treat the match as a black box.
+    /// A method that assigns credit through time has to see each decision and explore around it, so
+    /// this hands the trainer what the player saw and what the net said, and takes back the outputs
+    /// to use. `nil` - every app, every vector, every test - is `net.forward` and nothing else.
+    public var policyHook: PolicyHook?
     /// Training only: a crude scripted opponent per team, or `nil`.
     ///
     /// Sparring partners, not tactics. Self-play against one's own lineage drifts into private

@@ -112,16 +112,6 @@ struct Config {
     /// policy to straddle both worlds, which is why the nets stay shut once shut.
     var easeLadder: [Double] = [1.0, 0.8, 0.6, 0.4, 0.2, 0.0]
     var easeStep = 0
-    /// Possession a match at which the next notch is taken. §7 holds the ball 0.28; asking for
-    /// 0.18 asks the policy to be most of the way to competent at gathering it, not all the way.
-    ///
-    /// Possession, not goals, because possession is the thing the rule took away and the thing the
-    /// policy has to get back. Gating on goals would tighten the rule while the policy still could
-    /// not pick the ball up, which is the failure this ladder exists to avoid.
-    var easeBar = 0.18
-    /// Notches are taken anyway after this many iterations, so a ladder nobody can climb cannot
-    /// strand the run at a forgiving rule and quietly report a number earned under it.
-    var easePatience = 150
     /// Running costs something. See `Match.stamina`.
     var stamina = false
     /// Goals a match, measured on the centre, at which the keepers come back. Once closed they
@@ -218,8 +208,6 @@ while let a = it.next() {
     case "--shape-weight": cfg.shapeWeight = num()
     case "--open-nets": cfg.openNets = true
     case "--ease-collect": cfg.easeCollect = true
-    case "--ease-bar": cfg.easeBar = num()
-    case "--ease-patience": cfg.easePatience = Int(num())
     case "--stamina": cfg.stamina = true
     case "--seed": cfg.seed = UInt64(Swift.max(num(), 0))
     case "--close-nets-at": cfg.closeNetsAt = num()
@@ -671,7 +659,7 @@ if let path = C.initFrom {
 print("reward: " + (C.victoryOnly ? "victory alone (goal difference)" : "shaped"))
 if C.easeCollect {
     print("§6.3.1: eased in over \(C.easeLadder.map { String(format: "%.1f", $0) }.joined(separator: " → "))"
-          + String(format: ", a notch per %.2f possession (forced after %d)", C.easeBar, C.easePatience))
+          + ", a notch per spawn rung climbed")
 }
 print("""
 TrainTeamAI — \(dim) parameters (\(nIn) → \(cfg.hidden) → \(cfg.hidden) → \(nOut)), \
@@ -1021,8 +1009,6 @@ var bestTheta = theta
 var stale = 0
 var atThreshold = 0
 var onRung = 0
-var atEase = 0
-var onEase = 0
 var sigma = C.sigma
 /// Past selves the candidates also have to beat. Capped: a handful of rungs is enough to stop the
 /// forgetting, and every extra one costs matches.
@@ -1097,31 +1083,6 @@ for iteration in 1...cfg.iterations {
     // is reset with them, because scores earned against an open net are not comparable.
     // One ladder, climbed in order: tap-in, then further out, then the real game. Scores earned on
     // an easier rung are not comparable, so the best-so-far resets with each promotion.
-    // §6.3.1's ladder, climbed on possession and independent of the spawn ladder below: the two
-    // teach different things. The spawn rungs teach "put it in the net", which needs the ball near
-    // the net; this one teaches "get the ball and keep it", which needs the rule out of the way
-    // first. Climbed on the centre's possession, forced by patience, and never loosened.
-    if cfg.easeCollect && cfg.easeStep < cfg.easeLadder.count - 1 {
-        onEase += 1
-        atEase = centre.possession >= cfg.easeBar ? atEase + 1 : 0
-        let forced = onEase >= cfg.easePatience
-        if atEase >= cfg.holdFor || forced {
-            cfg.easeStep += 1
-            onEase = 0
-            atEase = 0
-            // Scores earned under a more forgiving rule are not comparable with scores earned
-            // under a stricter one, exactly as they are not across a spawn rung.
-            best = -Double.greatestFiniteMagnitude
-            bestTheta = theta
-            stale = 0
-            print(String(format: forced
-                         ? "  = %d iterations without holding the ball %.2f of the time - tightening §6.3.1 anyway to ease %.1f"
-                         : "  = holding the ball %.3f of the time - tightening §6.3.1 to ease %.1f",
-                         forced ? Double(cfg.easePatience) : centre.possession,
-                         cfg.easeLadder[cfg.easeStep]))
-        }
-    }
-
     let bar = cfg.rung < cfg.rungBar.count ? cfg.rungBar[cfg.rung] : cfg.closeNetsAt
     atThreshold = centre.goalsFor >= bar ? atThreshold + 1 : 0
     onRung += 1
@@ -1146,6 +1107,15 @@ for iteration in 1...cfg.iterations {
                   + (cfg.rung + 1 < cfg.spawnLadder.count
                      ? describe(cfg.spawnLadder[cfg.rung + 1]) : "the real game"))
             cfg.rung += 1
+            // One notch of §6.3.1 per rung, so the policy meets a stricter rule each time it
+            // meets a harder situation, and meets the real rule by the time it meets the real
+            // game. Goals are what move in a run that is working - possession sits at 0.03-0.07
+            // through every early rung even in the run that climbed them all - so clearing a rung
+            // is the only competence signal there is to gate on.
+            if cfg.easeCollect && cfg.easeStep < cfg.easeLadder.count - 1 {
+                cfg.easeStep += 1
+                print(String(format: "    §6.3.1 tightened to ease %.1f", cfg.easeLadder[cfg.easeStep]))
+            }
             best = -Double.greatestFiniteMagnitude
             bestTheta = theta
             stale = 0

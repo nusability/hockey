@@ -40,3 +40,6 @@ android/telemetry.properties
 # TrainTeamAI's HTML replays, written beside the checkpoint they came from. Megabytes of
 # generated tape — regenerate with `--replay <checkpoint>` rather than committing one.
 *.txt-seed*.html
+
+# Trainer output: checkpoints and logs, megabytes an hour. Regenerate by re-running.
+.claude/worktrees-out/

@@ -172,6 +172,52 @@ spacing and gives up depth. No mechanism is missing.
 
 ## What is still §7's
 
-Only off-ball movement (§7.1–§7.5) is learned. The carrier's decisions (§7.6) and the goalie (§7.8)
-are the written rules. `strength` and the per-club style vector have been in the observation since
-the first commit but are held fixed — there is no ladder to distil yet.
+The goalie (§7.8) is still the written rules. `strength` and the per-club style vector have been in
+the observation since the first commit but are held fixed — there is no ladder to distil yet.
+
+## Where this got to, 2026-10-18
+
+Both arms climbed **every rung** — our ball at 6, 14, 24 m, a loose ball at 18 and 30 m, their ball
+24 m from our own goal — with no forced promotions, and reached the real game. Measured on 60 seeds
+neither arm was ever scored against, in the shipped game (keepers on, no stamina, ordinary
+face-offs):
+
+| | goals | poss | att |
+|---|---|---|---|
+| learned (`nightA`) | **4.57–0.32** | 0.211 | 0.062 |
+| §7 rules | 0.92–1.05 | 0.361 | 0.101 |
+
+**Five times §7's scoring rate**, with *less* of the ball and *less* time in the attacking third —
+a shape suspicious enough to be worth watching rather than reporting. The owner watched two unseen
+seeds and found no exploit: it simply plays well.
+
+By then the carrier was learned too — the net's one decision is release or keep hold, with §5.2's
+auto-aim deciding what that hits, which is the player's own path rather than §7.6's
+pick-a-target-then-wait.
+
+### The open question: the single file
+
+It still strings out down the middle. The owner's reading is the best explanation offered, and it
+is about the **engine**, not the AI: *in this game you can run forward and collect a pass from
+behind at no cost.* In a real sport you must turn, slow or take a touch, which is exactly why real
+teams offer themselves laterally. While a trailing pass is free, the file is genuinely the
+strongest shape available, and no reward or architecture will talk a search out of a correct
+answer. **Width is not missing because the policy failed to find it; it is missing because it does
+not pay.**
+
+### The change to make next
+
+A ball arriving from **behind** the receiver should often fail to be collected.
+
+- **Where:** the pickup loop in `Match/BallPhysics.swift` (~line 176–194), before `takeBall`.
+- **How:** compare the player's `facing` against the heading the ball arrives *from*
+  (`Pitch.heading(-ball.vel.x, -ball.vel.z)`); the wider that angle, the likelier the ball runs on.
+  Scale with the ball's speed, so a slow roll stays collectable.
+- The engine already turns players gradually (`Tuning.Player.turnRate`), so the "turning time" half
+  of the idea exists.
+- **Symmetric — it applies to the human player too**, which is the test of whether a rule is fair
+  or an AI handicap in disguise.
+
+This is a behaviour change, not an experiment patch: spec diff in the same commit (§6 pickup),
+every vector in `shared/vectors/match/` re-recorded, and the constants declared in `shared/data/`
+rather than written as literals. Through the loop.

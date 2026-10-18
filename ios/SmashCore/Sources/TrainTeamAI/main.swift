@@ -107,6 +107,16 @@ struct Config {
     var ppoMatches = 16          // matches collected per iteration, played in parallel
     var ppoEpochs = 4            // passes over the collected batch
     var ppoBatch = 512
+    /// The most transitions one update may use, sampled uniformly from everything collected.
+    ///
+    /// Not a tuning knob so much as a cost ceiling. A match yields ~7,700 decisions because the
+    /// carrier re-decides every step (§7.6) where off-ball players decide every eighth, so 24
+    /// matches is 184,000 - ten times what this method normally updates on, and consecutive carrier
+    /// decisions are nearly identical anyway. Worse, it *grows*: the first measured run went from
+    /// 71 s an iteration to 301 s the moment the keepers came back and matches stopped being
+    /// interrupted by goals. Capping the sample bounds the update regardless of how long a match
+    /// runs, which is the difference between 700 iterations a night and 140.
+    var ppoSample = 32768
     var ppoClip = 0.2            // how far the policy may move in one update
     var ppoGamma = 0.995         // a match is ~18k ticks, so credit has to reach a long way back
     var ppoLambda = 0.95
@@ -253,6 +263,7 @@ while let a = it.next() {
     case "--ppo-matches": cfg.ppoMatches = Int(num())
     case "--ppo-epochs": cfg.ppoEpochs = Int(num())
     case "--ppo-batch": cfg.ppoBatch = Int(num())
+    case "--ppo-sample": cfg.ppoSample = Int(num())
     case "--ppo-clip": cfg.ppoClip = num()
     case "--ppo-gamma": cfg.ppoGamma = num()
     case "--ppo-lr": cfg.ppoLearningRate = num()

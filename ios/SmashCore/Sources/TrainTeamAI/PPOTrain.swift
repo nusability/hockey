@@ -9,6 +9,7 @@ enum PPOTrain {
         var goalsFor = 0.0, goalsAgainst = 0.0
         var steals = 0.0, stealsLost = 0.0
         var decisions = 0
+        var collected = 0, sampled = 0
         /// The share of decisions that carried any reward at all, and the mean size of those that
         /// did. The plain mean is worthless here: a goal pays +1 to one side and −1 to the other,
         /// and in self-play both sides are the same network, so the average cancels to zero whether
@@ -41,7 +42,7 @@ enum PPOTrain {
             clip \(cfg.ppoClip), gamma \(cfg.ppoGamma), lambda \(cfg.ppoLambda)
             """)
         print("reward: \(cfg.ppoGoalReward) a goal, \(cfg.ppoStealReward) a steal won")
-        print(" iter   goals      steals   decisions  paid%  |r|    actor     critic   clip%  sigma  nets   secs")
+        print(" iter   goals      steals   decisions/used  paid%  |r|    actor     critic   clip%  sigma  nets   secs")
 
         var sigma = cfg.ppoSigma
         let started = Date()
@@ -81,6 +82,22 @@ enum PPOTrain {
                 }
             }
             guard !batch.isEmpty else { print("  no decisions collected — nothing to learn from"); return }
+            // Advantages are computed on everything collected - a trajectory has to be whole for
+            // credit to travel along it - and only then is the batch thinned to the update's
+            // ceiling. Sampling uniformly keeps the paid decisions in proportion; dropping whole
+            // trajectories would not.
+            let collected = batch.count
+            if batch.count > cfg.ppoSample {
+                var pick = Gauss(seed: cfg.seed &+ UInt64(iteration) &+ 7777)
+                for i in stride(from: batch.count - 1, to: 0, by: -1) {
+                    let j = Int(pick.uniform() * Double(i + 1))
+                    batch.swapAt(i, j)
+                }
+                batch.removeLast(batch.count - cfg.ppoSample)
+            }
+            report.sampled = batch.count
+            report.collected = collected
+
             let hit = batch.filter { $0.reward != 0 }
             report.rewarded = Double(hit.count) / Double(batch.count)
             report.rewardSize = hit.isEmpty ? 0 : hit.reduce(0) { $0 + $1.reward.magnitude } / Double(hit.count)
@@ -164,9 +181,9 @@ enum PPOTrain {
                 }
             }
 
-            print(String(format: "%5d  %.2f-%.2f  %4.1f-%.1f  %9d  %5.2f  %.2f  %+.5f  %7.4f  %4.1f  %.3f  %@  %6.1f",
+            print(String(format: "%5d  %.2f-%.2f  %4.1f-%.1f  %8d/%-6d  %5.2f  %.2f  %+.5f  %7.4f  %4.1f  %.3f  %@  %6.1f",
                          iteration, report.goalsFor, report.goalsAgainst,
-                         report.steals, report.stealsLost, report.decisions,
+                         report.steals, report.stealsLost, report.decisions, report.sampled,
                          report.rewarded * 100, report.rewardSize,
                          report.actorLoss, report.criticLoss, report.clipped * 100, report.sigma,
                          live.openNets ? "open" : "shut", Date().timeIntervalSince(t0)))

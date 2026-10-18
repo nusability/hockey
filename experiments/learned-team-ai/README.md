@@ -164,6 +164,36 @@ spacing and gives up depth. No mechanism is missing.
    roster-agnostic, and it would restore the explainability ADR `0010` names as the main cost of
    going learned — you could see which slot each player was given.
 
+## Read any width number against this band, not against the previous run
+
+Put every width this project has produced in one place and the question changes shape:
+
+| policy | width | trained how |
+|---|---|---|
+| `winner.txt` | 4.2 m | shaped reward, old engine |
+| `balanced.txt` | 4.6 m | shaped reward, old engine |
+| `clone.txt` | 4.9 m | imitation of §7 |
+| `stronger.txt` | 5.1 m | shaped reward, old engine |
+| `faithful.txt` | 5.9 m | shaped, shape charged 4× dearer |
+| arm A (2026-10-18) | **5.1 m** | victory-only, **ease ladder**, §6.3.1 in force |
+| §7 rules | **6.8 m** | — |
+| `curriculum.txt` | **1.2 m** | victory-only, old engine |
+
+**Every learned policy sits in 4.2–5.9 m except `curriculum.txt`, which sits at 1.2 m.** So the
+thing that needs explaining is not how a run reaches 5 m — five runs did it on the old engine
+without §6.3.1 existing — it is how `curriculum.txt` ended up at a quarter of the band. The
+2026-10-18 arm raised under the ease ladder landed on **5.1 m with depth +2.20 m and a 51 %
+goal-side share**, which is `stronger.txt`'s profile almost exactly (5.1 m, +2.35 m, 62 %) — and
+`stronger.txt` predates the rule entirely.
+
+Two consequences for reading this file:
+
+- **A 5 m width is not evidence that anything worked.** It is the house average. Only §7's 6.8 m
+  has ever been matched by a learned policy, and only by `faithful.txt`, which won nothing.
+- **The ease ladder's effect may be preventing a pathology rather than creating width.** That is a
+  weaker claim than "width emerges once the trailing pass costs something", and it is the one the
+  evidence currently supports.
+
 ## Does width emerge once the trailing pass costs something? No — measured 2026-10-18
 
 The whole point of §6.3.1 was that width would pay once a pass into a team-mate's back stopped

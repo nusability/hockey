@@ -98,6 +98,27 @@ struct Config {
     /// finds more ways to trade shape for goals than a small one, and at 0.15 the 128-unit run gave
     /// away the clone's spread (7.3 → 5.5 m) inside forty iterations.
     var shapeWeight = 0.15
+    // MARK: PPO (`--ppo`)
+    //
+    // A trainer that assigns credit through time, where everything above scores a whole match and
+    // keeps what won. The defaults are the field's usual ones rather than anything tuned here;
+    // nothing in this project has run them yet.
+    var ppo = false
+    var ppoMatches = 16          // matches collected per iteration, played in parallel
+    var ppoEpochs = 4            // passes over the collected batch
+    var ppoBatch = 512
+    var ppoClip = 0.2            // how far the policy may move in one update
+    var ppoGamma = 0.995         // a match is ~18k ticks, so credit has to reach a long way back
+    var ppoLambda = 0.95
+    var ppoLearningRate = 3e-4
+    var ppoSigma = 0.3           // how widely it explores around its own output, in output units
+    var ppoSigmaDecay = 0.999
+    var ppoSigmaFloor = 0.05
+    /// A goal is the objective. A steal is the only nudge, and small: the owner's point was that
+    /// chasing must never outrank winning, and 0.05 against 1.0 is that in the raw reward rather
+    /// than in a per-match aggregate.
+    var ppoGoalReward = 1.0
+    var ppoStealReward = 0.05
     /// `--gradcheck` checks the backward pass against finite differences and exits. The one piece
     /// of a policy-gradient trainer that fails silently, so it is checked before anything is run.
     var gradCheck = false
@@ -228,6 +249,16 @@ while let a = it.next() {
     case "--eval-offset": cfg.evalOffset = Int(num())
     case "--versus": cfg.versus = it.next()
     case "--shape-weight": cfg.shapeWeight = num()
+    case "--ppo": cfg.ppo = true
+    case "--ppo-matches": cfg.ppoMatches = Int(num())
+    case "--ppo-epochs": cfg.ppoEpochs = Int(num())
+    case "--ppo-batch": cfg.ppoBatch = Int(num())
+    case "--ppo-clip": cfg.ppoClip = num()
+    case "--ppo-gamma": cfg.ppoGamma = num()
+    case "--ppo-lr": cfg.ppoLearningRate = num()
+    case "--ppo-sigma": cfg.ppoSigma = num()
+    case "--ppo-goal": cfg.ppoGoalReward = num()
+    case "--ppo-steal": cfg.ppoStealReward = num()
     case "--gradcheck": cfg.gradCheck = true
     case "--pure": cfg.pureSelfPlay = true; cfg.selfPlay = 1.0
     case "--pool": cfg.poolLimit = Int(num())
@@ -1117,6 +1148,13 @@ let baseRest: String = String(format: "poss %.2f  recv %.2f (final %.2f)  spread
 print("baseline  §7's written rules vs itself   goals " + baseGoals + "  " + baseRest)
 print("")
 print("  (goals/poss/etc are measured against the frozen earlier self, not against §7)")
+// PPO runs here rather than at the banner: `writeCheckpoint` reads `outDir`, and a top-level
+// global referenced before its own statement has run is empty — the first smoke run duly wrote
+// its checkpoints to "/" and died on a read-only file system.
+if C.ppo {
+    PPOTrain.run(C, outDir: outDir)
+    exit(0)
+}
 print(" iter    goals     poss   recv  final  spread  press   terr    att    fitness    best      secs")
 
 

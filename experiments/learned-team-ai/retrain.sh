@@ -37,28 +37,28 @@ REMOTE_DIR=\$HOME/smash-trainer          # a plain rsync of ios/SmashCore, not a
 # probing rather than from any record: §7's own baseline at seed 777 is 5.9 m spread, 0.73 recv,
 # +0.38 terr, 0.249 att with stamina and 5.8 / 0.68 / +0.43 / 0.268 without, and nightB.log's
 # header reads the first set. Five metrics to the last digit.
-COMMON=(--hidden 128 --reward victory --matches 20 --period 40 --replay-every 25 --stamina)
+# The goal is an opponent that FEELS real to play against, judged by the owner on replays and on
+# his phone - not a better scoreline. What 2026-10-18 established, the hard way:
+#
+#   * Goal difference alone does not buy realism. It produced a 1.2-1.4 m wide column that wins
+#     0.4 balls a match where §7 wins 2.2, on both seeds, and no amount of training moved it.
+#   * The shaped reward's six terms all *match §7* - possession, spacing, width, press, attacking
+#     third, depth - so on its own it can only ever produce §7 with a learned brain. The README
+#     records it winning nothing at the strong setting and selling the shape at the weak one.
+#   * Nothing in either reward ever asked a player to TAKE the ball. That is the new term.
+#
+# So: the shaped reward at the middle weight the README names as the untried experiment, with
+# §6.3.1 in force and ball-winning paid for. The three things have never been run together.
+COMMON=(--hidden 128 --matches 20 --period 40 --replay-every 25 --stamina
+        --shape-weight 0.3 --turnover-weight 0.9 --turnover-target 2.2)
 
-# Two arms that ask the same question two ways, because neither is sound alone.
+# No --reward victory: the shaped reward is the one that has ever produced a §7-like shape, and
+# realism is the goal. Goal difference stays in it at weight 4.0, so winning still matters most.
 #
-# A (from scratch, ease ladder): the strong result if it works - nothing inherited, so width that
-#   appears was found rather than kept. It needs --ease-collect because §6.3.1 took away the free
-#   possession a random policy bootstrapped on: measured, 91.6 % of a self-play match with the ball
-#   loose and a best fitness frozen for 56 iterations. The ladder forgives the rule, then tightens
-#   it to 0, so the end state is judged under the real rule.
-# B (continue curriculum.txt, full rule): the control, and the cleaner single-variable test - the
-#   same policy and the same objective that produced the single file, with only the rule changed.
-#   It also guards the risk in A: a policy that learns the file in the eased world first may patch
-#   around it rather than discover width.
-#
-# --no-ladder for B: curriculum.txt already finished the spawn curriculum, so rung 0 is a regression.
-# Seed 777, not the default 0xA11CE, and deliberately: nightB climbed this curriculum at 777 in
-# 34 iterations and its full log survives on the second Mac, so an eased run at the same seed is
-# comparable to it line by line - the controlled comparison for "what did the rule change". The
-# default seed was tried and makes no progress at all: 93 iterations without once improving on its
-# random initialisation, with the rule fully eased, so that is the seed and not the rule.
-ARM_A=(--open-nets --ease-collect --iterations 1000 --seed 777)
-ARM_B=(--no-ladder --init curriculum.txt --iterations 1000)
+# A: continued from the existing policy - the fast read, since it already plays a match.
+# B: from scratch with the ease ladder - the clean one, nothing inherited.
+ARM_A=(--no-ladder --init curriculum.txt --iterations 1200 --seed 777)
+ARM_B=(--open-nets --ease-collect --iterations 1200 --seed 4242)
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
@@ -66,11 +66,11 @@ stamp="$(date +%Y%m%d-%H%M)"
 
 case "${1:-}" in
 local)
-    out="$repo/.claude/worktrees-out/ease-$stamp-seed777"
+    out="$repo/.claude/worktrees-out/shaped-$stamp-scratch"
     mkdir -p "$out"
     cd "$repo/ios/SmashCore"
-    echo "arm A (this Mac, from scratch, seed 777, ease ladder) -> $out"
-    exec swift run -c release TrainTeamAI "${COMMON[@]}" "${ARM_A[@]}" --out "$out" \
+    echo "from scratch + ease ladder, shaped reward (this Mac) -> $out"
+    exec swift run -c release TrainTeamAI "${COMMON[@]}" "${ARM_B[@]}" --out "$out" \
         2>&1 | tee "$out/train.log"
     ;;
 remote)
@@ -79,11 +79,14 @@ remote)
     rsync -az --delete \
         --exclude '.build' --exclude '.swiftpm' \
         "$repo/ios/SmashCore/" "$REMOTE_HOST:smash-trainer/"
+    # The checkpoint has to be re-sent AFTER the rsync: --delete prunes anything not in
+    # ios/SmashCore, which includes it, so copying it once is not enough.
+    scp -q "$here/curriculum.txt" "$REMOTE_HOST:smash-trainer/curriculum.txt"
     ssh "$REMOTE_HOST" "cd smash-trainer && swift build -c release 2>&1 | tail -3"
-    out="\$HOME/smash-out/init-$stamp-seed777"
+    out="\$HOME/smash-out/shaped-$stamp-continued"
     ssh "$REMOTE_HOST" "mkdir -p $out && cd smash-trainer && \
-        nohup swift run -c release TrainTeamAI ${COMMON[*]} ${ARM_B[*]} --seed 777 --out $out \
-        > $out/train.log 2>&1 & echo \"arm B (second Mac, seed 777) pid \$!  -> $out\""
+        nohup swift run -c release TrainTeamAI ${COMMON[*]} ${ARM_A[*]} --seed 777 --out $out \
+        > $out/train.log 2>&1 & echo \"continued from curriculum.txt, shaped reward (second Mac) pid \$!  -> $out\""
     ;;
 *)
     echo "usage: $0 {local|remote}" >&2

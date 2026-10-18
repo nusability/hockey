@@ -98,6 +98,18 @@ struct Config {
     /// finds more ways to trade shape for goals than a small one, and at 0.15 the 128-unit run gave
     /// away the clone's spread (7.3 → 5.5 m) inside forty iterations.
     var shapeWeight = 0.15
+    /// `--pure` is self-play and nothing else: no §7, no scripted sparring, only the league of
+    /// past selves. What the owner asked for - learn the game by playing itself.
+    ///
+    /// The thing it has to survive is the cosy equilibrium, which this trainer has already produced
+    /// twice: both sides stop contesting, the ball sits loose nine-tenths of the match, and neither
+    /// is punished because the opponent is equally idle. The published answer is a *league* - play a
+    /// population of past selves rather than your immediate self - so `--pool` matters more here
+    /// than anywhere else.
+    var pureSelfPlay = false
+    /// How many past selves the league keeps. Four is barely a league; AlphaStar's point was that
+    /// naive self-play collapses and a population does not.
+    var poolLimit = 4
     /// `--turnover-weight` is the **most** the turnover term can ever contribute, reached when the
     /// side wins the ball as often as `turnoverTarget`. Against a win's 3.0 this is what keeps
     /// chasing below winning by construction. 0 restores the reward as it was before 2026-10-18.
@@ -213,6 +225,8 @@ while let a = it.next() {
     case "--eval-offset": cfg.evalOffset = Int(num())
     case "--versus": cfg.versus = it.next()
     case "--shape-weight": cfg.shapeWeight = num()
+    case "--pure": cfg.pureSelfPlay = true; cfg.selfPlay = 1.0
+    case "--pool": cfg.poolLimit = Int(num())
     case "--turnover-weight": cfg.turnoverWeight = num()
     case "--turnover-target": cfg.turnoverTarget = num()
     case "--open-nets": cfg.openNets = true
@@ -313,7 +327,13 @@ struct Score {
 /// thing to do in moderation, and §7's own §7.4 is the part of the spec the shape bench was written
 /// to measure as *deficient*.
 func fitness(_ s: Score, reference r: Score, shapeWeight: Double = 0.15,
-             turnoverWeight: Double = 0.5) -> Double {
+             turnoverWeight: Double = 0.9) -> Double {
+    /// Ball-winning, saturating at `turnoverTarget` - see the long note in the victory-only branch.
+    /// Both rewards get it: it is the one thing neither of them otherwise asks for. The shaped
+    /// reward's six terms all *match §7* (possession, spacing, width, press, attacking third,
+    /// depth), and matching §7's press asks a player to stand near the ball without ever asking
+    /// anyone to take it - which is precisely the 0.4-against-2.2 gap the measurement found.
+    let steals = s.turnoverTarget > 0 ? Swift.min(s.turnovers / s.turnoverTarget, 1.0) : 0.0
     if s.victoryOnly {
         // **League points, not goal difference** — plus one reflex the search cannot discover.
         //
@@ -367,9 +387,6 @@ func fitness(_ s: Score, reference r: Score, shapeWeight: Double = 0.15,
         //
         // Steals *conceded* are measured and reported but not charged: a side that holds the ball
         // more is stolen from more, so charging for it would charge for possession by the back door.
-        let steals = s.turnoverTarget > 0
-            ? Swift.min(s.turnovers / s.turnoverTarget, 1.0)
-            : 0.0
         return (s.wins * 3.0)
             + 0.15 * (s.goalsFor - s.goalsAgainst)
             - 0.12 * s.pressure
@@ -392,6 +409,7 @@ func fitness(_ s: Score, reference r: Score, shapeWeight: Double = 0.15,
     return 4.0 * (s.goalsFor - s.goalsAgainst)
         + 0.6 * Swift.max(s.receivers - r.receivers, 0)
         - shapeWeight * shape
+        + turnoverWeight * steals
 }
 
 let clubs = Club.allCases
@@ -1105,7 +1123,7 @@ var opponentPool: [PolicyNet] = []
 /// "Can I beat who I was" is stationary, aligned with what is being trained, and the standard way
 /// to read progress in self-play.
 var benchmark: PolicyNet?
-let poolLimit = 4
+let poolLimit = C.poolLimit
 let pairs = cfg.population / 2
 opponentPool.append(net(theta))   // an equal to play from the first iteration
 
@@ -1123,7 +1141,8 @@ for iteration in 1...cfg.iterations {
     let localCfg = cfg
     let frozenPool = opponentPool
     let scores = parallelScores(candidates.count) { k in
-        evaluate(net(candidates[k]), cfg: localCfg, offset: iteration * 97, pool: frozenPool)
+        evaluate(net(candidates[k]), cfg: localCfg, offset: iteration * 97, pool: frozenPool,
+                 league: !localCfg.pureSelfPlay)
     }
     let fitnesses = scores.map { fitness($0, reference: baseline, shapeWeight: localCfg.shapeWeight, turnoverWeight: localCfg.turnoverWeight) }
     let ranks = centredRanks(fitnesses)

@@ -164,6 +164,34 @@ spacing and gives up depth. No mechanism is missing.
    roster-agnostic, and it would restore the explainability ADR `0010` names as the main cost of
    going learned — you could see which slot each player was given.
 
+## The single file is a column — 1.2 m, measured 2026-10-18
+
+The shape tables above are **stale and far too kind**. They document 4.2–5.9 m of width for the
+2026-10-15/16 policies. `curriculum.txt`, the current one, measured under §6.3.1 on 16 unseen
+seeds:
+
+| | swarm | churn/min | depth | goal-side | **width** | spacing |
+|---|---|---|---|---|---|---|
+| `curriculum.txt` | 10.91 m | 44.0 | **+8.53 m** | **88 %** | **1.2 m** | 4.6 m |
+| §7 rules, same rule | 11.81 m | 50.4 | +5.55 m | 72 % | **6.8 m** | 7.2 m |
+
+**1.2 m is a column, not a file** — a quarter of the narrowest policy in the tables above, and a
+fifth of §7's. With depth +8.53 m and 88 % goal-side it is a deep narrow bus that defends with
+everybody and counter-attacks, which is precisely the shape the victory-only fitness comment says
+league points were adopted to prevent. Before §6.3.1 it counter-attacked lethally (4.57–0.32) on
+free trailing passes; under the rule it is 1.50–0.79 and still winning.
+
+**Nothing in the training log would ever have told you.** The log's `spread` column is the mean
+distance to the *nearest* team-mate (`main.swift:234`) and reads a comfortable 4.5 m, because a
+column is perfectly spaced — the trap this file already records two sections down, re-sprung on
+the person who wrote it down. **Width lives only in `--analyse`** (`Analyse.swift:33`, the standard
+deviation of outfield x). Judge shape with `--analyse`; the log cannot tell a hockey shape from a
+queue.
+
+`--analyse` needs `--out` pointed somewhere writable even though it writes no checkpoints: it
+creates the output directory before dispatching to the analyse branch, so on a machine where the
+default path does not exist it dies with a permissions error from `NSCocoaErrorDomain`.
+
 ## Three things that cost time, recorded so they don't again
 
 - **Cloning loss is not evidence of a good policy.** The best loss of the night, 0.0012, came from

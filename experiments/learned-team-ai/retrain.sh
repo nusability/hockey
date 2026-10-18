@@ -32,7 +32,12 @@ REMOTE_DIR=\$HOME/smash-trainer          # a plain rsync of ios/SmashCore, not a
 #
 # --matches 20, likewise theirs: at 4 matches a candidate the fitness is mostly draw noise, and
 # victory-only has no dense term to lean on. It costs ~40 s an iteration instead of ~10.
-COMMON=(--hidden 128 --reward victory --matches 20 --period 40 --replay-every 25)
+# --stamina is NOT optional and is not the tool's default. The policies of 2026-10-17 were
+# trained with it, and running one without it changes the game under the policy. Recovered by
+# probing rather than from any record: §7's own baseline at seed 777 is 5.9 m spread, 0.73 recv,
+# +0.38 terr, 0.249 att with stamina and 5.8 / 0.68 / +0.43 / 0.268 without, and nightB.log's
+# header reads the first set. Five metrics to the last digit.
+COMMON=(--hidden 128 --reward victory --matches 20 --period 40 --replay-every 25 --stamina)
 
 # Two arms that ask the same question two ways, because neither is sound alone.
 #
@@ -47,7 +52,12 @@ COMMON=(--hidden 128 --reward victory --matches 20 --period 40 --replay-every 25
 #   around it rather than discover width.
 #
 # --no-ladder for B: curriculum.txt already finished the spawn curriculum, so rung 0 is a regression.
-ARM_A=(--open-nets --ease-collect --iterations 1000)
+# Seed 777, not the default 0xA11CE, and deliberately: nightB climbed this curriculum at 777 in
+# 34 iterations and its full log survives on the second Mac, so an eased run at the same seed is
+# comparable to it line by line - the controlled comparison for "what did the rule change". The
+# default seed was tried and makes no progress at all: 93 iterations without once improving on its
+# random initialisation, with the rule fully eased, so that is the seed and not the rule.
+ARM_A=(--open-nets --ease-collect --iterations 1000 --seed 777)
 ARM_B=(--no-ladder --init curriculum.txt --iterations 1000)
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,10 +66,10 @@ stamp="$(date +%Y%m%d-%H%M)"
 
 case "${1:-}" in
 local)
-    out="$repo/.claude/worktrees-out/ease-$stamp-seedA11CE"
+    out="$repo/.claude/worktrees-out/ease-$stamp-seed777"
     mkdir -p "$out"
     cd "$repo/ios/SmashCore"
-    echo "arm A (this Mac, seed 0xA11CE) -> $out"
+    echo "arm A (this Mac, from scratch, seed 777, ease ladder) -> $out"
     exec swift run -c release TrainTeamAI "${COMMON[@]}" "${ARM_A[@]}" --out "$out" \
         2>&1 | tee "$out/train.log"
     ;;

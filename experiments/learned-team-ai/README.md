@@ -192,6 +192,34 @@ queue.
 creates the output directory before dispatching to the analyse branch, so on a machine where the
 default path does not exist it dies with a permissions error from `NSCocoaErrorDomain`.
 
+## What the 2026-10-17 arms were actually run with
+
+Nothing recorded it, and reconstructing it cost most of a morning and five restarted runs. Both
+arms were (recovered from `nightB.log`'s header and by probing §7's baseline):
+
+```
+swift run -c release TrainTeamAI --open-nets --hidden 128 --reward victory \
+    --matches 20 --period 40 --stamina --replay-every 100 [--seed 777]
+```
+
+- **`--reward victory` is not the default.** The default is the shaped reward, whose terms include
+  `spread` — so a run left on the default cannot answer any question about shape emerging on its
+  own, because shape is being paid for.
+- **`--matches 20` is not the default** either (it is 4). At 4 a victory-only fitness is mostly
+  draw noise, since there is no dense term to lean on.
+- **`--stamina` is not the default and does not appear in the log header.** It is recoverable only
+  by probing: §7's own baseline at seed 777 is `spread 5.9 m, recv 0.73, terr +0.38, att 0.249`
+  with it and `5.8 / 0.68 / +0.43 / 0.268` without, and the header reads the first set. Five
+  metrics to the last digit. Continuing a stamina-trained checkpoint without it silently changes
+  the game under the policy.
+- Seed `777` is arm B; arm A used the default `0xA11CE`. **`nightA`'s log was not kept**, so the
+  arm whose checkpoint became `curriculum.txt` has no surviving trajectory to compare against.
+- The default seed is a poor choice for a fresh run: 93 iterations without once improving on its
+  random initialisation, with the pickup rule eased off entirely. Seed 777 clears rung 0 by
+  iteration 34. **Seed variance dominates anything measured over a hundred iterations.**
+
+`retrain.sh` now holds all of this, so the next run is a command rather than an excavation.
+
 ## Three things that cost time, recorded so they don't again
 
 - **Cloning loss is not evidence of a good policy.** The best loss of the night, 0.0012, came from

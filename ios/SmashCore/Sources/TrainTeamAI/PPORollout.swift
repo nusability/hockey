@@ -25,6 +25,7 @@ struct Rollout {
     var byPlayer: [Int: [Transition]] = [:]
     var goalsFor = 0.0, goalsAgainst = 0.0
     var steals = 0.0, stealsLost = 0.0
+    var picks = 0.0, picksLost = 0.0
     var decisions = 0
 }
 
@@ -97,9 +98,18 @@ enum Rollouts {
                     credit(1 - team, -cfg.ppoGoalReward)
                     if team == 0 { tape.out.goalsFor += 1 } else { tape.out.goalsAgainst += 1 }
                 case .steal(let by, _):
+                    // Taken off a carrier. A race, so the side that loses it is charged too.
                     let t = teamOf[by]
                     credit(t, cfg.ppoStealReward)
+                    credit(1 - t, -cfg.ppoStealReward)
                     if t == 0 { tape.out.steals += 1 } else { tape.out.stealsLost += 1 }
+                case .pickup(let by):
+                    // A loose ball collected — most of the ball-winning in this game, and worth
+                    // nothing until now, which is why nobody went after it.
+                    let t = teamOf[by]
+                    credit(t, cfg.ppoPickupReward)
+                    credit(1 - t, -cfg.ppoPickupReward)
+                    if t == 0 { tape.out.picks += 1 } else { tape.out.picksLost += 1 }
                 default:
                     break
                 }

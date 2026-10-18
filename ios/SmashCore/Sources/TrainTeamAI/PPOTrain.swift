@@ -8,6 +8,7 @@ enum PPOTrain {
     struct Report {
         var goalsFor = 0.0, goalsAgainst = 0.0
         var steals = 0.0, stealsLost = 0.0
+        var picks = 0.0, picksLost = 0.0
         var decisions = 0
         var collected = 0, sampled = 0
         /// The share of decisions that carried any reward at all, and the mean size of those that
@@ -41,8 +42,11 @@ enum PPOTrain {
             \(cfg.ppoMatches) matches an iteration, \(cfg.ppoEpochs) epochs, \
             clip \(cfg.ppoClip), gamma \(cfg.ppoGamma), lambda \(cfg.ppoLambda)
             """)
-        print("reward: \(cfg.ppoGoalReward) a goal, \(cfg.ppoStealReward) a steal won")
-        print(" iter   goals      steals   decisions/used  paid%  |r|    actor     critic   clip%  sigma  nets   secs")
+        print("""
+            reward: \(cfg.ppoGoalReward) a goal, \(cfg.ppoStealReward) a steal, \
+            \(cfg.ppoPickupReward) a loose ball — all symmetric, so losing the ball costs the same
+            """)
+        print(" iter   goals      steals     loose balls  decisions/used  paid%  |r|    actor    critic  clip%  sigma  nets   secs")
 
         var sigma = cfg.ppoSigma
         let started = Date()
@@ -72,6 +76,8 @@ enum PPOTrain {
                 report.goalsAgainst += r.goalsAgainst / Double(cfg.ppoMatches)
                 report.steals += r.steals / Double(cfg.ppoMatches)
                 report.stealsLost += r.stealsLost / Double(cfg.ppoMatches)
+                report.picks += r.picks / Double(cfg.ppoMatches)
+                report.picksLost += r.picksLost / Double(cfg.ppoMatches)
                 report.decisions += r.decisions
                 for (_, traj) in r.byPlayer {
                     var t = traj
@@ -181,9 +187,10 @@ enum PPOTrain {
                 }
             }
 
-            print(String(format: "%5d  %.2f-%.2f  %4.1f-%.1f  %8d/%-6d  %5.2f  %.2f  %+.5f  %7.4f  %4.1f  %.3f  %@  %6.1f",
+            print(String(format: "%5d  %.2f-%.2f  %4.1f-%.1f  %5.1f-%-5.1f  %8d/%-6d  %5.2f  %.2f  %+.5f  %7.4f  %4.1f  %.3f  %@  %6.1f",
                          iteration, report.goalsFor, report.goalsAgainst,
-                         report.steals, report.stealsLost, report.decisions, report.sampled,
+                         report.steals, report.stealsLost, report.picks, report.picksLost,
+                         report.decisions, report.sampled,
                          report.rewarded * 100, report.rewardSize,
                          report.actorLoss, report.criticLoss, report.clipped * 100, report.sigma,
                          live.openNets ? "open" : "shut", Date().timeIntervalSince(t0)))

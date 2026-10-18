@@ -124,11 +124,28 @@ struct Config {
     var ppoSigma = 0.3           // how widely it explores around its own output, in output units
     var ppoSigmaDecay = 0.999
     var ppoSigmaFloor = 0.05
-    /// A goal is the objective. A steal is the only nudge, and small: the owner's point was that
-    /// chasing must never outrank winning, and 0.05 against 1.0 is that in the raw reward rather
-    /// than in a per-match aggregate.
+    // A goal is the objective; winning the ball is the nudge. **Both ways of winning it count.**
+    //
+    // The owner watched a self-play replay and said the thing out loud: the side does not go after
+    // the ball, and the ball can sit on the pitch uncontested. Only `.steal` was paid - taking it
+    // off a carrier - so collecting a loose ball earned nothing, and most of the ball-winning in
+    // this game is exactly that. I had excluded it on the grounds that the observation shows
+    // "loose" but never whose touch was last, which was solving the wrong problem: collecting a
+    // loose ball is worth something regardless of whose it was, and the policy can see perfectly
+    // well that the ball is loose and where it is.
+    //
+    // The weights come from the rates in `shared/vectors/match/`, per team per match: ~2 goals,
+    // ~9 steals, ~95 pickups. So 1.0, 0.05 and 0.005 make the two ball-winning routes contribute
+    // about 0.45 each against the goals' 2.0 - they matter equally to one another and neither
+    // outranks winning, which was the owner's condition. A weight chosen by feel rather than by
+    // rate would have made pickups ten times the goal signal.
+    //
+    // Both are **symmetric**: the side that wins the ball is paid and the side that loses it is
+    // charged, so a possession change is a race. That is what makes it uncollusive in self-play -
+    // two idle sides cannot both bank it, which is the failure the owner is looking at.
     var ppoGoalReward = 1.0
     var ppoStealReward = 0.05
+    var ppoPickupReward = 0.005
     /// `--gradcheck` checks the backward pass against finite differences and exits. The one piece
     /// of a policy-gradient trainer that fails silently, so it is checked before anything is run.
     var gradCheck = false
@@ -270,6 +287,7 @@ while let a = it.next() {
     case "--ppo-sigma": cfg.ppoSigma = num()
     case "--ppo-goal": cfg.ppoGoalReward = num()
     case "--ppo-steal": cfg.ppoStealReward = num()
+    case "--ppo-pickup": cfg.ppoPickupReward = num()
     case "--gradcheck": cfg.gradCheck = true
     case "--pure": cfg.pureSelfPlay = true; cfg.selfPlay = 1.0
     case "--pool": cfg.poolLimit = Int(num())

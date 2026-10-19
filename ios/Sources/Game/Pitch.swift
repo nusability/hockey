@@ -118,6 +118,7 @@ final class Pitch {
             self.plan = plan
             self.kickoff = kickoff
             match = kickoff.match
+            TrialPolicy.install(&match!)   // bench only, behind `-policy trial`; no-op otherwise
             snapshot = first
             director = Director()
             director.aspect = aspect

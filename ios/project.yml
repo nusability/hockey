@@ -50,6 +50,11 @@ targets:
         buildPhase: resources
       - path: ../shared/data/motion.json
         buildPhase: resources
+      # Bench only (`-policy trial`, Game/TrialPolicy.swift): a trained checkpoint to play a match
+      # against on a phone. NOT the shipped path - ADR 0010 wants shared/assets/policy/ and a spec
+      # entry. Untracked and throwaway; the app ignores it without the launch argument.
+      - path: trial-policy.txt
+        buildPhase: resources
     # The sound bank (spec §8.8, shared/data/sounds.toml): iOS plays the .m4a twin of each file, into
     # the bundle's sounds/ keeping the bank's folders; the .ogg twins are Android's.
     postCompileScripts:

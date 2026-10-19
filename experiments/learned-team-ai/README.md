@@ -1,5 +1,25 @@
 # Learned team AI — the experiment's artifacts (SMASH-72)
 
+> ## Parked, 2026-10-19 — ADR `0011`
+>
+> **§7's written rules stay; this line of work is stopped.** Two days, two training methods, five
+> seeds, ~20,000 matches on two Macs. Nothing learned ever beat §7: the best run matched its
+> possession (0.264 against 0.274) and its spacing exactly (6.7 m) and scored **0.08 goals a match**
+> while being robbed 7.5 times. It looked like a team and could not play like one.
+>
+> The verdict is not "needs more compute" — though it does, by about two orders of magnitude. It is
+> that **"plays well" would not hold still as a number.** Every measure written into a reward was
+> satisfied without the behaviour it stood for, usually within hours. Read ADR `0011` for the four
+> worked examples and the measurements behind them.
+>
+> Nothing is deleted. The checkpoints, both trainers, `Match.policyHook` and ADR `0010`'s
+> determinism finding all stay, so resuming starts from measurements rather than from scratch. The
+> first thing to try on resuming is **imitating the human**, not more self-play: the owner's release
+> timing is the one thing self-play cannot invent.
+>
+> Everything below is the record as it was written, including the parts later measurements
+> contradicted. The sections on the traps are the durable part.
+
 Five policy checkpoints from the night of 2026-10-15/16, and what they measure. Together they are
 a **measured trade-off curve** between playing like §7 and beating §7 — which is a better thing to
 choose from than one recommendation.

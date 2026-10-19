@@ -140,9 +140,13 @@ struct Config {
     // outranks winning, which was the owner's condition. A weight chosen by feel rather than by
     // rate would have made pickups ten times the goal signal.
     //
-    // Both are **symmetric**: the side that wins the ball is paid and the side that loses it is
-    // charged, so a possession change is a race. That is what makes it uncollusive in self-play -
-    // two idle sides cannot both bank it, which is the failure the owner is looking at.
+    // Both are paid **absolutely** - the winner is paid, the loser is charged nothing. They were
+    // symmetric for one night on the argument that a race cannot be colluded over, and the run
+    // disproved it: a zero-sum reward is indifferent between both sides contesting hard and
+    // neither bothering, since both net to nothing, so idleness stayed free and loose-ball
+    // collection fell from 19 a match to 9. Paid absolutely, going for the ball is strictly better
+    // than not whatever the opponent does. Only goals stay symmetric, because conceding one is
+    // genuinely bad rather than merely an opportunity missed.
     var ppoGoalReward = 1.0
     var ppoStealReward = 0.05
     var ppoPickupReward = 0.005

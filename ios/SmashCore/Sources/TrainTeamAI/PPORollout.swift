@@ -97,18 +97,25 @@ enum Rollouts {
                     credit(team, cfg.ppoGoalReward)
                     credit(1 - team, -cfg.ppoGoalReward)
                     if team == 0 { tape.out.goalsFor += 1 } else { tape.out.goalsAgainst += 1 }
+                // **Winning the ball pays the winner and costs the loser nothing.**
+                //
+                // These were symmetric for one night, charged to whoever lost the ball, on the
+                // argument that a race cannot be colluded over. That is backwards, and the run
+                // showed it: a zero-sum reward is *indifferent* between "both of us contest hard"
+                // and "neither of us bothers", because both net to nothing. Symmetry is what makes
+                // idleness free. Loose-ball collection duly fell from 19 a match to 9 against §7's
+                // ~90 - the term meant to make it chase the ball made chasing optional.
+                //
+                // Paid absolutely, going for the ball is strictly better than not, whatever the
+                // opponent does, and no equilibrium of mutual idleness survives. Goals stay
+                // symmetric: conceding one is genuinely bad, not merely an opportunity missed.
                 case .steal(let by, _):
-                    // Taken off a carrier. A race, so the side that loses it is charged too.
                     let t = teamOf[by]
                     credit(t, cfg.ppoStealReward)
-                    credit(1 - t, -cfg.ppoStealReward)
                     if t == 0 { tape.out.steals += 1 } else { tape.out.stealsLost += 1 }
                 case .pickup(let by):
-                    // A loose ball collected — most of the ball-winning in this game, and worth
-                    // nothing until now, which is why nobody went after it.
                     let t = teamOf[by]
                     credit(t, cfg.ppoPickupReward)
-                    credit(1 - t, -cfg.ppoPickupReward)
                     if t == 0 { tape.out.picks += 1 } else { tape.out.picksLost += 1 }
                 default:
                     break
